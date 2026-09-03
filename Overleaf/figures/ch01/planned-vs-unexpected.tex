@@ -1,0 +1,45 @@
+\begin{tikzpicture}[scale=0.75,
+  tA/.style={font=\tiny,text=sbAgentA,anchor=south,inner sep=1pt},
+  tC/.style={font=\tiny,text=sbAgentC,anchor=west,inner sep=1pt}]
+% ---------------- (a) planned conflict, known before take-off ----------------
+\begin{scope}
+\drawgrid{5}{5}
+\gridobstacle{0}{0}\gridobstacle{4}{4}
+\draw[sbpath] (0.5,2.5) -- (4.5,2.5);
+\draw[sbpath,draw=sbAgentC,densely dashdotted] (2.5,4.5) -- (2.5,0.5);
+\foreach \x/\t in {0/0,1/1,2/2,3/3,4/4} { \node[tA] at (\x+0.5,2.78) {$t{=}\t$}; }
+\foreach \y/\t in {4/0,3/1,1/3,0/4} { \node[tC] at (2.78,\y+0.5) {$t{=}\t$}; }
+\draw[draw=sbRed,line width=1.2pt] (2.1,2.1) rectangle (2.9,2.9);
+\node[sbagentA] at (0.5,2.5) {A};
+\node[sbagentA,rectangle,fill=white] at (4.5,2.5) {A};
+\node[sbagentC] at (2.5,4.5) {C};
+\node[sbagentC,rectangle,fill=white] at (2.5,0.5) {C};
+\node[sbannot,text=sbRed,anchor=north,align=center] at (2.5,-0.55)
+  {both want cell $(2,2)$ at $t{=}2$:\\ a vertex conflict, found and fixed\\ before take-off (C waits one step)};
+\node[font=\small\sffamily\bfseries,anchor=south] at (2.5,5.15) {(a) planned conflict};
+\end{scope}
+% ---------------- (b) unexpected obstacle, discovered in flight ----------------
+\begin{scope}[xshift=8cm]
+\drawgrid{5}{5}
+\gridobstacle{0}{0}\gridobstacle{4}{4}
+\foreach \t in {1,2,3} {
+  \fill[sbRed!12] ({4.4-0.6*\t},{4.4-0.6*\t}) circle ({0.2+0.12*\t});
+}
+\draw[draw=sbIntruder,densely dotted,thick] (4.4,4.4) -- (2.0,2.0);
+\foreach \t in {1,2,3} {
+  \draw[draw=sbIntruder,dashed,thin] ({4.4-0.6*\t},{4.4-0.6*\t}) circle ({0.2+0.12*\t});
+}
+\draw[sbpath] (0.5,2.5) -- (4.5,2.5);
+\foreach \x/\t in {0/0,1/1,2/2,3/3,4/4} { \node[tA] at (\x+0.5,2.78) {$t{=}\t$}; }
+\node[sbagentA] at (0.5,2.5) {A};
+\node[sbagentA,rectangle,fill=white] at (4.5,2.5) {A};
+\draw[sbvec,draw=sbIntruder] (4.4,4.4) -- ++(-0.9,-0.9);
+\node[sbintruder] at (4.4,4.4) {?};
+\node[sbannot,text=sbIntruder,anchor=west,font=\tiny] at (3.05,3.95) {$t{=}1$};
+\node[sbannot,text=sbIntruder,anchor=west,font=\tiny] at (2.7,3.2) {$t{=}2$};
+\node[sbannot,text=sbIntruder,anchor=east,font=\tiny] at (1.95,2.1) {$t{=}3$};
+\node[sbannot,text=sbRed,anchor=north,align=center] at (2.5,-0.55)
+  {an intruder whose plan we do not know:\\ its predicted motion, with growing\\ uncertainty, crosses A's route near $t{=}3$};
+\node[font=\small\sffamily\bfseries,anchor=south] at (2.5,5.15) {(b) unexpected obstacle};
+\end{scope}
+\end{tikzpicture}

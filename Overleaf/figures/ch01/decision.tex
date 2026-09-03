@@ -1,0 +1,29 @@
+\begin{tikzpicture}[font=\footnotesize,
+  stp/.style={minimum width=2.8cm,minimum height=1.1cm,inner sep=3pt,text width=2.6cm},
+  dec/.style={diamond,aspect=2,draw=sbGray,fill=sbLightGray,thick,align=center,inner sep=0.5pt,font=\footnotesize\sffamily},
+  lbl/.style={sbannot,inner sep=1.5pt,fill=white}]
+\node[sbbox,stp]      (s1) at (0,0)      {\textbf{1} Follow the nominal path of the global plan};
+\node[dec]             (d1) at (3.6,0)    {risk in\\ horizon?};
+\node[sbboxalt,stp]   (s2) at (7.2,0)    {\textbf{2} Local avoidance with \orca\ or DWA};
+\node[dec]             (d2) at (10.8,0)   {conflict\\ cleared?};
+\node[sbbox,stp]      (s3) at (10.8,-3)  {\textbf{3} Reconnect to the nominal path at a safe future waypoint};
+\node[dec]             (d3) at (7.2,-3)   {reconnect\\ OK?};
+\node[sbboxgray,stp]  (s4) at (3.6,-3)   {\textbf{4} Replan from the current state with \dstarlite\ or \astar};
+\node[sbboxgreen,stp] (s5) at (0,-3)     {\textbf{5} Re-check swarm conflicts and constraints};
+% main flow
+\draw[sbflow] (s1) -- (d1);
+\draw[sbflow] (d1) -- node[lbl,above]{yes} (s2);
+\draw[sbflow] (s2) -- (d2);
+\draw[sbflow] (d2) -- node[lbl,right]{yes} (s3);
+\draw[sbflow] (s3) -- (d3);
+\draw[sbflow] (d3) -- node[lbl,above]{no} (s4);
+\draw[sbflow] (s4) -- (s5);
+\draw[sbflow] (s5) -- (s1);
+% loops
+\draw[sbflow] (d1.north) -- (3.6,1.05) -- (0,1.05) -- (s1.north);
+\node[lbl] at (1.8,1.05) {no: keep following};
+\draw[sbflow] (d2.north) -- (10.8,1.05) -- (7.2,1.05) -- (s2.north);
+\node[lbl] at (9.0,1.05) {no: keep avoiding};
+\draw[sbflow] (d3.south) -- (7.2,-4.45) -- (-2.1,-4.45) -- (-2.1,0) -- (s1.west);
+\node[lbl] at (2.6,-4.45) {yes: back on the nominal path, no replan needed};
+\end{tikzpicture}

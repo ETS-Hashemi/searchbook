@@ -1,0 +1,37 @@
+\begin{tikzpicture}[font=\small,
+  layer/.style={minimum width=4.2cm,minimum height=1.3cm},
+  lbl/.style={sbannot,align=center,fill=white,inner sep=1.5pt}]
+% the four layers and the world
+\node[sbbox,layer]      (global) at (0,4.6)   {\textbf{1\ Global swarm planner}\\ \cbs\ / \ecbs};
+\node[sbboxgray,layer]  (replan) at (7.8,4.6) {\textbf{4\ Replanning layer}\\ \dstarlite\ / \astar};
+\node[sbboxalt,layer]   (local)  at (0,1.4)   {\textbf{3\ Local safety layer}\\ \orca\ / DWA};
+\node[sbboxgreen,layer] (pred)   at (7.8,1.4) {\textbf{2\ Prediction layer}\\ Kalman filter / LSTM};
+\node[sbboxgray,minimum width=12cm,minimum height=1.1cm] (world) at (3.9,-1.2)
+  {\textbf{Drones, flight controllers and the world}\\ own state, states of the teammates, an unknown intruder};
+% mission input
+\node[sbannot,anchor=south west] at (-2.1,5.7) {map, starts, goals};
+\draw[sbflow] (-1.0,5.65) -- (-1.0,5.25);
+% global -> local: nominal paths
+\draw[sbflow] (0,3.95) -- (0,2.05);
+\node[lbl,anchor=east] at (-0.15,3.0) {nominal time-indexed\\ paths (before take-off)};
+% replan -> global: re-check (dashed)
+\draw[sbflow,dashed] (5.7,4.6) -- (2.1,4.6);
+\node[lbl,anchor=south] at (3.9,4.72) {after a significant replan:\\ re-check conflicts and\\ formation / communication\\ constraints};
+% local <-> replan: trigger and new path (two offset diagonals)
+\draw[sbflow,transform canvas={xshift=-2pt,yshift=2pt}] (2.1,2.05) -- (5.7,3.95);
+\draw[sbflow,transform canvas={xshift=2pt,yshift=-2pt}] (5.7,3.95) -- (2.1,2.05);
+\node[lbl,anchor=south] at (3.7,3.35) {trigger: cannot\\ reconnect safely};
+\node[lbl,anchor=north] at (4.2,2.6) {new path from\\ the current state};
+% pred -> local and pred -> replan
+\draw[sbflow] (5.7,1.4) -- (2.1,1.4);
+\node[lbl,anchor=north] at (3.9,1.25) {predicted intruder motion\\ with uncertainty};
+\draw[sbflow] (7.8,2.05) -- (7.8,3.95);
+\node[lbl,anchor=east] at (7.65,3.0) {predicted occupancy\\ over the horizon};
+% world <-> local, world -> pred
+\draw[sbflow] (0.6,0.75) -- (0.6,-0.65);
+\node[lbl,anchor=west] at (0.75,0.05) {velocity command,\\ every control cycle};
+\draw[sbflow] (-0.6,-0.65) -- (-0.6,0.75);
+\node[lbl,anchor=east] at (-0.75,0.05) {own and teammates'\\ states};
+\draw[sbflow] (7.8,-0.65) -- (7.8,0.75);
+\node[lbl,anchor=west] at (7.95,0.05) {noisy observations\\ of the intruder};
+\end{tikzpicture}
