@@ -1,4 +1,460 @@
+%% ---------------------------------------------------------------------
+%% Chapter 1 -- Planning for Drone Swarms
+%% The opening chapter of the book: the problem, the vocabulary, a preview
+%% of the four-layer hybrid architecture, the map of the book, established
+%% results versus open research, and how to read the book.
+%% Code:    code/ch01_scenario.py (scenario generator with self-test)
+%% Figures: figures/ch01/*.tex; scenario.tex is written by
+%%          code/figures/gen_ch01_scenario.py (seed 1462).
+%% ---------------------------------------------------------------------
 \chapter{Planning for Drone Swarms}
 \label{ch:ch01}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+
+\begin{objectives}
+\begin{itemize}
+  \item Describe the problem that this book solves: a swarm of controlled drones
+        flying planned, time-indexed routes through a shared space in which unknown,
+        non-cooperative moving objects appear.
+  \item Tell a \emph{planned conflict} between two drones of the swarm from an
+        \emph{unexpected obstacle}, and say which of the two is resolved before
+        take-off and which one during the flight.
+  \item Use the vocabulary of the field correctly: workspace and configuration space,
+        discrete and continuous planning, global and local planning, deliberative and
+        reactive, centralized and decentralized, cooperative and non-cooperative,
+        tracking and prediction, and the properties completeness, optimality, bounded
+        suboptimality, anytime, incremental and real-time.
+  \item Name the four layers of the hybrid architecture, say what each layer receives
+        and delivers, and give the time scale on which each one works.
+  \item Locate every algorithm of the training plan in this book, state its priority,
+        and say which parts of the field are established and where research questions
+        remain.
+  \item Choose a reading path through the book and set up the Python stack that its
+        code uses.
+\end{itemize}
+\end{objectives}
+
+% =====================================================================
+\section{The problem: many drones, one airspace, and a stranger}
+\label{sec:ch01-problem}
+
+Imagine that you are responsible for a fleet of eight quadrotors that inspect the
+roof of a large factory every morning. Each drone has its own list of places to
+photograph, and all of them share the same airspace. Before take-off you need a route
+for every drone, and you need to be sure that no two routes bring two drones to the
+same place at the same time. During the flight something unplanned happens: a drone
+that is not yours crosses the site. It does not talk to your fleet, it does not follow
+your plan, and you cannot know exactly where it is going. Your drones must notice it,
+guess where it is heading, get out of its way, and then return to the plan---or, if
+that is impossible, make a new plan and check it against the rest of the fleet.
+
+This book is about exactly that problem, and this chapter states it carefully. Every
+later chapter teaches one algorithm that solves one piece of it. The setting has four
+ingredients.
+\begin{itemize}
+  \item \textbf{A swarm of controlled drones.}\index{swarm}\index{drone!controlled}
+        There are $k$ drones that we command. We know their positions, we can give each
+        of them a route, and they do what we tell them. In this book they are called
+        the \emph{agents} of the swarm, or simply drones $A$, $B$, $C$, \dots
+  \item \textbf{A shared space, represented on a grid or a graph.}\index{grid}\index{graph}
+        The drones fly through one three-dimensional volume. For planning we
+        discretise that volume into cells of a grid, or more generally into the
+        vertices of a graph $G=(V,E)$ whose edges are the moves that a drone can make in
+        one time step. \Cref{ch:ch02} explains the representations in detail; most
+        figures of the book show a horizontal slice of the space, that is, a
+        two-dimensional grid at the altitude of the swarm.
+  \item \textbf{Planned, time-indexed routes.}\index{time-indexed path}
+        A route is not just a curve. It says \emph{where} a drone is at \emph{each}
+        time step. Only with time attached can we say whether two routes collide, and
+        only then can a planner remove the collision before anybody takes off.
+  \item \textbf{Unknown, non-cooperative moving objects.}\index{intruder}
+        During the flight, objects that are not part of the swarm may appear: other
+        drones, most often. We do not know their plans. We observe them with noisy
+        sensors, so even their current state is uncertain, and their future motion is
+        more uncertain still. The book calls such an object an \textbf{intruder}.
+\end{itemize}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch01/scenario}
+  \caption{The scenario of \cref{ex:ch01-scenario}: a $12\times 8$ grid with
+    $14$ blocked cells, three controlled drones with their independently planned
+    shortest paths, and one intruder entering from the top right with a velocity of
+    $(-0.54,-0.38)$ cells per step. Two things go wrong. The paths of $A$ and $C$ both
+    pass through cell $(3,3)$ at $t=4$ (red square): a \emph{planned conflict}, visible
+    before take-off. The intruder's predicted motion (dotted, with growing uncertainty
+    discs) passes within $0.38$ cells of drone $B$ at $t=6$ (dashed circle): an
+    \emph{unexpected obstacle}, visible only during the flight.}
+  \label{fig:ch01-scenario}
+\end{figure}
+
+\subsection{Two kinds of trouble}
+\label{sec:ch01-two-kinds}
+
+\Cref{fig:ch01-scenario} shows a small instance of the problem, and it shows the two
+kinds of trouble that this book is about. The first kind is visible before anybody
+takes off. Drone $A$ wants to fly from $(7,3)$ to $(0,0)$ and drone $C$ from $(6,4)$ to
+$(3,1)$. Each of them, planning alone, chooses a shortest path, and both shortest paths
+use cell $(3,3)$ at time step $4$. Nothing is unknown here: we know both routes, we
+know both clocks, and we can see the collision coming while the drones are still on
+the ground. The second kind of trouble is invisible before take-off. The intruder in
+the top right corner was not in anybody's plan. Once it is observed, we can estimate
+its velocity and extrapolate: if it keeps flying straight, it will pass within $0.38$
+cells of drone $B$ at $t=6$. But it may also turn, slow down or stop, and the further
+we look ahead, the less we know. The two kinds are defined next.
+
+\begin{definition}[Planned conflict]
+\label{def:ch01-planned-conflict}
+A \textbf{planned conflict}\index{planned conflict|textbf} is a collision between two
+controlled drones that follows from their planned routes alone: at some time step
+both routes occupy the same vertex, or they traverse the same edge in opposite
+directions. A planned conflict can be detected, and resolved, before the flight, by a
+\emph{multi-agent planner} that knows all routes.
+\end{definition}
+
+\begin{definition}[Unexpected obstacle]
+\label{def:ch01-unexpected-obstacle}
+An \textbf{unexpected obstacle}\index{unexpected obstacle|textbf} is an object that
+was not part of the plan and that is observed only during the flight. Its current
+state is known only through noisy measurements and its future motion is uncertain. It
+must be handled \emph{during} the flight, by whatever the drone can decide in the time
+it has.
+\end{definition}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch01/planned-vs-unexpected}
+  \caption{The two kinds of trouble on a $5\times 5$ grid. (a)~Drones $A$ and $C$
+    both want cell $(2,2)$ at $t=2$: a planned conflict. Everything about it is
+    known before take-off, and letting $C$ wait one step removes it. (b)~An intruder
+    whose plan we do not know: from its observed velocity we predict where it will be
+    at $t=1,2,3$, with a disc of uncertainty that grows with the horizon, and the
+    prediction crosses the route of $A$ near $t=3$. Nothing about it could have been
+    planned for.}
+  \label{fig:ch01-planned-vs-unexpected}
+\end{figure}
+
+The difference matters because the two kinds of trouble call for different tools.
+A planned conflict is a problem of \emph{coordination} among agents that we fully
+control; it is solved once, before the flight, by a planner that may take a few
+seconds and that can guarantee a collision-free plan. An unexpected obstacle is a
+problem of \emph{reaction} under uncertainty; it must be solved many times per second,
+by each drone on its own, and no algorithm can guarantee safety against an object
+whose motion is unknown. \Cref{fig:ch01-planned-vs-unexpected} contrasts the two
+side by side.
+
+\begin{keyidea}[The core idea of the book]
+Use a \emph{global planner} for the planned routes, a \emph{local collision-avoidance
+method} for the surprises, and a \emph{replanner} only when the local response is
+insufficient.\index{hybrid architecture!core idea}
+\end{keyidea}
+
+This one sentence is the plan of the whole book. Chapters \ref{ch:ch03} to
+\ref{ch:ch11} build the global planner, from single-agent graph search to multi-agent
+path finding. Chapters \ref{ch:ch12} to \ref{ch:ch15} build the local layer. Chapters
+\ref{ch:ch18} to \ref{ch:ch20} build the tracking and prediction that the local layer
+needs in order to see the surprise coming. Chapters \ref{ch:ch05}, \ref{ch:ch16},
+\ref{ch:ch17} and \ref{ch:ch21} to \ref{ch:ch23} provide the replanning, the
+continuous-space planning and the control that hold everything together, and
+\cref{ch:ch24,ch:ch25} assemble and evaluate the result.
+
+\subsection{A scenario in numbers}
+\label{sec:ch01-example}
+
+Numbers make the distinction concrete. The scenario of \cref{fig:ch01-scenario} was
+produced by the scenario generator \code{code/ch01\_scenario.py} of this chapter with
+the fixed seed $1462$; every number quoted below is printed by that program.
+
+\begin{example}[Three drones and one intruder]
+\label{ex:ch01-scenario}
+The grid has $12\times 8$ cells, $14$ of which are blocked. Cell $(x,y)$ covers the unit
+square with lower-left corner $(x,y)$, its centre is $(x+0.5,\,y+0.5)$, and the grid is
+4-connected: in one time step a drone moves to a horizontally or vertically adjacent
+free cell, or it waits. A drone that has reached its goal stays there.
+\begin{itemize}
+  \item Drone $A$ flies from $(7,3)$ to $(0,0)$. Its shortest path has $10$ steps:
+        $(7,3),(6,3),\dots,(1,3),(1,2),(1,1),(1,0),(0,0)$.
+  \item Drone $B$ flies from $(1,5)$ to $(10,5)$ along row $5$ in $9$ steps.
+  \item Drone $C$ flies from $(6,4)$ to $(3,1)$ in $6$ steps:
+        $(6,4),(5,4),(4,4),(3,4),(3,3),(3,2),(3,1)$.
+\end{itemize}
+Planned independently, the three paths have a sum of costs of $10+9+6=25$ steps and a
+makespan of $10$ steps (\cref{ch:ch02} defines both measures). They contain exactly one
+planned conflict: a vertex conflict of $A$ and $C$ in cell $(3,3)$ at $t=4$. If either
+drone waits one step before entering $(3,3)$, the conflict disappears and the sum of
+costs rises to $26$.
+
+The intruder is first observed at $(11.0,\,7.5)$ with velocity $(-0.54,\,-0.38)$ cells
+per step, that is, a speed of $0.66$ cells per step. If it keeps that velocity, then
+at $t=6$ it is at $(7.76,\,5.22)$ while drone $B$ occupies cell $(7,5)$ with centre
+$(7.5,\,5.5)$: a distance of $0.38$ cells, far less than the safety distance that any
+real swarm would demand. \Cref{tab:ch01-trace} lists the whole time line.
+\end{example}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Time line of \cref{ex:ch01-scenario}: the cell of each drone, the predicted
+    position of the intruder, and its distance to the centre of each drone's cell (in
+    cells). The planned conflict is the row in which $A$ and $C$ share a cell; the
+    encounter is the row in which $d_B$ drops to $0.38$. Drones stay at their goals
+    after arriving.}
+  \label{tab:ch01-trace}
+  \begin{tabular}{@{}rcccrrrr@{}}
+  \toprule
+  $t$ & $A$ & $B$ & $C$ & Intruder $(x,y)$ & $d_A$ & $d_B$ & $d_C$\\
+  \midrule
+  0 & (7,3) & (1,5) & (6,4) & (11.00, 7.50) & 5.32 & 9.71 & 5.41\\
+  1 & (6,3) & (2,5) & (5,4) & (10.46, 7.12) & 5.37 & 8.12 & 5.61\\
+  2 & (5,3) & (3,5) & (4,4) & (9.92, 6.74) & 5.48 & 6.54 & 5.86\\
+  3 & (4,3) & (4,5) & (3,4) & (9.38, 6.36) & 5.66 & 4.96 & 6.17\\
+  4 & \textbf{(3,3)} & (5,5) & \textbf{(3,3)} & (8.84, 5.98) & 5.89 & 3.37 & 5.89\\
+  5 & (2,3) & (6,5) & (3,2) & (8.30, 5.60) & 6.17 & 1.80 & 5.71\\
+  6 & (1,3) & (7,5) & (3,1) & (7.76, 5.22) & 6.49 & \textbf{0.38} & 5.66\\
+  7 & (1,2) & (8,5) & (3,1) & (7.22, 4.84) & 6.18 & 1.44 & 5.00\\
+  8 & (1,1) & (9,5) & (3,1) & (6.68, 4.46) & 5.97 & 3.01 & 4.34\\
+  9 & (1,0) & (10,5) & (3,1) & (6.14, 4.08) & 5.86 & 4.59 & 3.69\\
+  10 & (0,0) & (10,5) & (3,1) & (5.60, 3.70) & 6.02 & 5.22 & 3.04\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+Look at what the table does and does not tell you. The conflict in row $t=4$ is a
+fact: given the two routes, it will happen. The encounter in row $t=6$ is a
+\emph{prediction}: it assumes that the intruder flies straight at constant velocity,
+which is the simplest model we could adopt and, as \cref{ch:ch20} shows, not a bad one
+over a short horizon. The dashed discs in \cref{fig:ch01-scenario} grow with $t$ to
+remind you that the prediction gets worse the further ahead it looks. A good swarm
+planner acts on the conflict now and on the encounter only when it is close enough in
+time to be believed---which is the subject of the safety horizon in
+\cref{sec:ch01-architecture}.
+
+\begin{pitfall}[An intruder is not a wall]
+A tempting shortcut is to treat an intruder as a static obstacle: block the cells it
+currently occupies and replan around them. This fails twice. The intruder will have
+moved by the time the new plan is executed, so the plan avoids a place where nothing
+is, and it may steer the drone straight into where the intruder is heading. A moving
+object must be avoided in \emph{space and time}, using a prediction of where it will
+be, not a snapshot of where it was.\index{pitfall!static intruder}
+\end{pitfall}
+
+\subsection{Why not one method for everything?}
+\label{sec:ch01-why-hybrid}
+
+You may ask why the book does not simply pick the most powerful planner and run it
+whenever anything changes. Two arguments answer this, and they recur throughout the
+book. First, \emph{time}. A multi-agent planner that guarantees a collision-free plan
+for the whole swarm needs seconds, sometimes much longer, on instances of realistic
+size. A drone flying at a few metres per second cannot wait that long when another
+drone is two metres away. Second, \emph{guarantees}. The global plan has properties that
+we paid for: it is collision-free among the swarm, it is optimal or provably close to
+optimal, and it respects formation and communication constraints. Throwing it away at
+every surprise means paying again, and possibly losing those properties in the
+meantime. The opposite extreme is equally poor: a swarm that only reacts locally
+never plans, and \cref{exr:ch01-deadlock} asks you to show that such a swarm can lock
+up in a corridor with nobody willing to go first. The hybrid architecture previewed in
+\cref{sec:ch01-architecture} keeps the global plan as the default, reacts locally when
+it must, and replans only when the local reaction cannot bring the drone back.
+
+% =====================================================================
+\section{Vocabulary: the words you need before anything else}
+\label{sec:ch01-vocabulary}
+
+Planning has a vocabulary of contrasts. Most of them are pairs of words that describe
+two ends of a spectrum, and every algorithm in this book sits somewhere between them.
+\Cref{tab:ch01-contrasts} collects the pairs; the paragraphs below explain each one
+once, and the rest of the book uses them without further comment.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The contrasts that organise the book. Most algorithms sit at one end of
+    each pair; the hybrid architecture of \cref{ch:ch24} deliberately combines both
+    ends.}
+  \label{tab:ch01-contrasts}
+  \begin{tabularx}{\textwidth}{@{}lYY@{}}
+  \toprule
+  Pair & One end & The other end\\
+  \midrule
+  Workspace / configuration space & the physical volume the drone flies in & the set of all configurations of the drone; obstacles are inflated by its size\\
+  Discrete / continuous & finite vertices and time steps; graph search & real-valued positions and time; sampling, optimisation\\
+  Global / local & whole route from start to goal, all obstacles known & next few seconds, only what the sensors see\\
+  Planning / control & decides \emph{where} to go and \emph{when} & makes the vehicle actually follow the decision\\
+  Deliberative / reactive & thinks ahead, uses a model, takes time & maps the current situation directly to an action\\
+  Centralized / decentralized & one computer knows and decides everything & every drone decides from what it knows and hears\\
+  Cooperative / non-cooperative & the other agent shares the avoidance rules & the other agent does what it likes\\
+  Tracking / prediction & estimating the state \emph{now} from noisy data & extrapolating the state into the future\\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+\paragraph{Workspace and configuration space.}
+The \textbf{workspace}\index{workspace} is the physical space in which the drone
+moves: a volume of $\R^3$, or a horizontal slice of it. The \textbf{configuration
+space}\index{configuration space} $\Cspace$ is the set of all configurations of the
+drone; for a drone that we model as a point with a safety radius, a configuration is
+its position, and the obstacle region $\Cobs$ is the workspace obstacle inflated by
+that radius. Planning takes place in $\Cspace$, so that a path of the point robot in
+$\Cfree=\Cspace\setminus\Cobs$ is a collision-free motion of the real drone. That is
+all you need for now; \cref{ch:ch02} gives the definitions, the inflation operation
+(the Minkowski sum) and the usual approximations \cite{lavalle2006planning}.
+
+\paragraph{Discrete and continuous planning.}
+\textbf{Discrete planning}\index{planning!discrete} works on a graph: a finite set of
+vertices, a finite set of moves, and integer time steps. Dijkstra's algorithm, \astar,
+\dstarlite and all the multi-agent planners of the book are discrete.
+\textbf{Continuous planning}\index{planning!continuous} works with real-valued
+positions, velocities and times; the sampling-based planners \rrt and \rrtstar and the
+optimisation-based methods MPC and MILP live there, and so do the velocity-space
+methods of local avoidance. The two are connected by discretisation: a grid is a
+sampling of the continuous workspace, and a discrete plan becomes a continuous
+trajectory when the drone flies between the cell centres.
+
+\paragraph{Time-indexed paths.}
+The single most important object in this book is a path with time attached.
+
+\begin{definition}[Time-indexed path]
+\label{def:ch01-time-indexed-path}
+A \textbf{time-indexed path}\index{time-indexed path|textbf} of an agent on a graph
+$G=(V,E)$ is a sequence $\pi=(v_0,v_1,\dots,v_T)$ of vertices such that $v_0$ is the
+agent's start, $v_T$ is its goal, and for every $t<T$ either $v_{t+1}=v_t$ (a
+\emph{wait} action) or $\set{v_t,v_{t+1}}\in E$ (a \emph{move} action). The agent
+occupies $v_t$ during time step $t$ and stays at $v_T$ for all $t\ge T$. A
+\textbf{plan}\index{plan} for a swarm is one time-indexed path per agent.
+\end{definition}
+
+Without the index $t$ two paths can cross without a collision, because the drones pass
+the crossing at different times; with the index, a collision is a precise statement:
+$v_t^A=v_t^C$ for some $t$. \Cref{ch:ch02} turns this into the space-time (or
+time-expanded) graph and \cref{ch:ch07} lists every kind of conflict that time-indexed
+paths can have \cite{stern2019mapf}.
+
+\paragraph{Global and local planning.}
+A \textbf{global planner}\index{planning!global} computes a complete route from the
+start to the goal, using a map of all known obstacles; it is allowed to take time and
+it may be optimal. A \textbf{local planner}\index{planning!local} looks only a few
+seconds ahead, uses only what the sensors currently see, and outputs the next
+velocity or the next short manoeuvre. Global planners know the goal but not the
+surprise; local planners know the surprise but not the goal. The book's local methods
+are velocity obstacles, \orca, the dynamic window approach and potential fields
+(\cref{ch:ch12,ch:ch13,ch:ch14,ch:ch15}); its global methods are everything in
+\cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06,ch:ch07,ch:ch08,ch:ch09,ch:ch10,ch:ch11,ch:ch16,ch:ch17}.
+
+\paragraph{Planning and control.}
+\textbf{Planning}\index{planning} decides \emph{where} the drone should be and
+\emph{when}; \textbf{control}\index{control} makes the physical vehicle follow that
+decision by computing motor commands from the error between the desired and the
+measured state. The book plans; it treats the flight controller as a black box that
+receives a velocity or a waypoint and tracks it. The exception is model predictive
+control (\cref{ch:ch21}), which plans and controls at once by re-solving a small
+optimisation problem at every control cycle---which is why it is such a natural place
+to enforce constraints.
+
+\paragraph{Deliberative and reactive.}
+A \textbf{deliberative}\index{deliberative} method thinks ahead: it uses a model of the
+world to search or optimise over possible futures before it acts. A
+\textbf{reactive}\index{reactive} method maps the current situation to an action with
+little or no search, which makes it fast and robust to modelling errors but
+short-sighted. The two words are the behavioural counterparts of global and local:
+global planners are deliberative, local avoidance is reactive, and the hybrid
+architecture layers the one on the other \cite{russell2020aima}.
+
+\paragraph{Centralized and decentralized.}
+A \textbf{centralized}\index{centralized} system has one computer that knows the state
+of every drone and decides for all of them; a \textbf{decentralized}\index{decentralized}
+system lets every drone decide from its own observations and from what it hears from
+its neighbours over a communication link of limited range. The global planner of the
+book is centralized: conflict-based search needs all routes in one place. Local
+avoidance is decentralized: each drone runs \orca on what it sees. Consensus and
+formation control (\cref{ch:ch23}) are decentralized by design, and the communication
+radius that limits them is one of the constraints that the research directions of
+\cref{sec:ch01-research} are about.
+
+\paragraph{Cooperative and non-cooperative agents.}
+Two agents are \textbf{cooperative}\index{cooperative agent} if both follow the same
+avoidance rules, so that each may count on the other to do its share; reciprocal
+velocity obstacles and \orca are built on exactly this assumption
+\cite{vandenberg2011orca}. A \textbf{non-cooperative}\index{non-cooperative agent}
+agent does whatever it does; the intruder of \cref{fig:ch01-scenario} is one, and a
+drone that meets it must take the full responsibility for avoiding it. The drones of
+the swarm are cooperative with one another and non-cooperative with the intruder,
+and \cref{ch:ch13} shows that the same algorithm handles both cases with a change of a
+single factor.
+
+\paragraph{Tracking and prediction.}
+\textbf{Tracking}\index{tracking} estimates the \emph{current} state of a moving
+object---position and velocity---from a sequence of noisy measurements; the Kalman
+filter of \cref{ch:ch18} is the classical tool \cite{thrun2005probabilistic}.
+\textbf{Prediction}\index{prediction} extrapolates the estimated state into the
+\emph{future}, over a horizon of a few seconds, and reports the growing uncertainty
+along the way (\cref{ch:ch20}). The two are often confused because the Kalman filter
+contains a prediction step; the distinction is that tracking ends at the present
+moment and prediction begins there.
+
+\subsection{Properties of algorithms}
+\label{sec:ch01-properties}
+
+When the book says that an algorithm is complete, or optimal, or anytime, it means
+something precise. The precise statements come with the algorithms; here are the
+informal meanings, so that you can read the map of the book in
+\cref{sec:ch01-map} with them in mind. \Cref{tab:ch01-properties} summarises them.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Properties of planning algorithms, informally. The formal versions appear
+    as theorems in the chapters listed in the last column.}
+  \label{tab:ch01-properties}
+  \begin{tabularx}{\textwidth}{@{}lYl@{}}
+  \toprule
+  Property & Informal meaning & Defined in\\
+  \midrule
+  Complete & if a solution exists, the algorithm finds one (and if none exists, it says so) & \cref{ch:ch03,ch:ch09}\\
+  Optimal & the solution it returns has the least possible cost & \cref{ch:ch04,ch:ch09}\\
+  Bounded suboptimal & the cost is at most $w$ times the optimal cost, for a factor $w\ge 1$ chosen by the user & \cref{ch:ch04,ch:ch10}\\
+  Anytime & returns a first solution quickly and improves it while time remains & \cref{ch:ch06}\\
+  Incremental & reuses the previous search when the problem changes slightly, instead of starting over & \cref{ch:ch05}\\
+  Real-time & is guaranteed to return an answer within a fixed, short time budget & \cref{ch:ch13,ch:ch14}\\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+\begin{description}[style=nextline,leftmargin=1.5em]
+  \item[Completeness.]\index{completeness} An algorithm is \textbf{complete} if it
+    finds a solution whenever one exists, and reports failure when none exists. On a
+    finite graph, Dijkstra's algorithm and \astar are complete. Prioritized planning is
+    not: it may fail on an instance that has a solution (\cref{ch:ch08}). Sampling-based
+    planners are \emph{probabilistically} complete: the probability that they find a
+    solution, if one exists, tends to one as the number of samples grows
+    (\cref{ch:ch16}).
+  \item[Optimality.]\index{optimality} An algorithm is \textbf{optimal} if the solution
+    it returns has the least cost among all solutions. \astar with an admissible
+    heuristic is optimal (\cref{ch:ch04}); conflict-based search is optimal for the
+    sum of costs of a multi-agent plan (\cref{ch:ch09}); \rrtstar is
+    \emph{asymptotically} optimal, that is, optimal in the limit of infinitely many
+    samples (\cref{ch:ch17}).
+  \item[Bounded suboptimality.]\index{bounded suboptimality} An algorithm is
+    \textbf{bounded suboptimal} with factor $w\ge 1$ if the cost of its solution is at
+    most $w$ times the optimal cost. It trades a known, chosen loss of quality for
+    speed. Weighted \astar and \ecbs are the book's two examples
+    (\cref{ch:ch04,ch:ch10}); with $w=1$ they become optimal, with $w=1.5$ they are
+    often orders of magnitude faster.
+  \item[Anytime.]\index{anytime algorithm} An \textbf{anytime} algorithm returns a
+    first, possibly poor, solution quickly and then keeps improving it as long as it
+    is allowed to run; interrupt it whenever you like and take the best solution so
+    far. \arastar does this by lowering the factor $w$ step by step (\cref{ch:ch06}).
+  \item[Incremental search (replanning).]\index{incremental search}\index{replanning}
+    An \textbf{incremental} search reuses the work of the previous search when the
+    graph changes a little---an obstacle appears, an edge cost changes---instead of
+    starting from scratch. \lpastar and \dstarlite are the book's incremental
+    planners (\cref{ch:ch05}); they are the replanning layer of the hybrid
+    architecture.
+  \item[Real-time.]\index{real-time} A \textbf{real-time} algorithm is guaranteed to
+    return an answer within a fixed, short time budget, whatever the situation, because
+    the amount of work it does per call is bounded. \orca solves a small linear
+    program per drone per cycle; the dynamic window approach evaluates a fixed number of
+    candidate velocities. Neither searches for a route, and that is precisely why they
+    can run at tens of hertz.
+\end{description}
+
+These properties conflict with one another, and choosing among them is the designer's
+job. An optimal multi-agent planner is not real-time; a real-time local method is not
+complete; an incremental planner can only repair what a complete planner has built.
+The four layers of the next section are chosen so that each property is provided by
+the layer that can afford it.
