@@ -71,19 +71,22 @@ one by one.
 \label{sec:ch05-intuition}
 
 \Cref{fig:ch05-idea} shows the situation of the motivation on a small grid. The drone
-has a shortest path to its goal. An obstacle appears on that path. In the left panel,
-\astar is re-run from scratch: it expands every cell shaded grey again, including
-hundreds whose distance did not change at all. In the right panel, an incremental search
-touches only the orange cells: the ones whose distance value became stale because the
-obstacle removed the edge they relied on, plus the few cells needed to find the detour.
+has a shortest path to its goal and has already flown a third of it when the cell two
+steps ahead of it turns out to be blocked. In the left panel, \astar is re-run from
+scratch from the drone's cell: it expands every cell shaded grey, $26$ of them, most of
+which lie far from the obstacle and whose distance to the goal did not change at all.
+In the right panel, an incremental search touches only the orange cells, four cells in
+six expansions: the ones whose stored distance became stale because the obstacle removed
+the edge they relied on, plus the few cells needed to find the detour.
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch05/idea}
-  \caption{An obstacle (black, with a cross) appears on the planned path (blue). Left:
-  \astar re-run from scratch expands all grey cells again. Right: \dstarlite expands only
-  the orange cells, those whose goal distance was invalidated or is needed for the
-  detour (dashed). The numbers of expansions are printed under each panel.}
+  \caption{An obstacle (black, with a cross) appears two cells ahead of the drone (blue
+  disc) on its planned route (faded blue). Left: \astar re-run from scratch from the
+  drone's cell expands all grey cells. Right: \dstarlite expands only the orange cells,
+  those whose goal distance was invalidated or is needed for the detour (dashed). The
+  number of expansions is printed under each panel.}
   \label{fig:ch05-idea}
 \end{figure}
 
@@ -388,10 +391,11 @@ path.
   \centering
   \inputfigure{ch05/lpastar-example}
   \caption{\lpastar on \cref{ex:ch05-lpastar}. Each cell shows $\gcost/\rhs$; grey cells
-  are locally consistent with finite values (expanded), blue cells are in the queue $U$,
-  orange cells are underconsistent. Left: after the first search, path of cost $4$.
-  Middle: right after cell $(3,1)$ is blocked and \LpaUpdateVertex has run on the
-  affected vertices, before \LpaComputeShortestPath. Right: after the repair, the new path
+  are locally consistent with finite values (expanded), blue cells are overconsistent
+  and orange cells underconsistent (both kinds are in the queue $U$); cells without
+  numbers have $\gcost=\rhs=\infty$. Left: after the first search, path of cost $4$.
+  Middle: right after cell $(3,1)$ is blocked and \protect\LpaUpdateVertex has run on the
+  affected vertices, before \protect\LpaComputeShortestPath. Right: after the repair, the new path
   of cost $6$.}
   \label{fig:ch05-lpastar-example}
 \end{figure}
@@ -408,15 +412,19 @@ $\rhs$-values but $\gcost=\infty$.
 
 \begin{table}[tb]
   \centering\small
-  \caption{First call of \LpaComputeShortestPath in \cref{ex:ch05-lpastar}. ``Updated''
-  lists the vertices on which \LpaUpdateVertex changed something, with their new
+  \caption{First call of \protect\LpaComputeShortestPath in \cref{ex:ch05-lpastar}. ``Updated''
+  lists the vertices on which \protect\LpaUpdateVertex changed something, with their new
   $\rhs$-value and key.}
   \label{tab:ch05-lpastar-first}
-  \begin{tabular}{@{}rllll@{}}
+  \begin{tabular}{@{}rlllL{6.8cm}@{}}
   \toprule
   Step & Popped $u$ (key) & Case & $\gcost(u)$ after & Updated: $\rhs$, key\\
   \midrule
-  %%NUM-LPA-FIRST
+  1 & $(0,1)$ $[4;0]$ & over & $0$ & $(1,1)$: $1$, $[4;1]$; $(0,2)$: $1$, $[6;1]$; $(0,0)$: $1$, $[6;1]$\\
+  2 & $(1,1)$ $[4;1]$ & over & $1$ & $(2,1)$: $2$, $[4;2]$; $(1,2)$: $2$, $[6;2]$; $(1,0)$: $2$, $[6;2]$\\
+  3 & $(2,1)$ $[4;2]$ & over & $2$ & $(3,1)$: $3$, $[4;3]$; $(2,2)$: $3$, $[6;3]$; $(2,0)$: $3$, $[6;3]$\\
+  4 & $(3,1)$ $[4;3]$ & over & $3$ & $(4,1)$: $4$, $[4;4]$; $(3,2)$: $4$, $[6;4]$; $(3,0)$: $4$, $[6;4]$\\
+  5 & $(4,1)$ $[4;4]$ & over & $4$ & $(4,2)$: $5$, $[6;5]$; $(4,0)$: $5$, $[6;5]$\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -443,34 +451,53 @@ cells $(4,0)$ and $(4,2)$, whose $\rhs=5$ came through $T$, also drop out of the
 From here on the search is a plain \astar over the side rows: the queued cells are
 expanded in order of their keys, all with $k_1=6$ and increasing $k_2$, the detour
 $(2,0)\to(3,0)\to(4,0)$ is discovered, and $T$ is finally re-expanded with
-$\gcost(T)=6$. The repair costs %%NUM-LPA-REPAIR expansions, of which the first two
-are underconsistent. Compare this with \astar from scratch on the changed grid, which
-expands %%NUM-ASTAR-AFTER cells: on such a small instance the saving is modest, because
-almost every cell has $\fcost = 6$ and has to be looked at by any best-first search.
-What \lpastar reuses are the $\gcost$-values of $S$, $(1,1)$ and $(2,1)$, which are
-never expanded again. \Cref{sec:ch05-experiment} shows that on larger maps the reused
-part dominates.
+$\gcost(T)=6$. The repair costs $13$ expansions, of which the first two are
+underconsistent. Compare this with \astar from scratch on the changed grid, which
+expands only $7$ cells: on this small instance the repair costs almost twice as much as
+starting over. Two effects are at work. The stale values must be retracted first, which
+costs two expansions that \astar does not have. And the key order expands every queued
+cell with $k_1 = 6$ in order of increasing $\gcost$, both side rows in full, whereas
+\astar breaks ties among equal $\fcost$-values toward the larger $\gcost$, the usual
+rule on grids (\cref{ch:ch04}), and runs down one side row straight to the goal. What
+\lpastar reuses are the $\gcost$-values of $S$, $(1,1)$ and $(2,1)$, which are never
+expanded again; on a $5\times 3$ grid that is not much. \Cref{sec:ch05-experiment}
+shows that on larger maps, when the change is local, the reused part dominates, and
+\cref{sec:ch05-properties} returns to the tie-breaking.\index{tie-breaking!in LPA*}
 
 \begin{table}[tb]
   \centering\footnotesize
-  \caption{Second call of \LpaComputeShortestPath in \cref{ex:ch05-lpastar}, after
+  \caption{Second call of \protect\LpaComputeShortestPath in \cref{ex:ch05-lpastar}, after
   $(3,1)$ was blocked. Steps 1--2 retract stale values (underconsistent); the remaining
-  steps are ordinary expansions. ``--'' means that \LpaUpdateVertex changed nothing.}
+  steps are ordinary expansions. ``--'' means that \protect\LpaUpdateVertex changed nothing,
+  ``out'' that the vertex left the queue.}
   \label{tab:ch05-lpastar-repair}
-  \begin{tabular}{@{}rllll@{}}
+  \begin{tabular}{@{}rlllL{6.8cm}@{}}
   \toprule
   Step & Popped $u$ (key) & Case & $\gcost(u)$ after & Updated: $\rhs$, key\\
   \midrule
-  %%NUM-LPA-SECOND
+  1 & $(3,1)$ $[4;3]$ & under & $\infty$ & --\\
+  2 & $(4,1)$ $[4;4]$ & under & $\infty$ & $(4,2)$: $\infty$, out; $(4,0)$: $\infty$, out\\
+  3 & $(0,0)$ $[6;1]$ & over & $1$ & --\\
+  4 & $(0,2)$ $[6;1]$ & over & $1$ & --\\
+  5 & $(1,0)$ $[6;2]$ & over & $2$ & --\\
+  6 & $(1,2)$ $[6;2]$ & over & $2$ & --\\
+  7 & $(2,0)$ $[6;3]$ & over & $3$ & $(3,0)$: $4$, $[6;4]$\\
+  8 & $(2,2)$ $[6;3]$ & over & $3$ & $(3,2)$: $4$, $[6;4]$\\
+  9 & $(3,0)$ $[6;4]$ & over & $4$ & $(4,0)$: $5$, $[6;5]$\\
+  10 & $(3,2)$ $[6;4]$ & over & $4$ & $(4,2)$: $5$, $[6;5]$\\
+  11 & $(4,0)$ $[6;5]$ & over & $5$ & $(4,1)$: $6$, $[6;6]$\\
+  12 & $(4,2)$ $[6;5]$ & over & $5$ & --\\
+  13 & $(4,1)$ $[6;6]$ & over & $6$ & --\\
   \bottomrule
   \end{tabular}
 \end{table}
 
 The path is read off at the end by walking backward from $T$: from each cell move to
-the predecessor that attains the minimum in \cref{eq:ch05-rhs}. In the right panel of
-\cref{fig:ch05-lpastar-example} this gives $T \to (4,0) \to (3,0) \to (2,0) \to (2,1)
-\to (1,1) \to S$, the blue path of cost $6$ (the symmetric path through the top row has
-the same cost; the tie-break picks the bottom row).
+the predecessor that attains the minimum in \cref{eq:ch05-rhs}, ties broken toward the
+smaller coordinates. In the right panel of \cref{fig:ch05-lpastar-example} this gives
+$T \to (4,0) \to (3,0) \to (2,0) \to (1,0) \to (0,0) \to S$, the blue path of cost $6$.
+Several other paths, through $(2,1)$ and $(1,1)$ or along the top row, have the same
+cost; the tie-break selects this one.
 
 % ---------------------------------------------------------------------
 \section{The algorithm: \dstarlite}
@@ -589,20 +616,22 @@ with $k(s_{\mathrm{start}})$, which also contains $k_m$, adding the same constan
 new keys changes no comparison among them.
 
 \begin{table}[tb]
-  \centering\small
+  \centering\footnotesize
   \caption{Why the key modifier is needed. A queued vertex $u$ and a vertex $v$ inserted
-  after the robot has moved two cells, $\hcost(s_{\mathrm{old}}, s_{\mathrm{new}})=2$.
-  Without $k_m$ the stale key of $u$ is an \emph{over}estimate and $v$ is wrongly popped
-  first; with $k_m=2$ the stale key is a lower bound and the order is right.}
+  after the robot has moved two cells, $\hcost(s_{\mathrm{old}}, s_{\mathrm{new}})=2$;
+  $m=\min(\gcost,\rhs)$, and the last two columns are the keys that
+  \protect\DslCalculateKey returns now, without and with the modifier. Without $k_m$ the
+  stale key of $u$ is an \emph{over}estimate and $v$ is wrongly popped first; with
+  $k_m=2$ the stale key is a lower bound and the order is right.}
   \label{tab:ch05-km}
   \begin{tabular}{@{}lcccccc@{}}
   \toprule
-  Vertex & $\min(\gcost,\rhs)$ & $\hcost(s_{\mathrm{old}},\cdot)$ & $\hcost(s_{\mathrm{new}},\cdot)$ & stored key & true key now, no $k_m$ & true key now, $k_m=2$\\
+  Vertex & $m$ & $\hcost(s_{\mathrm{old}},\cdot)$ & $\hcost(s_{\mathrm{new}},\cdot)$ & stored key & now, no $k_m$ & now, $k_m=2$\\
   \midrule
   $u$ (old entry) & 4 & 6 & 4 & $[10;4]$ & $[8;4]$ & $[10;4]$\\
-  $v$ (new entry) & 6 & -- & 3 & $[9;6]$ without $k_m$, $[11;6]$ with & $[9;6]$ & $[11;6]$\\
+  $v$ (new entry) & 6 & -- & 3 & $[9;6]$ or $[11;6]$ & $[9;6]$ & $[11;6]$\\
   \midrule
-  order in queue & & & & no $k_m$: $v$ before $u$ & $u$ before $v$ & $u$ before $v$\\
+  popped first & & & & $v$ (no $k_m$) & $u$ & $u$\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -632,7 +661,8 @@ and the main loop that moves the robot.
 \KwIn{graph $G$, costs $c$, robot position $s_{\mathrm{start}}$, goal $s_{\mathrm{goal}}$, heuristic $\hcost(\cdot,\cdot)$ consistent w.r.t.\ the start}
 \KwOut{the robot moves along shortest paths under the current costs until it reaches $s_{\mathrm{goal}}$ or no path exists}
 \Fn{\DslCalculateKey{$s$}}{
-  \KwRet{$[\min(\gcost(s),\rhs(s)) + \hcost(s_{\mathrm{start}}, s) + k_m;\ \min(\gcost(s),\rhs(s))]$}\label{alg:ch05-dstarlite:key}\;
+  $m \gets \min(\gcost(s),\rhs(s))$\;
+  \KwRet{$[m + \hcost(s_{\mathrm{start}}, s) + k_m;\ m]$}\label{alg:ch05-dstarlite:key}\;
 }
 \Fn{\DslInitialize{}}{
   $U \gets \emptyset$; $k_m \gets 0$\;
@@ -745,51 +775,108 @@ remaining gap cell $(3,4)$.
   \inputfigure{ch05/dstarlite-example}
   \caption{\dstarlite on \cref{ex:ch05-dstarlite}. Numbers are $\gcost$-values (goal
   distances); blank cells were never touched. Left: the initial search from $T$ and the
-  planned path. Middle: the robot (green) has moved two steps and $(3,3)$ becomes
-  blocked; orange cells are the ones \DslUpdateVertex made inconsistent, the old path is
-  dashed. Right: after the repair, with the expanded cells shaded and the new path; the
-  robot's traversed route is drawn in orange.}
+  planned path. Middle: the robot (blue disc) has moved two steps and $(3,3)$ becomes
+  blocked; orange cells are the ones \protect\DslUpdateVertex made inconsistent, the old path is
+  dashed. Right: after the repair, with the cells expanded by the repair shaded and the
+  new path; the robot's traversed route is drawn in orange.}
   \label{fig:ch05-dstarlite-example}
 \end{figure}
 
 \begin{table}[tb]
   \centering\small
-  \caption{Events of \cref{ex:ch05-dstarlite}. ``Exp.'' is the number of vertex
-  expansions of the \DslComputeShortestPath call in that row; $\gcost(s_{\mathrm{start}})$
-  is the remaining path cost after the call.}
+  \caption{Events of \cref{ex:ch05-dstarlite}. ``Updated'' counts the vertices whose
+  $\rhs$-value or queue membership changed in \protect\DslUpdateVertex, ``Exp.'' the vertex
+  expansions of \protect\DslComputeShortestPath in that row; $\gcost(s_{\mathrm{start}})$ is the
+  remaining path cost afterwards.}
   \label{tab:ch05-dstarlite-trace}
   \begin{tabular}{@{}rllrrrl@{}}
   \toprule
   $t$ & Robot at & Event & $k_m$ & Updated & Exp. & $\gcost(s_{\mathrm{start}})$\\
   \midrule
-  %%NUM-DSL-TRACE
+  0 & $(0,3)$ & initial search & 0 & -- & 10 & 7\\
+  1 & $(1,3)$ & move, no change & 0 & -- & 0 & 6\\
+  2 & $(2,3)$ & move, no change & 0 & -- & 0 & 5\\
+  2 & $(2,3)$ & $(3,3)$ blocked, repair & 2 & 3 & 12 & 7\\
+  9 & $(6,2)$ & goal reached & 2 & -- & 0 & 0\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[tb]
+  \centering\footnotesize
+  \caption{The repair in \cref{ex:ch05-dstarlite}: \protect\DslComputeShortestPath after $(3,3)$
+  was blocked, with the robot at $(2,3)$ and $k_m=2$. Keys are
+  $[\min(\gcost,\rhs)+\hcost((2,3),\cdot)+k_m;\ \min(\gcost,\rhs)]$; the loop stops once
+  the robot's cell is consistent and no queued key is smaller than $k(2,3)=[9;7]$.
+  ``--'' means that \protect\DslUpdateVertex changed nothing, ``out'' that the vertex left the
+  queue.}
+  \label{tab:ch05-dstarlite-repair}
+  \begin{tabular}{@{}rlllL{6.6cm}@{}}
+  \toprule
+  Step & Popped $u$ (key) & Case & $\gcost(u)$ after & Updated: $\rhs$, key\\
+  \midrule
+  1 & $(3,3)$ $[7;4]$ & under & $\infty$ & --\\
+  2 & $(2,3)$ $[7;5]$ & under & $\infty$ & $(1,3)$: $8$, $[9;6]$; $(2,4)$: $\infty$, out; $(2,2)$: $\infty$, out; $(2,3)$: $7$, $[9;7]$\\
+  3 & $(6,1)$ $[9;1]$ & over & $1$ & $(6,0)$: $2$, $[11;2]$\\
+  4 & $(5,1)$ $[9;2]$ & over & $2$ & $(5,0)$: $3$, $[11;3]$\\
+  5 & $(6,4)$ $[9;2]$ & over & $2$ & --\\
+  6 & $(4,1)$ $[9;3]$ & over & $3$ & $(4,0)$: $4$, $[11;4]$\\
+  7 & $(5,4)$ $[9;3]$ & over & $3$ & --\\
+  8 & $(4,4)$ $[9;4]$ & over & $4$ & $(3,4)$: $5$, $[9;5]$\\
+  9 & $(3,4)$ $[9;5]$ & over & $5$ & $(2,4)$: $6$, $[9;6]$\\
+  10 & $(1,3)$ $[9;6]$ & under & $\infty$ & $(2,3)$: $\infty$, out; $(0,3)$: $\infty$, $[11;7]$; $(1,4)$: $\infty$, out; $(1,2)$: $\infty$, out; $(1,3)$: $8$, $[11;8]$\\
+  11 & $(2,4)$ $[9;6]$ & over & $6$ & $(1,4)$: $7$, $[11;7]$; $(2,3)$: $7$, $[9;7]$\\
+  12 & $(2,3)$ $[9;7]$ & over & $7$ & $(2,2)$: $8$, $[11;8]$\\
   \bottomrule
   \end{tabular}
 \end{table}
 
 \Cref{tab:ch05-dstarlite-trace} lists the events. The initial search
-(\cref{alg:ch05-dstarlite}, line~\ref{alg:ch05-dstarlite:first}) expands
-%%NUM-DSL-INIT-EXP cells, working outward from $T$ until $S$ is consistent and no
-queued key is smaller than $k(S)=[%%NUM-DSL-KS]$, and finds the path of cost
-%%NUM-DSL-COST0 through the gap. The $\gcost$-values in the left panel are goal
-distances; cells far from the corridor between $T$ and $S$ were never expanded and keep
-$\gcost=\infty$.
+(\cref{alg:ch05-dstarlite}, line~\ref{alg:ch05-dstarlite:first}) expands $10$ cells,
+working outward from $T$ until $S$ is consistent and no queued key is smaller than
+$k(S)=[7;7]$, and finds the path of cost $7$ through the gap. The $\gcost$-values in the
+left panel are goal distances; cells off the corridor between $T$ and $S$ were never
+expanded and keep $\gcost=\infty$, although several of them sit in the queue with
+finite $\rhs$-values and keys $[9;\cdot]$, which will matter in a moment.
 
 The robot moves to $(1,3)$ and then to $(2,3)$ without any queue work: no edge cost
 changed, so lines~\ref{alg:ch05-dstarlite:km}--\ref{alg:ch05-dstarlite:replan} are
-skipped. Then $(3,3)$ becomes blocked. Eight directed edges change cost, and
-\DslUpdateVertex runs on their tails: on $(3,3)$ itself (its outgoing edges are now
-$\infty$, so $\rhs(3,3)=\infty$ while $\gcost(3,3)=%%NUM-DSL-G33$, underconsistent) and
-on its free neighbours. %%NUM-DSL-CHANGE-TEXT Before any of this,
-line~\ref{alg:ch05-dstarlite:km} sets $k_m = \hcost((0,3),(2,3)) = 2$, so all keys
-computed from now on are inflated by $2$, and the keys already in the queue, computed
-when the robot stood at $S$, become lower bounds.
+skipped, and the remaining cost read off at the robot's cell falls from $7$ to $6$ to
+$5$. Then $(3,3)$ becomes blocked. Line~\ref{alg:ch05-dstarlite:km} first sets
+$k_m = \hcost((0,3),(2,3)) = 2$: every key computed from now on is inflated by $2$, and
+the keys already in the queue, computed when the robot stood at $S$, become lower bounds.
+Then the eight directed edges of $(3,3)$ change cost and \DslUpdateVertex runs on their
+tails. For $(3,3)$ itself all outgoing edges are now $\infty$, so $\rhs(3,3)=\infty$
+while $\gcost(3,3)=4$: underconsistent, key $[4+1+2;\,4]=[7;4]$. The robot's own cell
+$(2,3)$ loses its best successor; its $\rhs$ rises from $5$ to $7$ through $(1,3)$, so
+it is underconsistent too, with key $[5+0+2;\,5]=[7;5]$. The gap cell $(3,4)$ was
+queued with $\rhs=5$ through $(3,3)$ and now has $\rhs=\infty=\gcost$, so it leaves the
+queue. $(4,3)$ keeps $\rhs=3$ through $(4,2)$, and the wall cell $(3,2)$ stays at
+$\infty$. Three vertices changed, as the middle panel of
+\cref{fig:ch05-dstarlite-example} shows.
 
-The repair expands %%NUM-DSL-REPAIR-EXP cells in the order
-%%NUM-DSL-REPAIR-ORDER. %%NUM-DSL-REPAIR-TEXT The robot's cell ends with
-$\gcost(2,3) = %%NUM-DSL-COST1$: the detour through $(3,4)$ costs %%NUM-DSL-DETOUR
-more than the old plan. \astar from scratch from $(2,3)$ on the changed grid expands
-%%NUM-DSL-ASTAR cells. From here the robot walks to $T$ with no further changes.
+\Cref{tab:ch05-dstarlite-repair} traces the repair, which expands $12$ vertices. The
+two underconsistent cells come first. Retracting $\gcost(3,3)$ changes nothing else,
+since no $\rhs$-value still relies on it. Retracting $\gcost(2,3)$ does: $(1,3)$,
+whose $\rhs$ came through the robot's cell, now has $\rhs=8$ through $S$ and is
+underconsistent with key $[6+1+2;\,6]=[9;6]$; $(2,4)$ and $(2,2)$, queued with values
+derived from $\gcost(2,3)=5$, drop out; and $(2,3)$ itself re-enters as overconsistent
+with key $[7+0+2;\,7]=[9;7]$, which is now the key the loop compares against. Next
+come the cells that the initial search had left in the queue with keys $[9;\cdot]$,
+among them $(6,1)$, $(5,1)$ and $(4,1)$ in the bottom right, which have nothing to do
+with the detour: their $k_2$ is smaller than $7$, so the key order expands them before
+the robot's cell (the band effect discussed in \cref{sec:ch05-properties}). For every
+one of them the stored key equals the current key, because the robot moved two cells
+straight toward them and $k_m=2$ compensates exactly; the reinsert check of
+line~\ref{alg:ch05-dstarlite:reinsert} therefore never fires in this example.
+Expanding $(4,4)$ gives the gap cell $(3,4)$ its value $5$, expanding $(3,4)$ gives
+$(2,4)$ the value $6$, the stale $(1,3)$ is retracted on the way (which briefly removes
+the robot's cell from the queue, until $(2,4)$ is expanded and hands it $\rhs=7$
+again), and finally $(2,3)$ is expanded with $\gcost(2,3)=7$: the detour through
+$(3,4)$ costs $2$ more than the old plan. \astar from scratch from $(2,3)$ on the
+changed grid also expands $12$ cells. From here the robot walks
+$(2,4)\to(3,4)\to(4,4)\to(4,3)\to(4,2)\to(5,2)\to T$ with no further changes and reaches
+the goal at $t=9$.
 
 % ---------------------------------------------------------------------
 \section{Properties: correctness, optimality, complexity}
@@ -846,7 +933,8 @@ at most once when it is underconsistent and at most once when it is overconsiste
 Vertices that are consistent before the call and whose $\gcost$-value does not need to
 change are never expanded. The first call, with all $\gcost$-values at $\infty$, expands
 the same vertices in the same order as \astar with the same heuristic and the same
-tie-breaking would (on the reversed graph).
+tie-breaking (ties among equal $\fcost$-values broken toward the smaller $\gcost$)
+would, on the reversed graph.
 \end{theorem}
 \begin{proof}[Proof sketch]
 An overconsistent expansion of $u$ sets $\gcost(u)=\rhs(u)$ with key
@@ -872,43 +960,76 @@ worked examples and \cref{fig:ch05-experiment} show. Second, the bound does not 
 values, \dstarlite may expand vertices twice and pay for queue maintenance that \astar
 does not need (see the pitfall in \cref{sec:ch05-implementation}). The key modifier
 adds no expansions at all; its only cost is at most one extra pop-and-reinsert per
-queue entry that was inserted before a move.
+queue entry that was inserted before a move. Third, the theorem compares with \astar
+\emph{with the same tie-breaking}.\index{tie-breaking!in D* Lite} The second key
+component orders vertices with equal $k_1$ by increasing $\gcost$; on a grid, where many
+cells share the same $\fcost$-value, this expands the whole band of cells with
+$\fcost \le \dist(s_{\mathrm{start}},s_{\mathrm{goal}})$ in order of their distance,
+whereas the usual \astar rule of breaking ties toward the larger $\gcost$
+(\cref{ch:ch04}) runs to the goal along one path of that band. The first search of
+\dstarlite is therefore often several times more expensive than a well-tuned \astar
+(\cref{sec:ch05-experiment} measures a factor of $4.6$ on a $50\times 50$ grid), and a
+repair that raises the path cost re-expands the part of the band that the new cost
+uncovers, as the worked examples show. This is the price of the second component, and
+it cannot be dropped: it is what guarantees that stale values are retracted before the
+vertices that depend on them are expanded (\cref{exr:ch05-secondkey}).
 
 \subsection{An experiment: \dstarlite versus repeated \astar}
 \label{sec:ch05-experiment}
 
 \Cref{fig:ch05-experiment} was produced by \code{code/figures/gen\_ch05\_replanning.py}.
-On a $50 \times 50$ grid with %%NUM-EXP-DENSITY random obstacles, the robot starts in the
-top-left corner and heads for the bottom-right corner. At each of %%NUM-EXP-EVENTS
-events it first takes one step along its current path; then a new obstacle appears,
-with probability one half on the robot's current path (which forces a repair) and
-otherwise at a random free cell. \dstarlite processes the change with
+On a $50 \times 50$ grid with $20\,\%$ random obstacles, the robot starts in the
+top-left corner and heads for the bottom-right corner. At each of $40$ events it first
+takes one step along its current path; then a new obstacle appears, with probability one
+half on the robot's current path (which forces a repair) and otherwise at a random free
+cell, never disconnecting the goal. \dstarlite processes the change with
 \cref{alg:ch05-dstarlite}; the baseline runs \astar from scratch from the robot's
-current cell on the changed grid. Both count vertex expansions and wall-clock time; the
-curves average over %%NUM-EXP-SEEDS random grids.
+current cell on the changed grid, once with the usual grid tie-breaking (ties among
+equal $\fcost$-values toward the smaller $\hcost$) and once with the tie-breaking of the
+\dstarlite key (toward the smaller $\gcost$). All three count vertex expansions and
+wall-clock time; the curves average over $10$ random grids, and event $0$ is the initial
+search.
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch05/replanning-experiment}
-  \caption{Replanning cost as obstacles appear one by one on a $50\times 50$ grid.
-  Left: vertex expansions per event; \astar re-expands a large part of the map every
-  time, \dstarlite expands almost nothing when the obstacle is off the path and a
-  small region when it is on the path. Right: wall-clock time per event of the \python
-  implementation (log scale); the ratio is smaller than for expansions because
-  \dstarlite does more work per expansion.}
+  \caption{Replanning cost as obstacles appear one by one on a $50\times 50$ grid
+  (means over $10$ grids, logarithmic scales; event $0$ is the initial search). Left:
+  vertex expansions per event. \astar re-expands a few hundred cells every time;
+  \dstarlite expands almost nothing when the obstacle is off the path and a small region
+  when it is on the path, but its initial search costs as much as \astar with the same
+  tie-breaking (dotted). Right: wall-clock time per event of the \python implementation;
+  the gap is smaller than for expansions because \dstarlite does more work per
+  expansion.}
   \label{fig:ch05-experiment}
 \end{figure}
 
-Over the whole run, \astar expanded %%NUM-EXP-ASTAR-TOTAL vertices in total and
-\dstarlite %%NUM-EXP-DSL-TOTAL, a ratio of about %%NUM-EXP-RATIO; in wall-clock time
-the ratio was about %%NUM-EXP-TIME-RATIO. Two features of the curves are worth
-noticing. Events whose obstacle lands off the path cost \dstarlite a handful of
-expansions, often zero: \DslUpdateVertex finds every affected vertex consistent or
-irrelevant, and \DslComputeShortestPath returns immediately. Events on the path cost
-more, and occasionally, when the obstacle closes a corridor and the detour is long,
-about as much as \astar, which is the ``almost everything changed'' case of
-\cref{thm:ch05-expansions}. The first event, the initial search, costs both algorithms
-the same by \cref{thm:ch05-expansions}.
+Over the $40$ replanning events, \astar expanded $14\,166$ vertices in total and
+\dstarlite $1\,031$, a ratio of about $14$; in wall-clock time the ratio was only about
+$1.8$ ($60$~ms against $33$~ms), because one \dstarlite expansion costs about
+$28\,\mu$s in this implementation against $4\,\mu$s for an \astar expansion:
+\DslUpdateVertex recomputes the $\rhs$-value of every neighbour from all of its
+neighbours, and the lazy queue does extra bookkeeping. Three features of the curves are
+worth noticing. First, the initial search (event $0$) costs \dstarlite $1\,285$
+expansions and $32$~ms, against $279$ expansions and $1.3$~ms for \astar. The dotted
+curve shows that \astar with the tie-breaking of the \dstarlite key needs $1\,247$
+expansions for the same search, so the difference is the band effect of
+\cref{sec:ch05-properties}, not the incremental machinery. In cumulative expansions
+\dstarlite overtakes \astar after four events; in cumulative time \astar is still
+marginally ahead at the end of the run ($61$~ms against $65$~ms), so on this instance
+and in this implementation the incremental search has not quite recovered the cost of
+its first search after $40$ events, although it is faster at every single one of them
+($0.8$~ms against $1.5$~ms on average). Second, events whose obstacle lands off the
+path cost \dstarlite next to nothing: over all grids and events, $197$ such events
+needed $1.5$ expansions on average and none at all in $68\,\%$ of the cases, because
+\DslUpdateVertex finds every affected vertex consistent or irrelevant and
+\DslComputeShortestPath returns immediately. Third, the $203$ events on the path needed
+$49$ expansions on average but only $4$ in the median: most repairs are tiny, and the
+mean is dominated by a few events in which the obstacle closes a corridor and the detour
+is long. The largest single repair expanded $1\,704$ vertices, several times the cost of
+an \astar search, which is the ``almost everything changed'' case of
+\cref{thm:ch05-expansions} and the situation of the last pitfall in
+\cref{sec:ch05-implementation}.
 
 % ---------------------------------------------------------------------
 \section{Variants and extensions}
@@ -945,10 +1066,10 @@ autonomous cars.\index{Field D*}
 \dstarlite handles a moving start. When the \emph{goal} moves too, for example when a
 drone must intercept or follow another vehicle, the goal distances change with every
 goal step and the backward search loses its advantage. Moving Target \dstarlite
-(Sun, Yeoh and Koenig, 2010) generalises the key-modifier trick to a moving goal by
-re-rooting the search tree and deleting only the part of it that the goal left
-behind; we do not cite it formally here because it lies outside the training plan.
-\index{Moving Target D* Lite}
+\cite{sun2010moving} extends \dstarlite to targets that move: it reuses the part of the
+previous search tree that remains valid after both the agent and the target have moved,
+deletes the rest, and handles edge-cost changes with the same $\gcost$/$\rhs$
+machinery.\index{Moving Target D* Lite}
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
@@ -998,17 +1119,124 @@ loop must check this before taking a step (\cref{alg:ch05-dstarlite},
 line~\ref{alg:ch05-dstarlite:nopath}). When the obstacle disappears later, the same
 queue continues to work: no re-initialisation is needed, ever.
 
-\begin{lstlisting}[caption={Priority queue with lazy deletion and the search loop of \dstarlite (from \code{code/ch05\_dstar\_lite.py}).},label={lst:ch05-queue}]
-%%LISTING
+\begin{lstlisting}[caption={The priority queue with lazy deletion (from \code{code/ch05\_dstar\_lite.py}).},label={lst:ch05-queue}]
+class PriorityQueue:
+    """Min-heap of (key, vertex) entries with Remove by lazy deletion.
+
+    key_of maps each queued vertex to its current key; a heap entry is live
+    only if its key equals key_of[vertex], and stale entries are skipped
+    when they surface.  Keys are tuples (lexicographic order); equal keys
+    are ordered by the vertex so that traces are deterministic.
+    """
+
+    def __init__(self):
+        self.heap = []
+        self.key_of = {}
+
+    def __contains__(self, s):
+        return s in self.key_of
+
+    def __len__(self):
+        return len(self.key_of)
+
+    def insert(self, s, key):
+        self.key_of[s] = key
+        heapq.heappush(self.heap, (key, s))
+
+    def remove(self, s):
+        del self.key_of[s]          # the heap entry becomes stale
+
+    def _purge(self):
+        while self.heap and self.key_of.get(self.heap[0][1]) != self.heap[0][0]:
+            heapq.heappop(self.heap)
+
+    def top_key(self):
+        self._purge()
+        return self.heap[0][0] if self.heap else (INF, INF)
+
+    def pop(self):
+        self._purge()
+        key, s = heapq.heappop(self.heap)
+        del self.key_of[s]
+        return s
 \end{lstlisting}
 
-\Cref{lst:ch05-queue} is the core of the chapter's implementation; the full file also
-contains \lpastar, an \astar baseline, the worked examples as functions and a
-self-test. The self-test draws random $20\times 20$ grids for many seeds, applies random
-sequences of obstacle insertions and removals while the robot walks, and checks after
-every change that $\gcost(s_{\mathrm{start}})$ of \dstarlite (and $\gcost(s_{\mathrm{goal}})$
-of \lpastar) equals the cost that \astar computes from scratch, and that the extracted
-path is valid and has that cost.
+\begin{lstlisting}[caption={\cref{alg:ch05-dstarlite} line by line: key, \protect\DslUpdateVertex and \protect\DslComputeShortestPath of class \code{DStarLite} (from \code{code/ch05\_dstar\_lite.py}). Missing dictionary entries stand for $\infty$; \code{\_trace} records the events for the worked examples.},label={lst:ch05-core}]
+    def calculate_key(self, s):
+        m = min(self.g_of(s), self.rhs_of(s))
+        return (m + self.h(self.start, s) + self.k_m, m)
+
+    def update_vertex(self, u):
+        rhs_old, queued_old = self.rhs_of(u), u in self.U
+        if u != self.goal:
+            self.rhs[u] = min(self.grid.cost(u, s) + self.g_of(s)
+                              for s in self.grid.neighbors(u))
+        if u in self.U:
+            self.U.remove(u)
+        if self.g_of(u) != self.rhs_of(u):
+            self.U.insert(u, self.calculate_key(u))
+        self._trace("update", u, rhs_old, self.rhs_of(u), queued_old,
+                    u in self.U, self.U.key_of.get(u))
+
+    def compute_shortest_path(self):
+        """Repair the search; returns the number of vertex expansions."""
+        n = 0
+        while (self.U.top_key() < self.calculate_key(self.start)
+               or self.rhs_of(self.start) != self.g_of(self.start)):
+            k_old = self.U.top_key()
+            u = self.U.pop()
+            k_new = self.calculate_key(u)
+            if k_old < k_new:                            # stale lower bound
+                self.U.insert(u, k_new)
+                self._trace("reinsert", u, k_old, k_new)
+            elif self.g_of(u) > self.rhs_of(u):          # overconsistent
+                self.g[u] = self.rhs_of(u)
+                n += 1
+                self._trace("pop", u, k_old, "over", self.g[u])
+                for s in self.grid.neighbors(u):
+                    self.update_vertex(s)
+            else:                                        # underconsistent
+                self.g[u] = INF
+                n += 1
+                self._trace("pop", u, k_old, "under", INF)
+                for s in self.grid.neighbors(u) + [u]:
+                    self.update_vertex(s)
+        self.expansions += n
+        return n
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Processing a batch of changed cells, lines~\ref{alg:ch05-dstarlite:km}--\ref{alg:ch05-dstarlite:replan} of \protect\DslMain (from \code{code/ch05\_dstar\_lite.py}).},label={lst:ch05-main}]
+    def notify_changed_cells(self, cells, replan=True):
+        """Lines 28'-35': process cells whose blocked status flipped.
+
+        Adds h(s_last, s_start) to k_m, updates the tail of every changed
+        edge (the cell and each neighbour) and, if replan, repairs the
+        search.  Returns the number of expansions.
+        """
+        if not cells:
+            return 0
+        self.k_m += self.h(self.s_last, self.start)
+        self.s_last = self.start
+        for b in cells:
+            self.update_vertex(b)
+            for u in self.grid.neighbors(b):
+                self.update_vertex(u)
+        return self.compute_shortest_path() if replan else 0
+\end{lstlisting}
+
+\Cref{lst:ch05-queue,lst:ch05-core,lst:ch05-main} are the core of the chapter's
+implementation; \cref{lst:ch05-core} mirrors \cref{alg:ch05-dstarlite} line by line,
+and \cref{lst:ch05-main} is the change-processing part of \DslMain, called with the
+cells whose status flipped after the robot has moved. The full file also contains
+\lpastar, an \astar baseline with both tie-breaking rules, the worked examples as
+functions and a self-test. The self-test draws random $20\times 20$ grids for many
+seeds, applies random sequences of obstacle insertions and removals while the robot
+walks, and checks after every change that $\gcost(s_{\mathrm{start}})$ of \dstarlite
+(and $\gcost(s_{\mathrm{goal}})$ of \lpastar) equals the cost that \astar computes from
+scratch, that the extracted path is valid and has that cost, that the queue holds
+exactly the inconsistent vertices with keys that are lower bounds, and that the first
+search expands exactly as many vertices as \astar with the same tie-breaking
+(\cref{thm:ch05-expansions}).
 
 \begin{pitfall}[Blocking a cell changes all of its edges, in both directions]
 An obstacle that appears at cell $b$ changes the edges \emph{into} $b$ and the edges
@@ -1032,7 +1260,10 @@ occupancy map arrives from a different sensor, or when the start and the goal bo
 spends time in \DslUpdateVertex on every affected neighbour. In such cases a fresh \astar
 is faster and simpler. A robust replanning layer measures the fraction of changed cells
 and falls back to \astar above a threshold; \cref{exr:ch05-threshold} asks you to find
-that threshold for your implementation.
+that threshold for your implementation. Remember also that the \emph{first} search of
+\dstarlite is more expensive than a well-tuned \astar because of its tie-breaking
+(\cref{sec:ch05-properties}); an incremental planner pays this once and must recover it
+over the repairs.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
@@ -1098,7 +1329,9 @@ obstacles during execution, and compare with re-running \astar
     it turns stale queue keys into lower bounds, which a reinsert check repairs, so the
     heap is never rebuilt.
   \item \dstarlite returns the same path costs as \astar from scratch, expands each
-    vertex at most twice per repair, and behaves exactly like \astar on the first search.
+    vertex at most twice per repair, and behaves exactly like \astar with ties broken
+    toward the smaller $\gcost$ on the first search, which on grids is several times
+    more expensive than \astar with the usual tie-breaking.
   \item Blocking a cell changes all of its edges in both directions; the tail of every
     changed edge must be updated. When almost everything changes, fall back to \astar.
 \end{itemize}

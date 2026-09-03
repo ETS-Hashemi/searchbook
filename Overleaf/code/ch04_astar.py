@@ -142,7 +142,7 @@ def astar(start, goal, successors, heuristic, weight=1.0, tie_break="high_g",
     open_heap = [(key(weight * heuristic(start), 0.0), 0.0, start)]
     while open_heap:
         _, g_entry, n = heapq.heappop(open_heap)
-        if g_entry > g[n]:               # stale entry: a cheaper path was found
+        if g_entry > g[n]:               # stale: a cheaper path was found
             continue
         h_n = heuristic(n)
         expansions.append(Expansion(n, g[n], h_n, g[n] + weight * h_n))
@@ -151,7 +151,8 @@ def astar(start, goal, successors, heuristic, weight=1.0, tie_break="high_g",
             if record_open:
                 expansions[-1].open_after = snapshot
             return SearchResult(_reconstruct(parent, n), g[n], expansions,
-                                closed, {m for (m, _) in snapshot}, g, reopenings)
+                                closed, {m for (m, _) in snapshot}, g,
+                                reopenings)
         closed.add(n)
         for n2, c in successors(n):
             g2 = g[n] + c
@@ -372,7 +373,7 @@ def space_time_astar(grid, start, goal, constraints=(), max_time=None,
                         or table.edge_blocked(v, v2, t)):
                     continue
                 s2 = (v2, t + 1)
-                if s2 in parent:                      # g = t + 1: first is best
+                if s2 in parent:                     # g = t + 1: first is best
                     continue
                 parent[s2] = (v, t)
                 heapq.heappush(heap, (key(*s2), s2))

@@ -243,7 +243,8 @@ Line~\ref{alg:ch03-dijkstra:exit} is the early exit\index{Dijkstra's algorithm!e
 where it sits: the target is tested when it is \emph{popped}, not when it is first discovered on
 line~\ref{alg:ch03-dijkstra:relax}. A target that has just been discovered may still be reached
 more cheaply through a vertex that is waiting in the queue; a target that has been popped
-cannot. \Cref{sec:ch03-example} shows both cases on a concrete graph.
+cannot. \Cref{sec:ch03-example} shows both cases on a concrete graph, and \cref{cor:ch03-ucs}
+states exactly which vertices the early exit settles.
 
 Lines~\ref{alg:ch03-dijkstra:succ}--\ref{alg:ch03-dijkstra:push} \emph{expand} $u$: they
 generate its successors and relax every edge. The strict inequality on
@@ -270,10 +271,9 @@ is sealed off by obstacles or no-fly zones and the map, not the planner, has to 
 \section{A worked example}
 \label{sec:ch03-example}
 
-Two examples follow. The first is an explicit graph small enough to trace on paper, with every
-state of the heap written out; the second is a grid, on which the wave of
-\cref{sec:ch03-intuition} becomes visible. Both live in \code{code/ch03\_dijkstra.py}, whose
-self-test checks every number quoted here.
+Two examples follow: an explicit graph small enough to trace on paper with every state of the
+heap written out, and a grid on which the wave of \cref{sec:ch03-intuition} becomes visible.
+Both live in \code{code/ch03\_dijkstra.py}, whose self-test checks every number quoted here.
 
 \begin{example}[Seven waypoints]
 \label{ex:ch03-graph}
@@ -325,9 +325,8 @@ sorted by key. Produced by \code{dijkstra\_trace}.}
 
 \paragraph{Reading the trace.} Step~1 settles the source and discovers its two neighbours.
 Step~2 is the first improvement: $C$ was discovered from $A$ at cost 5, but through $B$ it costs
-$2+1=3$, so $(3,C)$ is pushed while $(5,C)$ stays in the heap. Step~3 settles $C$ with the
-smaller key, and step~4 pops the old entry and discards it: this is lazy deletion at work. The
-same pattern repeats for $D$ (steps 3--6) and for $E$ (steps 5--8). Vertex $F$ is the most
+$2+1=3$, so $(3,C)$ is pushed while $(5,C)$ stays in the heap; step~4 pops the old entry and discards it,
+lazy deletion at work. The same pattern repeats for $D$ (steps 3--6) and for $E$ (steps 5--8). Vertex $F$ is the most
 instructive. It is discovered at cost 13 through $D$, improved to 12 through $E$ and to 11
 through $G$, and settled only at step~10 with $\delta(A,F)=11$ along the six-edge path
 $A,B,C,D,E,G,F$, which beats both the direct edge $D$--$F$ ($5+8=13$) and the edge $E$--$F$
@@ -336,9 +335,9 @@ as the wave picture promised.
 
 \paragraph{Counting.} There are twelve pops, seven of which settle a vertex and five of which
 are stale, and twelve pushes: one per vertex and one per improvement. The heap never holds
-more than four entries. Every stale entry is the trace of an improvement of a vertex that was
-already in the heap, so without an early exit the number of stale pops equals the number of
-improvements; \cref{thm:ch03-complexity} turns this observation into a bound.
+more than four entries. Every stale entry is the trace of one improvement, so without an early
+exit the number of stale pops equals the number of improvements;
+\cref{thm:ch03-complexity} turns this observation into a bound.
 
 \paragraph{The early exit.} With the target $G$ the search stops at step~9, after nine pops.
 The parent pointers give $\mathrm{parent}(G)=E$, $\mathrm{parent}(E)=D$,
@@ -368,8 +367,7 @@ and 19 expansions of a run with target $T$. Grey cells are settled and carry the
 blue cells are in the heap with their tentative cost. At every moment the settled cells are
 exactly the cells whose cost is at most the last popped key: this is the wave. It runs along
 the free border before it seeps into the slow ring, and it stops when $T$ is popped with
-$\gcost(T)=8$; the blue line is the path read off the parent pointers. Cell $(3,4)$ is never
-even discovered.}
+$\gcost(T)=8$; the blue line is the path read off the parent pointers.}
   \label{fig:ch03-grid-closed}
 \end{figure}
 
@@ -383,16 +381,15 @@ cheaper is left: $(1,1)$ is settled ninth, at cost 4, after $(0,4)$ and before $
 have the same cost. After ten expansions all cells with $\gcost\le4$ are settled (second
 panel), after seventeen all cells with $\gcost\le6$ (third panel), and the nineteenth pop
 settles $T$ with $\gcost(T)=8$ (fourth panel). The path read off the parent pointers runs down
-the left column and along the bottom row, eight moves of cost 1. The route along the top row
-and the right column is blocked by $(2,4)$, and every route through the slow ring enters at
-least two slow cells; the cheapest of them, down to $(2,0)$ and across $(2,1)$ and $(3,1)$,
-costs 12. The full settling order, with costs, is
+the left column and along the bottom row, eight moves of cost 1; the route along the top row
+is blocked by $(2,4)$, and every route through the slow ring enters at least two slow cells and
+costs 12 or more. The full settling order, with costs, is
 \[
 \begin{aligned}
 &(0,0)\!:0,\ (0,1)\!:1,\ (1,0)\!:1,\ (0,2)\!:2,\ (2,0)\!:2,\ (0,3)\!:3,\ (3,0)\!:3,\ (0,4)\!:4,\
-(1,1)\!:4,\ (4,0)\!:4,\\
-&(1,2)\!:5,\ (1,4)\!:5,\ (2,1)\!:5,\ (4,1)\!:5,\ (1,3)\!:6,\ (3,1)\!:6,\ (4,2)\!:6,\ (4,3)\!:7,\
-(4,4)\!:8 .
+(1,1)\!:4,\\
+&(4,0)\!:4,\ (1,2)\!:5,\ (1,4)\!:5,\ (2,1)\!:5,\ (4,1)\!:5,\ (1,3)\!:6,\ (3,1)\!:6,\ (4,2)\!:6,\
+(4,3)\!:7,\ (4,4)\!:8 .
 \end{aligned}
 \]
 Nineteen of the 23 free cells are settled when the search stops. Three cells, $(2,3)$, $(3,2)$
@@ -535,12 +532,11 @@ returns $S,A,T$ (cost 2) instead of the optimal $S,B,A,T$ (cost 1). Nothing warn
   \label{fig:ch03-negative-edge}
 \end{figure}
 
-The failure is silent, which is what makes it dangerous. Allowing settled vertices to be
-reopened restores correctness on graphs without negative cycles, but the running-time
-guarantee is lost, and the algorithm of choice becomes Bellman--Ford\index{Bellman--Ford
-algorithm}, which relaxes every edge $\abs{V}-1$ times and runs in $\bigO{\abs{V}\,\abs{E}}$
-\cite{cormen2009clrs}. The chapter code uses it only as a reference in the self-test; in
-planning, negative costs are best avoided altogether (see the pitfalls in
+The failure is silent, which is what makes it dangerous. On graphs with negative edges but no
+negative cycles the algorithm of choice is Bellman--Ford\index{Bellman--Ford algorithm},
+which relaxes every edge $\abs{V}-1$ times and runs in $\bigO{\abs{V}\,\abs{E}}$
+\cite{cormen2009clrs}; the chapter code uses it only as a reference in the self-test, because
+in planning negative costs are best avoided altogether (see the pitfalls in
 \cref{sec:ch03-implementation}).
 
 \begin{theorem}[Running time and memory]
@@ -567,12 +563,9 @@ and \Closed of at most $\abs{V}$ entries each.
 
 \paragraph{Reading the bound.} On a grid every cell has at most 8 neighbours, so
 $\abs{E}\le8\abs{V}$ and the time is $\bigO{\abs{V}\log\abs{V}}$, almost linear in the number
-of cells. The lazy-deletion heap can hold more entries than the classic version with a
-decrease-key operation, which keeps at most $\abs{V}$, but both perform up to $\abs{E}$ key
-updates or pushes at $\bigO{\log\abs{V}}$ each, so the asymptotic bound is the same, and the
-constant factors favour the lazy version, whose heap operations are the simplest possible. In
-the worked example the heap never held more than four entries for seven vertices. Three
-refinements are worth knowing.
+of cells. The classic version with a decrease-key operation keeps at most $\abs{V}$ entries in
+the heap but performs the same $\abs{E}$ key updates at $\bigO{\log\abs{V}}$ each, so its
+bound is the same and its heap operations are more complex. Two refinements are worth knowing.
 \begin{itemize}
   \item \emph{Fibonacci heaps}\index{Fibonacci heap} \cite{fredman1987fibonacci} make
 decrease-key cost $\bigO{1}$ amortised and bring the time to $\bigO{\abs{E}+\abs{V}\log\abs{V}}$.
@@ -583,9 +576,6 @@ $\abs{E}=\Theta(\abs{V}^2)$, for instance on a complete visibility graph between
 heap bound becomes $\bigO{\abs{V}^2\log\abs{V}}$, and the original formulation of
 \textcite{dijkstra1959note}, which keeps the tentative costs in an array and finds the minimum
 by scanning it in $\bigO{\abs{V}}$ time per expansion, is better: $\bigO{\abs{V}^2}$ in total.
-  \item \emph{Small integer costs.} If all costs are integers between 0 and a small $C$, the
-heap can be replaced by an array of buckets indexed by cost, with $\bigO{\abs{E}+C\abs{V}}$
-total time; the unit-cost case is breadth-first search (\cref{sec:ch03-bfs}).
 \end{itemize}
 
 \paragraph{Expansions in practice.} The bound counts every vertex, but the work of a run is
@@ -652,13 +642,13 @@ cost 0, so \cref{thm:ch03-invariant} applies and the result is
 \[
 \gcost(v)=\delta(S,v)=\min_{s\in S}\delta(s,v),
 \]
-the cost from the source \emph{nearest} to $v$, with parent pointers that lead back to it. Two
-uses recur in the book. Started from all obstacle cells of a grid with unit costs, the run
-labels every free cell with its distance to the nearest obstacle, a distance map from which
-the inflated obstacles of \cref{ch:ch02} and clearance penalties can be read off. Started from
-all depots or landing sites, it tells every drone which one is closest, in one run rather than
-one run per depot. The function \code{multi\_source\_dijkstra} in the chapter code does this;
-its self-test checks that the table equals the element-wise minimum over single-source runs.
+the cost from the source \emph{nearest} to $v$, with parent pointers that lead back to it.
+Started from all obstacle cells of a grid with unit costs, the run labels every free cell with
+its distance to the nearest obstacle, the distance map behind the inflated obstacles of
+\cref{ch:ch02} and behind clearance penalties; started from all depots, it tells every drone
+which depot is closest in a single run. The function \code{multi\_source\_dijkstra} in the
+chapter code does this, and its self-test checks the table against the element-wise minimum
+over single-source runs.
 
 \subsection{Backward search: the true-distance heuristic}
 \label{sec:ch03-backward}
@@ -746,32 +736,30 @@ $\delta(v,t)=\hcost^*(v)$, since removing its cycles cannot increase the cost. F
 or moves removes paths from the space-time graph and adds none, so the bound is unaffected.
 \end{proof}
 
-\Cref{ch:ch04} calls property~2 \emph{consistency} and its consequence \emph{admissibility},
-and proves that they make \astar optimal. The point of property~1 is visible in the right-hand
-panel of \cref{fig:ch03-backward-heuristic}: the cells with $\gcost(v)+\hcost^*(v)=\delta(S,T)=8$,
-shaded green, are exactly the cells of the optimal path, and every other cell has a larger sum.
-An \astar search guided by $\hcost^*$ therefore expands only cells that lie on a shortest path;
-no heuristic can do better on a static map, which is why $\hcost^*$ is the reference against
-which the grid heuristics of \cref{ch:ch04} are judged. Property~3 is what makes the table
-useful beyond this chapter. The multi-agent solvers of \cref{ch:ch08,ch:ch09} route one drone
-at a time through \emph{space-time}, where waiting is an action and the reservations or
-constraints of other drones forbid certain cells at certain times. Those searches run
-thousands of times on the same map with the same goals. One backward run per goal, costing
-$\bigO{\abs{V}\log\abs{V}}$ on a grid, produces a table that every one of those searches reads
-in $\bigO{1}$ per expansion, and property~3 guarantees that the table never overestimates,
-whatever the constraints. It is no longer exact there, since a forced wait or detour is not in
-the table (\cref{exr:ch03-backward}(c)), but it stays admissible, and admissibility is all that
-\astar needs for optimality. \dstarlite (\cref{ch:ch05}) goes one step further: it searches
-backward from the goal in the same way and repairs the table when the map changes, instead of
-recomputing it.
+\Cref{ch:ch04} calls property~2 of \cref{thm:ch03-true-distance} \emph{consistency} and its
+consequence \emph{admissibility}, and proves that they make \astar optimal. Property~1 is
+visible in the right-hand panel of \cref{fig:ch03-backward-heuristic}: the cells with
+$\gcost(v)+\hcost^*(v)=\delta(S,T)=8$, shaded green, are exactly the cells of the optimal path,
+and every other cell has a larger sum. An \astar search guided by $\hcost^*$ therefore expands
+only cells that lie on a shortest path; no heuristic can do better on a static map, which is
+why $\hcost^*$ is the reference against which the grid heuristics of \cref{ch:ch04} are judged.
+Property~3 is what makes the table useful beyond this chapter. The multi-agent solvers of
+\cref{ch:ch08,ch:ch09} route one drone at a time through \emph{space-time}, where waiting is
+an action and the reservations or constraints of other drones forbid certain cells at certain
+times, and they do so thousands of times on the same map with the same goals. One backward run
+per goal, costing $\bigO{\abs{V}\log\abs{V}}$ on a grid, produces a table that every one of
+those searches reads in $\bigO{1}$ per expansion and that never overestimates, whatever the
+constraints. It is no longer exact there, since a forced wait or detour is not in the table
+(\cref{exr:ch03-backward}(c)), but admissibility is all that \astar needs for optimality.
+\dstarlite (\cref{ch:ch05}) searches backward from the goal in the same way and repairs the
+table when the map changes instead of recomputing it.
 
 \subsection{Bidirectional search}
 \label{sec:ch03-bidirectional}
 \index{bidirectional search}\index{Dijkstra's algorithm!bidirectional}%
 For a single pair $(s,t)$ on a large graph, one may grow two waves at once: a forward wave from
 $s$ on $G$ with costs $\gcost_f$, and a backward wave from $t$ on $G^{R}$ with costs $\gcost_b$,
-each with its own heap and closed set, alternating expansions between the two sides (a common
-rule is to expand on the side whose smallest key is smaller). Whenever one side scans an edge
+each with its own heap and closed set, alternating expansions between the two sides. Whenever one side scans an edge
 $(u,v)$ during an expansion, including edges to vertices that either side has settled, and both
 $\gcost_f(u)$ and $\gcost_b(v)$ are finite, the concatenation is an $s$--$t$ path of cost
 $\gcost_f(u)+c(u,v)+\gcost_b(v)$, and the best such cost seen so far is kept in $\mu$. The
@@ -783,15 +771,14 @@ search stops when
 and returns the path that achieved $\mu$. The tempting rule ``stop as soon as one vertex has
 been settled by both sides'' is wrong: the first common vertex need not lie on a shortest path,
 because the two waves may meet at a vertex that is close to both but not on the cheapest route.
-The rule of \cref{eq:ch03-bidir-stop} is correct: any $s$--$t$ path cheaper than $\mu$ would
-have to contain a vertex that is still open on the forward side ahead of a vertex still open on
-the backward side, and such a path costs at least the sum of the two smallest keys.
-\Cref{exr:ch03-bidirectional} asks for the counterexample and the proof.
+The rule of \cref{eq:ch03-bidir-stop} is correct because a path cheaper than $\mu$ would have
+to pass through a vertex still open on the forward side and later through one still open on the
+backward side, which costs at least the sum of the two smallest keys;
+\cref{exr:ch03-bidirectional} asks for the counterexample and the proof.
 
-The saving comes from geometry. On a map the number of settled cells grows with the area of the
-wave. One wave that reaches a target at distance $d$ covers an area proportional to $d^2$; two
-waves that meet halfway each have radius $d/2$ and together cover an area proportional to
-$2\,(d/2)^2=d^2/2$, half as much. In three dimensions the two half-waves cover a quarter. The
+The saving comes from geometry: on a map the number of settled cells grows with the area of the
+wave, one wave of radius $d$ covers an area proportional to $d^2$, and two waves of radius $d/2$
+that meet halfway cover $2\,(d/2)^2=d^2/2$, half as much (a quarter in three dimensions). The
 gain is real but modest, and it shrinks when a good heuristic is available, so the book uses
 bidirectional search only as a benchmark; \textcite{russell2020aima} give a careful treatment,
 including the heuristic version.
@@ -808,8 +795,8 @@ its first discovery is already at the smallest possible level, so there are no s
 and no relaxation test. And the target may be recognised when it is \emph{discovered}, since no
 later discovery can be cheaper. The result is \textbf{breadth-first search}, which runs in
 $\bigO{\abs{V}+\abs{E}}$ time, without the logarithm. The function \code{bfs} in the chapter
-code implements it, and the self-test checks that on random 4-connected grids with unit costs
-it returns exactly the distances of \code{dijkstra}. On an 8-connected grid the diagonal costs
+code implements it, and the self-test checks it against \code{dijkstra} on random 4-connected
+grids with unit costs. On an 8-connected grid the diagonal costs
 $\sqrt2$, the levels interleave, and breadth-first search is wrong; every search from
 \cref{ch:ch04} onwards is built on the heap version for this reason.
 

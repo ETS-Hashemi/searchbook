@@ -1,1 +1,15 @@
 % Glossary terms from ch04: lines of the form \item[Term] Definition.
+\item[Heuristic] A function $\hcost(n)$ that estimates the cost from $n$ to the goal without searching; \astar adds it to the cost so far and expands the node with the smallest sum $\fcost=\gcost+\hcost$.
+\item[Admissible heuristic] A heuristic that never overestimates, $0\le\hcost(n)\le\hcost^*(n)$; it guarantees that \astar with re-opening returns an optimal path.
+\item[Consistent heuristic] A heuristic with $\hcost(\gamma)=0$ and $\hcost(n)\le c(n,n')+\hcost(n')$ on every edge (also called monotone); it is admissible, and with it \astar expands every node at most once and pops nodes in non-decreasing order of $\fcost$.
+\item[Re-opening] Moving a closed node back to \Open when a cheaper path to it is found; necessary for optimality with an admissible but inconsistent heuristic, never triggered with a consistent one.
+\item[Dominance] $\hcost_2$ dominates $\hcost_1$ if $\hcost_2\ge\hcost_1$ everywhere; the more informed admissible heuristic expands no more nodes with $\fcost<C^*$.
+\item[Octile distance] $\max(d_x,d_y)+(\sqrt2-1)\min(d_x,d_y)$, the exact cost between two cells of an obstacle-free 8-connected grid with moves of cost $1$ and $\sqrt2$; consistent, and the standard heuristic for such grids.
+\item[Tie-breaking] The rule that orders nodes with equal $\fcost$; preferring the larger $\gcost$ (key $(\fcost,-\gcost,\mathit{counter})$) makes \astar dive along one optimal path instead of sweeping the whole $\fcost=C^*$ band.
+\item[Weighted A*] \astar with the key $\gcost+w\hcost$ for $w\ge1$; it expands fewer nodes and returns a path of cost at most $w\,C^*$.
+\item[Space-time A*] \astar over states $(v,t)$ with a wait action, vertex and edge constraints, a goal-stay test and a time horizon; the low-level search of prioritized planning and of conflict-based search.
+\item[Vertex constraint] A tuple $\langle a,v,t\rangle$ forbidding agent $a$ to occupy cell $v$ at time $t$.
+\item[Edge constraint] A tuple $\langle a,u,v,t\rangle$ forbidding agent $a$ to move from $u$ to $v$ between times $t$ and $t+1$; reserving the reverse of every move of a planned path prevents swaps.
+\item[Reservation table] The set of vertex and edge constraints derived from the paths of already planned agents, together with their parked goal cells, which are blocked for all later times.
+\item[Goal-stay time] The last time $t_\gamma$ at which the goal is constrained; space-time \astar may finish at $(\gamma,t)$ only if $t>t_\gamma$, so that the agent can stay there for ever.
+\item[Time horizon] The largest time $T_{\max}$ for which space-time states are generated; $T_{\max}=H+1+D$, with $H$ the last constrained time and $D$ the largest static distance to the goal, keeps the search complete and finite.
