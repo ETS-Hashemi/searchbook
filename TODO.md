@@ -35,7 +35,7 @@ Legend: `[ ]` open · `[x]` done · `[~]` in progress · `[-]` dropped (with rea
 (1.2–1.4 depend on the chapter drafts of Phase 2 and are done after them.)
 
 - [x] 1.1 Title page and copyright/colophon page (`frontmatter/titlepage.tex`, `copyright.tex`; final polish in 7.5)
-- [ ] 1.2 Preface: who the book is for, prerequisites, how to read it, how it maps to the 12-week plan, conventions (boxes, difficulty stars, priorities), how to run the code
+- [~] 1.2 Preface: who the book is for, prerequisites, how to read it, how it maps to the 12-week plan, conventions (boxes, difficulty stars, priorities), how to run the code — drafted (`frontmatter/preface.tex`, 3 pages, compiles); final check after the chapters are reviewed
 - [ ] 1.3 Notation and symbols table (complete, consistent with all chapters)
 - [ ] 1.4 List of algorithms (auto-generated; check titles)
 

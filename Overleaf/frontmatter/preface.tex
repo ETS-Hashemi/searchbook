@@ -1,6 +1,150 @@
 \chapter{Preface}
 \markboth{Preface}{Preface}
-% (Placeholder: rewritten in Phase 1 of TODO.md.)
-This book teaches, from first principles, the algorithms needed to plan and coordinate
-the motion of a swarm of drones and to keep them away from things that were not part
-of the plan.
+
+\section*{Why this book exists}
+
+Imagine a small fleet of drones that must fly through the same airspace at the same
+time. Each drone has a job to do and a route to fly. Before take-off, a planner must
+make sure that no two routes collide. During the flight, something unplanned happens:
+another drone, not part of the fleet and not talking to it, crosses the formation. The
+fleet must notice it, guess where it is going, get out of its way, and then return to
+the plan---or, if that is impossible, make a new plan and check it against the rest of
+the fleet.
+
+Every part of that story is a well-studied algorithmic problem. Planning a route is
+\emph{graph search}. Planning routes for many drones at once without collisions is
+\emph{multi-agent path finding}. Reacting to a surprise in a fraction of a second is
+\emph{local collision avoidance}. Guessing where the intruder is going is
+\emph{tracking and trajectory prediction}. Making a new plan without starting from
+scratch is \emph{incremental replanning}. Keeping the fleet in formation and within
+radio range while doing all of this is \emph{control}. The individual algorithms are
+established and published. What is not settled is how to combine them into one system
+that keeps the guarantees of the global plan, reacts fast enough to be safe, and can be
+evaluated honestly.
+
+This book teaches all of those algorithms, one at a time, from first principles, and
+then shows how they fit together into a hybrid swarm planner. It was written to
+accompany a twelve-week research training plan; the plan is reproduced, with
+week-by-week reading and coding assignments, in \cref{ch:appA}.
+
+\section*{Who should read it}
+
+The book is for a graduate student or engineer who is starting research on drone
+swarms, or on multi-robot motion planning more generally, and who wants to
+\emph{implement} the algorithms rather than merely recognise their names. You should be
+comfortable with Python and with the mathematics of a first course in linear algebra,
+calculus and probability. Everything else is introduced when it is needed, and
+\cref{ch:appB} collects the mathematical facts that the book relies on. No prior
+knowledge of robotics or planning is assumed.
+
+\section*{What you will be able to do}
+
+When you have worked through the book and its exercises you will be able to
+\begin{itemize}
+  \item implement and explain \astar and space-time \astar, and say exactly why they
+        return optimal paths under the required conditions;
+  \item repair a path with \dstarlite instead of replanning from scratch, and measure
+        when that is worth it;
+  \item represent and detect the conflicts of a multi-agent plan, and solve the
+        problem optimally with conflict-based search or approximately, with a
+        guaranteed bound, with \ecbs;
+  \item explain velocity obstacles, reciprocal velocity obstacles and \orca using
+        relative position and velocity, and use them to keep drones apart;
+  \item track an unknown drone from noisy observations with a Kalman filter, and
+        compare a constant-velocity predictor with a learned one;
+  \item trigger local avoidance from a time-to-collision or safety-horizon rule, return
+        to the global route, or replan;
+  \item enforce formation and communication-range constraints, and
+  \item evaluate a hybrid planner with reproducible metrics and controlled scenarios.
+\end{itemize}
+
+\section*{How the book is organised}
+
+\begin{description}[style=nextline,leftmargin=1.5em]
+  \item[Part I, Foundations.] \Cref{ch:ch01} states the problem and previews the
+        hybrid architecture that the whole book builds towards. \Cref{ch:ch02} is a
+        toolbox: graphs, grids, configuration space, time-indexed paths, simple motion
+        models, the geometry of moving discs, Gaussians and priority queues.
+  \item[Part II, Single-Agent Graph Search.] Dijkstra's algorithm (\cref{ch:ch03}),
+        \astar with admissible and consistent heuristics and its space-time version
+        (\cref{ch:ch04}), incremental replanning with \lpastar and \dstarlite
+        (\cref{ch:ch05}) and anytime search with \arastar (\cref{ch:ch06}).
+  \item[Part III, Multi-Agent Path Finding.] The problem and its conflicts
+        (\cref{ch:ch07}), prioritized planning (\cref{ch:ch08}), conflict-based
+        search (\cref{ch:ch09}), bounded-suboptimal search with \ecbs
+        (\cref{ch:ch10}), and the coupled and constructive alternatives \mstar,
+        Push-and-Swap and Push-and-Rotate (\cref{ch:ch11}).
+  \item[Part IV, Local and Reactive Collision Avoidance.] Velocity obstacles
+        (\cref{ch:ch12}), reciprocal avoidance with RVO and \orca (\cref{ch:ch13}),
+        the dynamic window approach (\cref{ch:ch14}) and artificial potential fields
+        (\cref{ch:ch15}).
+  \item[Part V, Sampling-Based Motion Planning.] \rrt (\cref{ch:ch16}) and the
+        asymptotically optimal \rrtstar with informed sampling (\cref{ch:ch17}).
+  \item[Part VI, Tracking and Prediction.] The Kalman filter (\cref{ch:ch18}), its
+        nonlinear relatives and the particle filter (\cref{ch:ch19}), and trajectory
+        prediction from constant-velocity baselines to LSTMs and Transformers
+        (\cref{ch:ch20}).
+  \item[Part VII, Optimization and Control.] Model predictive control
+        (\cref{ch:ch21}), mixed-integer linear programming (\cref{ch:ch22}) and
+        consensus and formation control (\cref{ch:ch23}).
+  \item[Part VIII, Putting It Together.] The hybrid collision-avoidance architecture
+        (\cref{ch:ch24}) and how to evaluate it (\cref{ch:ch25}).
+\end{description}
+
+\section*{How to read it}
+
+Read the chapters in order if you can: each part builds on the previous ones, and the
+notation is introduced once. If you are short of time, the training plan's reading
+order is a good fast path: \cref{ch:ch04} (\astar), \cref{ch:ch05} (\dstarlite),
+\cref{ch:ch09} (\cbs), \cref{ch:ch07} (the MAPF problem), \cref{ch:ch12,ch:ch13}
+(velocity obstacles and \orca), \cref{ch:ch14} (DWA), \cref{ch:ch16,ch:ch17}
+(\rrt and \rrtstar), \cref{ch:ch21} (MPC) and \cref{ch:ch20} (trajectory prediction),
+then \cref{ch:ch24}. Every chapter ends with a box that says where its algorithm sits
+in the hybrid system, so you can also read by \emph{layer}: the global planner
+(Parts II and III), the local safety layer (Part IV), the prediction layer (Part VI)
+and the constraints (Part VII).
+
+\section*{Conventions}
+
+Every chapter opens with a box of \emph{learning objectives} and closes with a
+\emph{summary} box and exercises. Inside a chapter you will meet five kinds of coloured
+boxes: \emph{key idea} (green) states the one thing to remember; \emph{in the drone
+system} (purple) says how the algorithm is used in the hybrid architecture;
+\emph{pitfall} (orange) warns about a mistake that is easy to make; \emph{historical
+note} (grey) gives context; and plain notes carry their own titles. Definitions,
+examples, theorems and remarks share one counter per chapter, so ``Example~4.3'' comes
+after ``Definition~4.2''. Exercises are marked with one to three stars
+(\difficulty{1} routine, \difficulty{2} needs thought, \difficulty{3} a small
+project), and hints or solutions for a selection of them are in \cref{ch:appC}. Where
+the training plan assigns a priority to an algorithm it is shown as a tag such as
+\priority{Essential}. Pseudocode is written in a uniform style with numbered lines;
+the text refers to line numbers. Vectors are bold ($\pos$, $\vel$), matrices are bold
+capitals ($\mat{A}$), and the full notation is listed in the table that follows this
+preface.
+
+\section*{The code}
+
+Every algorithm in the book comes with a \python{} implementation in the
+\code{code/} folder of the \LaTeX{} project. The implementations are deliberately
+simple---plain \python{} and NumPy, a few hundred lines each, no framework---because
+the goal is that you can read them in one sitting and then write your own. Each file
+runs a self-test when executed (\code{python3 code/ch04\_astar.py}), and the numbers
+quoted in the worked examples were produced by that code. The figures that show
+algorithm output were generated by the scripts in \code{code/figures/} from fixed
+random seeds, so you can regenerate and modify them. The listings in the text are
+excerpts; the files contain the complete programs.
+
+\section*{Sources}
+
+None of the algorithms in this book is new. Each chapter cites the paper in which its
+algorithm was introduced and a textbook that treats it at greater length, and the
+\emph{further reading} paragraph at the end of every chapter points to the
+developments that the chapter leaves out. The bibliography lists all sources. Where
+the book simplifies an algorithm for teaching, it says so and names the full version.
+
+\section*{Errata}
+
+The manuscript was reviewed in several rounds for technical accuracy, completeness
+against the training plan, and clarity. Mistakes will nevertheless remain; if you find
+one, the \LaTeX{} sources and code are distributed with the book precisely so that it
+can be corrected.
