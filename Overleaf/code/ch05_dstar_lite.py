@@ -145,6 +145,11 @@ class LPAStar:
     def rhs_of(self, s):
         return self.rhs.get(s, INF)
 
+    def _trace(self, *event):
+        """Record an event for the worked examples (no-op unless enabled)."""
+        if self.events is not None:
+            self.events.append(event)
+
     def calculate_key(self, s):
         m = min(self.g_of(s), self.rhs_of(s))
         return (m + self.h(s, self.goal), m)
@@ -158,9 +163,8 @@ class LPAStar:
             self.U.remove(u)
         if self.g_of(u) != self.rhs_of(u):
             self.U.insert(u, self.calculate_key(u))
-        if self.events is not None:
-            self.events.append(("update", u, rhs_old, self.rhs_of(u), queued_old,
-                                u in self.U, self.U.key_of.get(u)))
+        self._trace("update", u, rhs_old, self.rhs_of(u), queued_old,
+                    u in self.U, self.U.key_of.get(u))
 
     def compute_shortest_path(self):
         """Repair the search; returns the number of vertex expansions."""
@@ -172,14 +176,12 @@ class LPAStar:
             n += 1
             if self.g_of(u) > self.rhs_of(u):           # overconsistent
                 self.g[u] = self.rhs_of(u)
-                if self.events is not None:
-                    self.events.append(("pop", u, key, "over", self.g[u]))
+                self._trace("pop", u, key, "over", self.g[u])
                 for s in self.grid.neighbors(u):
                     self.update_vertex(s)
             else:                                        # underconsistent
                 self.g[u] = INF
-                if self.events is not None:
-                    self.events.append(("pop", u, key, "under", INF))
+                self._trace("pop", u, key, "under", INF)
                 for s in self.grid.neighbors(u) + [u]:
                     self.update_vertex(s)
         self.expansions += n
@@ -238,6 +240,11 @@ class DStarLite:
     def rhs_of(self, s):
         return self.rhs.get(s, INF)
 
+    def _trace(self, *event):
+        """Record an event for the worked examples (no-op unless enabled)."""
+        if self.events is not None:
+            self.events.append(event)
+
     def calculate_key(self, s):
         m = min(self.g_of(s), self.rhs_of(s))
         return (m + self.h(self.start, s) + self.k_m, m)
@@ -251,9 +258,8 @@ class DStarLite:
             self.U.remove(u)
         if self.g_of(u) != self.rhs_of(u):
             self.U.insert(u, self.calculate_key(u))
-        if self.events is not None:
-            self.events.append(("update", u, rhs_old, self.rhs_of(u), queued_old,
-                                u in self.U, self.U.key_of.get(u)))
+        self._trace("update", u, rhs_old, self.rhs_of(u), queued_old,
+                    u in self.U, self.U.key_of.get(u))
 
     def compute_shortest_path(self):
         """Repair the search; returns the number of vertex expansions."""
@@ -265,20 +271,17 @@ class DStarLite:
             k_new = self.calculate_key(u)
             if k_old < k_new:                            # stale lower bound
                 self.U.insert(u, k_new)
-                if self.events is not None:
-                    self.events.append(("reinsert", u, k_old, k_new))
+                self._trace("reinsert", u, k_old, k_new)
             elif self.g_of(u) > self.rhs_of(u):          # overconsistent
                 self.g[u] = self.rhs_of(u)
                 n += 1
-                if self.events is not None:
-                    self.events.append(("pop", u, k_old, "over", self.g[u]))
+                self._trace("pop", u, k_old, "over", self.g[u])
                 for s in self.grid.neighbors(u):
                     self.update_vertex(s)
             else:                                        # underconsistent
                 self.g[u] = INF
                 n += 1
-                if self.events is not None:
-                    self.events.append(("pop", u, k_old, "under", INF))
+                self._trace("pop", u, k_old, "under", INF)
                 for s in self.grid.neighbors(u) + [u]:
                     self.update_vertex(s)
         self.expansions += n
@@ -398,7 +401,7 @@ def fmt_key(k):
 
 
 def latex_trace(events):
-    """Turn a list of trace events into LaTeX table rows (one per pop)."""
+    """Turn a list of trace events into LaTeX table rows (one per pop or reinsert)."""
     rows, step, current = [], 0, None
     for ev in events:
         if ev[0] == "pop":
@@ -418,9 +421,12 @@ def latex_trace(events):
             else:
                 current[4].append("%s: $%s$" % (fmt_cell(s), fmt(rhs_new)))
         elif ev[0] == "reinsert":
-            rows.append(current)
-            current = None
-            step += 0
+            if current is not None:
+                rows.append(current)
+            step += 1
+            _, u, k_old, k_new = ev
+            current = [step, "%s %s" % (fmt_cell(u), fmt_key(k_old)), "reinsert", "--",
+                       ["new key %s" % fmt_key(k_new)]]
     if current is not None:
         rows.append(current)
     lines = []

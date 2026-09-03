@@ -340,9 +340,14 @@ def space_time_astar(grid, start, goal, constraints=(), max_time=None,
         max_time = default_horizon(grid, goal, table, connectivity)
     counter = itertools.count()
 
-    def key(v, t):
-        f = t + h[v]
-        return (f, -t, next(counter)) if tie_break == "high_g" else (f, t, next(counter))
+    def key(v, t):                      # priority tuple (f, -g, counter)
+        f = t + h[v]                    # g(v, t) = t
+        if tie_break == "high_g":
+            return (f, -t, next(counter))
+        return (f, t, next(counter))
+
+    def snapshot():                     # Open with f, for trace tables
+        return tuple(sorted((s, s[1] + h[s[0]]) for (_, s) in heap))
 
     s0 = (start, 0)
     parent = {s0: None}                 # parents = the set of generated states
@@ -356,23 +361,24 @@ def space_time_astar(grid, start, goal, constraints=(), max_time=None,
         if v == goal and t > t_goal:                 # stay-at-goal is safe
             path = [s[0] for s in _reconstruct(parent, (v, t))]
             if record_open:
-                expansions[-1].open_after = tuple(sorted((s, s[1] + h[s[0]]) for (_, s) in heap))
+                expansions[-1].open_after = snapshot()
             return SearchResult(path, float(t), expansions, closed,
-                                {s for (_, s) in heap}, {s: s[1] for s in closed})
+                                {s for (_, s) in heap})
         if t < max_time:
-            for v2 in [v] + [n for n, _ in succ(v)]:     # wait first, then moves
-                if v2 not in h:                          # cannot reach the goal
+            for v2 in [v] + [n for n, _ in succ(v)]:  # wait first, then moves
+                if v2 not in h:                       # cannot reach the goal
                     continue
-                if table.vertex_blocked(v2, t + 1) or table.edge_blocked(v, v2, t):
+                if (table.vertex_blocked(v2, t + 1)
+                        or table.edge_blocked(v, v2, t)):
                     continue
                 s2 = (v2, t + 1)
-                if s2 in parent:                         # g = t + 1: first path is best
+                if s2 in parent:                      # g = t + 1: first is best
                     continue
                 parent[s2] = (v, t)
                 heapq.heappush(heap, (key(*s2), s2))
         if record_open:
-            expansions[-1].open_after = tuple(sorted((s, s[1] + h[s[0]]) for (_, s) in heap))
-    return SearchResult(None, INF, expansions, closed, set(), {})
+            expansions[-1].open_after = snapshot()
+    return SearchResult(None, INF, expansions, closed, set())
 
 
 def constraints_for_agent(agent, constraints):
@@ -520,7 +526,6 @@ def _self_test():
         (3, 4), (3, 3), (3, 2), (0, 4), (3, 1), (3, 5), (4, 5), (5, 5), (5, 4),
         (5, 3), (5, 2)]
     assert sorted(res.open_nodes) == [(0, 5), (1, 5), (2, 5), (3, 0)]
-    traced = astar_grid(grid, WORKED_START, WORKED_GOAL, "manhattan", 4)
     traced = astar(WORKED_START, WORKED_GOAL, grid_successors(grid, 4),
                    lambda n: manhattan(n, WORKED_GOAL), record_open=True)
     assert {m for (m, _) in traced.expansions[-1].open_after} == res.open_nodes
@@ -549,8 +554,9 @@ def _self_test():
     assert res.num_expansions == 4 and path_respects(res.path, ReservationTable(cons))
     assert all(state != ((1, 1), 1) for state in res.closed)
     # an edge constraint forbids the move (0,1)->(1,1) at t = 1
-    res = space_time_astar(grid, s, z, cons + [((0, 1), (1, 1), 1)])
-    assert res.cost == 4.0 and path_respects(res.path, ReservationTable(cons + [((0, 1), (1, 1), 1)]))
+    cons2 = cons + [((0, 1), (1, 1), 1)]
+    res = space_time_astar(grid, s, z, cons2)
+    assert res.cost == 4.0 and path_respects(res.path, ReservationTable(cons2))
     # goal-stay handling: the goal is blocked at t = 5, so arrive after 5
     res = space_time_astar(grid, s, z, [((2, 1), 5)])
     assert res.cost == 6.0 and path_respects(res.path, ReservationTable([((2, 1), 5)]))
@@ -578,14 +584,15 @@ def _self_test():
     assert space_time_astar(grid, (3, 0), (0, 0)).cost == 3.0    # alone
     p2 = space_time_astar(grid, (3, 0), (0, 0), table).path
     assert p2 is not None and path_respects(p2, table)
-    assert p2 == [(3, 0), (2, 0), (2, 1), (2, 0), (1, 0), (0, 0)]          # into the bay, out again right behind agent 1
+    # into the bay, out again right behind agent 1
+    assert p2 == [(3, 0), (2, 0), (2, 1), (2, 0), (1, 0), (0, 0)]
     assert len(p2) - 1 == 5 and (2, 1) in p2
     # from the far end there is no way past agent 1: prioritized planning
     # is incomplete (ch08); the search reports the failure in finite time
     assert space_time_astar(grid, (4, 0), (0, 0), table).path is None
     # MAPF-style constraints carry the agent index in front
-    assert constraints_for_agent(1, [(1, (1, 1), 1), (2, (0, 0), 3),
-                                     (1, (0, 1), (1, 1), 1)]) == [((1, 1), 1), ((0, 1), (1, 1), 1)]
+    mapf = [(1, (1, 1), 1), (2, (0, 0), 3), (1, (0, 1), (1, 1), 1)]
+    assert constraints_for_agent(1, mapf) == [((1, 1), 1), ((0, 1), (1, 1), 1)]
     for t in range(max(len(p1), len(p2)) + 3):
         a = p1[min(t, len(p1) - 1)]
         b = p2[min(t, len(p2) - 1)]
