@@ -48,13 +48,13 @@ moving on.
 \index{study load}
 
 \paragraph{A weekly rhythm.}
-A rhythm that works for most readers: on the first day, read the week's chapters up to the
-worked example and trace that example by hand; on the next three days, write the coding
-exercise, using the chapter's code file as an oracle; on the fifth day, compare your
-implementation with the reference on the same instance, write the milestone sentence into
-a lab notebook, and note what you would do differently. Keep the weekend as a buffer. The
-notebook matters more than it looks: the capstone of Week~12, and any paper you write
-afterwards, will draw on the numbers, failure cases and plots you produce in Weeks~1--11.
+On the first day, read the week's chapters up to the worked example and trace that example
+by hand. On the next three days, write the coding exercise, using the chapter's code file as
+an oracle. On the fifth day, compare your implementation with the reference on the same
+instance, write the milestone sentence into a lab notebook, and note what you would do
+differently; keep the weekend as a buffer. The notebook matters more than it looks: the
+capstone of Week~12, and any paper you write afterwards, will draw on the numbers, failure
+cases and plots you produce in Weeks~1--11.
 \index{lab notebook}
 
 \paragraph{Suggested stack.}
@@ -66,14 +66,13 @@ only the first two.
     \cref{ch:ch21,ch:ch22}). Write your own code the same way; you will read and debug it
     faster.
   \item \textbf{NetworkX} \cite{hagberg2008networkx} for quick graph experiments and for
-    checking your own graph code against an independent shortest-path implementation.
+    checking your graph code against an independent shortest-path implementation.
   \item \textbf{Matplotlib} for the pictures the exercises ask for: \Open and \Closed sets,
     trajectories, velocity obstacles, benchmark curves. A plot you look at every ten
     minutes is worth more than a printout you look at once.
   \item \textbf{PyBullet or gym-pybullet-drones} \cite{panerati2021learning} for a 3D
-    simulator with quadrotor dynamics. You need it from Week~8 onwards (continuous 3D
-    planning) and for the capstone; until then a 2D NumPy simulator is enough and much
-    faster to iterate on.
+    simulator with quadrotor dynamics. You need it from Week~8 onwards and for the
+    capstone; until then a 2D NumPy simulator is enough and much faster to iterate on.
   \item \textbf{Your own MAPF codebase}, if you have one. The plan was written for a reader
     who already owns a swarm or MAPF simulator; reuse its grid, instance and visualization
     code so that each week's exercise is an addition, not a rewrite.
@@ -88,8 +87,8 @@ fails loudly with an \code{assert} if the implementation is wrong. Use the files
 order: \emph{run} the self-test to see that the reference works; \emph{write} your own
 version for the week's exercise without looking at the reference; then \emph{compare} both
 implementations on the same instance. The reference is your oracle, not your starting
-point. When the two disagree, the chapter's worked example (whose numbers were produced by
-that same file) tells you which one is wrong.
+point. When the two disagree, the chapter's worked example, whose numbers were produced by
+that same file, tells you which one is wrong.
 \index{code files!self-test}
 \end{notebox}
 
@@ -106,7 +105,7 @@ background or optional depth.
 
 {\footnotesize
 \setlength{\tabcolsep}{4pt}
-\begin{longtable}{@{}L{0.7cm}L{2.2cm}L{1.75cm}L{3.05cm}L{3.3cm}L{3.15cm}@{}}
+\begin{longtable}{@{}L{0.55cm}L{2.05cm}L{1.9cm}L{2.95cm}L{3.4cm}L{3.3cm}@{}}
 \caption{The twelve-week schedule, mapped to the chapters of this book.}
 \label{tab:appA-schedule}\\
 \toprule
@@ -231,10 +230,10 @@ The notes below add to each row of \cref{tab:appA-schedule} what a table cell ca
 where to put your attention, what to build first, how to know that you are done, which
 mistakes cost the most time, and which chapter exercises to attempt. The \emph{load}
 rating, from \difficulty{1} (light) to \difficulty{3} (heavy), estimates how much of the
-6--8 hours the coding exercise will take for a reader who meets the prerequisites of
-\cref{ch:ch02}; plan lighter weeks around heavier ones. When a note refers to ``the coding
-exercise of'' a chapter, it means the exercise marked \emph{Coding} at the end of that
-chapter, which is the plan's exercise for that week.
+6--8 hours the coding exercise takes for a reader who meets the prerequisites of
+\cref{ch:ch02}; plan lighter weeks around heavier ones. ``The coding exercise of'' a chapter
+means the exercise marked \emph{Coding} at the end of that chapter, which is the plan's
+exercise for that week.
 
 \begin{pitfall}[Moving on with a red test]
 The most expensive mistake in a self-study plan is to carry an unfinished week forward. A
@@ -248,345 +247,326 @@ spend the first hours of the next week on it and shorten that week's exercise in
 \subsection{Week 1: Foundations -- Dijkstra and \astar}
 \label{sec:appA-week01}
 \index{study plan!week 01@week 1}
-\noindent\textbf{Load}\ \difficulty{2}\qquad\textbf{Read}\ \cref{ch:ch03,ch:ch04}, with
+\noindent\textbf{Load}\ \difficulty{2}\quad\textbf{Read}\ \cref{ch:ch03,ch:ch04}, with
 \cref{ch:ch01,ch:ch02} for the vocabulary and the toolbox.
-\paragraph{Focus.}
-Two ideas carry the rest of the book: the settled-node invariant of Dijkstra (a node
-popped from \Open with the smallest $\gcost$ has its final cost) and the role of the
-heuristic in \astar (admissible: the first expansion of the goal is optimal; consistent:
-no node needs re-expansion, so a \Closed set is safe). Give real time to the space-time
-state $(v,t)$ with a wait action; it is the low-level search of every MAPF solver in
-Part~III.
-\paragraph{Build.}
-A grid \astar with a pluggable heuristic (Manhattan, octile, Euclidean, zero); the same
-search over $(v,t)$ with a wait action and a set of vertex and edge constraints; and a plot
-that colors cells by their \Open/\Closed status after each expansion.
-\paragraph{Done when.}
-You can state the optimality theorem with its conditions and say what breaks when each is
-dropped; your space-time search routes around a cell reserved at a given time by waiting or
-detouring; and with the zero heuristic both searches expand the same nodes as Dijkstra.
-\paragraph{Traps.}
-An 8-connected grid with unit diagonal cost makes the octile and Euclidean heuristics
-inadmissible (they assume a diagonal costs $\sqrt{2}$); a search over $(v,t)$ without a
-time bound never terminates when the goal is unreachable; and an agent that stops
-searching the instant it reaches the goal cannot honor a constraint on the goal cell at a
-later time.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch04} is the week's deliverable. Add the coding exercise
-of \cref{ch:ch03} and that chapter's treatment of backward Dijkstra as an exact heuristic;
-you will reuse it as the low-level heuristic of \cbs in Week~4.
+
+\textbf{Focus.} Dijkstra's settled-node invariant (a node popped from \Open with the
+smallest $\gcost$ has its final cost), and what the heuristic buys in \astar: an admissible
+one makes the first expansion of the goal optimal, a consistent one makes a \Closed set safe.
+Give real time to the space-time state $(v,t)$ with a wait action; it is the low-level search
+of every MAPF solver in Part~III.
+
+\textbf{Build.} Grid \astar with a pluggable heuristic (Manhattan, octile, Euclidean, zero);
+the same search over $(v,t)$ with a wait action and vertex and edge constraints; a plot that
+colors cells by their \Open/\Closed status.
+
+\textbf{Done when.} You can state the optimality theorem with its conditions and say what
+breaks when each is dropped; your space-time search waits or detours around a cell reserved
+at a given time; with the zero heuristic both searches expand the same nodes as Dijkstra.
+
+\textbf{Traps.} Unit diagonal cost on an 8-connected grid makes the octile and Euclidean
+heuristics inadmissible; a space-time search without a time bound never terminates when the
+goal is unreachable; a search that stops the instant it reaches the goal cannot honor a
+later constraint on the goal cell.
+
+\textbf{Exercises.} The coding exercise of \cref{ch:ch04} is the deliverable. Add the coding
+exercise of \cref{ch:ch03}; that chapter's backward Dijkstra becomes the low-level heuristic
+of \cbs in Week~4.
 
 \subsection{Week 2: Dynamic replanning -- \lpastar and \dstarlite}
 \label{sec:appA-week02}
 \index{study plan!week 02@week 2}
-\noindent\textbf{Load}\ \difficulty{3}\qquad\textbf{Read}\ \cref{ch:ch05}; \cref{ch:ch06}
+\noindent\textbf{Load}\ \difficulty{3}\quad\textbf{Read}\ \cref{ch:ch05}; \cref{ch:ch06}
 if time permits.
-\paragraph{Focus.}
-Each vertex carries two values, $\gcost$ and $\rhs$, and a vertex is locally inconsistent
-when they differ; everything else in \lpastar and \dstarlite (keys, UpdateVertex,
-ComputeShortestPath) is machinery that repairs only the inconsistent vertices, in the right
-order. \dstarlite searches backward from the goal so that a moving start needs only the key
-modifier $k_m$ instead of a re-sort of the queue.
-\paragraph{Build.}
-Turn your Week-1 grid search into \dstarlite; run it in a loop in which the agent moves one
-step at a time while obstacles appear and disappear in cells it has not reached; count
-expansions and wall-clock time per repair and compare with a fresh \astar from the current
-position.
-\paragraph{Done when.}
-After a small map change the number of expansions is a small fraction of a fresh \astar
-(and about equal to it for a change that invalidates most of the path), and the path cost
-after every repair equals the cost of a fresh \astar; that equality is the correctness test.
-\paragraph{Traps.}
-Forgetting to add to $k_m$ when the start moves, which leaves stale keys in the queue;
-updating only one endpoint after an edge cost changes; comparing wall-clock time on grids
-so small that \python overhead dominates (count expansions as well); and changing the map
-in the middle of ComputeShortestPath.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch05}. If you finish early, the coding exercise of
-\cref{ch:ch06}: an anytime search gives the replanning layer of Week~12 a usable path
-within a time budget, which \dstarlite alone does not promise.
+
+\textbf{Focus.} Each vertex carries $\gcost$ and $\rhs$ and is locally inconsistent when they
+differ; keys, UpdateVertex and ComputeShortestPath only repair the inconsistent vertices, in
+the right order. \dstarlite searches backward from the goal so that a moving start needs
+only the key modifier $k_m$ instead of a re-sort of the queue.
+
+\textbf{Build.} Turn the Week-1 search into \dstarlite; move the agent one step at a time
+while obstacles appear and disappear ahead of it; count expansions and time per repair
+against a fresh \astar from the current position.
+
+\textbf{Done when.} Expansions after a small change are a small fraction of a fresh \astar,
+and the path cost after every repair equals the fresh \astar cost; that equality is the
+correctness test.
+
+\textbf{Traps.} Not adding to $k_m$ when the start moves, which leaves stale keys in the
+queue; updating only one endpoint of a changed edge; timing grids so small that \python
+overhead dominates (count expansions too); changing the map inside ComputeShortestPath.
+
+\textbf{Exercises.} The coding exercise of \cref{ch:ch05}; then, if time permits, the coding
+exercise of \cref{ch:ch06}, since an anytime search gives the replanning layer a path within
+a time budget, which \dstarlite alone does not promise.
 
 \subsection{Week 3: MAPF basics and conflict types}
 \label{sec:appA-week03}
 \index{study plan!week 03@week 3}
-\noindent\textbf{Load}\ \difficulty{2}\qquad\textbf{Read}\ \cref{ch:ch07,ch:ch08}.
-\paragraph{Focus.}
-The formal problem of \cref{ch:ch07}: agents, time steps, actions including wait, the
-conflict types (vertex, edge or swap, following, cycle) and the two objectives (sum of
-costs, makespan). Decide which conflicts your project forbids and why; a swap conflict is
-invisible if you compare positions only. Then \cref{ch:ch08}: prioritized planning as a
-sequence of space-time \astar searches against a reservation table, fast but incomplete and
-suboptimal in general, and you should be able to draw an instance that shows it.
-\paragraph{Build.}
-A conflict checker that takes a set of time-indexed paths and lists every conflict with its
-type and time; prioritized planning for 2--5 agents; and three deliberate conflict
+\noindent\textbf{Load}\ \difficulty{2}\quad\textbf{Read}\ \cref{ch:ch07,ch:ch08}.
+
+\textbf{Focus.} The formal problem of \cref{ch:ch07}: agents, time steps, wait actions, the
+conflict types (vertex, edge or swap, following, cycle) and the two objectives (sum of costs,
+makespan); a swap is invisible if you compare positions only. Then \cref{ch:ch08}:
+prioritized planning as one space-time \astar per agent against a reservation table, fast
+but incomplete and suboptimal in general.
+
+\textbf{Build.} A conflict checker that lists every conflict of a set of time-indexed paths
+with its type and time; prioritized planning for 2--5 agents; three deliberate conflict
 instances (head-on in a corridor, a crossing, an agent parked on another agent's route).
-\paragraph{Done when.}
-The checker finds every conflict you planted and none you did not; the planner solves the
-well-formed instances; and you have an instance that prioritized planning fails for one
-priority order and solves for another.
-\paragraph{Traps.}
-Off-by-one in time (the position at time~0 is the start; a swap compares $(u,v)$ at $t$
-with $(v,u)$ at $t$); paths of different length, where the agent that has arrived stays at
-its goal and must be reserved there for all later times; and a reservation table that
-stores vertices but not edges.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch07} and the coding exercise of \cref{ch:ch08}. Keep the
-checker: it becomes the conflict detector of your \cbs high level next week and the
-``re-check inter-agent conflicts'' step of the capstone.
+
+\textbf{Done when.} The checker finds every planted conflict and nothing else; the planner
+solves the well-formed instances; you own an instance that one priority order fails and
+another solves.
+
+\textbf{Traps.} Off-by-one in time (the position at time~0 is the start; a swap compares
+$(u,v)$ at $t$ with $(v,u)$ at $t$); an agent that has arrived stays at its goal and must be
+reserved there for all later times; a reservation table that stores vertices but not edges.
+
+\textbf{Exercises.} The coding exercises of \cref{ch:ch07,ch:ch08}. Keep the checker: it is
+the conflict detector of your \cbs high level next week and the ``re-check inter-agent
+conflicts'' step of the capstone.
 
 \subsection{Week 4: Conflict-Based Search}
 \label{sec:appA-week04}
 \index{study plan!week 04@week 4}
-\noindent\textbf{Load}\ \difficulty{3}\qquad\textbf{Read}\ \cref{ch:ch09}.
-\paragraph{Focus.}
-The constraint tree. A node holds a set of constraints, one path per agent and the sum of
-costs; the high level expands the cheapest node, finds its first conflict and creates two
-children, each forbidding the conflict for one of the two agents; the low level replans
-only the constrained agent with the space-time \astar of Week~1. Understand why optimality
-follows: every conflict-free solution satisfies the constraint of at least one child, so
-the split loses nothing.
-\paragraph{Build.}
-\cbs from scratch on a grid: vertex constraints (agent, vertex, time) and edge constraints
-(agent, edge, time), a low-level search that respects them, and the high-level search.
-Test with 2, 4 and 8 agents on an open grid and on the corridor instances of Week~3.
-\paragraph{Done when.}
-Your plans pass the Week-3 checker; the sum of costs equals that of the reference
-implementation of \cref{ch:ch09} on every test instance; and you can draw the constraint
+\noindent\textbf{Load}\ \difficulty{3}\quad\textbf{Read}\ \cref{ch:ch09}.
+
+\textbf{Focus.} The constraint tree: a node holds constraints, one path per agent and the sum
+of costs; the high level expands the cheapest node, takes its first conflict and creates two
+children, each forbidding it for one agent; the low level replans only that agent with the
+space-time \astar of Week~1. Optimality follows because every conflict-free solution
+satisfies the constraint of at least one child.
+
+\textbf{Build.} \cbs from scratch on a grid: vertex constraints (agent, vertex, time), edge
+constraints (agent, edge, time), a constrained low level and the high-level search; test
+with 2, 4 and 8 agents on an open grid and on the Week-3 corridors.
+
+\textbf{Done when.} Your plans pass the Week-3 checker; the sum of costs equals that of the
+reference implementation of \cref{ch:ch09} on every instance; you can draw the constraint
 tree of a two-agent instance by hand and match it against your program's log.
-\paragraph{Traps.}
-An edge constraint has a direction and a time; a low-level search that returns as soon as
-it pops the goal ignores constraints on the goal cell at later times (keep searching until
-the time of the last such constraint); ordering the high-level queue by makespan while
-reporting sum of costs; and missing conflicts after the shorter path has ended, because
-its agent is still there.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch09}. Read the chapter's discussion of cardinal conflicts
-and bypass, but do not implement them yet; they matter when eight agents become twenty.
+
+\textbf{Traps.} An edge constraint has a direction and a time; a low level that returns when
+it first pops the goal ignores later constraints on the goal cell; sorting the high level by
+makespan while reporting sum of costs; missing conflicts after the shorter path has ended.
+
+\textbf{Exercises.} The coding exercise of \cref{ch:ch09}. Read about cardinal conflicts and
+bypass in the same chapter, but do not implement them yet; they matter when eight agents
+become twenty.
 
 \subsection{Week 5: \ecbs and practical MAPF}
 \label{sec:appA-week05}
 \index{study plan!week 05@week 5}
-\noindent\textbf{Load}\ \difficulty{2}\qquad\textbf{Read}\ \cref{ch:ch10}; \cref{ch:ch11}
+\noindent\textbf{Load}\ \difficulty{2}\quad\textbf{Read}\ \cref{ch:ch10}; \cref{ch:ch11}
 for contrast.
-\paragraph{Focus.}
-Bounded suboptimality. A focal search may expand any node with $\fcost \le w \cdot
-\fcost_{\min}$ and picks among them the one with the fewest conflicts; \ecbs applies this
-at both levels and guarantees a solution within a factor $w$ of optimal. Understand where
-the lower bound comes from (the smallest $\fcost$ in each agent's low-level \Open, summed
-over agents) and why the bound on the high level is stated against that lower bound.
-\paragraph{Build.}
-Turn your \cbs into \ecbs, or reproduce an open implementation as the plan allows, and
-benchmark both on the same instances for $w \in \set{1.0, 1.1, 1.5, 2.0}$: success rate
-within a time limit, runtime, high-level nodes and sum of costs, over several random seeds.
-\paragraph{Done when.}
-A plot of solution cost against runtime as $w$ varies, with $w=1$ reproducing \cbs exactly,
-and a paragraph that states, with numbers, what suboptimality buys on your instances.
-\paragraph{Traps.}
-Using the current node's $\fcost$ instead of the minimum over \Open as the focal bound;
-taking the returned path cost instead of the low-level $\fcost_{\min}$ as the lower bound;
-forgetting to grow the focal list when $\fcost_{\min}$ rises; and drawing conclusions from
-one instance.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch10}. Read \cref{ch:ch11} to know how \mstar and
-Push-and-Swap differ from \cbs; the plan asks for awareness, not for an implementation.
+
+\textbf{Focus.} Bounded suboptimality: a focal search may expand any node with
+$\fcost \le w \cdot \fcost_{\min}$ and picks the one with the fewest conflicts; \ecbs does
+this at both levels and guarantees a cost within a factor $w$ of optimal. Know where the
+lower bound comes from (each agent's low-level $\fcost_{\min}$, summed).
+
+\textbf{Build.} Turn your \cbs into \ecbs, or reproduce an open implementation as the plan
+allows; benchmark both for $w \in \set{1.0, 1.1, 1.5, 2.0}$: success rate under a time
+limit, runtime, high-level nodes and sum of costs, over several seeds.
+
+\textbf{Done when.} A plot of cost against runtime as $w$ varies, with $w = 1$ reproducing
+\cbs exactly, and a paragraph that says with numbers what suboptimality buys.
+
+\textbf{Traps.} Using the current node's $\fcost$ instead of the minimum over \Open as the
+focal bound; taking the returned path cost instead of $\fcost_{\min}$ as the lower bound;
+not growing the focal list when $\fcost_{\min}$ rises; concluding from one instance.
+
+\textbf{Exercises.} The coding exercise of \cref{ch:ch10}. Read \cref{ch:ch11} to know how
+\mstar and Push-and-Swap differ from \cbs; the plan asks for awareness, not an
+implementation.
 
 \subsection{Week 6: Velocity Obstacles, RVO and \orca}
 \label{sec:appA-week06}
 \index{study plan!week 06@week 6}
-\noindent\textbf{Load}\ \difficulty{3}\qquad\textbf{Read}\ \cref{ch:ch12,ch:ch13}.
-\paragraph{Focus.}
-Everything is relative: the relative position, the relative velocity and the Minkowski disc
-whose radius is the sum of the two radii. The velocity obstacle (VO) is the set of relative
-velocities that reach that disc within the horizon $\ttc$; the reciprocal velocity obstacle
-(RVO) shares the avoidance between two cooperating agents; \orca turns the shared avoidance
-into one half-plane per neighbor, so that choosing the new velocity is a small linear
-program.
-\paragraph{Build.}
-A 2D simulation in which agents cross: two agents head-on first, then eight agents on a
-circle exchanging places. Run three modes, no avoidance, VO and \orca, and record
-collisions, minimum separation and time to goal for each.
-\paragraph{Done when.}
-No avoidance collides; VO avoids but oscillates or takes wide detours; \orca is smooth and
-collision-free at the same speeds; and you can draw, for one pair, the collision cone and
-the \orca half-plane and mark the chosen velocity.
-\paragraph{Traps.}
-The orientation of the half-plane (it must exclude the velocity obstacle, so the direction
-of the smallest change $\vect{u}$ depends on which boundary of the cone is nearest); the
-truncated cone for finite $\ttc$ is a disc plus two tangent legs, not a triangle; when the
-linear program is infeasible in a dense crowd, choose the velocity that violates the
-constraints least rather than stopping; and perfectly symmetric instances deadlock unless
-you break the symmetry.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch12} and the coding exercise of \cref{ch:ch13}. Keep the
-simulator; Week~7 and the capstone reuse it.
+\noindent\textbf{Load}\ \difficulty{3}\quad\textbf{Read}\ \cref{ch:ch12,ch:ch13}.
+
+\textbf{Focus.} Everything is relative: relative position, relative velocity and a Minkowski
+disc whose radius is the sum of the two radii. The velocity obstacle (VO) is the set of
+relative velocities that reach the disc within the horizon $\ttc$; the reciprocal velocity
+obstacle (RVO) shares the avoidance between cooperating agents; \orca turns it into one
+half-plane per neighbor, so that the new velocity is a small linear program.
+
+\textbf{Build.} A 2D simulation of crossing agents (two head-on, then eight on a circle
+exchanging places) in three modes, no avoidance, VO and \orca, recording collisions,
+minimum separation and time to goal.
+
+\textbf{Done when.} No avoidance collides, VO avoids but oscillates or detours widely, \orca
+is smooth and collision-free at the same speeds, and you can draw the cone and the \orca
+half-plane for one pair.
+
+\textbf{Traps.} The orientation of the half-plane (it must exclude the velocity obstacle);
+the truncated cone for finite $\ttc$ is a disc plus two tangent legs, not a triangle; when
+the linear program is infeasible in a crowd, choose the least-violating velocity rather than
+stopping; symmetric instances deadlock unless you break the symmetry.
+
+\textbf{Exercises.} The coding exercises of \cref{ch:ch12,ch:ch13}. Keep the simulator;
+Week~7 and the capstone reuse it.
 
 \subsection{Week 7: DWA and Artificial Potential Fields}
 \label{sec:appA-week07}
 \index{study plan!week 07@week 7}
-\noindent\textbf{Load}\ \difficulty{2}\qquad\textbf{Read}\ \cref{ch:ch14,ch:ch15}.
-\paragraph{Focus.}
-DWA searches the velocity space: the dynamic window is the set of velocities reachable
-within one control interval under the acceleration limits, admissible velocities are those
-from which the robot can still stop before the nearest obstacle, and a weighted sum of
-heading, clearance and velocity terms picks the command. Artificial potential fields (APF)
-are the opposite extreme: no search, only a force field, attractive to the goal and
-repulsive from obstacles, which is why APF is fast and why it gets stuck in local minima and
-oscillates in narrow passages.
-\paragraph{Build.}
-Implement one of the two (DWA if your drones have real acceleration limits, APF if you want
-a two-hour baseline) in the continuous simulator of Week~6, then design failure cases: a
-U-shaped obstacle (an APF local minimum), a narrow passage (oscillation), and a dead end
-that a short DWA horizon cannot see.
-\paragraph{Done when.}
-You have a picture of each failure case with an explanation of why the method fails there,
-and a tuning table showing how the DWA weights (or the APF gains) change the behavior.
-\paragraph{Traps.}
-DWA objective terms with different units summed without normalization, so that one term
-dominates; skipping the admissibility (braking) check, which collides at speed; repulsive
-forces that grow without bound near obstacles (clamp them); and comparing the two methods
-at different control rates.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch14} or of \cref{ch:ch15}, plus the conceptual exercises
-of the other chapter. Only one of the two enters the capstone: DWA is the plan's alternative
-to \orca in the local safety layer.
+\noindent\textbf{Load}\ \difficulty{2}\quad\textbf{Read}\ \cref{ch:ch14,ch:ch15}.
+
+\textbf{Focus.} DWA searches velocity space: the dynamic window holds the velocities
+reachable within one control interval, admissible velocities are those from which the robot
+can still stop, and a weighted sum of heading, clearance and velocity terms picks the
+command. Artificial potential fields (APF) have no search, only forces, attractive to the
+goal and repulsive from obstacles, which is why APF is fast and why it has local minima and
+oscillation.
+
+\textbf{Build.} One of the two (DWA if your drones have real acceleration limits, APF as a
+two-hour baseline) in the Week-6 simulator; then failure cases: a U-shaped obstacle, a
+narrow passage, a dead end that a short DWA horizon cannot see.
+
+\textbf{Done when.} A picture of each failure with the reason, and a tuning table of how the
+DWA weights or the APF gains change the behavior.
+
+\textbf{Traps.} DWA terms of different units summed without normalization; skipping the
+braking (admissibility) check; repulsive forces that grow without bound near obstacles
+(clamp them); comparing the methods at different control rates.
+
+\textbf{Exercises.} The coding exercise of \cref{ch:ch14} or of \cref{ch:ch15}, plus the
+conceptual exercises of the other chapter. DWA is the plan's alternative to \orca in the
+local safety layer.
 
 \subsection{Week 8: \rrt, \rrtstar and continuous 3D planning}
 \label{sec:appA-week08}
 \index{study plan!week 08@week 8}
-\noindent\textbf{Load}\ \difficulty{2}\qquad\textbf{Read}\ \cref{ch:ch16,ch:ch17}.
-\paragraph{Focus.}
-The four primitives (sample, nearest, steer, collision-free) and the goal bias make \rrt;
-adding the near set, parent choice and rewiring with a shrinking connection radius makes
-\rrtstar asymptotically optimal; informed sampling restricts samples to the ellipsoid that
-can still improve the solution. Know the difference between probabilistic completeness
-(\rrt) and asymptotic optimality (\rrtstar), and what neither promises about finite time.
-\paragraph{Build.}
-\rrtstar, your own or from a library as the plan allows, in a 3D field of box or sphere
-obstacles; compare with grid \astar on the same field discretized at two or three
-resolutions: path length, computation time and memory.
-\paragraph{Done when.}
-A convergence plot of the \rrtstar path cost against iterations, a table that compares
-\astar at each resolution with \rrtstar at each sample budget, and a one-paragraph rule for
-when you would choose each.
-\paragraph{Traps.}
-Collision-checking the new vertex but not the segment to it; a nearest-neighbor search that
-turns quadratic (use a KD-tree above a few thousand nodes); a rewire that changes a parent
-without updating the costs of the descendants; and comparing raw \rrtstar paths with grid
-paths without smoothing either.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch16} and the coding exercise of \cref{ch:ch17}. The 3D
-field you build here is the map of the capstone.
+\noindent\textbf{Load}\ \difficulty{2}\quad\textbf{Read}\ \cref{ch:ch16,ch:ch17}.
+
+\textbf{Focus.} Sample, nearest, steer and collision-free plus a goal bias make \rrt; the
+near set, parent choice and rewiring with a shrinking connection radius make \rrtstar
+asymptotically optimal; informed sampling restricts samples to the ellipsoid that can still
+improve the solution. Know what probabilistic completeness and asymptotic optimality
+promise, and that neither says anything about finite time.
+
+\textbf{Build.} \rrtstar, yours or a library's, in a 3D field of box or sphere obstacles;
+grid \astar on the same field at two or three resolutions; compare path length, time and
+memory.
+
+\textbf{Done when.} A convergence plot of the \rrtstar cost against iterations, a table of
+\astar per resolution against \rrtstar per sample budget, and a one-paragraph rule for when
+you would choose each.
+
+\textbf{Traps.} Checking the new vertex but not the segment to it; a quadratic
+nearest-neighbor search (use a KD-tree above a few thousand nodes); a rewire that changes a
+parent without updating the descendants' costs; comparing raw paths without smoothing
+either.
+
+\textbf{Exercises.} The coding exercises of \cref{ch:ch16,ch:ch17}. The 3D field you build
+here is the map of the capstone.
 
 \subsection{Week 9: Tracking unknown moving obstacles}
 \label{sec:appA-week09}
 \index{study plan!week 09@week 9}
-\noindent\textbf{Load}\ \difficulty{2}\qquad\textbf{Read}\ \cref{ch:ch18,ch:ch19}.
-\paragraph{Focus.}
-The Kalman filter as two steps: predict with the motion model (the state moves, the
-covariance grows) and update with the measurement (the gain weighs model against
-measurement). The constant-velocity model with white-noise-acceleration process noise is
-the workhorse; gating rejects outliers; a missing measurement means predict without update.
-\Cref{ch:ch19} adds the extended and unscented Kalman filters (EKF, UKF) and the particle
-filter for targets that turn; know when each is needed.
-\paragraph{Build.}
-Simulate an external drone on a curved path, observed with noisy position (and optionally
-velocity) measurements at 10--20~Hz with random dropouts; track it with a Kalman filter;
-tune $\mat{Q}$ and $\mat{R}$; report the error of the estimated position and velocity
-against the truth next to the error of the raw measurements.
-\paragraph{Done when.}
-The filtered estimate is more accurate than the raw measurements, the velocity estimate is
-smooth enough to extrapolate one or two seconds ahead, and the simulator of Week~6 consumes
-the estimate and its covariance instead of the raw observation.
-\paragraph{Traps.}
-$\mat{R}$ below the real measurement noise (the filter trusts noise) or $\mat{Q}$ too
-small (the filter lags on turns and its covariance becomes overconfident); a wrong $\dt$ in
-the transition matrix; treating the covariance as truth when the model is violated (check
-the normalized innovations); and hand-tuning on a single trajectory.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch18}; the coding exercise of \cref{ch:ch19} if your
-intruder turns sharply.
+\noindent\textbf{Load}\ \difficulty{2}\quad\textbf{Read}\ \cref{ch:ch18,ch:ch19}.
+
+\textbf{Focus.} Predict with the motion model (the state moves, the covariance grows),
+update with the measurement (the gain weighs model against measurement). The
+constant-velocity model with white-noise-acceleration process noise is the workhorse; gating
+rejects outliers; a missing measurement is a predict without update. \Cref{ch:ch19} adds
+the extended and unscented Kalman filters (EKF, UKF) and the particle filter for targets
+that turn.
+
+\textbf{Build.} An external drone on a curved path, observed with noisy position (optionally
+velocity) measurements at 10--20~Hz with dropouts; a Kalman filter with tuned $\mat{Q}$ and
+$\mat{R}$; the error of the estimate against the truth next to the error of the raw
+measurements.
+
+\textbf{Done when.} The estimate beats the raw measurements, the velocity estimate
+extrapolates one or two seconds ahead without jitter, and the Week-6 simulator consumes the
+estimate and its covariance instead of the observation.
+
+\textbf{Traps.} $\mat{R}$ below the real noise (the filter trusts noise) or $\mat{Q}$ too
+small (it lags on turns and becomes overconfident); a wrong $\dt$ in the transition matrix;
+trusting the covariance when the model is violated (check the normalized innovations);
+tuning on one trajectory.
+
+\textbf{Exercises.} The coding exercise of \cref{ch:ch18}; the coding exercise of
+\cref{ch:ch19} if your intruder turns sharply.
 
 \subsection{Week 10: Trajectory prediction}
 \label{sec:appA-week10}
 \index{study plan!week 10@week 10}
-\noindent\textbf{Load}\ \difficulty{3}\qquad\textbf{Read}\ \cref{ch:ch20}.
-\paragraph{Focus.}
-Average and final displacement error (ADE, FDE) as the yardsticks; the constant-velocity and
-Kalman baselines; the LSTM as a sequence model that reads past positions and writes future
-ones; the prediction horizon and its uncertainty; and the evaluation protocol.
-\paragraph{Build.}
-A dataset of trajectories generated by the Week-6 simulator (agents that avoid one another
-are not constant-velocity, which is what makes learning worthwhile), split by trajectory
-and not by time step; a constant-velocity and a Kalman baseline; an LSTM (a deep-learning
-framework is fine; the book's own code stays in NumPy); and ADE/FDE at horizons of 1, 2 and
-3~seconds.
-\paragraph{Done when.}
-A table of ADE/FDE per horizon and per method over several training seeds, and an honest
-conclusion. ``The LSTM did not beat constant velocity on this data'' is a legitimate result
-and a common one at short horizons.
-\paragraph{Traps.}
-Leakage (the same trajectory in training and test sets); predicting absolute coordinates
-instead of displacements in the agent's own frame; a weak baseline that uses the last two
-noisy points instead of a smoothed velocity; comparing methods at different horizons; and
-an LSTM tuned on the test set.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch20}. Save the trained model and the baselines; the
-``prediction quality'' axis of the capstone uses all of them.
+\noindent\textbf{Load}\ \difficulty{3}\quad\textbf{Read}\ \cref{ch:ch20}.
+
+\textbf{Focus.} Average and final displacement error (ADE, FDE) as the yardsticks;
+constant-velocity and Kalman baselines; the LSTM as a sequence model that reads past
+positions and writes future ones; horizon, uncertainty and the evaluation protocol.
+
+\textbf{Build.} Trajectories from the Week-6 simulator (agents that avoid one another are
+not constant-velocity, which is what makes learning worthwhile), split by trajectory rather
+than by time step; both baselines; an LSTM (a deep-learning framework is fine; the book's
+own code stays in NumPy); ADE/FDE at 1, 2 and 3~s.
+
+\textbf{Done when.} A table of ADE/FDE per horizon and method over several training seeds,
+and an honest conclusion: ``the LSTM did not beat constant velocity on this data'' is a
+legitimate and common result at short horizons.
+
+\textbf{Traps.} Leakage between training and test trajectories; predicting absolute
+coordinates instead of displacements in the agent's frame; a weak baseline that uses two raw
+points instead of a smoothed velocity; comparing at different horizons; tuning on the test
+set.
+
+\textbf{Exercises.} The coding exercise of \cref{ch:ch20}. Save the model and the
+baselines; the ``prediction quality'' axis of the capstone uses all of them.
 
 \subsection{Week 11: MPC and formation/communication constraints}
 \label{sec:appA-week11}
 \index{study plan!week 11@week 11}
-\noindent\textbf{Load}\ \difficulty{3}\qquad\textbf{Read}\ \cref{ch:ch21,ch:ch23};
+\noindent\textbf{Load}\ \difficulty{3}\quad\textbf{Read}\ \cref{ch:ch21,ch:ch23};
 \cref{ch:ch22} as background.
-\paragraph{Focus.}
-Receding horizon: solve a short optimal control problem, apply the first input, repeat.
-With the double-integrator model and a quadratic cost the problem is a quadratic program;
-box constraints on velocity and acceleration are linear; separation constraints are not
-convex and are linearized around the previous solution; soft constraints with slack
-variables keep the program feasible. From \cref{ch:ch23}, the displacement-based formation
-and its formation error. Mixed-integer linear programming (MILP, \cref{ch:ch22}) is the
-exact alternative; read it to know the cost of exactness.
-\paragraph{Build.}
-A model predictive controller (MPC), or the simplified constrained controller the plan
-allows, that follows a nominal path while keeping the formation error bounded or every
-pairwise distance below the communication radius; log the constraint violations and the
-slack.
-\paragraph{Done when.}
-With hard constraints the violation count is zero; with soft constraints the slack is
-logged and small; the formation error over time is plotted; and switching the constraint
-off shows a visible difference.
-\paragraph{Traps.}
-A horizon too long for the solver's time budget, or too short to see a conflict coming;
-hard constraints that become infeasible when an intruder comes close (use slack);
-linearizing a nonconvex constraint around a stale trajectory; and a model $\dt$ that
-differs from the control interval.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch21} and the coding exercise of \cref{ch:ch23}; the
-coding exercise of \cref{ch:ch22} is optional.
+
+\textbf{Focus.} Receding horizon: solve a short optimal control problem, apply the first
+input, repeat. With the double-integrator model and a quadratic cost it is a quadratic
+program; velocity and acceleration bounds are linear; separation constraints are nonconvex
+and are linearized around the previous solution; slack variables keep the program feasible.
+From \cref{ch:ch23}, displacement-based formation and the formation error. Mixed-integer
+linear programming (MILP, \cref{ch:ch22}) is the exact alternative; read it for the cost of
+exactness.
+
+\textbf{Build.} A model predictive controller (MPC), or the simplified constrained
+controller the plan allows, that follows a nominal path while keeping the formation error
+bounded or every pairwise distance below the communication radius; log violations and slack.
+
+\textbf{Done when.} Zero violations with hard constraints, logged and small slack with soft
+ones, a plot of the formation error over time, and a visible difference when the constraint
+is switched off.
+
+\textbf{Traps.} A horizon too long for the time budget or too short to see a conflict
+coming; hard constraints that turn infeasible when an intruder closes in (use slack);
+linearizing around a stale trajectory; a model $\dt$ that differs from the control interval.
+
+\textbf{Exercises.} The coding exercises of \cref{ch:ch21,ch:ch23}; the coding exercise of
+\cref{ch:ch22} is optional.
 
 \subsection{Week 12: Hybrid system integration}
 \label{sec:appA-week12}
 \index{study plan!week 12@week 12}
-\noindent\textbf{Load}\ \difficulty{3}\qquad\textbf{Read}\ \cref{ch:ch24,ch:ch25}.
-\paragraph{Focus.}
-The architecture and decision logic of \cref{sec:appA-capstone}; the safety horizon and
-the time-to-collision trigger; reconnection to the nominal path; the replanning triggers;
-the conflict re-check; and the experiment matrix and metrics of \cref{ch:ch25}.
-\paragraph{Build.}
-The capstone: connect the four layers you already own behind clean interfaces, then write
-the experiment runner that takes a scenario and a seed and writes one row of metrics per
-run.
-\paragraph{Done when.}
-The experiment matrix runs unattended from one script, every run is reproducible from its
-seed, and you have a table and plots that compare local-only, replan-only and hybrid
+\noindent\textbf{Load}\ \difficulty{3}\quad\textbf{Read}\ \cref{ch:ch24,ch:ch25}.
+
+\textbf{Focus.} The architecture and decision logic of \cref{sec:appA-capstone}: the safety
+horizon and the time-to-collision trigger, reconnection to the nominal path, the replanning
+triggers, the conflict re-check, and the experiment matrix and metrics of \cref{ch:ch25}.
+
+\textbf{Build.} The capstone: the four layers you already own, connected behind clean
+interfaces, and an experiment runner that takes a scenario and a seed and writes one row of
+metrics per run.
+
+\textbf{Done when.} The experiment matrix runs unattended from one script, every run is
+reproducible from its seed, and a table and plots compare local-only, replan-only and hybrid
 strategies under the same conditions.
-\paragraph{Traps.}
-One file that mixes the layers; different time steps for the discrete global plan and the
-continuous local layer (define the conversion once, in one place); measuring success rate
-only; and running experiments before the individual layers pass their own tests.
-\paragraph{Exercises.}
-The coding exercise of \cref{ch:ch24} and the coding exercise of \cref{ch:ch25}.
+
+\textbf{Traps.} One file that mixes the layers; different time steps for the discrete global
+plan and the continuous local layer (convert in one place); measuring success rate only;
+running experiments before each layer passes its own tests.
+
+\textbf{Exercises.} The coding exercises of \cref{ch:ch24,ch:ch25}.
 
 % ---------------------------------------------------------------------
 \section{The capstone: a hybrid collision-avoidance prototype}
@@ -603,8 +583,8 @@ plan's specification so that you can check your prototype against it.
 \subsection{The four layers}
 \label{sec:appA-layers}
 \Cref{tab:appA-layers} lists the four layers in the plan's words. The numbering is the
-plan's; it is not the order in which the layers act at run time (that is the decision
-logic below), and it is not the order in which you build them (that is the schedule).
+plan's; it is neither the order in which the layers act at run time (that is the decision
+logic below) nor the order in which you build them (that is the schedule).
 
 \begin{table}[htb]
 \centering\small
@@ -636,10 +616,10 @@ chapters that teach each layer and the weeks in which you build it.}
 
 \subsection{The decision logic}
 \label{sec:appA-logic}
-The plan suggests the following five steps for every controlled drone, at every control
-cycle. \Cref{ch:ch24} turns them into a state machine with explicit triggers (a time to
-collision below a threshold, a reconnection cost above a bound, a violated constraint) and
-explains what happens to the optimality of the \cbs plan once a drone leaves it.
+The plan suggests five steps for every controlled drone, at every control cycle.
+\Cref{ch:ch24} turns them into a state machine with explicit triggers (a time to collision
+below a threshold, a reconnection cost above a bound, a violated constraint) and explains
+what happens to the optimality of the \cbs plan once a drone leaves it.
 \begin{enumerate}
   \item Follow the nominal \cbs/\ecbs path while no predicted conflict is inside the safety
     horizon.
@@ -654,22 +634,21 @@ explains what happens to the optimality of the \cbs plan once a drone leaves it.
 \index{decision logic!capstone}
 
 \begin{notebox}{Keep the layers separable}
-Implement each layer as a module with one entry point: the global planner takes an instance
-and returns time-indexed paths; the predictor takes observations and returns a predicted
-trajectory with covariance; the local layer takes the current states and predictions and
-returns a velocity; the replanner takes a start state and returns a path. Then the
-``avoidance strategy'' axis of the experiments is a switch, not a rewrite: local-only
-disables layer~4, replan-only disables layer~3, and the hybrid uses both.
+Give each layer one entry point: the global planner takes an instance and returns
+time-indexed paths; the predictor takes observations and returns a predicted trajectory
+with covariance; the local layer takes states and predictions and returns a velocity; the
+replanner takes a start state and returns a path. The ``avoidance strategy'' axis of the
+experiments is then a switch, not a rewrite: local-only disables layer~4, replan-only
+disables layer~3, the hybrid uses both.
 \end{notebox}
 
 \subsection{Experiments and metrics}
 \label{sec:appA-experiments}
-\Cref{tab:appA-experiments} lists the factors the plan asks you to vary and
-\cref{tab:appA-metrics} the metrics it asks you to report; \cref{ch:ch25} gives the exact
-definitions, the scenario generator and the statistics to report. Taken as a full factorial
-design the five factors have $4 \times 4 \times 4 \times 3 \times 4 = 768$ cells before
-seeds; you will not run all of them. Fix every factor at a default and vary one or two at a
-time, and let the research question of \cref{ch:ch24} decide which.
+\Cref{tab:appA-experiments} lists the factors the plan asks you to vary; \cref{ch:ch25}
+gives the scenario generator and the statistics to report. As a full factorial design the
+five factors have $4 \times 4 \times 4 \times 3 \times 4 = 768$ cells before seeds; you will
+not run all of them. Fix every factor at a default, vary one or two at a time, and let the
+research question of \cref{ch:ch24} decide which.
 \index{experiment matrix}
 
 \begin{table}[htb]
@@ -693,28 +672,17 @@ Constraints & no formation requirement vs formation-preserving; no communication
 \end{tabular}
 \end{table}
 
-\begin{table}[htb]
-\centering\small
-\caption{The metrics of the capstone. The definitions used in this book are those of
-\cref{ch:ch25}; the middle column says what each one is for.}
-\label{tab:appA-metrics}
-\begin{tabular}{@{}L{3.3cm}L{9.1cm}L{2.0cm}@{}}
-\toprule
-\textbf{Metric} & \textbf{What it tells you} & \textbf{Defined in}\\
-\midrule
-Collision rate & How often the system fails at its first duty; report it per run and per drone pair. & \cref{ch:ch25}\\
-Minimum separation & How close to failure the successful runs came; a near miss is a warning that a collision rate of zero hides. & \cref{ch:ch25}\\
-Path length & The price of avoidance in distance, per drone. & \cref{ch:ch25}\\
-Travel time & The price of avoidance in time, per drone. & \cref{ch:ch25}\\
-Makespan & When the last drone arrived; the MAPF objective of \cref{ch:ch07}. & \cref{ch:ch07,ch:ch25}\\
-Sum of costs & The total cost over all drones; the objective \cbs optimizes. & \cref{ch:ch07,ch:ch25}\\
-Replanning count & How often the local layer was not enough. & \cref{ch:ch24,ch:ch25}\\
-Computation time & Whether the system keeps up with its control cycle; report the mean and the maximum. & \cref{ch:ch25}\\
-Formation error & How far the swarm drifted from the desired relative positions. & \cref{ch:ch23,ch:ch25}\\
-Communication violations & How often a pair exceeded the communication radius, and for how long. & \cref{ch:ch23,ch:ch25}\\
-\bottomrule
-\end{tabular}
-\end{table}
+\paragraph{Metrics.}
+Report, for every run, the metrics the plan lists: \textbf{collision rate}, \textbf{minimum
+separation}, \textbf{path length}, \textbf{travel time}, \textbf{makespan}, \textbf{sum of
+costs}, \textbf{replanning count}, \textbf{computation time}, \textbf{formation error} and
+\textbf{communication violations}.\index{metrics!capstone} \Cref{ch:ch25} defines each of
+them and the statistics to report over seeds; makespan and sum of costs are the MAPF
+objectives of \cref{ch:ch07}, and the replanning count is the direct measure of the decision
+logic of \cref{ch:ch24}, since it counts how often the local layer was not enough. Two of
+them deserve a warning: a collision rate of zero hides near misses, which is what minimum
+separation is for, and a mean computation time hides the cycle that missed its deadline, so
+report the maximum as well.
 
 % ---------------------------------------------------------------------
 \section{Completion checklist}
@@ -723,8 +691,8 @@ Communication violations & How often a pair exceeded the communication radius, a
 
 The plan ends with ten statements. \Cref{tab:appA-checklist} repeats them and names the
 chapters where each ability is taught. Tick a line only when you can do what it says without
-opening the book; the ten lines together are a fair summary of what a thesis committee or a
-reviewer will expect you to know.
+opening the book; together, the ten lines are a fair summary of what a thesis committee or
+a reviewer will expect you to know.
 
 \begin{table}[htb]
 \centering\small
@@ -754,75 +722,75 @@ $\square$ & I can evaluate the hybrid system with reproducible metrics and contr
 \index{traceability table}
 
 \Cref{tab:appA-traceability} maps every algorithm of the training plan to the chapter that
-teaches it and the week that uses it, with the plan's priority tag and the plan's one-line
-reason for including it. The priority tags are the plan's own words; where the plan
-qualified a tag, the qualification is kept beneath it. Use the table in two directions:
-to check that the book covers everything the plan asks for, and, when you read a chapter,
-to see how much depth the plan expects of you there.
+teaches it and the week that uses it, with the plan's priority tag; where the plan qualified
+a tag, the qualification is kept next to it. The plan's one-line reason for each algorithm
+is in the algorithm map of \cref{ch:ch01}. Use the table in two directions: to check that the
+book covers everything the plan asks for, and, when you open a chapter, to see how much
+depth the plan expects of you there.
 
 {\footnotesize
 \setlength{\tabcolsep}{4pt}
-\begin{longtable}{@{}L{3.0cm}L{5.5cm}L{3.1cm}L{1.9cm}C{0.8cm}@{}}
+\begin{longtable}{@{}L{5.0cm}L{4.6cm}L{2.8cm}C{0.8cm}@{}}
 \caption{Every algorithm of the training plan, its priority, and where this book teaches it.}
 \label{tab:appA-traceability}\\
 \toprule
-\textbf{Algorithm} & \textbf{Why it matters (the plan's words)} & \textbf{Priority} & \textbf{Chapter} & \textbf{Wk}\\
+\textbf{Algorithm} & \textbf{Priority in the plan} & \textbf{Chapter} & \textbf{Wk}\\
 \midrule
 \endfirsthead
-\multicolumn{5}{@{}l}{\textit{\Cref{tab:appA-traceability} (continued)}}\\
+\multicolumn{4}{@{}l}{\textit{\Cref{tab:appA-traceability} (continued)}}\\
 \toprule
-\textbf{Algorithm} & \textbf{Why it matters (the plan's words)} & \textbf{Priority} & \textbf{Chapter} & \textbf{Wk}\\
+\textbf{Algorithm} & \textbf{Priority in the plan} & \textbf{Chapter} & \textbf{Wk}\\
 \midrule
 \endhead
 \midrule
-\multicolumn{5}{r@{}}{\textit{continued on the next page}}\\
+\multicolumn{4}{r@{}}{\textit{continued on the next page}}\\
 \endfoot
 \bottomrule
 \endlastfoot
-\multicolumn{5}{@{}l}{\textbf{A. Single-agent graph search} -- learn deeply}\\
+\multicolumn{4}{@{}l}{\textbf{A. Single-agent graph search} -- learn deeply}\\
 \addlinespace[2pt]
-Dijkstra & Baseline shortest-path search; useful for understanding \astar. & \priority{High} & \cref{ch:ch03} & 1\\
-\astar & Main deterministic shortest-path planner with a heuristic. & \priority{Essential} & \cref{ch:ch04} & 1\\
-\dstarlite & Efficient replanning when the environment changes after planning. & \priority{Essential} & \cref{ch:ch05} & 2\\
-Lifelong Planning \astar (\lpastar) & Conceptual foundation for \dstarlite and incremental search. & \priority{Medium} & \cref{ch:ch05} & 2\\
-Anytime Repairing \astar (\arastar) & Produces a quick suboptimal path and improves it when more time is available. & \priority{Medium} & \cref{ch:ch06} & 2\\
+Dijkstra & \priority{High} & \cref{ch:ch03} & 1\\
+\astar & \priority{Essential} & \cref{ch:ch04} & 1\\
+\dstarlite & \priority{Essential} & \cref{ch:ch05} & 2\\
+Lifelong Planning \astar (\lpastar) & \priority{Medium} & \cref{ch:ch05} & 2\\
+Anytime Repairing \astar (\arastar) & \priority{Medium} & \cref{ch:ch06} & 2\\
 \midrule
-\multicolumn{5}{@{}l}{\textbf{B. Multi-agent path finding} -- learn deeply}\\
+\multicolumn{4}{@{}l}{\textbf{B. Multi-agent path finding} -- learn deeply}\\
 \addlinespace[2pt]
-Prioritized Planning & Plans agents sequentially; fast but incomplete in general. & \priority{High} & \cref{ch:ch08} & 3\\
-Conflict-Based Search (\cbs) & High-level conflict resolution plus low-level per-agent path search. & \priority{Essential} & \cref{ch:ch09} & 4\\
-Enhanced \cbs (\ecbs) & Bounded-suboptimal \cbs variant for faster solutions. & \priority{Essential} & \cref{ch:ch10} & 5\\
-\mstar & Couples only agents that are actually in conflict. & \priority{Medium} & \cref{ch:ch11} & 5\\
-Push-and-Swap / Push-and-Rotate & Useful constructive MAPF methods and good conceptual contrasts to \cbs. & \priority{Awareness} & \cref{ch:ch11} & 5\\
+Prioritized Planning & \priority{High} & \cref{ch:ch08} & 3\\
+Conflict-Based Search (\cbs) & \priority{Essential} & \cref{ch:ch09} & 4\\
+Enhanced \cbs (\ecbs) & \priority{Essential} & \cref{ch:ch10} & 5\\
+\mstar & \priority{Medium} & \cref{ch:ch11} & 5\\
+Push-and-Swap / Push-and-Rotate & \priority{Awareness} & \cref{ch:ch11} & 5\\
 \midrule
-\multicolumn{5}{@{}l}{\textbf{C. Local/reactive collision avoidance} -- learn deeply}\\
+\multicolumn{4}{@{}l}{\textbf{C. Local/reactive collision avoidance} -- learn deeply}\\
 \addlinespace[2pt]
-Velocity Obstacles (VO) & Represents velocities that would cause a future collision. & \priority{Essential} & \cref{ch:ch12} & 6\\
-Reciprocal Velocity Obstacles (RVO) & Extends VO when both agents cooperate in avoidance. & \priority{High} & \cref{ch:ch13} & 6\\
-\orca & Efficient reciprocal local collision avoidance with half-plane constraints. & \priority{Essential} & \cref{ch:ch13} & 6\\
-Dynamic Window Approach (DWA) & Chooses safe short-horizon velocity commands under motion constraints. & \priority{High} & \cref{ch:ch14} & 7\\
-Artificial Potential Fields (APF) & Attractive and repulsive forces; simple but can suffer local minima. & \priority{High} & \cref{ch:ch15} & 7\\
+Velocity Obstacles (VO) & \priority{Essential} & \cref{ch:ch12} & 6\\
+Reciprocal Velocity Obstacles (RVO) & \priority{High} & \cref{ch:ch13} & 6\\
+\orca & \priority{Essential} & \cref{ch:ch13} & 6\\
+Dynamic Window Approach (DWA) & \priority{High} & \cref{ch:ch14} & 7\\
+Artificial Potential Fields (APF) & \priority{High} & \cref{ch:ch15} & 7\\
 \midrule
-\multicolumn{5}{@{}l}{\textbf{D. Sampling-based motion planning} -- know well}\\
+\multicolumn{4}{@{}l}{\textbf{D. Sampling-based motion planning} -- know well}\\
 \addlinespace[2pt]
-\rrt & Explores continuous configuration spaces quickly. & \priority{High} & \cref{ch:ch16} & 8\\
-\rrtstar & Asymptotically optimal version of \rrt. & \priority{High} & \cref{ch:ch17} & 8\\
-\irrtstar & Focuses sampling after an initial solution is found. & \priority{Medium} & \cref{ch:ch17} & 8\\
+\rrt & \priority{High} & \cref{ch:ch16} & 8\\
+\rrtstar & \priority{High} & \cref{ch:ch17} & 8\\
+\irrtstar & \priority{Medium} & \cref{ch:ch17} & 8\\
 \midrule
-\multicolumn{5}{@{}l}{\textbf{E. Prediction and tracking} -- know well}\\
+\multicolumn{4}{@{}l}{\textbf{E. Prediction and tracking} -- know well}\\
 \addlinespace[2pt]
-Kalman Filter & Tracks linear motion with Gaussian uncertainty. & \priority{Essential} & \cref{ch:ch18} & 9\\
-Extended Kalman Filter (EKF) & Handles nonlinear motion models. & \priority{High} & \cref{ch:ch19} & 9\\
-Unscented Kalman Filter (UKF) & Alternative nonlinear estimator that avoids explicit Jacobians. & \priority{Medium} & \cref{ch:ch19} & 9\\
-Particle Filter & Useful for nonlinear or non-Gaussian tracking. & \priority{Medium} & \cref{ch:ch19} & 9\\
-LSTM trajectory prediction & Learns temporal motion patterns from historical trajectories. & \priority{Essential}\newline{\scriptsize for your planned research} & \cref{ch:ch20} & 10\\
-Transformer trajectory prediction & Modern alternative for longer-range and interaction-aware prediction. & \priority{Awareness to High} & \cref{ch:ch20} & 10\\
+Kalman Filter & \priority{Essential} & \cref{ch:ch18} & 9\\
+Extended Kalman Filter (EKF) & \priority{High} & \cref{ch:ch19} & 9\\
+Unscented Kalman Filter (UKF) & \priority{Medium} & \cref{ch:ch19} & 9\\
+Particle Filter & \priority{Medium} & \cref{ch:ch19} & 9\\
+LSTM trajectory prediction & \priority{Essential} {\scriptsize for your planned research} & \cref{ch:ch20} & 10\\
+Transformer trajectory prediction & \priority{Awareness to High} & \cref{ch:ch20} & 10\\
 \midrule
-\multicolumn{5}{@{}l}{\textbf{F. Optimization and control} -- learn enough to integrate}\\
+\multicolumn{4}{@{}l}{\textbf{F. Optimization and control} -- learn enough to integrate}\\
 \addlinespace[2pt]
-Model Predictive Control (MPC) & Optimizes controls over a moving time horizon; naturally handles constraints. & \priority{Essential} & \cref{ch:ch21} & 11\\
-Mixed-Integer Linear Programming (MILP) & Useful for exact constrained scheduling/path formulations, but can be expensive. & \priority{Medium} & \cref{ch:ch22} & 11\\
-Consensus / formation control & Maintains relative positions or shared swarm objectives. & \priority{Essential}\newline{\scriptsize for formation-preserving work} & \cref{ch:ch23} (\cref{ch:ch21}) & 11\\
+Model Predictive Control (MPC) & \priority{Essential} & \cref{ch:ch21} & 11\\
+Mixed-Integer Linear Programming (MILP) & \priority{Medium} & \cref{ch:ch22} & 11\\
+Consensus / formation control & \priority{Essential} {\scriptsize for formation-preserving work} & \cref{ch:ch23} (\cref{ch:ch21}) & 11\\
 \end{longtable}
 }
 
@@ -834,13 +802,13 @@ Consensus / formation control & Maintains relative positions or shared swarm obj
 The plan also gives a reading order for the literature, reproduced in
 \cref{tab:appA-reading} together with the chapter that covers each item and the primary
 source to read next to it. The first six items are the plan's highest priority: they are
-exactly the layers of the capstone plus the MAPF definitions that make the conflict
-re-check precise. A way to read a paper next to its chapter: read the chapter up to the end
-of its worked example; then read the paper's algorithm section and compare its pseudocode
-line by line with the chapter's; then read the paper's experiments and ask which of its
-claims your implementation of that week reproduces. Item~10 is a book rather than a paper;
-LaValle's \emph{Planning Algorithms} \cite{lavalle2006planning} is the reference to keep
-open for anything about configuration spaces, sampling and collision checking that
+the layers of the capstone plus the MAPF definitions that make the conflict re-check
+precise. To read a paper next to its chapter: read the chapter up to the end of its worked
+example; then read the paper's algorithm section and compare its pseudocode line by line
+with the chapter's; then read the paper's experiments and ask which of its claims your
+implementation of that week reproduces. Item~10 is a book rather than a paper: LaValle's
+\emph{Planning Algorithms} \cite{lavalle2006planning} is the reference to keep open for
+anything about configuration spaces, sampling and collision checking that
 \cref{ch:ch02,ch:ch16,ch:ch17} treat only as far as this book needs.
 
 \begin{table}[htb]

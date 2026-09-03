@@ -346,3 +346,464 @@ Setting $\hcost \equiv 0$ turns the key into $(\gcost, -\gcost)$ and
 \cref{alg:ch04-astar} into Dijkstra's algorithm with early exit; every property
 of \cref{ch:ch03} is the special case $\hcost = 0$ of a property in this
 chapter.\index{A*!as generalisation of Dijkstra}
+
+% ---------------------------------------------------------------------
+\section{A worked example}
+\label{sec:ch04-example}
+
+\begin{example}[\astar on a $6 \times 6$ grid]
+\label{ex:ch04-grid}
+\Cref{fig:ch04-example} shows a $6 \times 6$ 4-connected grid with two walls:
+the cells $(2, 0)$ to $(2, 3)$ and $(4, 1)$ to $(4, 4)$ are blocked. The start
+is $s = (0, 0)$ in the bottom-left corner and the goal $\gamma = (5, 2)$. Every
+move costs~1 and the heuristic is the Manhattan distance
+\cref{eq:ch04-manhattan}, so $\hcost(s) = 5 + 2 = 7$. Ties in $\fcost$ are
+broken towards the larger $\gcost$, and among equal keys the entry pushed first
+is popped first. The instance is \code{worked\_example\_grid()} in
+\code{ch04\_astar.py}, and every number below is produced by its self-test.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch04/example}
+  \caption{\Cref{ex:ch04-grid} after termination. Grey cells are \Closed
+  (expanded), blue cells are still in \Open; the bold number is $\fcost$ at the
+  time of expansion (for Dijkstra $\fcost = \gcost$) and the small grey number
+  in the corner is the expansion order. The blue line is the returned path of
+  cost~13. (a) \astar with the Manhattan heuristic expands 21 cells; note the
+  four wasted expansions in the column $x = 3$, where the heuristic cannot see
+  the wall at $x = 4$. (b) Dijkstra's algorithm ($\hcost = 0$) expands 26 cells,
+  including the whole south-west corner.}
+  \label{fig:ch04-example}
+\end{figure}
+
+\Cref{tab:ch04-trace} lists the first ten expansions. Steps~1--4 walk up the
+column $x = 1$: every cell there has $\fcost = 7$, because moving towards the
+goal decreases $\hcost$ by exactly the move cost. At $(1, 2)$ the search would
+like to continue east, but $(2, 2)$ is blocked; going north to $(1, 3)$ moves
+away from the goal row, and $\fcost$ rises to $9$. \astar therefore turns to the
+remaining cells with $\fcost = 7$, the column $x = 0$ (steps~5 and~6), before it
+accepts any cell with $\fcost = 9$ (steps~7 and~8). From step~9 on the
+frontier has $\fcost = 11$. The search passes the first wall at $(2, 4)$ and,
+led by the decreasing $\hcost$, dives down the column $x = 3$ to $(3, 2)$, where
+the second wall stops it: the four cells $(3, 4), (3, 3), (3, 2), (3, 1)$ are a
+dead end that the Manhattan distance cannot foresee. Only after these and
+$(0, 4)$ are exhausted does the frontier reach $\fcost = 13$, and the search
+crosses the top row $(3, 5), (4, 5), (5, 5)$ and descends to the goal, which is
+popped at step~21 with $\gcost = 13$. At that moment three cells with
+$\fcost = 13$ but smaller $\gcost$ are still in \Open together with $(3, 0)$ at
+$\fcost = 15$; none of them is ever expanded. Dijkstra's algorithm needs 26
+expansions for the same instance, and \astar with ties broken towards the
+\emph{smaller} $\gcost$ needs 24. On the 8-connected version of the grid, \astar
+with the octile heuristic finds a path of cost $9 + 2\sqrt{2} \approx 11.83$
+with 24 expansions.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The first ten expansions of \cref{alg:ch04-astar} on
+  \cref{ex:ch04-grid}. The last column lists the cells in \Open after the step
+  with their current $\fcost$; a cell whose $\gcost$ improves, such as $(0, 2)$
+  in step~5, keeps a single valid entry.}
+  \label{tab:ch04-trace}
+  \begin{tabular}{@{}rlrrrl@{}}
+  \toprule
+  Step & Expanded $n$ & $\gcost$ & $\hcost$ & $\fcost$ & \Open after the step (cell$:\fcost$)\\
+  \midrule
+   1 & $(0,0)$ & 0 & 7 &  7 & $(0,1){:}7$, $(1,0){:}7$\\
+   2 & $(1,0)$ & 1 & 6 &  7 & $(0,1){:}7$, $(1,1){:}7$\\
+   3 & $(1,1)$ & 2 & 5 &  7 & $(0,1){:}7$, $(1,2){:}7$\\
+   4 & $(1,2)$ & 3 & 4 &  7 & $(0,1){:}7$, $(0,2){:}9$, $(1,3){:}9$\\
+   5 & $(0,1)$ & 1 & 6 &  7 & $(0,2){:}7$, $(1,3){:}9$\\
+   6 & $(0,2)$ & 2 & 5 &  7 & $(0,3){:}9$, $(1,3){:}9$\\
+   7 & $(1,3)$ & 4 & 5 &  9 & $(0,3){:}9$, $(1,4){:}11$\\
+   8 & $(0,3)$ & 3 & 6 &  9 & $(0,4){:}11$, $(1,4){:}11$\\
+   9 & $(1,4)$ & 5 & 6 & 11 & $(0,4){:}11$, $(1,5){:}13$, $(2,4){:}11$\\
+  10 & $(2,4)$ & 6 & 5 & 11 & $(0,4){:}11$, $(1,5){:}13$, $(2,5){:}13$, $(3,4){:}11$\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+Two things in the table deserve a second look. In step~4 the cell $(0, 2)$ enters
+\Open with $\gcost = 3$ (through $(1, 2)$) and $\fcost = 9$; in step~5 the
+expansion of $(0, 1)$ finds the cheaper route with $\gcost = 2$, the entry is
+replaced and $\fcost$ drops to $7$. This is the relaxation of
+line~\ref{alg:ch04-astar:relax}, and it happens while $(0, 2)$ is still open,
+so no re-opening is involved. Second, the $\fcost$ of the expanded nodes reads
+$7, 7, 7, 7, 7, 7, 9, 9, 11, 11, \dots, 13$: it never decreases. This is not
+luck; \cref{thm:ch04-consistent} shows that it holds for every consistent
+heuristic.
+
+% ---------------------------------------------------------------------
+\section{Properties: correctness, optimality, complexity}
+\label{sec:ch04-properties}
+
+Throughout this section $G$ is finite, costs are non-negative and
+\cref{alg:ch04-astar} runs with $w = 1$. The proofs follow Hart, Nilsson and
+Raphael~\cite{hart1968formal,hart1972correction} in the form given by Russell
+and Norvig~\cite{russell2020aima}; Pearl~\cite{pearl1984heuristics} treats the
+general case.
+
+\subsection{Termination and completeness}
+
+\begin{proposition}[Termination and completeness]
+\label{thm:ch04-terminates}
+\Cref{alg:ch04-astar} terminates. It returns a path if and only if some goal is
+reachable from $s$.
+\end{proposition}
+\begin{proof}
+Every push into \Open strictly decreases $\gcost(n')$ for some node $n'$
+(line~\ref{alg:ch04-astar:relax}). The path recorded by the parent pointers of
+$n'$ is simple: if it returned to $n'$, the non-negative costs along the cycle
+would give $\gcost(n) + c(n, n') \ge \gcost(n')$, contradicting the strict
+decrease. A finite graph has finitely many simple paths, so each node's
+$\gcost$ can decrease only finitely often, there are finitely many pushes, and
+the loop ends. If no goal is reachable, no goal is ever popped and the
+algorithm returns \emph{failure} when \Open runs empty. If a goal is reachable,
+\cref{thm:ch04-invariant} below shows that \Open is non-empty until a goal is
+expanded, so the algorithm returns a path.
+\end{proof}
+
+\subsection{Optimality with an admissible heuristic}
+
+The proofs rest on one invariant. It concerns a cheapest path to an arbitrary
+node $m$; we apply it with $m$ a goal and later with $m$ an ordinary node.
+
+\begin{lemma}[An optimal-path node is always open]
+\label{thm:ch04-invariant}
+Let $P = (s = n_0, n_1, \dots, n_k = m)$ be a cheapest path from $s$ to a node
+$m$. At any time before \cref{alg:ch04-astar} expands $m$ with
+$\gcost(m) = \gcost^*(m)$, \Open contains a node $n_i$ of $P$ with
+$\gcost(n_i) = \gcost^*(n_i)$.
+\end{lemma}
+\begin{proof}
+Every prefix of a cheapest path is a cheapest path, so
+$\gcost^*(n_{i+1}) = \gcost^*(n_i) + c(n_i, n_{i+1})$. Let $i$ be the smallest
+index such that $n_i$ has \emph{not} yet been expanded while holding
+$\gcost(n_i) = \gcost^*(n_i)$; the index exists because $m = n_k$ qualifies. If
+$i = 0$, then $s$ has not been expanded (it always holds $\gcost(s) = 0 =
+\gcost^*(s)$), so its initial entry is still in \Open. If $i > 0$, then
+$n_{i-1}$ was expanded with the optimal value, and at that moment
+line~\ref{alg:ch04-astar:relax} set $\gcost(n_i) \le \gcost^*(n_{i-1}) +
+c(n_{i-1}, n_i) = \gcost^*(n_i)$. Since every $\gcost$ value is the cost of an
+actual path, $\gcost(n_i) \ge \gcost^*(n_i)$, hence $\gcost(n_i) =
+\gcost^*(n_i)$ from then on. The push that established this value (either at
+that relaxation, which also re-opened $n_i$ if it was closed, or earlier) put an
+entry with $\gcost^*(n_i)$ into \Open. That entry is never stale, and by the
+choice of $i$ it has not been popped for expansion; so it is still in \Open.
+\end{proof}
+
+\begin{theorem}[Optimality of \astar; Hart, Nilsson and Raphael 1968]
+\label{thm:ch04-optimal}
+If $\hcost$ is admissible and a goal is reachable from $s$, then
+\cref{alg:ch04-astar} (with re-opening, line~\ref{alg:ch04-astar:reopen})
+returns a path of cost $C^*$.\index{A*!optimality theorem}
+\end{theorem}
+\begin{proof}
+By \cref{thm:ch04-terminates} the algorithm returns a path to some goal
+$\gamma'$; its cost is $\gcost(\gamma')$ at the moment $\gamma'$ is popped.
+Suppose $\gcost(\gamma') > C^*$. Let $P = (s, \dots, \gamma)$ be an optimal
+solution, of cost $C^*$. The goal $\gamma$ has not been expanded with
+$\gcost(\gamma) = C^*$, since the algorithm would have stopped there. By
+\cref{thm:ch04-invariant}, at the moment $\gamma'$ is popped \Open contains a
+node $n_i$ of $P$ with $\gcost(n_i) = \gcost^*(n_i)$. The rest of $P$ from $n_i$
+to $\gamma$ costs $C^* - \gcost^*(n_i)$ and is one particular path to a goal,
+so $\hcost^*(n_i) \le C^* - \gcost^*(n_i)$, and admissibility gives
+\[
+  \fcost(n_i) = \gcost^*(n_i) + \hcost(n_i)
+             \le \gcost^*(n_i) + \hcost^*(n_i) \le C^*.
+\]
+But $\fcost(\gamma') = \gcost(\gamma') + \hcost(\gamma') = \gcost(\gamma') >
+C^* \ge \fcost(n_i)$, so line~\ref{alg:ch04-astar:pop} would have popped
+$n_i$, or some other entry with a smaller key, before $\gamma'$. This
+contradiction shows $\gcost(\gamma') \le C^*$, and $\gcost(\gamma') \ge C^*$
+because it is the cost of a real path.
+\end{proof}
+
+The proof used admissibility only in one place: to bound $\fcost(n_i)$ by
+$C^*$. It used re-opening, through \cref{thm:ch04-invariant}, to make sure
+that the optimal-path node is in \Open even if it had been expanded earlier
+with a worse $\gcost$. With a consistent heuristic the second precaution is
+unnecessary.
+
+\subsection{Consistent heuristics: no node is expanded twice}
+
+\begin{theorem}[Consistent heuristics]
+\label{thm:ch04-consistent}
+Let $\hcost$ be consistent. Then in \cref{alg:ch04-astar}:
+\begin{enumerate}[label=(\roman*)]
+  \item whenever a node $n$ is expanded, $\gcost(n) = \gcost^*(n)$; hence
+        line~\ref{alg:ch04-astar:reopen} is never executed and every node is
+        expanded at most once;
+  \item the $\fcost$ values of the expanded nodes, in order of expansion, are
+        non-decreasing.
+\end{enumerate}
+\index{A*!consistency}\index{re-opening}
+\end{theorem}
+\begin{proof}
+(i) Suppose $n$ is popped for expansion with $\gcost(n) > \gcost^*(n)$. Let
+$P = (s, \dots, n)$ be a cheapest path to $n$. By \cref{thm:ch04-invariant}
+with $m = n$, \Open contains a node $n_i$ of $P$ with $\gcost(n_i) =
+\gcost^*(n_i)$, and $n_i \ne n$ because $\gcost(n)$ is not optimal. Applying
+\cref{eq:ch04-consistent} along the edges of $P$ from $n_i$ to $n$, exactly as
+in the proof of \cref{thm:ch04-consistent-admissible}, gives $\hcost(n_i) \le
+\bigl(\gcost^*(n) - \gcost^*(n_i)\bigr) + \hcost(n)$. Therefore
+\[
+  \fcost(n_i) = \gcost^*(n_i) + \hcost(n_i) \le \gcost^*(n) + \hcost(n)
+             < \gcost(n) + \hcost(n) = \fcost(n),
+\]
+and line~\ref{alg:ch04-astar:pop} would have chosen $n_i$ instead of $n$: a
+contradiction. So every expanded node carries its optimal $\gcost$, no later
+path can be cheaper, and a closed node is never re-opened.
+
+(ii) Let $n$ be expanded and let $n'$ be the node expanded next. When $n$ was
+popped, every other entry in \Open had $\fcost \ge \fcost(n)$. The expansion of
+$n$ changes \Open in two ways: it pushes successors $n''$ with
+$\fcost(n'') = \gcost(n) + c(n, n'') + \hcost(n'') \ge \gcost(n) + \hcost(n) =
+\fcost(n)$ by consistency, and it leaves the other entries unchanged. Hence
+every entry in \Open has $\fcost \ge \fcost(n)$ and in particular
+$\fcost(n') \ge \fcost(n)$.
+\end{proof}
+
+\begin{corollary}[Which nodes \astar expands]
+\label{thm:ch04-surely}
+With a consistent heuristic, \astar expands every node $n$ with
+$\gcost^*(n) + \hcost(n) < C^*$, expands no node with $\gcost^*(n) + \hcost(n)
+> C^*$, and may or may not expand nodes with $\gcost^*(n) + \hcost(n) = C^*$
+depending on tie-breaking.
+\end{corollary}
+\begin{proof}
+By \cref{thm:ch04-consistent}(ii) and $\fcost(\gamma) = C^*$ at termination, no
+expanded node has $\fcost > C^*$. Conversely let $\gcost^*(n) + \hcost(n) <
+C^*$ and let $P$ be a cheapest path to $n$. Along $P$ the value
+$\gcost^* + \hcost$ is non-decreasing (consistency), so it is below $C^*$ at
+every node of $P$. By induction along $P$, each node of $P$ is generated with
+its optimal $\gcost$ by the expansion of its predecessor and, having
+$\fcost < C^* = \fcost(\gamma)$, is popped before the goal.
+\end{proof}
+
+\Cref{thm:ch04-surely} is the reason why the closed set can be a plain
+``expanded'' flag when $\hcost$ is consistent, why the trace in
+\cref{tab:ch04-trace} shows non-decreasing $\fcost$, and why the $\fcost$
+values in \cref{fig:ch04-example} never exceed $13$.
+
+\subsection{What goes wrong without the conditions}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch04/inadmissible}
+  \caption{An inadmissible heuristic misleads \astar. The value $\hcost(a) = 4$
+  overestimates $\hcost^*(a) = 1$, so $a$ looks worse than the detour through
+  $b$ and is never expanded (blue fill: still in \Open). \astar returns the path
+  of cost~3 although a path of cost~2 exists.}
+  \label{fig:ch04-inadmissible}
+\end{figure}
+
+\paragraph{Inadmissible heuristics.}
+\Cref{fig:ch04-inadmissible} shows the smallest kind of failure. The heuristic
+is wrong at a single node, $a$, where it says $4$ while the true cost to go is
+$1$. The search expands $s$, then $b$ (with $\fcost = 2$), then the goal with
+$\gcost = 3$, and it stops. The node $a$ sits in \Open with $\fcost = 5$ and
+the optimal path $s \to a \to \gamma$ of cost~2 is never found. Nothing in the
+run signals the error: an overestimate makes \astar \emph{confidently} wrong,
+which is why the Manhattan heuristic on an 8-connected grid
+(\cref{tab:ch04-heuristics}) is a real bug and not a matter of taste.
+\index{heuristic!inadmissible}
+
+\paragraph{Admissible but inconsistent heuristics.}
+Take the graph from the proof of \cref{thm:ch04-consistent-admissible}:
+$s \to a$ (1), $s \to b$ (3), $a \to b$ (1), $b \to \gamma$ (2), with
+$\hcost(a) = 3$ and $\hcost = 0$ elsewhere. \astar expands $s$
+($\fcost = 0$) and pushes $a$ with $\fcost = 1 + 3 = 4$ and $b$ with
+$\fcost = 3 + 0 = 3$. It expands $b$ first and pushes $\gamma$ with
+$\gcost = 5$. Next it expands $a$ and finds $b$ with $\gcost = 2 < 3$: $b$ is
+closed, and line~\ref{alg:ch04-astar:reopen} re-opens it. The expansion of $b$
+(now $\fcost = 2$) improves $\gamma$ to $\gcost = 4$, and the goal is
+returned with the optimal cost~4. The sequence of $\fcost$ values,
+$0, 3, 4, 2, 4$, is not monotone, and $b$ is expanded twice. If re-opening is
+disabled, the same run returns the path $s \to b \to \gamma$ of cost~5. The
+self-test of \code{ch04\_astar.py} reproduces both runs.
+
+\subsection{Complexity}
+
+With a consistent heuristic every node is expanded at most once and every
+edge relaxed at most once, so \cref{alg:ch04-astar} performs at most $\abs{E}$
+pushes and $\abs{V}$ expansions; with a binary heap the running time is
+$\bigO{(\abs{V} + \abs{E}) \log \abs{V}}$ and the memory $\bigO{\abs{V} +
+\abs{E}}$, the same bounds as for Dijkstra's algorithm in \cref{ch:ch03}. The
+bounds are worst cases. What decides the actual effort is the number of
+expanded nodes, that is, by \cref{thm:ch04-surely}, the number of nodes with
+$\gcost^*(n) + \hcost(n) < C^*$. With $\hcost = 0$ this is every node cheaper
+than the goal; with the exact heuristic $\hcost = \hcost^*$ it is empty, and
+with larger-$\gcost$-first tie-breaking \astar then expands only the nodes of
+one optimal path. Between these extremes the effort grows with the error
+$\hcost^* - \hcost$: on a grid with obstacles every detour that the heuristic
+does not foresee adds a band of cells with $\fcost < C^*$.
+\index{A*!complexity}
+
+\subsection{Heuristic dominance}
+
+\begin{definition}[Dominance]
+\label{def:ch04-dominance}
+A heuristic $\hcost_2$ \textbf{dominates}\index{heuristic!dominance} $\hcost_1$ if
+$\hcost_2(n) \ge \hcost_1(n)$ for every node $n$. If both are admissible,
+$\hcost_2$ is the \emph{more informed} of the two.
+\end{definition}
+
+\begin{theorem}[More informed, fewer expansions]
+\label{thm:ch04-dominance}
+Let $\hcost_1$ and $\hcost_2$ be consistent and let $\hcost_2$ dominate
+$\hcost_1$. Every node that \astar with $\hcost_2$ expands with
+$\fcost < C^*$ is also expanded by \astar with $\hcost_1$. Consequently the
+number of expansions with $\hcost_2$ is at most the number with $\hcost_1$, up
+to nodes with $\fcost = C^*$.
+\end{theorem}
+\begin{proof}[Proof sketch]
+By \cref{thm:ch04-surely}, \astar with $\hcost_2$ expands with $\fcost < C^*$
+exactly the nodes with $\gcost^*(n) + \hcost_2(n) < C^*$. For such a node,
+$\gcost^*(n) + \hcost_1(n) \le \gcost^*(n) + \hcost_2(n) < C^*$, so
+\cref{thm:ch04-surely} applied to $\hcost_1$ says that it is expanded there
+too. Nodes with $\fcost = C^*$ escape the argument: whether they are expanded
+depends on tie-breaking, and $\hcost_2$ may expand a few of them that
+$\hcost_1$ skips. Pearl~\cite{pearl1984heuristics} and Dechter and
+Pearl~\cite{dechter1985generalized} extend the statement to admissible
+heuristics and show that in this sense no admissible algorithm can do better
+than \astar with a consistent heuristic.
+\end{proof}
+
+On grids the theorem orders the heuristics of \cref{tab:ch04-heuristics}: on
+an 8-connected grid the octile distance dominates the Euclidean distance,
+which dominates the Chebyshev distance, and the self-test of
+\code{ch04\_astar.py} checks the theorem on random grids. The theorem also
+shows why the maximum of several admissible heuristics is admissible and never
+worse than any of them, and it gives the rule of thumb for designing
+heuristics: relax the problem (drop the obstacles, drop a constraint), solve
+the relaxed problem exactly, and use its cost. That is precisely how the
+Manhattan and octile distances arise.
+
+% ---------------------------------------------------------------------
+\section{Variants and extensions}
+\label{sec:ch04-variants}
+
+\subsection{Tie-breaking}
+\label{sec:ch04-tiebreak}
+
+\Cref{thm:ch04-surely} leaves the nodes with $\fcost = C^*$ to the tie-breaking
+rule, and near the goal there are many of them: every node on an optimal path
+has $\gcost^*(n) + \hcost^*(n) = C^*$, and with an exact heuristic all of them
+tie. On an obstacle-free grid the Manhattan distance is exact, and every cell
+of the $20 \times 20$ grid in \cref{fig:ch04-tiebreak} lies on some optimal
+path from the bottom-left to the top-right corner: all $400$ cells have
+$\fcost = 38$. Which of them are expanded is entirely up to the tie-breaking
+rule. Preferring the larger $\gcost$ (equivalently, the smaller $\hcost$)
+means: among nodes that look equally good, take the one that is furthest along.
+The search then behaves like a depth-first dive along one optimal path and
+expands $2 \cdot 20 - 1 = 39$ cells. Preferring the smaller $\gcost$, or
+breaking ties first-in-first-out without looking at $\gcost$, expands all $400$
+cells before the goal is popped. This is why \cref{alg:ch04-astar} uses the key
+$(\fcost, -\gcost)$ and why the implementation in
+\cref{sec:ch04-implementation} adds a counter as a third component: the counter
+keeps the order deterministic and stops \python from comparing nodes when the
+first two components tie. In the worked example the rule saves three of 24
+expansions; in the last stretch of any search with a good heuristic it saves
+far more.\index{tie-breaking!larger g first@larger $\gcost$ first}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch04/tiebreak}
+  \caption{Tie-breaking on an empty $20 \times 20$ grid with the Manhattan
+  heuristic. Every cell has $\fcost = 38 = C^*$. (a) Breaking ties towards the
+  larger $\gcost$, \astar expands only the 39 cells of one optimal path.
+  (b) Breaking ties towards the smaller $\gcost$, it expands all 400 cells.
+  Both runs return a path of cost~38.}
+  \label{fig:ch04-tiebreak}
+\end{figure}
+
+\subsection{Weighted \astar}
+\label{sec:ch04-weighted}
+
+Pohl~\cite{pohl1970heuristic} proposed to inflate the heuristic:
+\textbf{weighted \astar}\index{weighted A*}\index{A*!weighted} runs
+\cref{alg:ch04-astar} with the key
+\begin{equation}
+  \fcost_w(n) = \gcost(n) + w\,\hcost(n), \qquad w \ge 1.
+  \label{eq:ch04-weighted}
+\end{equation}
+For $w = 1$ this is \astar; as $w \to \infty$ the $\gcost$ term becomes
+irrelevant and the search turns into \emph{greedy best-first search}, which
+always expands the node that seems closest to the goal. In between, a larger
+$w$ makes the search more greedy: it trusts the heuristic more, expands fewer
+nodes and accepts a longer path. The price is bounded.
+
+\begin{theorem}[Bounded suboptimality of weighted \astar]
+\label{thm:ch04-weighted}
+If $\hcost$ is admissible and a goal is reachable, weighted \astar with
+re-opening returns a path of cost at most $w \cdot C^*$.
+\end{theorem}
+\begin{proof}
+\Cref{thm:ch04-invariant} did not use the heuristic at all, so it holds for
+the key \cref{eq:ch04-weighted}: when the goal $\gamma'$ is popped, \Open
+contains a node $n_i$ of an optimal path $P$ with $\gcost(n_i) =
+\gcost^*(n_i)$. As in the proof of \cref{thm:ch04-optimal},
+$\hcost(n_i) \le \hcost^*(n_i) \le C^* - \gcost^*(n_i)$, hence
+\[
+  \fcost_w(n_i) = \gcost^*(n_i) + w\,\hcost(n_i)
+    \le \gcost^*(n_i) + w\,\bigl(C^* - \gcost^*(n_i)\bigr)
+    \le w\,C^*,
+\]
+where the last step uses $w \ge 1$ and $\gcost^*(n_i) \ge 0$. The goal was
+popped before $n_i$, so $\gcost(\gamma') = \fcost_w(\gamma') \le \fcost_w(n_i)
+\le w\,C^*$.
+\end{proof}
+
+Note that $w\,\hcost$ is in general not admissible and not consistent, even
+when $\hcost$ is, so weighted \astar may re-open nodes and \cref{thm:ch04-consistent}
+does not apply. Likhachev, Gordon and Thrun~\cite{likhachev2003ara} showed
+that the bound $w\,C^*$ survives even when re-opening is switched off, and
+that observation is the basis of \arastar in \cref{ch:ch06}, which decreases
+$w$ step by step while reusing the search. The focal search of \ecbs in
+\cref{ch:ch10} obtains the same guarantee by a different mechanism.
+
+\subsection{An experiment on random grids}
+\label{sec:ch04-experiment}
+
+\Cref{fig:ch04-expansions} compares the effort of the searches in this chapter on
+random grids with 25\,\% obstacles (script \code{gen\_ch04\_expansions.py},
+ten instances per size, start and goal in opposite corners). Three
+observations. First, Dijkstra's algorithm expands nearly every free cell
+($7\,452$ of $7\,513$ at $n = 100$), while \astar with the Manhattan
+heuristic on the 4-connected grid expands $756$ on average: the heuristic
+removes about $90\,\%$ of the work. Second, on the 8-connected grid \astar
+with the octile heuristic still expands $3\,324$ cells. Diagonal moves make
+detours around obstacles cheap, so many cells have $\gcost^* + \hcost <
+C^*$; the error $\hcost^* - \hcost$, not the connectivity, is what the search
+pays for. Third, weighted \astar with $w = 2$ needs $372$ expansions on the
+4-connected and $271$ on the 8-connected grid, while its paths are on average
+only $12\,\%$ and $6\,\%$ longer than optimal, far inside the guaranteed factor
+of~2; with $w = 1.5$ the average excess is $7\,\%$ and $5\,\%$. Bounded
+suboptimality is cheap on these maps, which is why \ecbs (\cref{ch:ch10}) is
+so much faster than \cbs.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch04/expansions}
+  \caption{Left: mean number of expansions (log scale) on random $n \times n$
+  grids; Dijkstra's algorithm grows with the number of free cells, \astar grows
+  much more slowly, and the weight $w$ cuts the effort again. Right: the mean
+  ratio between the cost of the path returned by weighted \astar and the
+  optimal cost; the guaranteed bounds are $1.5$ and $2$, the observed ratios
+  stay below $1.13$.}
+  \label{fig:ch04-expansions}
+\end{figure}
+
+\subsection{Other relatives}
+
+\astar has a large family. \lpastar and \dstarlite (\cref{ch:ch05}) reuse the
+search when edge costs change; \arastar (\cref{ch:ch06}) is weighted \astar
+with a decreasing weight; focal search (\cref{ch:ch10}) keeps a second queue
+of nodes whose $\fcost$ is within a factor $w$ of the best and picks among
+them by a different criterion. Jump point search~\cite{harabor2011jps}
+exploits the symmetry of uniform grids to skip most cells, and safe interval
+path planning~\cite{phillips2011sipp} compresses the time dimension of the
+search described next. All of them keep the structure of
+\cref{alg:ch04-astar}; what changes is the key, the successor function or
+what is remembered between searches.
