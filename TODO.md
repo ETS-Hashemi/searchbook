@@ -27,12 +27,14 @@ Legend: `[ ]` open · `[x]` done · `[~]` in progress · `[-]` dropped (with rea
 - [x] 0.6 Write the style guide and chapter template (`STYLE_GUIDE.md`, `docs/chapter-template.tex`)
 - [x] 0.7 Define the notation macros and colour/TikZ style system (`searchbook.sty`)
 - [x] 0.8 Seed the bibliography with canonical, verified references (`references.bib`)
-- [ ] 0.9 Verify the skeleton compiles end to end (pdflatex + biber + makeindex) with placeholder chapters
-- [ ] 0.10 Commit and push the skeleton; merge into `main`
+- [x] 0.9 Verify the skeleton compiles end to end (pdflatex + biber + makeindex) with placeholder chapters — 45 pages, 0 errors; style test (`docs/style-test.tex`) exercises every environment
+- [x] 0.10 Commit and push the skeleton; merge into `main` — commit 54a705f + follow-up
 
 ## Phase 1 — Front matter
 
-- [ ] 1.1 Title page and copyright/colophon page
+(1.2–1.4 depend on the chapter drafts of Phase 2 and are done after them.)
+
+- [x] 1.1 Title page and copyright/colophon page (`frontmatter/titlepage.tex`, `copyright.tex`; final polish in 7.5)
 - [ ] 1.2 Preface: who the book is for, prerequisites, how to read it, how it maps to the 12-week plan, conventions (boxes, difficulty stars, priorities), how to run the code
 - [ ] 1.3 Notation and symbols table (complete, consistent with all chapters)
 - [ ] 1.4 List of algorithms (auto-generated; check titles)

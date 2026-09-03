@@ -1,0 +1,159 @@
+\chapter{Style Test Chapter}
+\label{ch:styletest}
+\SetKwFunction{StyleTestSearch}{Search}
+\begin{objectives}
+\begin{itemize}
+  \item Check that every environment of \code{searchbook.sty} compiles.
+  \item Show the look of boxes, theorems, algorithms, listings, figures and tables.
+\end{itemize}
+\end{objectives}
+\section{Boxes}
+\begin{keyidea}
+Expand the node with the smallest $\fcost = \gcost + \hcost$.\index{A*!key idea}
+\end{keyidea}
+\begin{dronebox}
+The global planner of \cref{ch:styletest} feeds nominal paths to the local layer.
+\end{dronebox}
+\begin{pitfall}
+Using a heuristic that overestimates breaks optimality \cite{hart1968formal}.
+\end{pitfall}
+\begin{historynote}
+\astar was introduced in 1968 \cite{hart1968formal}; see also \textcite{dijkstra1959note}.
+\end{historynote}
+\begin{notebox}{A note with a custom title}
+Priority in the training plan: \priority{Essential}. Difficulty stars: \difficulty{2}.
+\end{notebox}
+\section{Theorem-like environments}
+\begin{definition}[Admissible heuristic]\label{def:styletest-adm}
+A heuristic $\hcost$ is \textbf{admissible} if $\hcost(n) \le \hcost^*(n)$ for all $n \in V$.\index{heuristic!admissible}
+\end{definition}
+\begin{example}[Manhattan distance]\label{ex:styletest-manhattan}
+On a 4-connected grid, $\hcost(n) = \abs{x_n - x_g} + \abs{y_n - y_g}$ is admissible.
+\end{example}
+\begin{theorem}[Optimality of \astar]\label{thm:styletest-opt}
+If $\hcost$ is admissible, \astar returns a least-cost path.
+\end{theorem}
+\begin{proof}
+Suppose the goal is expanded with cost $C > C^*$. Some node on an optimal path sits in \Open with $\fcost \le C^*$, contradicting the choice rule. \qedhere
+\end{proof}
+\begin{lemma}\label{lem:styletest}
+Consistency implies admissibility.
+\end{lemma}
+\begin{remark}
+Vectors are written $\pos$, $\vel$, matrices $\mat{A}$, transposes $\mat{A}\T$, norms $\norm{\pos - \pos'}$, sets $\set{1,\dots,k}$, expectation $\E[\state]$, covariance $\Cov(\state)$, and $\argmin_{\ctrl} J(\ctrl)$; the Gaussian is $\Normal(\vect{\mu}, \mat{\Sigma})$; complexity $\bigO{n \log n}$.
+\end{remark}
+\section{Pseudocode}
+\begin{algorithm}[htb]
+\caption{Best-first search skeleton}
+\label{alg:styletest-search}
+\KwIn{graph $G=(V,E)$, start $s$, goal $g$, heuristic $\hcost$}
+\KwOut{a path from $s$ to $g$ or \emph{failure}}
+\Fn{\StyleTestSearch{$G$, $s$, $g$}}{
+  $\gcost(s) \gets 0$; \Open $\gets \set{s}$; \Closed $\gets \emptyset$\;
+  \While{\Open $\neq \emptyset$}{
+    $n \gets \argmin_{n' \in \text{\Open}} \fcost(n')$\label{alg:styletest-search:pop}\;
+    \If{$n = g$}{\KwRet{path reconstructed from parents}\;}
+    move $n$ from \Open to \Closed\;
+    \ForEach{$n' \in \Succ(n)$}{
+      \If{$\gcost(n) + c(n,n') < \gcost(n')$}{
+        $\gcost(n') \gets \gcost(n) + c(n,n')$; parent$(n') \gets n$\tcp*{relaxation}
+        insert $n'$ into \Open (or update its key)\;
+      }
+    }
+  }
+  \KwRet{failure}\;
+}
+\end{algorithm}
+Line~\ref{alg:styletest-search:pop} of \cref{alg:styletest-search} selects the node.
+\section{Listing}
+\begin{lstlisting}[caption={A minimal priority-queue search.},label={lst:styletest-search}]
+import heapq
+
+def search(start, goal, succ, h):
+    """Return the g-cost of goal or None."""
+    g = {start: 0.0}
+    frontier = [(h(start), start)]
+    while frontier:
+        f, n = heapq.heappop(frontier)
+        if n == goal:
+            return g[n]
+        for m, c in succ(n):  # (neighbour, edge cost)
+            if g[n] + c < g.get(m, float("inf")):
+                g[m] = g[n] + c
+                heapq.heappush(frontier, (g[m] + h(m), m))
+    return None
+\end{lstlisting}
+\Cref{lst:styletest-search} uses \code{heapq}.
+\section{Figures and tables}
+\begin{figure}[htb]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}\centering
+\begin{tikzpicture}[scale=0.7]
+\drawgrid{7}{5}
+\gridobstacle{3}{1}\gridobstacle{3}{2}\gridobstacle{3}{3}
+\gridclosed{0}{2}\gridclosed{1}{2}\gridclosed{2}{2}\gridclosed{1}{1}\gridclosed{1}{3}
+\gridopen{2}{1}\gridopen{2}{3}\gridopen{0}{1}\gridopen{0}{3}
+\draw[sbpath] (0.5,2.5) -- (2.5,2.5) -- (2.5,4.5) -- (4.5,4.5) -- (6.5,2.5);
+\node[sbstart] at (0.5,2.5) {};
+\node[sbgoal] at (6.5,2.5) {};
+\node[sbannot] at (3.5,4.7) {path};
+\end{tikzpicture}
+\caption{Grid with \Open (blue) and \Closed (grey) cells.}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.48\textwidth}\centering
+\begin{tikzpicture}
+\begin{axis}[width=\linewidth,height=4.5cm,xlabel={nodes $n$},ylabel={expansions},legend pos=north west,grid=major,font=\footnotesize]
+\addplot[sbBlue,thick,mark=*] table[x=n,y=astar]{../docs/style-test.dat};
+\addplot[sbOrange,thick,mark=square*] table[x=n,y=dijkstra]{../docs/style-test.dat};
+\legend{\astar,Dijkstra}
+\end{axis}
+\end{tikzpicture}
+\caption{pgfplots reading a data file.}
+\end{subfigure}
+\caption{Two sub-figures side by side.}
+\label{fig:styletest-grid}
+\end{figure}
+\begin{figure}[htb]
+\centering
+\begin{tikzpicture}[node distance=8mm and 12mm]
+\node[sbbox] (a) {Global planner\\ CBS / ECBS};
+\node[sbboxgreen,right=of a] (b) {Prediction\\ Kalman / LSTM};
+\node[sbboxalt,right=of b] (c) {Local safety\\ ORCA / DWA};
+\node[sbboxgray,right=of c] (d) {Replanning\\ \dstarlite / \astar};
+\draw[sbflow] (a) -- (b); \draw[sbflow] (b) -- (c); \draw[sbflow] (c) -- (d);
+\draw[sbflow] (d.south) to[out=-120,in=-60] node[sbannot,below]{re-check conflicts} (a.south);
+\node[sbagentA,above=4mm of a] {1}; \node[sbagentB,above=4mm of b] {2}; \node[sbagentC,above=4mm of c] {3}; \node[sbintruder,above=4mm of d] {?};
+\end{tikzpicture}
+\caption{Block diagram with the shared box styles and agent markers.}
+\label{fig:styletest-blocks}
+\end{figure}
+\begin{table}[htb]
+\centering\small
+\caption{A comparison table with booktabs.}
+\label{tab:styletest-cmp}
+\begin{tabular}{@{}lccl@{}}
+\toprule
+Algorithm & Optimal & Complete & Typical use\\
+\midrule
+Dijkstra & \checkmark & \checkmark & no heuristic available\\
+\astar & \checkmark & \checkmark & single query, good heuristic\\
+Weighted \astar & bounded & \checkmark & fast, $w$-suboptimal\\
+\bottomrule
+\end{tabular}
+\end{table}
+See \cref{fig:styletest-grid,fig:styletest-blocks,tab:styletest-cmp,def:styletest-adm,ex:styletest-manhattan,thm:styletest-opt}.
+\section{Summary and exercises}
+\begin{summary}
+\begin{itemize}
+  \item Everything compiled.
+\end{itemize}
+\end{summary}
+\begin{exercise}[\difficulty{1}]\label{exr:styletest-one}
+Show that the Manhattan distance is consistent on a 4-connected grid.
+\end{exercise}
+\begin{exercise}[\difficulty{3} Coding]\label{exr:styletest-code}
+Implement \cref{alg:styletest-search} and test it on \cref{fig:styletest-grid}.
+\end{exercise}
+\begin{solution}{exr:styletest-one}
+Moving one cell changes the distance by at most one, which equals the edge cost.
+\end{solution}
