@@ -458,3 +458,350 @@ job. An optimal multi-agent planner is not real-time; a real-time local method i
 complete; an incremental planner can only repair what a complete planner has built.
 The four layers of the next section are chosen so that each property is provided by
 the layer that can afford it.
+
+% =====================================================================
+\section{A preview of the hybrid architecture}
+\label{sec:ch01-architecture}
+
+The book builds towards one system, and it helps to see the whole of it before
+studying its parts. The training plan that this book follows (reproduced in
+\cref{ch:appA}) proposes a \textbf{hybrid collision-avoidance
+architecture}\index{hybrid architecture|textbf} with four layers, shown in
+\cref{fig:ch01-architecture}. This section is a preview in plain words;
+\cref{ch:ch24} gives the full treatment, with the state machine, the triggers, the
+constraints and a discussion of which guarantees survive the combination.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch01/architecture}
+  \caption{The four layers of the hybrid architecture and what flows between them.
+    The global planner runs before take-off and hands nominal time-indexed paths to
+    the local layer, which alone talks to the flight controllers. The prediction
+    layer turns noisy observations of an intruder into a predicted motion with
+    uncertainty, used by both the local layer and the replanner. The replanner is
+    called only when the local layer cannot return to the nominal path; after a
+    significant replan the swarm-level conflicts are checked again (dashed arrow).}
+  \label{fig:ch01-architecture}
+\end{figure}
+
+\subsection{The four layers}
+\label{sec:ch01-layers}
+
+\paragraph{1. Global swarm planner (\cbs, \ecbs).}\index{global planner}
+Before the flight, the global planner receives the map, the start and goal of every
+controlled drone, and any constraints on formation or communication range. It returns
+a nominal, time-indexed path for each drone such that no two drones are ever in
+conflict. The book's global planners are conflict-based search (\cbs), which is
+optimal \cite{sharon2015cbs}, and its bounded-suboptimal variant \ecbs, which is much
+faster for a chosen factor $w$ (\cref{ch:ch09,ch:ch10}). Both build on single-agent
+search in space and time (\cref{ch:ch04}). This layer resolves the planned conflicts
+of \cref{def:ch01-planned-conflict}; it never sees the intruder.
+
+\paragraph{2. Prediction layer (Kalman filter, LSTM).}\index{prediction layer}
+During the flight, the prediction layer observes every object that is not part of
+the swarm. From noisy position measurements it estimates the object's current
+position and velocity with a Kalman filter \cite{thrun2005probabilistic}
+(\cref{ch:ch18,ch:ch19}) and then predicts a short future trajectory, either by
+extrapolating at constant velocity or with a learned model such as an LSTM
+(\cref{ch:ch20}). The output is not a single line but a line \emph{with
+uncertainty}: a sequence of predicted positions, each with a covariance that grows
+along the horizon, exactly as the discs in \cref{fig:ch01-scenario} do.
+
+\paragraph{3. Local safety layer (\orca, DWA).}\index{local safety layer}
+Every control cycle, each drone runs a local method that takes its own state, the
+states of its teammates and the predicted motion of any intruder, and produces a safe
+velocity for the next fraction of a second. The book's local methods are \orca
+\cite{vandenberg2011orca}, which chooses the velocity closest to the preferred one
+inside a set of half-planes (\cref{ch:ch13}), and the dynamic window approach, which
+scores a small set of dynamically feasible velocities (\cref{ch:ch14}). When nothing
+threatens, the preferred velocity is the one that follows the nominal path, and the
+local layer simply passes it on. When a predicted collision enters the safety
+horizon, the local layer deviates temporarily \emph{without discarding the global
+route}.
+
+\paragraph{4. Replanning layer (\dstarlite, \astar).}\index{replanning layer}
+Sometimes the local manoeuvre cannot bring the drone safely back to its nominal path:
+the intruder parks in the corridor, the detour has become too long, or the deviation
+has broken the formation. Then the drone replans from its current state to its goal.
+\dstarlite \cite{koenig2002dstarlite} does this incrementally, reusing the previous
+search (\cref{ch:ch05}); plain \astar in space and time is the fallback
+(\cref{ch:ch04}). A new path for one drone may conflict with the others, so a
+significant replan is followed by a conflict re-check at the swarm level---the dashed
+arrow back to the global planner in \cref{fig:ch01-architecture}.
+
+\subsection{The decision logic in five steps}
+\label{sec:ch01-decision}
+
+The layers are only useful with a rule that says which one acts when. The training
+plan states that rule in five steps, and \cref{fig:ch01-decision} draws it. Two
+quantities appear in it. The \textbf{time to collision}\index{time to collision}
+$\ttc$ of a drone with a predicted object is the earliest future time at which the
+prediction brings the two closer than the safety distance (infinite if it never does).
+The \textbf{safety horizon}\index{safety horizon} $\ttc_{\mathrm{safe}}$ is a
+look-ahead time chosen by the designer, a few seconds at most; a predicted conflict
+counts as a \emph{near-term risk} when $\ttc<\ttc_{\mathrm{safe}}$. \Cref{ch:ch12}
+computes $\ttc$ from relative position and velocity.
+
+\begin{enumerate}
+  \item \textbf{Follow the nominal path.} As long as no predicted conflict lies
+        inside the safety horizon, every drone follows the time-indexed path that the
+        global planner computed. This is the normal state, and most of the time nothing
+        else happens.
+  \item \textbf{Avoid locally.} If an unknown moving object creates a near-term
+        risk, the drone invokes \orca or DWA to produce a local avoidance action: a
+        velocity that keeps it clear of the predicted motion of the object and of its
+        teammates, and that deviates from the nominal path as little as possible.
+  \item \textbf{Reconnect.} When the conflict has cleared, the drone tries to rejoin
+        its nominal path at a \emph{safe future waypoint}: a point on the path that it
+        can reach in time without a new conflict. If it succeeds, the global plan is
+        intact and nothing else needs to change.
+  \item \textbf{Replan.} If reconnection is impossible, too costly, or would violate a
+        formation or communication constraint, the drone runs \dstarlite or \astar
+        from its current state and follows the new path.
+  \item \textbf{Re-check.} After any significant replan, the swarm checks the new path
+        against the paths of the other drones, and against the formation and
+        communication constraints, and repairs what the replan has broken.
+\end{enumerate}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch01/decision}
+  \caption{The five-step decision logic as a loop. The normal path is the top row:
+    follow, and keep following while no risk lies inside the safety horizon. Only
+    when a local avoidance action cannot be reconnected to the nominal path does the
+    bottom row run: replan, re-check the swarm, and continue.}
+  \label{fig:ch01-decision}
+\end{figure}
+
+Notice the order of preference built into the rule. Doing nothing is best; a local
+manoeuvre is second best because it keeps the global plan; a replan is a last resort
+because it costs computation and may invalidate the plans of the others. Deciding
+\emph{automatically} where the line between step~3 and step~4 lies is one of the open
+questions of \cref{sec:ch01-research}.
+
+\subsection{Time scales}
+\label{sec:ch01-timescales}
+
+Why four layers rather than one? Because they work on different time scales, and no
+single algorithm can serve all of them. \Cref{fig:ch01-timescales} places the layers
+on a logarithmic time axis. The numbers are typical orders of magnitude for the kind
+of implementation this book describes, not measurements; your own numbers will depend
+on the hardware, the size of the swarm and the map, and \cref{ch:ch25} shows how to
+measure them.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch01/timescales}
+  \caption{Typical orders of magnitude of one decision cycle of each layer, on a
+    logarithmic time axis. The reactive layer acts in tens of milliseconds, a replan
+    takes a fraction of a second, and a global multi-agent plan takes seconds. The
+    lower row shows how far an intruder flying at $5$ m/s moves in the meantime: a
+    layer that needs one second cannot be the one that reacts to an object two metres
+    away.}
+  \label{fig:ch01-timescales}
+\end{figure}
+
+\begin{itemize}
+  \item The \textbf{reactive layer}\index{time scale!reactive} must deliver a velocity
+        every control cycle, typically every few tens of milliseconds. \orca and DWA can
+        do this because their work per cycle is small and bounded.
+  \item \textbf{Replanning}\index{time scale!replanning} takes a fraction of a second on
+        a grid of realistic size: \dstarlite repairs only the part of the search that
+        the change has affected, and even a full \astar in space and time for one drone
+        is fast. The local layer keeps the drone safe while the replanner works.
+  \item \textbf{Global planning}\index{time scale!global} for the whole swarm takes
+        seconds, and on hard instances much longer. It runs before take-off, and again
+        after a significant replan, but never inside the control loop.
+  \item \textbf{Sensing, tracking and prediction} run at the rate of the sensors,
+        from a few to a few hundred hertz; a Kalman update costs a handful of small
+        matrix operations, and a trained LSTM evaluates in milliseconds.
+\end{itemize}
+
+The lower row of \cref{fig:ch01-timescales} explains why the order matters. An intruder
+flying at $5$ m/s covers $10$ cm during a $20$ ms control cycle, $2.5$ m during a
+half-second replan, and $15$ m during a three-second global plan. A safety horizon of
+a few seconds, an avoidance layer that acts within one control cycle, and a replanner
+that is allowed to take longer because the avoidance layer covers for it: that is the
+division of labour of \cref{fig:ch01-architecture}.
+
+\begin{pitfall}[Numbers on a logarithmic axis are not measurements]
+It is easy to read \cref{fig:ch01-timescales} as a promise. It is not. A Python
+implementation of \orca for fifty drones may take longer than ten milliseconds; a
+\cbs instance with eight agents in a corridor may not finish in a minute. Treat the
+figure as a statement of \emph{requirements}: whatever runs in the reactive layer must
+fit into a control cycle, and whatever cannot must be moved to a slower layer that the
+reactive layer can cover for. \Cref{ch:ch25} explains how to measure computation time
+honestly, and that is where real numbers belong.\index{pitfall!time scales}
+\end{pitfall}
+
+\begin{dronebox}[Interfaces between the layers]
+Reading the architecture as a set of interfaces is a good way to keep the later
+chapters connected. The global planner (\cref{ch:ch09,ch:ch10}) \emph{delivers} one
+time-indexed path per drone and \emph{receives} the map, the starts, the goals and
+the swarm constraints. The prediction layer (\cref{ch:ch18,ch:ch19,ch:ch20})
+\emph{receives} noisy observations of the intruder and \emph{delivers} predicted
+positions with covariances over the safety horizon. The local layer
+(\cref{ch:ch13,ch:ch14}) \emph{receives} the nominal path, the teammates' states and
+the predictions, and \emph{delivers} one velocity command per control cycle. The
+replanner (\cref{ch:ch04,ch:ch05}) \emph{receives} the current state and the changed
+map or predicted occupancy, and \emph{delivers} a new path, which the global layer
+re-checks (\cref{ch:ch07}). The whole system is assembled in \cref{ch:ch24} and
+evaluated in \cref{ch:ch25}; it is the capstone of week~12 of the study plan in
+\cref{ch:appA}.
+\end{dronebox}
+
+% =====================================================================
+\section{A map of the book}
+\label{sec:ch01-map}
+
+The training plan groups the algorithms of a complete autonomous-drone system into six
+families, labelled A to F, and gives each algorithm a priority: \priority{Essential}
+for what a working prototype cannot do without, \priority{High} for what you should
+be able to implement, \priority{Medium} for what you should understand, and
+\priority{Awareness} for what you should recognise. \Cref{tab:ch01-map} lists every
+algorithm of the plan with its role in one line, its priority and the chapter that
+teaches it. Every chapter repeats the priority tag of its algorithm at the start, and
+the twelve-week schedule of \cref{sec:ch01-howto} tells you when to read it.
+\index{map of the book}\index{priority tags}
+
+\begin{small}
+\begin{longtable}{@{}lL{6.9cm}cl@{}}
+\caption{Map of the book: every algorithm of the training plan, its role, its
+  priority in the plan, and the chapter that teaches it. Groups A--C are to be learned
+  deeply, D and E to be known well, and F well enough to integrate.}
+\label{tab:ch01-map}\\
+\toprule
+Algorithm & Role in one line & Priority & Chapter\\
+\midrule
+\endfirsthead
+\multicolumn{4}{@{}l}{\textit{\Cref{tab:ch01-map} (continued)}}\\
+\toprule
+Algorithm & Role in one line & Priority & Chapter\\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r@{}}{\textit{continued on the next page}}\\
+\endfoot
+\bottomrule
+\endlastfoot
+\multicolumn{4}{@{}l}{\textbf{A. Single-agent graph search} (learn deeply)}\\
+Dijkstra & Baseline shortest-path search on graphs with non-negative edge weights; the template that \astar refines & \priority{High} & \cref{ch:ch03}\\
+\astar & The main deterministic shortest-path planner, guided by a heuristic; with time as a state variable it plans one drone around known moving obstacles & \priority{Essential} & \cref{ch:ch04}\\
+\dstarlite & Efficient replanning when the environment changes after planning; the replanning layer of the architecture & \priority{Essential} & \cref{ch:ch05}\\
+\lpastar & Conceptual foundation of \dstarlite and of incremental search & \priority{Medium} & \cref{ch:ch05}\\
+\arastar & Anytime search: a quick suboptimal path, improved while time remains & \priority{Medium} & \cref{ch:ch06}\\
+\addlinespace
+\multicolumn{4}{@{}l}{\textbf{B. Multi-agent path finding} (learn deeply)}\\
+Prioritized planning & Plans the agents one after another in a fixed order; fast, but incomplete and suboptimal in general & \priority{High} & \cref{ch:ch08}\\
+\cbs & High-level conflict resolution over a constraint tree plus low-level per-agent search; optimal & \priority{Essential} & \cref{ch:ch09}\\
+\ecbs & Bounded-suboptimal variant of \cbs based on focal search; much faster for a chosen factor $w$ & \priority{Essential} & \cref{ch:ch10}\\
+\mstar & Couples only the agents that are actually in conflict (subdimensional expansion) & \priority{Medium} & \cref{ch:ch11}\\
+Push-and-Swap, Push-and-Rotate & Constructive, rule-based methods; complete on a large class of instances but not optimal; a conceptual contrast to \cbs & \priority{Awareness} & \cref{ch:ch11}\\
+\addlinespace
+\multicolumn{4}{@{}l}{\textbf{C. Local and reactive collision avoidance} (learn deeply)}\\
+Velocity obstacles (VO) & The set of velocities that lead to a future collision with a moving obstacle & \priority{Essential} & \cref{ch:ch12}\\
+Reciprocal VO (RVO) & Extends VO to the case in which both agents share the avoidance effort; removes oscillation & \priority{High} & \cref{ch:ch13}\\
+\orca & Efficient reciprocal avoidance: one half-plane constraint per neighbour and a small linear program & \priority{Essential} & \cref{ch:ch13}\\
+Dynamic window approach (DWA) & Chooses a safe short-horizon velocity command under acceleration limits & \priority{High} & \cref{ch:ch14}\\
+Artificial potential fields (APF) & Attractive and repulsive forces; simple, but prone to local minima and oscillation & \priority{High} & \cref{ch:ch15}\\
+\addlinespace
+\multicolumn{4}{@{}l}{\textbf{D. Sampling-based motion planning} (know well)}\\
+\rrt & Explores continuous configuration spaces quickly by random sampling; probabilistically complete & \priority{High} & \cref{ch:ch16}\\
+\rrtstar & Asymptotically optimal version of \rrt, obtained by rewiring the tree & \priority{High} & \cref{ch:ch17}\\
+\irrtstar & Focuses the sampling on an ellipsoid once a first solution is known & \priority{Medium} & \cref{ch:ch17}\\
+\addlinespace
+\multicolumn{4}{@{}l}{\textbf{E. Tracking and prediction} (know well)}\\
+Kalman filter & Tracks linear motion under Gaussian noise; the tracker of the prediction layer & \priority{Essential} & \cref{ch:ch18}\\
+Extended Kalman filter (EKF) & Handles nonlinear motion and measurement models by linearisation & \priority{High} & \cref{ch:ch19}\\
+Unscented Kalman filter (UKF) & Nonlinear estimator based on sigma points; needs no Jacobians & \priority{Medium} & \cref{ch:ch19}\\
+Particle filter & Nonlinear, non-Gaussian tracking with weighted samples & \priority{Medium} & \cref{ch:ch19}\\
+LSTM trajectory prediction & Learns temporal motion patterns from recorded trajectories; the plan marks it essential for prediction-based research & \priority{Essential} & \cref{ch:ch20}\\
+Transformer trajectory prediction & Attention-based alternative for longer horizons and interaction-aware prediction & \priority{Awareness--High} & \cref{ch:ch20}\\
+\addlinespace
+\multicolumn{4}{@{}l}{\textbf{F. Optimization and control} (learn enough to integrate)}\\
+Model predictive control (MPC) & Optimises the controls over a receding horizon; handles constraints naturally & \priority{Essential} & \cref{ch:ch21}\\
+Mixed-integer linear programming (MILP) & Exact constrained formulations of scheduling and path problems; can be expensive & \priority{Medium} & \cref{ch:ch22}\\
+Consensus, formation control & Maintains relative positions and shared swarm objectives; the plan marks it essential for formation-preserving work & \priority{Essential} & \cref{ch:ch23}\\
+\end{longtable}
+\end{small}
+
+Two chapters do not appear in the table because they teach no algorithm of their own.
+\Cref{ch:ch02} is the toolbox: graphs, grids, configuration space, space-time states,
+path costs, drone motion models, the geometry of moving discs, Gaussians and priority
+queues. \Cref{ch:ch07} defines the multi-agent path finding problem, its conflicts and
+its benchmarks, following the standard terminology of \textcite{stern2019mapf}; every
+planner of group~B is stated in that language.
+
+\begin{historynote}[How old is all this?]
+Older than you may think. Dijkstra published his algorithm in 1959
+\cite{dijkstra1959note} and Kalman his filter in 1960 \cite{kalman1960new}; \astar
+dates from 1968 \cite{hart1968formal}. The dynamic window approach appeared in 1997
+\cite{fox1997dwa}, velocity obstacles and \rrt in 1998
+\cite{fiorini1998motion,lavalle1998rrt}, \dstarlite in 2002
+\cite{koenig2002dstarlite}, \orca in 2011 \cite{vandenberg2011orca} and conflict-based
+search in 2012, with the journal version in 2015 \cite{sharon2015cbs}. The learned
+predictors are the youngest members: the LSTM cell is from 1997
+\cite{hochreiter1997lstm}, its use for trajectory prediction from the mid-2010s, and
+the Transformer from 2017 \cite{vaswani2017attention}.
+\end{historynote}
+
+% =====================================================================
+\section{What is established and where research remains}
+\label{sec:ch01-research}
+
+Let us be honest about what is new here and what is not. Every algorithm in
+\cref{tab:ch01-map} is established: published, proved, implemented many times, and
+taught. Nobody starting research on drone swarms needs to invent a new shortest-path
+algorithm or a new Kalman filter, and a thesis that did would have to compete with
+sixty years of prior work. The training plan says it plainly, and this book repeats
+it: \emph{the contribution does not need to be a completely new planner. Strong
+research opportunities remain in how the components are combined, constrained,
+predicted and evaluated.}\index{research directions}
+
+The plan names seven such directions. Each of them is a place where the established
+algorithms, put together, leave a question open, and each is discussed at length in
+\cref{ch:ch24,ch:ch25} once the algorithms are in place.
+\begin{description}[style=nextline,leftmargin=1.5em]
+  \item[Unknown, non-cooperative drones whose future motion is uncertain rather than
+    shared.] Multi-agent planners assume that all routes are known; reciprocal
+    avoidance assumes that the other agent cooperates. An intruder satisfies neither
+    assumption. How to track it (\cref{ch:ch18,ch:ch19}), predict it
+    (\cref{ch:ch20}) and avoid it with full responsibility (\cref{ch:ch13}) is
+    established piece by piece; how well the pieces work together against real,
+    unpredictable intruders is not.
+  \item[Combining \cbs-style coordination with real-time local avoidance without
+    destroying the global guarantees unnecessarily.] The moment a drone leaves its
+    nominal path, the conflict-freeness that \cbs proved no longer holds for it. Which
+    guarantees survive a local deviation, for how long, and under what conditions a
+    deviation can be reconnected without a full re-plan of the swarm, is a question
+    about the combination, not about either algorithm (\cref{ch:ch24}).
+  \item[Formation preservation and communication-range constraints during avoidance
+    and replanning.] A swarm that must keep a formation, or must stay within radio
+    range of its neighbours, cannot let each drone dodge as it likes. Consensus and
+    formation control (\cref{ch:ch23}) and model predictive control with distance
+    constraints (\cref{ch:ch21}) provide the tools; deciding how to trade a constraint
+    violation against a collision risk during an avoidance manoeuvre is open.
+  \item[Prediction-aware constraints that include uncertainty rather than treating the
+    predicted path as exact.] A prediction is a distribution, not a line. Inflating
+    obstacles by a multiple of the predicted standard deviation is the simplest way to
+    use it (\cref{ch:ch20,ch:ch24}); doing so without making the planner hopelessly
+    conservative at long horizons is not solved.
+  \item[Deciding automatically when a local avoidance action is sufficient and when a
+    global replan is necessary.] Step~3 versus step~4 of the decision logic. A
+    threshold on the detour length or on the time to collision is a start; a rule that
+    adapts to the situation, and that can be shown to be safe, is a research topic.
+  \item[Reducing computation for larger swarms while maintaining safety in dynamic 3D
+    environments.] \cbs is exponential in the number of conflicts in the worst case,
+    and even \ecbs struggles with dozens of agents in tight spaces
+    (\cref{ch:ch10,ch:ch11}). Larger swarms, three dimensions and moving obstacles
+    all make the problem harder, and the trade-offs are only beginning to be mapped.
+  \item[Benchmarks that compare local-only, replan-only and hybrid approaches under
+    the same conditions.] Most published systems are evaluated on their own
+    scenarios. A shared benchmark with controlled numbers of drones and intruders,
+    controlled prediction quality and a fixed set of metrics would let approaches be
+    compared honestly; \cref{ch:ch25} describes how to build one.
+\end{description}
+
+You will meet these directions again as \emph{dronebox} notes at the end of many
+chapters, where each algorithm's role in the combination is spelled out. Keep a list
+of them; by the time you reach \cref{ch:ch24} you will have opinions about every one.
