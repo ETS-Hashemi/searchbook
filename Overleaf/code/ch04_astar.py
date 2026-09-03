@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 INF = float("inf")
+EPS = 1e-9          # tolerance for floating-point ties in g and f
 SQRT2 = math.sqrt(2.0)
 
 
@@ -145,7 +146,7 @@ def astar(start, goal, successors, heuristic, weight=1.0, tie_break="high_g",
         closed.add(n)
         for n2, c in successors(n):
             g2 = g[n] + c
-            if g2 < g.get(n2, INF):      # relaxation
+            if g2 < g.get(n2, INF) - EPS:  # relaxation (EPS: fp noise)
                 if n2 in closed:
                     if not reopen:
                         continue
