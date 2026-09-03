@@ -578,7 +578,8 @@ def _self_test():
     assert space_time_astar(grid, (3, 0), (0, 0)).cost == 3.0    # alone
     p2 = space_time_astar(grid, (3, 0), (0, 0), table).path
     assert p2 is not None and path_respects(p2, table)
-    assert p2 == [(3, 0), (2, 0), (2, 1), (2, 1), (2, 0), (1, 0), (0, 0)]
+    assert p2 == [(3, 0), (2, 0), (2, 1), (2, 0), (1, 0), (0, 0)]          # into the bay, out again right behind agent 1
+    assert len(p2) - 1 == 5 and (2, 1) in p2
     # from the far end there is no way past agent 1: prioritized planning
     # is incomplete (ch08); the search reports the failure in finite time
     assert space_time_astar(grid, (4, 0), (0, 0), table).path is None

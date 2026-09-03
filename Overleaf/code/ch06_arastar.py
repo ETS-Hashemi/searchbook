@@ -274,6 +274,44 @@ def weighted_astar(grid, start, goal, eps):
     return next(iter(ARAStar(grid, start, goal, schedule=(eps,)).run()), None)
 
 
+def anytime_plan(grid, start, goal, schedule=(3.0, 2.0, 1.0), on_solution=None):
+    """Callback interface: run ARA* and hand every published path to
+    ``on_solution(sol)`` as soon as it exists.  Returns the last Solution
+    (None if no path exists).  A drone controller would replace the
+    callback by "send the path to the trajectory follower".
+    """
+    last = None
+    for sol in ARAStar(grid, start, goal, schedule).run():
+        last = sol
+        if on_solution is not None:
+            on_solution(sol)
+    return last
+
+
+def astar_reference(grid, start, goal):
+    """Independent optimal A* (eps = 1) used as the reference in the
+    self-test.  Returns (optimal cost, number of expansions); the cost is
+    infinity if the goal is unreachable.  The grid heuristics are
+    consistent, so no state is ever expanded twice.
+    """
+    start, goal = tuple(start), tuple(goal)
+    g = {start: 0.0}
+    heap = [(grid.heuristic(start, goal), 0.0, start)]
+    closed = set()
+    while heap:
+        f, gs, s = heapq.heappop(heap)
+        if s in closed:
+            continue
+        if s == goal:
+            return gs, len(closed)
+        closed.add(s)
+        for t, c in grid.successors(s):
+            if gs + c < g.get(t, INF):
+                g[t] = gs + c
+                heapq.heappush(heap, (g[t] + grid.heuristic(t, goal), g[t], t))
+    return INF, len(closed)
+
+
 def dijkstra(grid, start, goal):
     """Optimal cost from start to goal (infinity if unreachable)."""
     dist = {tuple(start): 0.0}
@@ -311,10 +349,22 @@ def random_grid(rng, width, height, density, connectivity, start, goal):
     return Grid(width, height, obstacles, connectivity)
 
 
-# Worked example of the chapter (Section "A worked example"): 8 x 6 grid.
+# Worked example of the chapter: an 8 x 6 grid, 8-connected, start (0, 3),
+# goal (7, 2).  ARA* with the schedule eps = 3, 2, 1 publishes paths of cost
+# 8 + 3 sqrt(2), 10 + sqrt(2) and 6 + 3 sqrt(2) = C* after 17, 4 and 11
+# expansions; code/figures/gen_ch06_example.py draws them.
 EXAMPLE_WIDTH, EXAMPLE_HEIGHT = 8, 6
-EXAMPLE_OBSTACLES = set()          # filled in below (see gen_ch06_example.py)
-EXAMPLE_START, EXAMPLE_GOAL = (0, 0), (7, 5)
+EXAMPLE_CONNECTIVITY = 8
+EXAMPLE_OBSTACLES = frozenset({(0, 2), (0, 4), (2, 0), (2, 5), (3, 4),
+                               (4, 1), (5, 2), (6, 0), (6, 3), (6, 4)})
+EXAMPLE_START, EXAMPLE_GOAL = (0, 3), (7, 2)
+EXAMPLE_SCHEDULE = (3.0, 2.0, 1.0)
+
+
+def example_grid():
+    """The grid of the worked example of Chapter 6."""
+    return Grid(EXAMPLE_WIDTH, EXAMPLE_HEIGHT, EXAMPLE_OBSTACLES,
+                EXAMPLE_CONNECTIVITY)
 
 
 def _self_test():
@@ -327,7 +377,8 @@ def _self_test():
         w, hgt = 24, 18
         start, goal = (0, 0), (w - 1, hgt - 1)
         grid = random_grid(rng, w, hgt, 0.25, conn, start, goal)
-        c_star = dijkstra(grid, start, goal)
+        c_star, _ = astar_reference(grid, start, goal)
+        assert abs(c_star - dijkstra(grid, start, goal)) < 1e-9 or c_star == INF
         ara = ARAStar(grid, start, goal, schedule)
         sols = list(ara.run())
         if c_star == INF:
@@ -361,12 +412,21 @@ def _self_test():
         assert wa.cost == sols[0].cost and wa.expansions == sols[0].expansions
     assert n_grids >= 40, "too few solvable test grids"
     # the worked example of the chapter (numbers quoted in the text)
-    grid = Grid(EXAMPLE_WIDTH, EXAMPLE_HEIGHT, EXAMPLE_OBSTACLES, 4)
-    sols = list(ARAStar(grid, EXAMPLE_START, EXAMPLE_GOAL, (3.0, 2.0, 1.0)).run())
-    print(f"example: {[(s.eps, s.cost, round(s.eps_bound, 3), s.expansions) for s in sols]}")
+    published = []
+    last = anytime_plan(example_grid(), EXAMPLE_START, EXAMPLE_GOAL,
+                        EXAMPLE_SCHEDULE, published.append)
+    assert last is published[-1] and len(published) == 3
+    expected = [(8 + 3 * SQRT2, 17), (10 + SQRT2, 4), (6 + 3 * SQRT2, 11)]
+    for sol, (cost, n) in zip(published, expected):
+        assert abs(sol.cost - cost) < 1e-9 and sol.expansions == n, sol
+    assert [round(s.eps_bound, 3) for s in published] == [1.651, 1.53, 1.0]
+    assert published[0].incons == {(3, 3)}
+    print("example: " + "; ".join(
+        f"eps={s.eps:g}: cost {s.cost:.3f}, bound {s.eps_bound:.3f}, "
+        f"{s.expansions} expansions" for s in published))
     dt = time.time() - t0
     print(f"self-test passed: {n_paths} published paths on {n_grids} grids "
-          f"checked against Dijkstra ({n_nonmonotone} grids with a "
+          f"checked against optimal A* ({n_nonmonotone} grids with a "
           f"non-monotone published cost sequence), {dt:.2f} s")
 
 

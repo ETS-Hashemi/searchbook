@@ -1,4 +1,348 @@
 \chapter{\astar Search}
 \label{ch:ch04}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode are prefixed with "Astar" to stay unique
+% across the book.
+\SetKwFunction{AstarSearch}{AStar}
+\SetKwFunction{AstarSpaceTime}{SpaceTimeAStar}
+\SetKwFunction{AstarPath}{ReconstructPath}
+
+\begin{objectives}
+\begin{itemize}
+  \item Explain best-first search with $\fcost = \gcost + \hcost$ and trace \astar by hand on a small grid while keeping track of \Open and \Closed.
+  \item State the exact definitions of admissible and consistent heuristics, prove that consistency implies admissibility, and prove that \astar returns an optimal path.
+  \item Choose a heuristic for a 4- or 8-connected grid (Manhattan, octile, Euclidean, Chebyshev), break ties well, and predict what a weight $w$ does to cost and effort.
+  \item Add time to the state: run \astar in space-time with wait actions, vertex and edge constraints, a reservation table and a correct goal test.
+  \item Implement grid \astar and space-time \astar in \python, visualise the open and closed sets, and recognise the failure modes that matter in a drone planner.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch04-motivation}
+
+Picture a delivery drone that has to cross a city district represented by a
+$100 \times 100$ grid of cells, a quarter of them blocked by buildings.
+Dijkstra's algorithm from \cref{ch:ch03} finds the shortest route, but it does
+so by settling almost every free cell: in the experiment of
+\cref{sec:ch04-variants} it expands about $7\,450$ of the $7\,500$ free cells
+on such maps. The drone knows something Dijkstra ignores: the goal lies to the
+north-east, and a cell far to the south-west is unlikely to be on the way. \astar
+puts this knowledge into the search. With the Manhattan distance as a guide it
+solves the same instances with about $750$ expansions, ten times fewer, and it
+still guarantees the shortest route.
+
+For a single query this is a convenience. For a swarm it is a necessity. The
+global planner of the hybrid architecture in \cref{ch:ch24} is \cbs or \ecbs
+(\cref{ch:ch09,ch:ch10}), and every node of their constraint tree calls a
+single-agent search for one drone under a set of constraints. A run on a few
+dozen drones can easily make thousands of such calls, and each of them is an
+\astar search in \emph{space-time}: the state of the drone is a cell together
+with the time at which it is there, the drone may wait, and it must avoid the
+cells and edges that other drones have reserved. The replanning layer of
+\cref{ch:ch24} calls \astar again whenever a local avoidance manoeuvre has
+pushed a drone off its nominal route, and the incremental planners of
+\cref{ch:ch05} (\lpastar, \dstarlite) and the anytime planner of \cref{ch:ch06}
+(\arastar) are best understood as \astar with extra bookkeeping. This chapter is
+therefore the foundation of everything that follows in \cref{ch:ch05,ch:ch06,ch:ch08,ch:ch09,ch:ch10}.
+
+The chapter proceeds as follows. \Cref{sec:ch04-intuition} gives the idea,
+\cref{sec:ch04-problem} the definitions of admissible and consistent heuristics
+and the standard grid heuristics. \Cref{sec:ch04-algorithm} presents the
+graph-search version of \astar with a closed set, \cref{sec:ch04-example} runs
+it by hand on a $6 \times 6$ grid, and \cref{sec:ch04-properties} proves the
+optimality theorems that the Week~1 milestone of the study plan
+(\cref{ch:appA}) asks you to be able to explain exactly. \Cref{sec:ch04-variants}
+covers tie-breaking, weighted \astar and an experiment on random grids.
+\Cref{sec:ch04-spacetime} is a full treatment of space-time \astar, the exact
+form of the search used by the multi-agent planners of \cref{ch:ch08,ch:ch09}.
+\Cref{sec:ch04-implementation} discusses the implementation and
+\cref{sec:ch04-drone} its place in the drone system.
+
+% ---------------------------------------------------------------------
+\section{The idea in plain words}
+\label{sec:ch04-intuition}
+
+Dijkstra's algorithm always expands the node that is cheapest to reach from the
+start. Its frontier grows like a ripple in a pond: a disc around the start that
+spreads evenly in all directions until it touches the goal
+(\cref{fig:ch04-idea}, left). \astar adds a second ingredient. For every node
+$n$ it keeps the cost $\gcost(n)$ of the best path found so far from the start
+\emph{and} an estimate $\hcost(n)$ of the cost that remains from $n$ to the goal.
+Their sum
+\begin{equation}
+  \fcost(n) = \gcost(n) + \hcost(n)
+  \label{eq:ch04-f}
+\end{equation}
+estimates the cost of the cheapest solution that passes through $n$. \astar is a
+\textbf{best-first search}\index{best-first search} on $\fcost$: it always
+expands the node with the smallest $\fcost$.\index{A*!f=g+h@$f=g+h$} The function
+$\hcost$ is called a \textbf{heuristic}\index{heuristic} because it is a rule of
+thumb, computed without looking at the obstacles, for example the straight-line
+distance to the goal. A node far from the goal has a large $\hcost$ and is
+expanded late or not at all. The frontier stops being a disc and becomes an
+elongated region pointing at the goal (\cref{fig:ch04-idea}, right).
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch04/idea}
+  \caption{Left: Dijkstra expands nodes in order of $\gcost$, so its closed set
+  is a disc around the start $s$ that reaches the goal $\gamma$ only when it has
+  covered every cheaper node. Right: \astar expands nodes in order of
+  $\fcost = \gcost + \hcost$. With the straight-line distance as $\hcost$, the
+  nodes with $\fcost \le C^*$ lie inside an ellipse with foci $s$ and $\gamma$;
+  the search never leaves it. For the node $n$, the solid segment is the known
+  cost $\gcost(n)$ and the dashed segment the estimate $\hcost(n)$.}
+  \label{fig:ch04-idea}
+\end{figure}
+
+Two questions decide whether this idea is safe. First, can a heuristic mislead
+the search into returning a path that is not the shortest? Yes, if it
+\emph{overestimates}: a node on the true shortest path may then look worse than
+it is and never be expanded. Second, can a node be expanded twice? Yes, if the
+heuristic is not \emph{consistent}, because a cheaper path to an already
+expanded node may show up later. The two conditions that rule out these
+problems, admissibility and consistency, are the heart of this chapter.
+
+\begin{keyidea}
+Expand the node with the smallest $\fcost = \gcost + \hcost$. If $\hcost$ never
+overestimates the remaining cost, the first goal that \astar expands is reached
+by an optimal path. If in addition $\hcost$ obeys the triangle inequality along
+every edge, no node is ever expanded twice, and \astar is Dijkstra's algorithm
+with its effort focused towards the goal.
+\end{keyidea}
+
+% ---------------------------------------------------------------------
+\section{Problem statement and notation}
+\label{sec:ch04-problem}
+
+\subsection{Search problems and heuristics}
+
+\begin{definition}[Heuristic search problem]
+\label{def:ch04-problem}
+A \textbf{heuristic search problem}\index{search problem!heuristic} consists of a
+finite directed graph $G = (V, E)$ with edge costs $c(u, v) \ge 0$, a start node
+$s \in V$, a non-empty set of goal nodes $V_\gamma \subseteq V$ (usually a single
+node $\gamma$), and a \textbf{heuristic function} $\hcost \colon V \to
+\R_{\ge 0}$. The cost of a path is the sum of its edge costs. We write
+$\gcost^*(n)$ for the cost of a cheapest path from $s$ to $n$,
+$\hcost^*(n)$ for the cost of a cheapest path from $n$ to a goal
+($\hcost^*(n) = \infty$ if no goal is reachable), and $C^* = \hcost^*(s)$ for
+the optimal solution cost.\index{$h^*$, true cost to go}\index{$C^*$, optimal cost}
+\end{definition}
+
+During the search, $\gcost(n)$ denotes the cost of the best path from $s$ to
+$n$ found \emph{so far}; it satisfies $\gcost(n) \ge \gcost^*(n)$, with equality
+once the best path has been found. The successor function $\Succ(n)$ returns the
+pairs $(n', c(n, n'))$ for all edges $(n, n') \in E$, exactly as in
+\cref{ch:ch03}. For grids the nodes are cells $(x, y)$, $x$ the column and
+$y$ the row, with $(0, 0)$ in the bottom-left corner as in \cref{ch:ch02}.
+
+\begin{definition}[Admissible heuristic]
+\label{def:ch04-admissible}
+A heuristic $\hcost$ is \textbf{admissible}\index{heuristic!admissible} if it never
+overestimates the true cost to go:
+\begin{equation}
+  0 \le \hcost(n) \le \hcost^*(n) \quad \text{for every } n \in V.
+  \label{eq:ch04-admissible}
+\end{equation}
+In particular $\hcost(\gamma) = 0$ for every goal node $\gamma$.
+\end{definition}
+
+\begin{definition}[Consistent heuristic]
+\label{def:ch04-consistent}
+A heuristic $\hcost$ is \textbf{consistent}\index{heuristic!consistent} (also
+called \textbf{monotone}\index{heuristic!monotone}) if $\hcost(\gamma) = 0$ for
+every goal node $\gamma$ and, for every edge $(n, n') \in E$,
+\begin{equation}
+  \hcost(n) \le c(n, n') + \hcost(n').
+  \label{eq:ch04-consistent}
+\end{equation}
+\end{definition}
+
+\Cref{eq:ch04-consistent} is a triangle inequality: the estimate from $n$ may not
+exceed the cost of first stepping to $n'$ and estimating from there. An
+equivalent formulation is that $\fcost$ never decreases along an edge when
+$\gcost$ is computed along the path: $\fcost(n') = \gcost(n) + c(n, n') +
+\hcost(n') \ge \gcost(n) + \hcost(n) = \fcost(n)$. Consistency is the stronger
+property.
+
+\begin{lemma}[Consistency implies admissibility]
+\label{thm:ch04-consistent-admissible}
+Every consistent heuristic is admissible. The converse is false.
+\end{lemma}
+\begin{proof}
+Let $\hcost$ be consistent and let $n \in V$. If no goal is reachable from $n$,
+then $\hcost^*(n) = \infty$ and \cref{eq:ch04-admissible} holds. Otherwise let
+$n = n_0, n_1, \dots, n_k = \gamma$ be a cheapest path from $n$ to a goal, so that
+$\hcost^*(n) = \sum_{i=0}^{k-1} c(n_i, n_{i+1})$. Applying
+\cref{eq:ch04-consistent} to each edge in turn,
+\[
+  \hcost(n_0) \le c(n_0, n_1) + \hcost(n_1)
+             \le c(n_0, n_1) + c(n_1, n_2) + \hcost(n_2)
+             \le \dots
+             \le \sum_{i=0}^{k-1} c(n_i, n_{i+1}) + \hcost(\gamma) = \hcost^*(n),
+\]
+because $\hcost(\gamma) = 0$. For the converse, take the graph with nodes
+$s, a, b, \gamma$ and edges $s \to a$ (cost 1), $s \to b$ (cost 3), $a \to b$
+(cost 1), $b \to \gamma$ (cost 2). The heuristic $\hcost(a) = 3$,
+$\hcost(s) = \hcost(b) = \hcost(\gamma) = 0$ is admissible, since
+$\hcost^*(a) = 3$, but $\hcost(a) = 3 > c(a, b) + \hcost(b) = 1$ violates
+\cref{eq:ch04-consistent}. We return to this graph in
+\cref{sec:ch04-properties}.
+\end{proof}
+
+\subsection{Heuristics for grids}
+\label{sec:ch04-grid-heuristics}
+
+Let $n = (x_n, y_n)$ be a cell and $\gamma = (x_\gamma, y_\gamma)$ the goal, and
+write $d_x = \abs{x_n - x_\gamma}$ and $d_y = \abs{y_n - y_\gamma}$. Four
+distances are in everyday use (\cref{fig:ch04-heuristics}):
+\begin{align}
+  \hcost_{\mathrm{M}}(n) &= d_x + d_y
+    && \text{Manhattan distance,}\index{heuristic!Manhattan} \label{eq:ch04-manhattan}\\
+  \hcost_{\mathrm{O}}(n) &= \max(d_x, d_y) + (\sqrt{2} - 1)\min(d_x, d_y)
+    && \text{octile distance,}\index{heuristic!octile} \label{eq:ch04-octile}\\
+  \hcost_{\mathrm{E}}(n) &= \sqrt{d_x^2 + d_y^2}
+    && \text{Euclidean distance,}\index{heuristic!Euclidean} \label{eq:ch04-euclid}\\
+  \hcost_{\mathrm{C}}(n) &= \max(d_x, d_y)
+    && \text{Chebyshev distance.}\index{heuristic!Chebyshev} \label{eq:ch04-chebyshev}
+\end{align}
+The Manhattan distance is the length of a cheapest path on an empty
+4-connected grid, where every move costs~1. The octile distance is the length
+of a cheapest path on an empty 8-connected grid, where a straight move costs~1
+and a diagonal move $\sqrt{2}$: use $\min(d_x, d_y)$ diagonal moves and then
+$\max(d_x, d_y) - \min(d_x, d_y)$ straight moves. The Chebyshev distance is the
+same count when diagonal moves also cost~1. Each of the four is the norm of the
+displacement vector ($\ell_1$, octagonal, $\ell_2$ and $\ell_\infty$ norm), so
+each satisfies the triangle inequality.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch04/heuristics}
+  \caption{The four grid heuristics from the cell $n$ to the goal $\gamma$ with
+  $d_x = 5$ and $d_y = 3$. The Manhattan path (orange, dashed) has length~8; the
+  octile path (blue) uses three diagonal moves and two straight ones, length
+  $5 + 3(\sqrt{2} - 1) \approx 6.24$; the Euclidean distance (green) is
+  $\sqrt{34} \approx 5.83$; the Chebyshev distance counts only the longer side,
+  $5$. On a 4-connected grid all four are admissible; on an 8-connected grid the
+  Manhattan distance overestimates every diagonal move.}
+  \label{fig:ch04-heuristics}
+\end{figure}
+
+\begin{proposition}[Metric heuristics are consistent]
+\label{thm:ch04-metric}
+Let $d$ be a metric on $V$ such that $d(n, n') \le c(n, n')$ for every edge
+$(n, n') \in E$, and let $\hcost(n) = d(n, \gamma)$. Then $\hcost$ is
+consistent, hence admissible.
+\end{proposition}
+\begin{proof}
+$\hcost(\gamma) = d(\gamma, \gamma) = 0$, and by the triangle inequality
+$\hcost(n) = d(n, \gamma) \le d(n, n') + d(n', \gamma) \le c(n, n') + \hcost(n')$.
+\end{proof}
+
+To apply \cref{thm:ch04-metric} we only have to compare each distance with the
+cost of a single move. A straight move costs~1, and all four distances assign
+$1$ to it. A diagonal move on an 8-connected grid costs $\sqrt{2}$: the octile
+and Euclidean distances assign $\sqrt{2}$, the Chebyshev distance $1$, but the
+Manhattan distance assigns $2 > \sqrt{2}$. \Cref{tab:ch04-heuristics} summarises
+the result. The Manhattan distance is the classic example of a heuristic that is
+perfect for one grid and wrong for another: in the self-test of
+\code{ch04\_astar.py}, \astar with the Manhattan heuristic on 8-connected random
+grids returns a path longer than optimal on 6 of 40 instances.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Grid heuristics and their properties. ``Exact'' means equal to
+  $\hcost^*$ on an obstacle-free grid. A heuristic that is exact on empty grids
+  stays admissible with obstacles, because obstacles can only lengthen paths.}
+  \label{tab:ch04-heuristics}
+  \begin{tabular}{@{}lll@{}}
+  \toprule
+  Heuristic & 4-connected (cost 1) & 8-connected (costs $1$, $\sqrt{2}$)\\
+  \midrule
+  Manhattan $d_x + d_y$ & exact on empty grids; consistent & \textbf{not admissible} (diagonal: $2 > \sqrt{2}$)\\
+  Octile $\max + (\sqrt{2}-1)\min$ & consistent (below Manhattan) & exact on empty grids; consistent\\
+  Euclidean $\sqrt{d_x^2 + d_y^2}$ & consistent & consistent; dominated by octile\\
+  Chebyshev $\max(d_x, d_y)$ & consistent; weakest of the four & consistent; exact if diagonals cost 1\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+None of the four sees obstacles, so with walls in the way they all
+underestimate, sometimes badly: the worked example of \cref{sec:ch04-example}
+shows the search walking into a dead end because the Manhattan distance does
+not know about a wall. The exact heuristic $\hcost^*$ itself can be computed by a
+backward Dijkstra search from the goal, as in \cref{ch:ch03}. That costs a full
+search and is pointless for a single query, but it becomes the heuristic of
+choice in space-time (\cref{sec:ch04-spacetime}), where the same static
+distances serve every time layer and every constrained re-run of the search.
+
+% ---------------------------------------------------------------------
+\section{The algorithm}
+\label{sec:ch04-algorithm}
+
+\Cref{alg:ch04-astar} is \astar as a \emph{graph search}: it remembers the nodes
+it has expanded in the set \Closed\index{closed set} so that a node is not
+expanded again unless a strictly cheaper path to it is found. The nodes that
+have been generated but not yet expanded form the frontier \Open, a priority
+queue keyed on $\fcost$.\index{open set} The queue is \emph{lazy}: when the
+$\gcost$ of a node improves, the algorithm pushes a fresh entry instead of
+searching the queue for the old one, and the old entry is discarded when it is
+popped and found to be stale.\index{priority queue!lazy deletion} The weight $w$
+is $1$ for plain \astar; \cref{sec:ch04-variants} discusses $w > 1$.
+
+\begin{algorithm}[htb]
+\caption{\astar graph search with a closed set and a lazy priority queue}
+\label{alg:ch04-astar}
+\KwIn{graph $G = (V, E)$ with costs $c$, start $s$, goal test, heuristic $\hcost$, weight $w \ge 1$ ($w = 1$ for \astar)}
+\KwOut{a cheapest path from $s$ to a goal, or \emph{failure}}
+\Fn{\AstarSearch{$G$, $s$, $\hcost$, $w$}}{
+  $\gcost(s) \gets 0$; parent$(s) \gets$ \KwNil; $\gcost(n) \gets \infty$ for all other nodes (implicitly)\;
+  \Open $\gets$ priority queue holding $s$ with key $(w\,\hcost(s),\, 0)$; \Closed $\gets \emptyset$\label{alg:ch04-astar:init}\;
+  \While{\Open $\ne \emptyset$}{
+    $(n, \gcost_n) \gets$ pop the entry with the smallest key $(\fcost, -\gcost)$ from \Open\label{alg:ch04-astar:pop}\;
+    \If{$\gcost_n > \gcost(n)$}{\KwContinue\tcp*{stale entry: a cheaper path to $n$ was found later}\label{alg:ch04-astar:stale}}
+    \If{$n$ is a goal}{\KwRet \AstarPath{parent, $n$}\label{alg:ch04-astar:goal}\;}
+    add $n$ to \Closed\label{alg:ch04-astar:close}\;
+    \ForEach{$(n', c(n, n')) \in \Succ(n)$}{
+    $\gcost' \gets \gcost(n) + c(n, n')$\;
+      \If{$\gcost' < \gcost(n')$}{\label{alg:ch04-astar:relax}
+        \If{$n' \in$ \Closed}{remove $n'$ from \Closed\tcp*{re-open $n'$; never happens if $\hcost$ is consistent}\label{alg:ch04-astar:reopen}}
+        $\gcost(n') \gets \gcost'$; parent$(n') \gets n$\;
+        push $(n', \gcost')$ into \Open with key $(\gcost' + w\,\hcost(n'),\, -\gcost')$\label{alg:ch04-astar:push}\;
+      }
+    }
+  }
+  \KwRet \emph{failure}\;
+}
+\end{algorithm}
+
+\paragraph{Walkthrough.}
+Line~\ref{alg:ch04-astar:init} seeds the frontier with the start, whose
+$\fcost$ is $\hcost(s)$. The loop repeatedly takes the most promising entry
+(line~\ref{alg:ch04-astar:pop}). The key is the pair $(\fcost, -\gcost)$, compared
+lexicographically: smaller $\fcost$ first and, among equal $\fcost$, larger
+$\gcost$ first. This tie-breaking rule\index{tie-breaking} is not needed for
+correctness, but \cref{sec:ch04-variants} shows that it can make a tenfold
+difference in effort. Line~\ref{alg:ch04-astar:stale} implements lazy deletion:
+a node may have several entries in \Open, one per improvement of its $\gcost$;
+only the entry carrying the current value is valid. The goal test happens when
+the goal is \emph{popped} (line~\ref{alg:ch04-astar:goal}), not when it is first
+generated. This detail is what makes the optimality proof of
+\cref{sec:ch04-properties} work; testing at generation time returns the first
+path found to the goal, which need not be the cheapest. Line~\ref{alg:ch04-astar:close}
+records the expansion. The inner loop relaxes every outgoing edge
+(line~\ref{alg:ch04-astar:relax}) exactly as Dijkstra's algorithm does; the
+only differences from \cref{ch:ch03} are the key of the priority queue and
+line~\ref{alg:ch04-astar:reopen}, which re-opens a closed node when a cheaper
+path to it appears. With a consistent heuristic this line is never executed
+(\cref{thm:ch04-consistent}), and many implementations drop it together with
+the ability to correct a closed node; with an admissible but inconsistent
+heuristic it is required for optimality (\cref{thm:ch04-optimal}). The
+function \AstarPath follows the parent pointers back from the goal to $s$ and
+reverses the list.
+
+Setting $\hcost \equiv 0$ turns the key into $(\gcost, -\gcost)$ and
+\cref{alg:ch04-astar} into Dijkstra's algorithm with early exit; every property
+of \cref{ch:ch03} is the special case $\hcost = 0$ of a property in this
+chapter.\index{A*!as generalisation of Dijkstra}

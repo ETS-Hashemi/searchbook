@@ -115,6 +115,28 @@ class Grid:
         return Grid(self.width, self.height, blocked, self.connectivity)
 
 
+def lattice_stretch(dim, diagonals=True):
+    """Worst-case ratio between the cost of the cheapest lattice path and
+    the straight-line distance in an empty ``dim``-dimensional lattice.
+
+    With diagonal moves, a displacement with sorted absolute components
+    a_1 >= ... >= a_d >= 0 costs sum_k (a_k - a_{k+1}) sqrt(k); maximising
+    the ratio over all directions (Cauchy-Schwarz) gives
+    sqrt(sum_k (sqrt(k) - sqrt(k - 1))^2).  Without diagonals it is sqrt(d).
+    """
+    if not diagonals:
+        return math.sqrt(dim)
+    return math.sqrt(sum((math.sqrt(k) - math.sqrt(k - 1)) ** 2
+                         for k in range(1, dim + 1)))
+
+
+def lattice_path_cost(displacement):
+    """Cost of the cheapest path to ``displacement`` in an empty lattice
+    with all diagonal moves (cost sqrt(k) for k non-zero components)."""
+    a = sorted((abs(x) for x in displacement), reverse=True) + [0]
+    return sum((a[k] - a[k + 1]) * math.sqrt(k + 1) for k in range(len(a) - 1))
+
+
 # ---------------------------------------------------------------------
 # 2. Space-time states and plans
 # ---------------------------------------------------------------------
@@ -504,6 +526,20 @@ def _self_test():
     assert len(g.inflate(1.6).obstacles) == 21     # block plus a ring of 12
     assert (0, 3) not in g.inflate(1.6).obstacles and (1, 3) in g.inflate(1.6).obstacles
     assert g.inflate(1.0).connectivity == 4 and len(g.obstacles) == 1  # original untouched
+
+    # --- edge counts and stretch factors ------------------------------
+    e4, e8 = Grid(4, 3, connectivity=4), Grid(4, 3, connectivity=8)
+    cells = [(x, y) for x in range(4) for y in range(3)]
+    assert sum(len(e4.neighbors(c)) for c in cells) // 2 == 17    # 4*2 + 3*3
+    assert sum(len(e8.neighbors(c)) for c in cells) // 2 == 29    # 17 + 2*3*2
+    assert _close(lattice_stretch(2, diagonals=False), SQRT2)
+    assert _close(lattice_stretch(3, diagonals=False), math.sqrt(3))
+    assert _close(lattice_stretch(2), 1.0824, 1e-4)
+    assert _close(lattice_stretch(3), 1.1281, 1e-4)
+    th = math.radians(22.5)                          # worst direction in 2D
+    assert _close(lattice_path_cost((math.cos(th), math.sin(th))), lattice_stretch(2))
+    assert _close(lattice_path_cost((3, 2, 1)), 1 + SQRT2 + math.sqrt(3))
+    assert lattice_path_cost((1, 1, 1)) / math.sqrt(3) <= lattice_stretch(3) + 1e-12
 
     # --- space-time --------------------------------------------------
     succ = space_time_successors(g4, ((0, 0), 0))
