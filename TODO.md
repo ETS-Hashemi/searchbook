@@ -172,6 +172,8 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 7 | 03:15 | 4.6 bibliography audit attempt via Semantic Scholar | egress blocked; web search works and will be used in Phase 4 |
 | 8 | 03:45 | relaunch 2.01–2.08, 4.1, 4.2 with "text first" order; autosave to main every 5 min | running |
 | 9 | 03:50 | single-branch policy: merged into main, local branch removed | remote branch deletion refused by proxy; delete in GitHub UI |
+| 10 | 04:00–12:50 | usage limit hit; all authors stopped (drafts of Ch 1–5, 8 and App. A survived via autosave) | paused until reset |
+| 11 | 12:55 | specs saved to docs/specs/; finishers launched for Ch 2, 3, 4, 5, 8 (5 in parallel to stay under the limit) | running |
 
 ---
 
