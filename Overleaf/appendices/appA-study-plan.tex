@@ -1,4 +1,238 @@
+%% ---------------------------------------------------------------------
+%% Appendix A -- The Twelve-Week Study Plan
+%% Turns the training plan of docs/core-idea.txt into a study guide that
+%% points into the book.  Cross-references to chapters use ch:chNN only.
+%% ---------------------------------------------------------------------
 \chapter{The Twelve-Week Study Plan}
 \label{ch:appA}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+\index{study plan|(}
+
+This appendix is the book's answer to a practical question: \emph{in which order, and at
+what pace, should I work through these chapters if I want a working hybrid swarm planner in
+three months?} It reproduces the twelve-week training plan that the book was built from,
+maps every week to the chapters that teach it, and adds study notes, a capstone
+description, a completion checklist and a traceability table. Read it once before you start
+\cref{ch:ch01}, and return to it at the beginning of every week.
+
+% ---------------------------------------------------------------------
+\section{How to use this plan}
+\label{sec:appA-intro}
+
+\paragraph{Goal.}
+The goal of the plan is to build enough theory and implementation skill to design a
+\textbf{hybrid swarm planner}\index{hybrid architecture!capstone} that handles two very
+different kinds of trouble: \emph{planned} conflicts between the drones you control, and
+\emph{unexpected} moving obstacles such as an unknown drone crossing your formation. The
+target outcome after twelve weeks is a working research prototype that combines a global
+multi-agent planner (\cbs or \ecbs, \cref{ch:ch09,ch:ch10}), a reactive avoidance layer
+(\orca or DWA, \cref{ch:ch13,ch:ch14}), a prediction layer (Kalman filter or LSTM,
+\cref{ch:ch18,ch:ch20}) and a replanning layer (\dstarlite or \astar,
+\cref{ch:ch04,ch:ch05}). \Cref{ch:ch24} describes how these pieces fit together and
+\cref{ch:ch25} how to evaluate the result.
+
+\begin{keyidea}[The core idea of the whole plan]
+Use a global planner for planned routes, a local collision-avoidance method for surprises,
+and a replanner only when the local response is insufficient. Every week of the plan builds
+one of these three abilities, or the tracking and prediction that feeds them.
+\end{keyidea}
+
+\paragraph{Study load.}
+Plan for approximately 6--8 hours per week. The plan prioritises coding over passive
+reading, and so does this appendix: a good split is at most two hours of reading and four
+to six hours at the keyboard. Each week has a \emph{coding exercise} and a \emph{milestone}.
+The milestone is a sentence you should be able to say truthfully on Sunday evening; if you
+cannot, spend the first hour of the next week closing the gap rather than moving on.
+\index{study load}
+
+\paragraph{Suggested stack.}
+The plan assumes the following tools. All of them are free, and the book's own code uses
+only the first two.
+\begin{itemize}
+  \item \textbf{Python 3.10+ and NumPy.} Every reference implementation in this book is
+    plain Python with NumPy (SciPy only for the QP and MILP solvers of
+    \cref{ch:ch21,ch:ch22}). Write your own code the same way; you will read and debug it
+    faster.
+  \item \textbf{NetworkX} \cite{hagberg2008networkx} for quick graph experiments and for
+    checking your own graph code against an independent shortest-path implementation.
+  \item \textbf{Matplotlib} for the pictures the exercises ask for: \Open and \Closed sets,
+    trajectories, velocity obstacles, benchmark curves. A plot you look at every ten
+    minutes is worth more than a printout you look at once.
+  \item \textbf{PyBullet or gym-pybullet-drones} \cite{panerati2021learning} for a 3D
+    simulator with quadrotor dynamics. You need it from Week~8 onwards (continuous 3D
+    planning) and for the capstone; until then a 2D NumPy simulator is enough and much
+    faster to iterate on.
+  \item \textbf{Your own MAPF codebase}, if you have one. The plan was written for a reader
+    who already owns a swarm or MAPF simulator; reuse its grid, instance and visualisation
+    code so that each week's exercise is an addition, not a rewrite.
+\end{itemize}
+
+\begin{notebox}{How the book's code files support the exercises}
+Every chapter ships a Python file \code{code/chNN\_*.py} (\code{NN} is the chapter number),
+and every listing in a chapter is a verbatim excerpt of that file. Each file ends with a
+self-test under \code{if \_\_name\_\_ == "\_\_main\_\_":} that runs in a few seconds and
+fails loudly with an \code{assert} if the implementation is wrong. Use the files in this
+order: \emph{run} the self-test to see that the reference works; \emph{write} your own
+version for the week's exercise without looking at the reference; then \emph{compare} both
+implementations on the same instance. The reference is your oracle, not your starting
+point. When the two disagree, the chapter's worked example (whose numbers were produced by
+that same file) tells you which one is wrong.
+\index{code files!self-test}
+\end{notebox}
+
+% ---------------------------------------------------------------------
+\section{The schedule at a glance}
+\label{sec:appA-schedule}
+\index{study plan!schedule}
+
+\Cref{tab:appA-schedule} is the twelve-week schedule of the training plan, with a column
+added that names the chapters to read. The \emph{Learn}, \emph{Coding exercise} and
+\emph{Milestone} columns are the plan's own words. The chapters in the \emph{Read} column
+are listed in the order in which you should read them; a chapter in parentheses is
+background or optional depth.
+
+{\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}L{0.7cm}L{2.2cm}L{1.75cm}L{3.05cm}L{3.3cm}L{3.2cm}@{}}
+\caption{The twelve-week schedule, mapped to the chapters of this book.}
+\label{tab:appA-schedule}\\
+\toprule
+\textbf{Wk} & \textbf{Topic} & \textbf{Read} & \textbf{Learn} & \textbf{Coding exercise} & \textbf{Milestone}\\
+\midrule
+\endfirsthead
+\multicolumn{6}{@{}l}{\textit{\Cref{tab:appA-schedule} (continued)}}\\
+\toprule
+\textbf{Wk} & \textbf{Topic} & \textbf{Read} & \textbf{Learn} & \textbf{Coding exercise} & \textbf{Milestone}\\
+\midrule
+\endhead
+\midrule
+\multicolumn{6}{r@{}}{\textit{continued on the next page}}\\
+\endfoot
+\bottomrule
+\endlastfoot
+1 & Foundations: Dijkstra and \astar
+  & \cref{ch:ch03,ch:ch04} (\cref{ch:ch01,ch:ch02})
+  & Graph search, admissible/consistent heuristics, space-time representation.
+  & Implement grid \astar. Add time as a state variable. Visualize open/closed sets.
+  & You can explain exactly why \astar returns an optimal path under the required conditions.\\
+\addlinespace
+2 & Dynamic replanning: \lpastar and \dstarlite
+  & \cref{ch:ch05} (\cref{ch:ch06})
+  & Incremental search and what changes when obstacles appear after planning.
+  & Implement or adapt \dstarlite. Change obstacles during execution and compare runtime with rerunning \astar.
+  & Your agent can repair a path rather than restarting every search.\\
+\addlinespace
+3 & MAPF basics and conflict types
+  & \cref{ch:ch07,ch:ch08}
+  & Vertex conflicts, edge/swap conflicts, time-indexed paths, sum-of-costs and makespan.
+  & Implement prioritized planning for 2--5 agents. Create deliberate conflict cases.
+  & You can represent and detect MAPF conflicts correctly.\\
+\addlinespace
+4 & Conflict-Based Search (\cbs)
+  & \cref{ch:ch09}
+  & Constraint tree, high-level search, low-level \astar, branching on conflicts.
+  & Implement basic \cbs from scratch for a grid. Test 2, 4, and 8 agents.
+  & A working optimal \cbs solver on small instances.\\
+\addlinespace
+5 & \ecbs and practical MAPF
+  & \cref{ch:ch10} (\cref{ch:ch11})
+  & Bounded suboptimality, focal search, performance/optimality trade-off.
+  & Add \ecbs or reproduce an open implementation. Benchmark against \cbs.
+  & You can measure the cost of faster suboptimal solutions.\\
+\addlinespace
+6 & Velocity Obstacles, RVO, and \orca
+  & \cref{ch:ch12,ch:ch13}
+  & Collision cones, relative velocity, reciprocal avoidance.
+  & Build a 2D simulation with agents crossing. Compare no avoidance, VO, and \orca.
+  & You understand how a local velocity choice prevents a predicted collision.\\
+\addlinespace
+7 & DWA and Artificial Potential Fields
+  & \cref{ch:ch14,ch:ch15}
+  & Short-horizon control, local minima, oscillation, robot dynamics.
+  & Implement DWA or APF in a continuous environment. Create failure cases.
+  & You know when local methods work and when they fail.\\
+\addlinespace
+8 & \rrt, \rrtstar, and continuous 3D planning
+  & \cref{ch:ch16,ch:ch17}
+  & Sampling, steering, collision checks, path quality in continuous space.
+  & Implement \rrtstar or use a library in a 3D obstacle field. Compare to grid \astar.
+  & You can choose between graph search and sampling-based planning.\\
+\addlinespace
+9 & Tracking unknown moving obstacles
+  & \cref{ch:ch18,ch:ch19}
+  & Kalman/EKF tracking, state estimation, uncertainty.
+  & Simulate an external drone observed with noisy position/velocity measurements. Track it with a Kalman filter.
+  & Your planner receives a stable estimated state instead of raw noisy observations.\\
+\addlinespace
+10 & Trajectory prediction
+  & \cref{ch:ch20}
+  & Constant-velocity baselines, LSTM prediction, horizon and uncertainty.
+  & Compare constant velocity vs LSTM on trajectory sequences. Measure ADE/FDE or comparable prediction errors.
+  & You can quantify whether learning actually improves prediction.\\
+\addlinespace
+11 & MPC and formation/communication constraints
+  & \cref{ch:ch21,ch:ch23} (\cref{ch:ch22})
+  & Receding-horizon optimization, hard/soft constraints, formation error, communication radius.
+  & Create an MPC or simplified constrained controller that follows a path while preserving a formation or distance limit.
+  & Constraints are explicitly enforced rather than handled only after violation.\\
+\addlinespace
+12 & Hybrid system integration
+  & \cref{ch:ch24,ch:ch25}
+  & Global MAPF + reactive avoidance + prediction + replanning.
+  & Build the capstone architecture (\cref{sec:appA-capstone}) and run controlled experiments.
+  & A research prototype and an experiment matrix suitable for a paper/thesis chapter.\\
+\end{longtable}
+}
+
+% ---------------------------------------------------------------------
+\section{The twelve weeks on one timeline}
+\label{sec:appA-timeline}
+
+The plan groups its algorithms into six families, labelled A to F, and asks for a different
+depth in each: \emph{learn deeply} (A, B, C), \emph{know well} (D, E) and \emph{learn enough
+to integrate} (F). \Cref{fig:appA-timeline} shows how the twelve weeks are distributed over
+the families. Notice that eight of the twelve weeks go to the three ``learn deeply''
+families, and that the capstone gets a full week of its own. If you are short of time, the
+places to compress are Week~7 (do DWA \emph{or} APF, not both), Week~8 (use a library for
+\rrtstar) and the MILP part of Week~11 (read \cref{ch:ch22}, do not implement it). Do not
+compress Weeks~1, 4, 6, 9 or 12.
+\index{study plan!timeline}
+
+\begin{figure}[htb]
+\centering
+\begin{tikzpicture}[x=0.9cm,y=0.82cm,font=\footnotesize]
+  % week columns and labels
+  \foreach \w in {1,...,12} {
+    \draw[black!15] (\w-1,-0.35) -- (\w-1,6.55);
+    \node[sbannot] at (\w-0.5,6.85) {\w};
+  }
+  \draw[black!15] (12,-0.35) -- (12,6.55);
+  \draw[black!40] (0,-0.35) -- (12,-0.35);
+  \node[sbannot,anchor=east] at (-0.15,6.85) {Week};
+  % one bar per family: \bar{y}{x1}{x2}{colour}{text}
+  \newcommand{\studybar}[5]{%
+    \fill[#4!22,draw=#4,thick,rounded corners=2pt] (#2+0.06,#1-0.34) rectangle (#3-0.06,#1+0.34);
+    \node[text=#4!60!black] at ({(#2+#3)/2},#1) {#5};}
+  \studybar{6}{0}{2}{sbBlue}{Ch.~1--6}
+  \studybar{5}{2}{5}{sbOrange}{Ch.~7--11}
+  \studybar{4}{5}{7}{sbGreen}{Ch.~12--15}
+  \studybar{3}{7}{8}{sbPurple}{Ch.~16--17}
+  \studybar{2}{8}{10}{sbGray}{Ch.~18--20}
+  \studybar{1}{10}{11}{sbYellow!60!black}{Ch.~21--23}
+  \studybar{0}{11}{12}{sbRed}{Ch.~24--25}
+  % row labels (family, depth requested by the plan)
+  \newcommand{\studyrow}[3]{%
+    \node[anchor=east,align=right] at (-0.15,#1) {\textbf{#2}\\[-1pt]\textcolor{sbGray}{\scriptsize #3}};}
+  \studyrow{6}{A\ \ Single-agent graph search}{learn deeply}
+  \studyrow{5}{B\ \ Multi-agent path finding}{learn deeply}
+  \studyrow{4}{C\ \ Local/reactive avoidance}{learn deeply}
+  \studyrow{3}{D\ \ Sampling-based planning}{know well}
+  \studyrow{2}{E\ \ Prediction and tracking}{know well}
+  \studyrow{1}{F\ \ Optimization and control}{learn enough to integrate}
+  \studyrow{0}{Capstone}{integrate and evaluate}
+\end{tikzpicture}
+\caption{The twelve weeks grouped by algorithm family. The bar length is the number of weeks
+the plan gives to the family; the label inside each bar names the chapters of this book that
+teach it. Families A--C receive two thirds of the plan, which is where the depth is needed
+for the capstone.}
+\label{fig:appA-timeline}
+\end{figure}
