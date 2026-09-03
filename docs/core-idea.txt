@@ -1,0 +1,146 @@
+TRAINING PLAN
+[Title] Multi-Agent Path Planning and
+Drone Collision Avoidance
+12-week roadmap: CBS, local avoidance, dynamic replanning, prediction, and control
+<<TABLE>>
+Goal | Build enough theory and implementation skill to design a hybrid swarm planner that handles planned inter-drone conflicts and unexpected moving obstacles.
+Target outcome | A working research prototype combining CBS/ECBS, a reactive avoidance layer, prediction, and D* Lite or A* replanning.
+Study load | Approximately 6-8 hours per week, with coding prioritized over passive reading.
+Suggested stack | Python, NumPy, NetworkX, Matplotlib, PyBullet or gym-pybullet-drones, plus your existing Swarmaze/MAPF codebase.
+<<END TABLE>>
+
+[Callout] Core idea: Use a global planner for planned routes, a local collision-avoidance method for surprises, and a replanner only when the local response is insufficient.
+
+
+[Heading1] 1. Algorithms You Should Know
+The algorithms below are grouped by the role they play in a complete autonomous-drone system. You do not need equal depth in all of them.
+[Heading2] A. Single-agent graph search — learn deeply
+<<TABLE>>
+Algorithm | Why it matters | Priority
+Dijkstra | Baseline shortest-path search; useful for understanding A*. | High
+A* | Main deterministic shortest-path planner with a heuristic. | Essential
+D* Lite | Efficient replanning when the environment changes after planning. | Essential
+Lifelong Planning A* (LPA*) | Conceptual foundation for D* Lite and incremental search. | Medium
+Anytime Repairing A* (ARA*) | Produces a quick suboptimal path and improves it when more time is available. | Medium
+<<END TABLE>>
+
+[Heading2] B. Multi-agent path finding — learn deeply
+<<TABLE>>
+Algorithm | Why it matters | Priority
+Prioritized Planning | Plans agents sequentially; fast but incomplete in general. | High
+Conflict-Based Search (CBS) | High-level conflict resolution plus low-level per-agent path search. | Essential
+Enhanced CBS (ECBS) | Bounded-suboptimal CBS variant for faster solutions. | Essential
+M* | Couples only agents that are actually in conflict. | Medium
+Push-and-Swap / Push-and-Rotate | Useful constructive MAPF methods and good conceptual contrasts to CBS. | Awareness
+<<END TABLE>>
+
+[Heading2] C. Local/reactive collision avoidance — learn deeply
+<<TABLE>>
+Algorithm | Why it matters | Priority
+Velocity Obstacles (VO) | Represents velocities that would cause a future collision. | Essential
+Reciprocal Velocity Obstacles (RVO) | Extends VO when both agents cooperate in avoidance. | High
+ORCA | Efficient reciprocal local collision avoidance with half-plane constraints. | Essential
+Dynamic Window Approach (DWA) | Chooses safe short-horizon velocity commands under motion constraints. | High
+Artificial Potential Fields (APF) | Attractive and repulsive forces; simple but can suffer local minima. | High
+<<END TABLE>>
+
+[Heading2] D. Sampling-based motion planning — know well
+<<TABLE>>
+Algorithm | Why it matters | Priority
+RRT | Explores continuous configuration spaces quickly. | High
+RRT* | Asymptotically optimal version of RRT. | High
+Informed RRT* | Focuses sampling after an initial solution is found. | Medium
+<<END TABLE>>
+
+[Heading2] E. Prediction and tracking — know well
+<<TABLE>>
+Algorithm | Why it matters | Priority
+Kalman Filter | Tracks linear motion with Gaussian uncertainty. | Essential
+Extended Kalman Filter (EKF) | Handles nonlinear motion models. | High
+Unscented Kalman Filter (UKF) | Alternative nonlinear estimator that avoids explicit Jacobians. | Medium
+Particle Filter | Useful for nonlinear or non-Gaussian tracking. | Medium
+LSTM trajectory prediction | Learns temporal motion patterns from historical trajectories. | Essential for your planned research
+Transformer trajectory prediction | Modern alternative for longer-range and interaction-aware prediction. | Awareness to High
+<<END TABLE>>
+
+[Heading2] F. Optimization and control — learn enough to integrate
+<<TABLE>>
+Algorithm | Why it matters | Priority
+Model Predictive Control (MPC) | Optimizes controls over a moving time horizon; naturally handles constraints. | Essential
+Mixed-Integer Linear Programming (MILP) | Useful for exact constrained scheduling/path formulations, but can be expensive. | Medium
+Consensus / formation control | Maintains relative positions or shared swarm objectives. | Essential for formation-preserving work
+<<END TABLE>>
+
+[Heading1] 2. Twelve-Week Training Schedule
+<<TABLE>>
+Wk | Topic | Learn | Coding exercise | Milestone
+1 | Foundations: Dijkstra and A* | Graph search, admissible/consistent heuristics, space-time representation. | Implement grid A*. Add time as a state variable. Visualize open/closed sets. | You can explain exactly why A* returns an optimal path under the required conditions.
+2 | Dynamic replanning: LPA* and D* Lite | Incremental search and what changes when obstacles appear after planning. | Implement or adapt D* Lite. Change obstacles during execution and compare runtime with rerunning A*. | Your agent can repair a path rather than restarting every search.
+3 | MAPF basics and conflict types | Vertex conflicts, edge/swap conflicts, time-indexed paths, sum-of-costs and makespan. | Implement prioritized planning for 2-5 agents. Create deliberate conflict cases. | You can represent and detect MAPF conflicts correctly.
+4 | Conflict-Based Search (CBS) | Constraint tree, high-level search, low-level A*, branching on conflicts. | Implement basic CBS from scratch for a grid. Test 2, 4, and 8 agents. | A working optimal CBS solver on small instances.
+5 | ECBS and practical MAPF | Bounded suboptimality, focal search, performance/optimality trade-off. | Add ECBS or reproduce an open implementation. Benchmark against CBS. | You can measure the cost of faster suboptimal solutions.
+6 | Velocity Obstacles, RVO, and ORCA | Collision cones, relative velocity, reciprocal avoidance. | Build a 2D simulation with agents crossing. Compare no avoidance, VO, and ORCA. | You understand how a local velocity choice prevents a predicted collision.
+7 | DWA and Artificial Potential Fields | Short-horizon control, local minima, oscillation, robot dynamics. | Implement DWA or APF in a continuous environment. Create failure cases. | You know when local methods work and when they fail.
+8 | RRT, RRT*, and continuous 3D planning | Sampling, steering, collision checks, path quality in continuous space. | Implement RRT* or use a library in a 3D obstacle field. Compare to grid A*. | You can choose between graph search and sampling-based planning.
+9 | Tracking unknown moving obstacles | Kalman/EKF tracking, state estimation, uncertainty. | Simulate an external drone observed with noisy position/velocity measurements. Track it with a Kalman filter. | Your planner receives a stable estimated state instead of raw noisy observations.
+10 | Trajectory prediction | Constant-velocity baselines, LSTM prediction, horizon and uncertainty. | Compare constant velocity vs LSTM on trajectory sequences. Measure ADE/FDE or comparable prediction errors. | You can quantify whether learning actually improves prediction.
+11 | MPC and formation/communication constraints | Receding-horizon optimization, hard/soft constraints, formation error, communication radius. | Create an MPC or simplified constrained controller that follows a path while preserving a formation or distance limit. | Constraints are explicitly enforced rather than handled only after violation.
+12 | Hybrid system integration | Global MAPF + reactive avoidance + prediction + replanning. | Build the capstone architecture below and run controlled experiments. | A research prototype and an experiment matrix suitable for a paper/thesis chapter.
+<<END TABLE>>
+[Heading1] 3. Capstone: Hybrid Collision-Avoidance Architecture
+A practical architecture for your research can separate the problem into four layers:
+1. Global swarm planner — CBS/ECBS
+Plan nominal, time-indexed paths for the drones under your control. Resolve conflicts among connected swarm members before execution.
+2. Prediction layer — Kalman/LSTM
+Observe an unknown external drone. Estimate its current state and predict a short future trajectory with uncertainty.
+3. Local safety layer — ORCA or DWA
+When a predicted collision enters a short safety horizon, generate a temporary safe velocity or local maneuver without immediately discarding the global route.
+4. Replanning layer — D* Lite or A*
+If the local maneuver cannot safely return the drone to its nominal route, replan from the current state. Then re-check swarm conflicts and formation/communication constraints.
+[Heading2] Suggested decision logic
+[ListNumber] Follow the nominal CBS/ECBS path while no predicted conflict is inside the safety horizon.
+[ListNumber] If an unknown moving object creates a near-term risk, invoke ORCA/DWA to produce a local avoidance action.
+[ListNumber] After the conflict clears, attempt to reconnect to the nominal path at a safe future waypoint.
+[ListNumber] If reconnection is impossible, too costly, or violates formation/communication constraints, run D* Lite/A* from the current state.
+[ListNumber] Re-check inter-agent conflicts after any significant replan.
+[Heading2] Experiments to run
+[ListBullet] Number of controlled drones: 2, 4, 8, and more if computationally feasible.
+[ListBullet] Unknown external drones: 0, 1, 2, and multiple crossing trajectories.
+[ListBullet] Prediction quality: perfect state, noisy state, constant-velocity prediction, learned prediction.
+[ListBullet] Avoidance strategy: local-only, global-replan-only, and hybrid local + replanning.
+[ListBullet] Constraints: no formation requirement vs formation-preserving; no communication radius vs bounded communication range.
+[ListBullet] Metrics: collision rate, minimum separation, path length, travel time, makespan, sum of costs, replanning count, computation time, formation error, and communication violations.
+[Heading1] 4. Reading Order
+Read in this order. The first six items are the highest priority.
+1	A*
+2	D* Lite
+3	CBS
+4	MAPF overview
+5	Velocity Obstacles
+6	ORCA
+7	DWA
+8	RRT
+9	RRT*
+10	Planning reference
+11	MPC
+12	Trajectory prediction
+[Heading1] 5. What Is Established vs. Where Research Still Exists
+The individual algorithms above are established. The contribution does not need to be inventing a completely new planner from zero. Strong research opportunities remain in how the components are combined, constrained, predicted, and evaluated.
+[ListBullet] Unknown, non-cooperative drones whose future motion is uncertain rather than shared.
+[ListBullet] Combining CBS-style swarm coordination with real-time local avoidance without destroying global guarantees unnecessarily.
+[ListBullet] Formation preservation and communication-range constraints during avoidance and replanning.
+[ListBullet] Prediction-aware constraints that include uncertainty rather than treating the predicted path as exact.
+[ListBullet] Deciding automatically when a local avoidance action is sufficient and when a global replan is necessary.
+[ListBullet] Reducing computation for larger swarms while maintaining safety in dynamic 3D environments.
+[ListBullet] Creating benchmarks that compare local-only, replan-only, and hybrid approaches under the same conditions.
+[Heading1] 6. Completion Checklist
+☐ I can implement and explain A* and space-time A*.
+☐ I can explain the CBS constraint tree and implement vertex and edge constraints.
+☐ I understand the speed/optimality trade-off in ECBS.
+☐ I can explain VO/RVO/ORCA using relative position and velocity.
+☐ I can track an unknown drone from noisy observations.
+☐ I can compare a simple prediction baseline with LSTM prediction.
+☐ I can trigger local avoidance based on a time-to-collision or safety-horizon rule.
+☐ I can reconnect to the global route or trigger D* Lite/A* replanning.
+☐ I can enforce formation and/or communication-range constraints.
+☐ I can evaluate the hybrid system with reproducible metrics and controlled scenarios.

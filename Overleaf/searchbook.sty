@@ -1,0 +1,371 @@
+%% searchbook.sty -- shared style, packages, macros, colours, boxes and TikZ styles
+%% for "Multi-Agent Path Planning and Drone Collision Avoidance".
+%% Every chapter relies on the macros defined here.  Do NOT load packages
+%% inside chapter files; request additions to this file instead.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{searchbook}[2026/09/03 v1.0 Searchbook textbook style]
+
+% ------------------------------------------------------------------
+% Encoding, fonts, page layout
+% ------------------------------------------------------------------
+\RequirePackage[T1]{fontenc}
+\RequirePackage[utf8]{inputenc}
+\RequirePackage{lmodern}
+\RequirePackage{textcomp}
+\RequirePackage[a4paper,top=2.6cm,bottom=2.8cm,inner=2.7cm,outer=2.7cm,headheight=15pt]{geometry}
+\RequirePackage{microtype}
+\RequirePackage{emptypage}
+\RequirePackage{etoolbox}
+\RequirePackage{xspace}
+\RequirePackage{needspace}
+
+% ------------------------------------------------------------------
+% Mathematics
+% ------------------------------------------------------------------
+\RequirePackage{amsmath,amssymb,amsthm,mathtools,bm}
+
+% ------------------------------------------------------------------
+% Colours
+% ------------------------------------------------------------------
+\RequirePackage[dvipsnames,svgnames,table]{xcolor}
+\definecolor{sbBlue}{HTML}{1F4E79}
+\definecolor{sbLightBlue}{HTML}{E8F0FA}
+\definecolor{sbGreen}{HTML}{2E7D32}
+\definecolor{sbLightGreen}{HTML}{EAF5EA}
+\definecolor{sbOrange}{HTML}{D35400}
+\definecolor{sbLightOrange}{HTML}{FDF2E9}
+\definecolor{sbRed}{HTML}{B71C1C}
+\definecolor{sbLightRed}{HTML}{FBEAEA}
+\definecolor{sbPurple}{HTML}{6A1B9A}
+\definecolor{sbLightPurple}{HTML}{F3E8F8}
+\definecolor{sbGray}{HTML}{555555}
+\definecolor{sbLightGray}{HTML}{F4F4F4}
+\definecolor{sbYellow}{HTML}{F1C40F}
+% Semantic colours used in figures (keep consistent across the book)
+\colorlet{sbObstacle}{black!70}
+\colorlet{sbOpen}{sbLightBlue!80!sbBlue}
+\colorlet{sbClosed}{black!15}
+\colorlet{sbPath}{sbBlue}
+\colorlet{sbStart}{sbGreen}
+\colorlet{sbGoal}{sbRed}
+\colorlet{sbAgentA}{sbBlue}
+\colorlet{sbAgentB}{sbOrange}
+\colorlet{sbAgentC}{sbGreen}
+\colorlet{sbAgentD}{sbPurple}
+\colorlet{sbIntruder}{sbRed}
+
+% ------------------------------------------------------------------
+% Graphics, TikZ, pgfplots
+% ------------------------------------------------------------------
+\RequirePackage{graphicx}
+\graphicspath{{figures/}}
+\RequirePackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,shapes.misc,shapes.arrows,
+  patterns,decorations.pathreplacing,decorations.markings,decorations.pathmorphing,
+  matrix,backgrounds,fit,chains,intersections,angles,quotes,3d,trees,shadows,shapes.multipart}
+\RequirePackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{fillbetween,groupplots,statistics}
+\RequirePackage{float}
+\RequirePackage{placeins}
+\RequirePackage[font=small,labelfont={bf,sf,color=sbBlue},labelsep=period,margin=1em]{caption}
+\RequirePackage{subcaption}
+
+% Shared TikZ styles: use these names so that all figures look alike.
+\tikzset{
+  sbcell/.style={draw=black!40,very thin},
+  sbobstacle/.style={fill=sbObstacle,draw=black!40,very thin},
+  sbopen/.style={fill=sbOpen,draw=black!40,very thin},
+  sbclosed/.style={fill=sbClosed,draw=black!40,very thin},
+  sbpath/.style={draw=sbPath,line width=1.6pt,rounded corners=2pt},
+  sbpathalt/.style={draw=sbOrange,line width=1.6pt,rounded corners=2pt,dashed},
+  sbstart/.style={circle,draw=sbStart,fill=sbStart!30,thick,inner sep=1.5pt,minimum size=9pt},
+  sbgoal/.style={circle,draw=sbGoal,fill=sbGoal!30,thick,inner sep=1.5pt,minimum size=9pt},
+  sbnode/.style={circle,draw=sbBlue,fill=white,thick,inner sep=1.5pt,minimum size=18pt,font=\small},
+  sbnodeclosed/.style={sbnode,fill=sbClosed},
+  sbnodeopen/.style={sbnode,fill=sbOpen},
+  sbedge/.style={draw=black!60,thick},
+  sbedgeopt/.style={draw=sbPath,line width=1.8pt},
+  sbagentA/.style={circle,draw=sbAgentA,fill=sbAgentA!35,thick,inner sep=1pt,minimum size=11pt,font=\scriptsize},
+  sbagentB/.style={circle,draw=sbAgentB,fill=sbAgentB!35,thick,inner sep=1pt,minimum size=11pt,font=\scriptsize},
+  sbagentC/.style={circle,draw=sbAgentC,fill=sbAgentC!35,thick,inner sep=1pt,minimum size=11pt,font=\scriptsize},
+  sbagentD/.style={circle,draw=sbAgentD,fill=sbAgentD!35,thick,inner sep=1pt,minimum size=11pt,font=\scriptsize},
+  sbintruder/.style={circle,draw=sbIntruder,fill=sbIntruder!35,thick,inner sep=1pt,minimum size=11pt,font=\scriptsize},
+  sbvec/.style={-{Stealth[length=6pt]},thick},
+  sbvecA/.style={sbvec,draw=sbAgentA},
+  sbvecB/.style={sbvec,draw=sbAgentB},
+  sbannot/.style={font=\footnotesize,text=sbGray},
+  sbbox/.style={draw=sbBlue,fill=sbLightBlue,rounded corners=3pt,thick,align=center,inner sep=6pt,font=\small\sffamily},
+  sbboxalt/.style={draw=sbOrange,fill=sbLightOrange,rounded corners=3pt,thick,align=center,inner sep=6pt,font=\small\sffamily},
+  sbboxgreen/.style={draw=sbGreen,fill=sbLightGreen,rounded corners=3pt,thick,align=center,inner sep=6pt,font=\small\sffamily},
+  sbboxgray/.style={draw=sbGray,fill=sbLightGray,rounded corners=3pt,thick,align=center,inner sep=6pt,font=\small\sffamily},
+  sbflow/.style={-{Stealth[length=7pt]},thick,draw=sbGray},
+  sbregion/.style={fill=sbOrange!20,draw=sbOrange,thick},
+  sbregionB/.style={fill=sbBlue!15,draw=sbBlue,thick},
+  sbhalfplane/.style={pattern=north east lines,pattern color=sbOrange!70},
+  every picture/.style={>={Stealth[length=6pt]}},
+}
+% \drawgrid{cols}{rows} draws a cols x rows unit grid with the origin at (0,0)
+\newcommand{\drawgrid}[2]{\draw[black!40,very thin] (0,0) grid (#1,#2);}
+% \gridobstacle{x}{y} fills the unit cell whose lower-left corner is (x,y)
+\newcommand{\gridobstacle}[2]{\fill[sbobstacle] (#1,#2) rectangle ++(1,1);}
+\newcommand{\gridopen}[2]{\fill[sbopen] (#1,#2) rectangle ++(1,1);}
+\newcommand{\gridclosed}[2]{\fill[sbclosed] (#1,#2) rectangle ++(1,1);}
+
+% ------------------------------------------------------------------
+% Tables and lists
+% ------------------------------------------------------------------
+\RequirePackage{booktabs,tabularx,array,multirow,longtable,makecell}
+\RequirePackage{enumitem}
+\setlist{itemsep=2pt,topsep=4pt,parsep=0pt}
+\setlist[itemize]{label=\textcolor{sbBlue}{\textbullet}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\renewcommand{\arraystretch}{1.15}
+
+% ------------------------------------------------------------------
+% Pseudocode (algorithm2e) and source code (listings)
+% ------------------------------------------------------------------
+\RequirePackage[ruled,vlined,linesnumbered,algochapter]{algorithm2e}
+\DontPrintSemicolon
+\SetAlgoLined
+\SetKwInput{KwIn}{Input}
+\SetKwInput{KwOut}{Output}
+\SetKwInput{KwData}{Data}
+\SetKwProg{Fn}{Function}{:}{end}
+\SetKwProg{Proc}{Procedure}{:}{end}
+\SetKw{KwBreak}{break}
+\SetKw{KwContinue}{continue}
+\SetKw{KwTrue}{true}
+\SetKw{KwFalse}{false}
+\SetKw{KwNil}{nil}
+\SetKw{KwOr}{or}
+\SetKw{KwAnd}{and}
+\SetKw{KwNot}{not}
+\SetKw{KwEach}{each}
+\SetKwComment{Comment}{$\triangleright$\ }{}
+\SetCommentSty{textit}
+\SetNlSty{textsf}{}{}
+\SetAlgoCaptionSeparator{.}
+
+\RequirePackage{listings}
+\lstdefinestyle{sbpython}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{sbBlue}\bfseries,
+  commentstyle=\color{sbGray}\itshape,
+  stringstyle=\color{sbGreen},
+  identifierstyle=\color{black},
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{black!30},
+  backgroundcolor=\color{sbLightGray},
+  numbers=left,
+  numberstyle=\tiny\color{sbGray},
+  numbersep=8pt,
+  xleftmargin=2.2em,
+  framexleftmargin=1.8em,
+  tabsize=4,
+  columns=fullflexible,
+  keepspaces=true,
+  upquote=true,
+  aboveskip=8pt,
+  belowskip=8pt,
+  morekeywords={self,None,True,False,yield,with,as,assert,lambda,nonlocal},
+}
+\lstset{style=sbpython}
+\renewcommand{\lstlistingname}{Listing}
+
+% ------------------------------------------------------------------
+% Chapter and section headings, running heads
+% ------------------------------------------------------------------
+\RequirePackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\bfseries\color{sbBlue}}
+  {\filleft\fontsize{56}{56}\selectfont\thechapter}
+  {1ex}
+  {\titlerule[1.2pt]\vspace{1.5ex}\filright\huge}
+  [\vspace{1ex}]
+\titlespacing*{\chapter}{0pt}{20pt}{28pt}
+\titleformat{\section}{\normalfont\sffamily\Large\bfseries\color{sbBlue}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\sffamily\large\bfseries\color{sbBlue!85!black}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalfont\sffamily\normalsize\bfseries\color{sbBlue!70!black}}{\thesubsubsection}{1em}{}
+\titleformat{\paragraph}[runin]{\normalfont\normalsize\bfseries}{\theparagraph}{1em}{}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{1}
+
+\RequirePackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\chaptermark}[1]{\markboth{\chaptername\ \thechapter.\ #1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection\ #1}}
+\fancyhead[L]{\small\sffamily\color{sbGray}\nouppercase{\leftmark}}
+\fancyhead[R]{\small\sffamily\color{sbGray}\nouppercase{\rightmark}}
+\fancyfoot[C]{\small\sffamily\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\small\sffamily\thepage}\renewcommand{\headrulewidth}{0pt}}
+
+% ------------------------------------------------------------------
+% Bibliography and index
+% ------------------------------------------------------------------
+\RequirePackage[backend=biber,style=numeric-comp,sorting=nyt,maxbibnames=8,minbibnames=6,giveninits=true,doi=false,isbn=false,url=false,eprint=false]{biblatex}
+\RequirePackage{imakeidx}
+
+% ------------------------------------------------------------------
+% Coloured boxes (tcolorbox) and theorem-like environments
+% ------------------------------------------------------------------
+\RequirePackage[most]{tcolorbox}
+\tcbset{
+  sbboxbase/.style={enhanced,breakable,boxrule=0.6pt,arc=2pt,left=8pt,right=8pt,top=6pt,bottom=6pt,
+    before skip=10pt,after skip=10pt,fonttitle=\sffamily\bfseries,coltitle=white,
+    attach boxed title to top left={yshift=-2mm,xshift=4mm},
+    boxed title style={arc=1pt,boxrule=0pt,left=5pt,right=5pt,top=2pt,bottom=2pt}},
+}
+% Learning objectives: at the start of every chapter
+\newtcolorbox{objectives}{sbboxbase,colback=sbLightBlue,colframe=sbBlue,colbacktitle=sbBlue,title=Learning objectives}
+% Key idea / intuition box
+\newtcolorbox{keyidea}[1][Key idea]{sbboxbase,colback=sbLightGreen,colframe=sbGreen,colbacktitle=sbGreen,title=#1}
+% Where the algorithm sits in the drone system
+\newtcolorbox{dronebox}[1][In the drone system]{sbboxbase,colback=sbLightPurple,colframe=sbPurple,colbacktitle=sbPurple,title=#1}
+% Pitfalls, warnings and common mistakes
+\newtcolorbox{pitfall}[1][Pitfall]{sbboxbase,colback=sbLightOrange,colframe=sbOrange,colbacktitle=sbOrange,title=#1}
+% Chapter summary
+\newtcolorbox{summary}[1][Chapter summary]{sbboxbase,colback=sbLightGray,colframe=sbGray,colbacktitle=sbGray,title=#1}
+% Historical or "further reading" note
+\newtcolorbox{historynote}[1][Historical note]{sbboxbase,colback=white,colframe=sbGray!70,colbacktitle=sbGray!80,title=#1}
+% Generic titled note
+\newtcolorbox{notebox}[1]{sbboxbase,colback=white,colframe=sbBlue!70,colbacktitle=sbBlue!80,title=#1}
+
+% Theorem-like environments (all share one counter per chapter, so they are
+% numbered in reading order: Definition 4.1, Example 4.2, Theorem 4.3, ...)
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[chapter]
+\newtheorem{example}[definition]{Example}
+\newtheorem{theorem}[definition]{Theorem}
+\newtheorem{lemma}[definition]{Lemma}
+\newtheorem{proposition}[definition]{Proposition}
+\newtheorem{corollary}[definition]{Corollary}
+\theoremstyle{remark}
+\newtheorem{remark}[definition]{Remark}
+\newtheorem{exercise}{Exercise}[chapter]
+\tcolorboxenvironment{definition}{blanker,breakable,borderline west={2.5pt}{0pt}{sbBlue},left=8pt,before skip=8pt,after skip=8pt,colback=sbLightBlue!50}
+\tcolorboxenvironment{example}{blanker,breakable,borderline west={2.5pt}{0pt}{sbGreen},left=8pt,before skip=8pt,after skip=8pt,colback=sbLightGreen!60}
+\tcolorboxenvironment{theorem}{blanker,breakable,borderline west={2.5pt}{0pt}{sbPurple},left=8pt,before skip=8pt,after skip=8pt}
+\tcolorboxenvironment{lemma}{blanker,breakable,borderline west={2.5pt}{0pt}{sbPurple},left=8pt,before skip=8pt,after skip=8pt}
+\tcolorboxenvironment{proposition}{blanker,breakable,borderline west={2.5pt}{0pt}{sbPurple},left=8pt,before skip=8pt,after skip=8pt}
+\tcolorboxenvironment{corollary}{blanker,breakable,borderline west={2.5pt}{0pt}{sbPurple},left=8pt,before skip=8pt,after skip=8pt}
+\tcolorboxenvironment{remark}{blanker,breakable,borderline west={2.5pt}{0pt}{sbGray},left=8pt,before skip=8pt,after skip=8pt}
+\tcolorboxenvironment{exercise}{blanker,breakable,borderline west={2.5pt}{0pt}{sbOrange},left=8pt,before skip=6pt,after skip=6pt}
+\tcolorboxenvironment{proof}{blanker,breakable,left=4pt,before skip=4pt,after skip=8pt}
+
+% Difficulty stars for exercises: \difficulty{1}, \difficulty{2}, \difficulty{3}
+\RequirePackage{pifont}
+\newcommand{\difficulty}[1]{\textcolor{sbOrange}{\foreach \i in {1,...,#1}{\ding{72}}}}
+\providecommand{\checkmark}{\ding{51}}
+% Priority tag as used in the training plan: \priority{Essential}
+\newcommand{\priority}[1]{\tcbox[on line,colback=sbLightBlue,colframe=sbBlue,boxrule=0.5pt,arc=2pt,
+  left=3pt,right=3pt,top=1pt,bottom=1pt,boxsep=0pt]{\sffamily\scriptsize #1}}
+% Solutions in Appendix C: \begin{solution}{exr:label} ... \end{solution}
+\newenvironment{solution}[1]{\par\medskip\noindent\textbf{\sffamily\color{sbBlue}Exercise~\ref{#1}.}\ \ignorespaces}{\par\medskip}
+% Figure inclusion helper: \inputfigure{ch04/astar-expansion}
+\newcommand{\inputfigure}[1]{\input{figures/#1}}
+% Algorithm names in prose
+\newcommand{\astar}{A\textsuperscript{*}\xspace}
+\newcommand{\dstarlite}{D\textsuperscript{*}~Lite\xspace}
+\newcommand{\dstar}{D\textsuperscript{*}\xspace}
+\newcommand{\lpastar}{LPA\textsuperscript{*}\xspace}
+\newcommand{\arastar}{ARA\textsuperscript{*}\xspace}
+\newcommand{\mstar}{M\textsuperscript{*}\xspace}
+\newcommand{\rrt}{RRT\xspace}
+\newcommand{\rrtstar}{RRT\textsuperscript{*}\xspace}
+\newcommand{\irrtstar}{Informed RRT\textsuperscript{*}\xspace}
+\newcommand{\cbs}{CBS\xspace}
+\newcommand{\ecbs}{ECBS\xspace}
+\newcommand{\orca}{ORCA\xspace}
+\newcommand{\python}{Python\xspace}
+\newcommand{\code}[1]{\texttt{#1}}
+
+% ------------------------------------------------------------------
+% Mathematical notation (see frontmatter/notation.tex for the table)
+% ------------------------------------------------------------------
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\Normal}{\mathcal{N}}
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\Cov}{Cov}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator{\Succ}{Succ}
+\DeclareMathOperator{\Pred}{Pred}
+\DeclareMathOperator{\dist}{dist}
+\DeclareMathOperator{\cost}{cost}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\Nearest}{Nearest}
+\DeclareMathOperator{\Near}{Near}
+\DeclareMathOperator{\Steer}{Steer}
+\DeclareMathOperator{\CollisionFree}{CollisionFree}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\abs}[1]{\left\lvert #1 \right\rvert}
+\newcommand{\vect}[1]{\mathbf{#1}}
+\newcommand{\mat}[1]{\mathbf{#1}}
+\newcommand{\T}{^{\mathsf{T}}}
+\newcommand{\inv}{^{-1}}
+\newcommand{\set}[1]{\left\{ #1 \right\}}
+\newcommand{\given}{\,\middle|\,}
+\newcommand{\bigO}[1]{\mathcal{O}\!\left(#1\right)}
+\newcommand{\Open}{\textsc{Open}\xspace}
+\newcommand{\Closed}{\textsc{Closed}\xspace}
+\newcommand{\Focal}{\textsc{Focal}\xspace}
+\newcommand{\gcost}{g}
+\newcommand{\hcost}{h}
+\newcommand{\fcost}{f}
+\newcommand{\rhs}{\mathit{rhs}}
+\newcommand{\key}{\mathit{key}}
+\newcommand{\st}{\text{subject to}\quad}
+\newcommand{\dt}{\Delta t}
+\newcommand{\ttc}{\tau}
+\newcommand{\VO}{\mathit{VO}}
+\newcommand{\RVO}{\mathit{RVO}}
+\newcommand{\ORCA}{\mathit{ORCA}}
+\newcommand{\disc}[2]{D(#1,#2)}
+\newcommand{\pos}{\vect{p}}
+\newcommand{\vel}{\vect{v}}
+\newcommand{\acc}{\vect{a}}
+\newcommand{\state}{\vect{x}}
+\newcommand{\ctrl}{\vect{u}}
+\newcommand{\meas}{\vect{z}}
+\newcommand{\Cspace}{\mathcal{C}}
+\newcommand{\Cfree}{\mathcal{C}_{\mathrm{free}}}
+\newcommand{\Cobs}{\mathcal{C}_{\mathrm{obs}}}
+\newcommand{\Xfree}{\mathcal{X}_{\mathrm{free}}}
+\newcommand{\Xobs}{\mathcal{X}_{\mathrm{obs}}}
+\newcommand{\Kgain}{\mat{K}}
+\newcommand{\sumcost}{\mathrm{SoC}}
+\newcommand{\makespan}{\mathrm{MS}}
+\newcommand{\eps}{\varepsilon}
+
+% ------------------------------------------------------------------
+% Hyperlinks and clever references (must stay last)
+% ------------------------------------------------------------------
+\RequirePackage[colorlinks=true,linkcolor=sbBlue,citecolor=sbGreen,urlcolor=sbPurple,
+  pdfusetitle,bookmarksnumbered=true,bookmarksopen=true,bookmarksopenlevel=1]{hyperref}
+\RequirePackage{bookmark}
+\RequirePackage[capitalise,noabbrev,nameinlink]{cleveref}
+\crefname{algocf}{Algorithm}{Algorithms}
+\Crefname{algocf}{Algorithm}{Algorithms}
+\crefname{exercise}{Exercise}{Exercises}
+\Crefname{exercise}{Exercise}{Exercises}
+\crefname{listing}{Listing}{Listings}
+\Crefname{listing}{Listing}{Listings}
+\crefname{lstlisting}{Listing}{Listings}
+\Crefname{lstlisting}{Listing}{Listings}
+\endinput
