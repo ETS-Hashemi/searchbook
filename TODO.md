@@ -44,18 +44,18 @@ Legend: `[ ]` open · `[x]` done · `[~]` in progress · `[-]` dropped (with rea
 Each chapter: outline → draft following the template → figures (≥4, TikZ) → worked example with trace table → pseudocode → verified Python → pitfalls → drone-system box → summary → exercises → compile check.
 
 ### Part I — Foundations
-- [~] 2.01 Ch 1 Planning for Drone Swarms (problem, the four-layer hybrid architecture preview, roadmap, established vs open research) — [~] author running (relaunched after container restart); text 1165 lines so far, 6 figure files, code present
+- [~] 2.01 Ch 1 Planning for Drone Swarms (problem, the four-layer hybrid architecture preview, roadmap, established vs open research) — drafted, compiles (Ch 1, ~20 pp, 6 figures, code + self-test)
 - [x] 2.02 Ch 2 The Toolbox (graphs and grids, configuration space, time-indexed paths, kinematics, uncertainty, complexity, priority queues) — done: 23 pages, compiles, self-test passes (7 figures, 7 tables, 10 exercises, solutions, glossary); over the length target, cut candidates noted for review
 
 ### Part II — Single-Agent Graph Search
-- [~] 2.03 Ch 3 Dijkstra's Algorithm — [~] author running (relaunched after container restart); text 4 lines so far, 6 figure files, code present
-- [~] 2.04 Ch 4 A* Search (admissible/consistent heuristics, optimality proof, weighted A*, space-time A*) — [~] author running (relaunched after container restart); text 4 lines so far, 2 figure files, code present
-- [~] 2.05 Ch 5 Incremental Search: LPA* and D* Lite — [~] author running (relaunched after container restart); text 473 lines so far, 0 figure files, code pending
+- [~] 2.03 Ch 3 Dijkstra's Algorithm — drafted, compiles (Ch 3, 6 figures, code + self-test); awaiting finisher pass
+- [~] 2.04 Ch 4 A* Search (admissible/consistent heuristics, optimality proof, weighted A*, space-time A*) — drafted, compiles (Ch 4, 7 figures); space-time A* section and experiment figure to verify
+- [~] 2.05 Ch 5 Incremental Search: LPA* and D* Lite — drafted, compiles (Ch 5, 6 figures, D* Lite + LPA*); finisher pass pending
 - [~] 2.06 Ch 6 Anytime Search: ARA* (and Anytime D* pointer) — [~] author running (relaunched after container restart); text 4 lines so far, 0 figure files, code present
 
 ### Part III — Multi-Agent Path Finding
 - [~] 2.07 Ch 7 The MAPF Problem (conflict types, objectives, complexity, benchmarks) — [~] author running (relaunched after container restart); text 4 lines so far, 8 figure files, code present
-- [~] 2.08 Ch 8 Prioritized Planning and Space-Time A* (reservation tables, Cooperative A*, incompleteness) — [~] author running (relaunched after container restart); text 4 lines so far, 0 figure files, code pending
+- [~] 2.08 Ch 8 Prioritized Planning and Space-Time A* (reservation tables, Cooperative A*, incompleteness) — partial draft (282 lines, ends mid-chapter); needs completion
 - [ ] 2.09 Ch 9 Conflict-Based Search (constraint tree, high/low level, optimality, ICBS improvements)
 - [ ] 2.10 Ch 10 Bounded-Suboptimal Search: ECBS (focal search, bounds, benchmarks vs CBS)
 - [ ] 2.11 Ch 11 M*, Push-and-Swap, Push-and-Rotate
@@ -93,8 +93,8 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 ## Phase 4 — Back matter
 
-- [~] 4.1 Appendix A: the twelve-week study plan (week → chapters → coding exercise → milestone → completion checklist) — [~] author running; draft 238 lines
-- [~] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics) — [~] author running
+- [~] 4.1 Appendix A: the twelve-week study plan (week → chapters → coding exercise → milestone → completion checklist) — drafted, compiles (Appendix A, 850 lines)
+- [ ] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics)
 - [ ] 4.3 Appendix C: hints and solutions to selected exercises (≥2 per chapter)
 - [ ] 4.4 Glossary (every bold term of the book)
 - [ ] 4.5 Index (≥15 entries per chapter; check for duplicates and synonyms)
@@ -173,6 +173,9 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 8 | 03:45 | relaunch 2.01–2.08, 4.1, 4.2 with "text first" order; autosave to main every 5 min | running |
 | 9 | 03:50 | single-branch policy: merged into main, local branch removed | remote branch deletion refused by proxy; delete in GitHub UI |
 | 10 | 04:00–12:50 | usage limit hit; all authors stopped (drafts of Ch 1–5, 8 and App. A survived via autosave) | paused until reset |
+| 13 | 13:20–13:40 | finishers for Ch 3, 4, 5, 8 and author for Ch 7 all terminated (4x HTTP 500, 1x out of usage credits) | no file damage; drafts intact |
+| 14 | 13:50 | fixed two build blockers myself: tcolorbox titles containing commas (global, `searchbook.sty`) and the missing `figures/ch08/idea.tex` | full book compiles: 168 pp, 0 errors |
+| 15 | 13:55 | 8.2/8.3 produced `Overleaf/searchbook.pdf` and `Overleaf/searchbook-overleaf.zip` (202 files) from the current state | delivered |
 | 12 | 13:15 | 2.02 Chapter 2 finished; global cleveref fix (aliascnt) in searchbook.sty | Ch 2: 23 pp, 0 errors |
 | 11 | 12:55 | specs saved to docs/specs/; finishers launched for Ch 2, 3, 4, 5, 8 (5 in parallel to stay under the limit) | running |
 

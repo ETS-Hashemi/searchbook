@@ -1,0 +1,50 @@
+% Concept figure for Chapter 8: prioritized planning plans one agent at a time, and
+% each agent treats the already-planned paths of higher-priority agents as moving
+% obstacles recorded in a reservation table.
+\begin{tikzpicture}[scale=0.62,every node/.style={font=\footnotesize}]
+
+% ---- panel 1: agent 1 plans on the empty map -------------------------------
+\begin{scope}
+  \drawgrid{6}{5}
+  \gridobstacle{2}{2}\gridobstacle{3}{2}
+  \draw[sbpath] (0.5,0.5) -- (5.5,0.5) -- (5.5,4.5);
+  \node[sbagentA] at (0.5,0.5) {1};
+  \node[sbgoal] at (5.5,4.5) {};
+  \node[sbannot,anchor=north] at (3,-0.25) {1. agent~1 plans first};
+  \node[sbannot,anchor=south] at (3,5.1) {empty reservation table};
+\end{scope}
+
+% ---- panel 2: agent 2 plans against agent 1's reservations -----------------
+\begin{scope}[xshift=7.6cm]
+  \drawgrid{6}{5}
+  \gridobstacle{2}{2}\gridobstacle{3}{2}
+  % agent 1's path is now a moving obstacle
+  \draw[sbpath,opacity=0.35] (0.5,0.5) -- (5.5,0.5) -- (5.5,4.5);
+  \foreach \x/\y in {1/0,2/0,3/0,4/0,5/0,5/1} {\fill[sbAgentA,opacity=0.18] (\x,\y) rectangle ++(1,1);}
+  \draw[sbpath,draw=sbAgentB] (0.5,3.5) -- (1.5,3.5) -- (1.5,1.5) -- (4.5,1.5) -- (4.5,3.5);
+  \node[sbagentA,opacity=0.45] at (0.5,0.5) {1};
+  \node[sbagentB] at (0.5,3.5) {2};
+  \node[sbgoal] at (4.5,3.5) {};
+  \node[sbannot,anchor=north] at (3,-0.25) {2. agent~2 avoids agent~1};
+  \node[sbannot,anchor=south] at (3,5.1) {reserved cells shaded};
+\end{scope}
+
+% ---- panel 3: agent 3 must wait --------------------------------------------
+\begin{scope}[xshift=15.2cm]
+  \drawgrid{6}{5}
+  \gridobstacle{2}{2}\gridobstacle{3}{2}
+  \draw[sbpath,opacity=0.35] (0.5,0.5) -- (5.5,0.5) -- (5.5,4.5);
+  \draw[sbpath,draw=sbAgentB,opacity=0.35] (0.5,3.5) -- (1.5,3.5) -- (1.5,1.5) -- (4.5,1.5) -- (4.5,3.5);
+  \foreach \x/\y in {1/0,2/0,3/0,4/0,5/0,5/1,1/3,1/2,1/1,2/1,3/1,4/1,4/2} {%
+    \fill[black,opacity=0.13] (\x,\y) rectangle ++(1,1);}
+  % agent 3 waits one step, then crosses
+  \draw[sbpathalt,draw=sbAgentC] (2.5,4.5) -- (2.5,3.5) -- (3.5,3.5) -- (3.5,4.5) -- (5.5,4.5);
+  \node[sbannot,text=sbAgentC] at (1.55,4.2) {wait};
+  \draw[sbvec,draw=sbAgentC,shorten >=2pt] (1.9,4.3) -- (2.4,4.05);
+  \node[sbagentC] at (2.5,4.5) {3};
+  \node[sbgoal] at (5.5,4.5) {};
+  \node[sbannot,anchor=north] at (3,-0.25) {3. agent~3 waits, then crosses};
+  \node[sbannot,anchor=south] at (3,5.1) {detour and wait are the price};
+\end{scope}
+
+\end{tikzpicture}
