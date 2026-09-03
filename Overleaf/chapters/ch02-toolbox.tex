@@ -1,4 +1,195 @@
 \chapter{The Toolbox: Graphs, Grids, Time, Motion and Uncertainty}
 \label{ch:ch02}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode are prefixed with "Toolbox" to stay unique.
+\SetKwFunction{ToolboxLazyPush}{LazyPush}
+\SetKwFunction{ToolboxLazyPop}{LazyPop}
+
+\begin{objectives}
+\begin{itemize}
+  \item Define graphs, grid graphs and 3D lattices precisely, including the cost of a diagonal move and the corner-cutting rule.
+  \item Explain why a disc-shaped drone can be planned as a point once the obstacles have been inflated by a Minkowski sum.
+  \item Tell a path, a plan and a trajectory apart; build the time-expanded graph with wait actions; compute path length, travel time, makespan, sum of costs and minimum separation.
+  \item Write down the single- and double-integrator models of a drone with velocity and acceleration limits, and compute its stopping distance.
+  \item Use the geometric primitives of later chapters: distance to a segment, ray--circle intersection, tangents to a circle and the time of closest approach.
+  \item Read a covariance matrix as an ellipse, state Bayes' rule, and use the lazy-deletion priority queue and the hashed states on which every search in this book relies.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch02-motivation}
+
+Picture eight quadrotors inspecting the racks of a warehouse. A global planner has given each of them a route. Halfway through the mission a forklift-mounted drone that nobody planned for crosses the main aisle. To handle this scene, the four layers of \cref{ch:ch24} need a surprising amount of shared vocabulary. The global planner needs a \emph{map} it can search: a graph, usually a grid. It needs to know how \emph{big} a drone is, so that a route through a narrow gap is not a route into a shelf. It needs \emph{time}, because two drones may use the same aisle if they do so at different moments. It needs \emph{cost measures} to compare routes and whole multi-agent plans. The local avoidance layer needs the drone's \emph{motion limits} (how fast, how hard it can brake) and a small kit of \emph{geometry}: when do two moving discs touch, and which velocities steer clear of an obstacle? The prediction layer describes the intruder with a mean and a covariance, so the planner must understand \emph{uncertainty}. Finally, everything has to run in a few milliseconds, which is a question of \emph{computation}: complexity, priority queues and hashing.
+
+This chapter collects these tools in one place. It is the only chapter of the book that does not present an algorithm; instead it fixes the definitions and conventions that every later chapter cites by number. Read it once from beginning to end, then come back to it as a reference. \Cref{tab:ch02-roadmap} shows where each tool is used again. Every formal object is introduced in a numbered definition, and every number quoted in the text is produced by the companion file \code{code/ch02\_toolbox.py}.
+
+\begin{table}[tb]
+\centering\small
+\caption{Where the tools of this chapter are used again. Every later chapter cites at least one definition from here.}
+\label{tab:ch02-roadmap}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Tool & Section & Used again in\\
+\midrule
+Graphs, grids, lattices & \cref{sec:ch02-graphs} & \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06,ch:ch07}\\
+Configuration space, inflation & \cref{sec:ch02-cspace} & \cref{ch:ch04,ch:ch16,ch:ch17,ch:ch24}\\
+Space-time states, paths, plans & \cref{sec:ch02-time} & \cref{ch:ch04,ch:ch07,ch:ch08,ch:ch09,ch:ch10}\\
+Cost measures & \cref{sec:ch02-costs} & \cref{ch:ch07,ch:ch09,ch:ch10,ch:ch25}\\
+Motion models, stopping distance & \cref{sec:ch02-motion} & \cref{ch:ch14,ch:ch18,ch:ch21,ch:ch22}\\
+Geometry toolkit & \cref{sec:ch02-geometry} & \cref{ch:ch12,ch:ch13,ch:ch14,ch:ch16}\\
+Gaussians, covariance, Bayes' rule & \cref{sec:ch02-uncertainty} & \cref{ch:ch18,ch:ch19,ch:ch20}\\
+Big-O, priority queues, hashing & \cref{sec:ch02-computation} & \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch09}\\
+Python stack, code layout & \cref{sec:ch02-python} & every chapter\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{Graphs, grids and lattices}
+\label{sec:ch02-graphs}
+
+\begin{keyidea}
+Every planner in this book searches a graph. The graph may be explicit (a road map stored in memory), implicit (a grid whose neighbours are computed on demand) or time-expanded (one copy of the map per time step). The search algorithms of Parts~II and~III do not care which; they only ask a vertex for its successors and their costs.
+\end{keyidea}
+
+\subsection{Graphs, paths and shortest paths}
+\label{sec:ch02-graph-defs}
+
+\begin{definition}[Graph, weighted graph]
+\label{def:ch02-graph}
+A \textbf{directed graph}\index{graph!directed} $G=(V,E)$ consists of a finite set $V$ of \textbf{vertices} (also called \emph{nodes}) and a set $E\subseteq V\times V$ of \textbf{edges}; the edge $(u,v)$ leads from $u$ to $v$. The graph is \textbf{undirected}\index{graph!undirected} if $(u,v)\in E$ implies $(v,u)\in E$; we then write $\set{u,v}$ for the pair of opposite edges and count it once. A \textbf{weighted graph}\index{graph!weighted} carries a cost function $c\colon E\to[0,\infty)$; $c(u,v)$ is the \textbf{edge cost}. The \textbf{successors} of $u$ are $\Succ(u)=\set{v : (u,v)\in E}$ and its \textbf{predecessors} are $\Pred(u)=\set{v : (v,u)\in E}$; $\abs{\Succ(u)}$ is the out-degree of $u$, and the largest out-degree in the graph is the \textbf{branching factor} $b$.
+\end{definition}
+
+Edge costs in this book are non-negative, and almost always positive: a move on a grid costs its length, a wait costs one time step. Dijkstra's algorithm (\cref{ch:ch03}) needs exactly this non-negativity.
+
+A graph can be stored in three ways. An \emph{adjacency matrix} keeps a $\abs{V}\times\abs{V}$ table of costs; it answers ``is there an edge from $u$ to $v$?'' in constant time but needs $\bigO{\abs{V}^2}$ memory. An \textbf{adjacency list}\index{adjacency list} keeps, for every vertex, the list of its successors with their costs; in \python this is a dictionary such as \code{\{'a': [('b', 1.0), ('c', 2.5)], 'b': [('c', 1.0)], 'c': []\}}, and it needs $\bigO{\abs{V}+\abs{E}}$ memory. An \emph{implicit graph}\index{graph!implicit} stores nothing at all: a successor function computes $\Succ(u)$ on demand. Grids are implicit graphs, and so are the time-expanded graphs of \cref{sec:ch02-time}. All the search code of this book is written against the implicit interface, a function \code{neighbors(v)} that returns pairs \code{(v', cost)}, because an adjacency list can always be wrapped in such a function.
+
+\begin{definition}[Path, path cost]
+\label{def:ch02-path}
+A \textbf{path}\index{path} from $s$ to $g$ in $G$ is a sequence $\pi=(v_0,v_1,\dots,v_k)$ of vertices with $v_0=s$, $v_k=g$ and $(v_{i-1},v_i)\in E$ for $i=1,\dots,k$. Its \textbf{cost}\index{path!cost} is the sum of its edge costs,
+\begin{equation}
+\cost(\pi)=\sum_{i=1}^{k} c(v_{i-1},v_i),
+\label{eq:ch02-path-cost}
+\end{equation}
+and $k$ is its number of edges. A path is \emph{simple} if no vertex appears twice. The one-vertex sequence $(s)$ is a path from $s$ to $s$ of cost $0$.
+\end{definition}
+
+\begin{definition}[Shortest path, distance]
+\label{def:ch02-shortest-path}
+A \textbf{shortest path}\index{shortest path} from $s$ to $g$ is a path of minimum cost among all paths from $s$ to $g$. Its cost is the \textbf{distance} $\dist(s,g)=\min_\pi \cost(\pi)$; we set $\dist(s,g)=\infty$ when no path exists, and $\dist(s,s)=0$. The distance from $s$ to $g$ is also written $\hcost^*(s)$ when $g$ is fixed (\cref{ch:ch04}).
+\end{definition}
+
+\begin{proposition}[Triangle inequality]
+\label{thm:ch02-triangle}
+For all vertices $u,v,w$ of a graph with non-negative costs, $\dist(u,w)\le \dist(u,v)+\dist(v,w)$.
+\end{proposition}
+\begin{proof}
+If either distance on the right is infinite there is nothing to show. Otherwise take a shortest path from $u$ to $v$ and append a shortest path from $v$ to $w$. The result is a path from $u$ to $w$ of cost $\dist(u,v)+\dist(v,w)$, and the shortest path from $u$ to $w$ cannot cost more. \qedhere
+\end{proof}
+
+This small fact is the reason why consistent heuristics work in \cref{ch:ch04} and why the backward search of \cref{ch:ch03} yields an exact heuristic; you will see it again.
+
+\subsection{Grid graphs}
+\label{sec:ch02-grids}
+
+Most maps in this book are \textbf{occupancy grids}\index{grid!occupancy}: the workspace is cut into unit squares, and each square is either free or blocked. A grid is a graph in disguise, as \cref{def:ch02-grid} makes precise. Our coordinate convention is the mathematical one: $x$ grows to the right, $y$ grows upwards, the cell $(0,0)$ sits in the lower-left corner, and we identify a cell with its centre when we measure distances. The ASCII maps used by the code (\code{.} for free, \code{\#} for blocked) list the \emph{top} row first, so the code flips the row index when it reads them.
+
+\begin{definition}[Grid graph, 4- and 8-connectivity, corner-cutting rule]
+\label{def:ch02-grid}
+A \textbf{grid}\index{grid} of width $W$ and height $H$ is the set of \textbf{cells} $C=\set{(x,y) : x\in\set{0,\dots,W-1},\,y\in\set{0,\dots,H-1}}$, together with a set $O\subseteq C$ of \textbf{obstacle cells}\index{grid!obstacle cell}; the cells in $C\setminus O$ are \emph{free}. The \textbf{4-connected grid graph}\index{grid!4-connected} $G_4$ has the free cells as vertices and an undirected edge of cost~$1$ between two free cells that share a side (a \emph{straight move}). The \textbf{8-connected grid graph}\index{grid!8-connected} $G_8$ has, in addition, an edge of cost~$\sqrt{2}$ between two free cells that share only a corner (a \emph{diagonal move}), subject to the \textbf{corner-cutting rule}\index{corner cutting}: the diagonal move from $(x,y)$ to $(x+d_x,\,y+d_y)$ is allowed only if the two cells $(x+d_x,\,y)$ and $(x,\,y+d_y)$ it passes between are both free.
+\end{definition}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch02/grid-connectivity}
+  \caption{Grid connectivity. (a)~The four straight moves of $G_4$ cost $1$ each. (b)~In $G_8$ the diagonal moves cost $\sqrt{2}$; the move into the obstacle and the two diagonals that would pass its corners are forbidden by the corner-cutting rule. (c)~Why: a disc that slides diagonally past an obstacle corner clips it, even though the start and end cells are free.}
+  \label{fig:ch02-grid-connectivity}
+\end{figure}
+
+Three choices in this definition deserve a comment. First, the diagonal cost is $\sqrt2$ and not $1$ because $\sqrt2$ is the distance between the centres of two diagonal neighbours. With costs $1$ and $\sqrt2$ the cost of a grid path is exactly the Euclidean length of the polyline through the cell centres, and the straight-line and octile heuristics of \cref{ch:ch04} never overestimate it. Second, the corner-cutting rule exists because a drone is not a point: \cref{fig:ch02-grid-connectivity}(c) shows a disc sliding diagonally past an obstacle corner and clipping it. Some code bases use the weaker rule that forbids the diagonal only when \emph{both} side cells are blocked; that rule is unsafe for any robot of positive size, and this book never uses it. Third, \cref{def:ch02-grid} treats the grid as undirected: every move can be reversed. Later chapters add directed edges only when time enters (\cref{sec:ch02-time}).
+
+Which connectivity should you use? \Cref{tab:ch02-connectivity} lists the \textbf{stretch}\index{grid!stretch factor} of each lattice, the worst-case ratio between the cost of the cheapest lattice path and the straight-line distance in an obstacle-free space. On a 4-connected grid the worst direction is the diagonal, where the grid path is $\sqrt2\approx1.41$ times longer than the straight line; the 8-connected grid brings the worst case down to $1.08$, in the direction $22.5^\circ$ from an axis. Single-agent planners therefore prefer $G_8$. The multi-agent benchmarks of \cref{ch:ch07}, following \textcite{stern2019mapf}, use $G_4$, because a unit cost per move makes ``one move per time step'' and ``one unit of cost per time step'' the same thing, which keeps conflicts simple.
+
+\begin{table}[tb]
+\centering\small
+\caption{Neighbourhoods on grids and lattices. The stretch is the worst-case ratio between the cost of the cheapest lattice path and the straight-line distance in an empty space; it is attained in the direction that the available moves imitate worst, e.g.\ $22.5^\circ$ for 8-connectivity. The numbers are computed by \code{lattice\_stretch} in \code{ch02\_toolbox.py}.}
+\label{tab:ch02-connectivity}
+\begin{tabular}{@{}lclll@{}}
+\toprule
+Lattice & Moves & Move costs & Corner-cutting check & Stretch\\
+\midrule
+2D, 4-connected & 4 & $1$ & none & $\sqrt{2}\approx1.414$\\
+2D, 8-connected & 8 & $1,\ \sqrt{2}$ & 2 side cells free & $1.082$\\
+3D, 6-connected & 6 & $1$ & none & $\sqrt{3}\approx1.732$\\
+3D, 26-connected & 26 & $1,\ \sqrt{2},\ \sqrt{3}$ & 2 or 6 box cells free & $1.128$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Lattices in three dimensions}
+\label{sec:ch02-lattices}
+
+A drone flies in three dimensions, and the same construction works there.
+
+\begin{definition}[Lattice in three dimensions, 6- and 26-connectivity]
+\label{def:ch02-lattice}
+A \textbf{lattice}\index{lattice!3D} of size $W\times H\times D$ has the cells $(x,y,z)$ with $0\le x<W$, $0\le y<H$, $0\le z<D$, some of which are obstacle cells. A \emph{move} changes each coordinate by $-1$, $0$ or $+1$ and is not the zero move. The \textbf{6-connected lattice}\index{lattice!6-connected} allows the six moves with one non-zero component, at cost~$1$. The \textbf{26-connected lattice}\index{lattice!26-connected} allows all $26$ moves; a move with $k$ non-zero components costs $\sqrt{k}$, and the corner-cutting rule requires every cell of the axis-aligned box spanned by the two endpoints to be free. The intermediate \emph{18-connected} lattice allows the moves with at most two non-zero components.
+\end{definition}
+
+The box rule generalises the two side cells of the plane: a move with two non-zero components spans a $2\times2$ box and must check the two other cells in it, a move with three non-zero components spans a $2\times2\times2$ box and must check six cells. In an empty 26-connected lattice the cheapest path to a cell at displacement $(a,b,c)$ with $a\ge b\ge c\ge0$ uses $c$ triple-diagonal, $b-c$ double-diagonal and $a-b$ straight moves, so it costs $(a-b)+\sqrt2\,(b-c)+\sqrt3\,c$; maximising the ratio of this cost to $\sqrt{a^2+b^2+c^2}$ over all directions gives the stretch $1.128$ of \cref{tab:ch02-connectivity}. The price of 26-connectivity is a branching factor of $26$ instead of $6$, which multiplies the work of every search by more than four. \Cref{ch:ch16,ch:ch17} show the alternative for 3D problems: do not discretise at all and sample the free space instead.
+
+% ---------------------------------------------------------------------
+\section{Workspace and configuration space}
+\label{sec:ch02-cspace}
+
+The map lives in the \textbf{workspace}\index{workspace} $\mathcal{W}\subseteq\R^2$ or $\R^3$, the physical space in which obstacles occupy a region $\mathcal{O}\subset\mathcal{W}$. A drone is not a point of this space; it is a body that occupies a region. Planning a route for the point at the centre of the drone and then flying it would scrape every wall. The classical remedy, due to Lozano-P\'erez and presented in every planning textbook \cite{lavalle2006planning,choset2005principles}, is to move the problem into the configuration space.
+
+\begin{definition}[Configuration space, free space, obstacle region]
+\label{def:ch02-configuration-space}
+A \textbf{configuration}\index{configuration} $q$ of a robot is a tuple of parameters that fixes the position of every point of the robot; the set of all configurations is the \textbf{configuration space}\index{configuration space} $\Cspace$. Write $\mathcal{A}(q)\subset\mathcal{W}$ for the region of the workspace occupied by the robot in configuration $q$. The \textbf{obstacle region}\index{configuration space!obstacle region} and the \textbf{free space}\index{configuration space!free space} are
+\begin{equation}
+\Cobs=\set{q\in\Cspace : \mathcal{A}(q)\cap\mathcal{O}\neq\emptyset},\qquad
+\Cfree=\Cspace\setminus\Cobs .
+\label{eq:ch02-cfree}
+\end{equation}
+A path of configurations is \emph{collision-free} if it lies entirely in $\Cfree$.
+\end{definition}
+
+For a disc-shaped robot of radius $r$ whose orientation does not matter, the configuration is the centre $\pos\in\R^2$, $\Cspace=\R^2$ and $\mathcal{A}(\pos)=\disc{\pos}{r}$, the closed disc of radius $r$ around $\pos$. The obstacle region then has a simple description, which needs one more definition.
+
+\begin{definition}[Minkowski sum, inflation]
+\label{def:ch02-minkowski-sum}
+The \textbf{Minkowski sum}\index{Minkowski sum} of two sets $A,B\subseteq\R^n$ is $A\oplus B=\set{\vect{a}+\vect{b} : \vect{a}\in A,\ \vect{b}\in B}$. \textbf{Inflating}\index{obstacle inflation} a set $A$ by the radius $r$ means forming $A\oplus\disc{\vect{0}}{r}=\set{\vect{x} : \dist(\vect{x},A)\le r}$, the set of points within distance $r$ of $A$.
+\end{definition}
+
+\begin{proposition}[Point-robot planning on the inflated map is exact]
+\label{thm:ch02-inflation}
+For a disc (in 3D: a ball) robot of radius $r$ whose configuration is its centre $\pos$,
+\begin{equation}
+\Cobs=\mathcal{O}\oplus\disc{\vect{0}}{r}.
+\label{eq:ch02-inflation}
+\end{equation}
+Consequently $\pos\in\Cfree$ if and only if $\dist(\pos,\mathcal{O})>r$, and a path of the centre is collision-free for the disc robot if and only if it is collision-free for a point robot on the map whose obstacles are inflated by $r$.
+\end{proposition}
+\begin{proof}
+The disc $\disc{\pos}{r}$ meets $\mathcal{O}$ if and only if there is an obstacle point $\vect{o}\in\mathcal{O}$ with $\norm{\pos-\vect{o}}\le r$, that is, if and only if $\pos=\vect{o}+\vect{b}$ for some $\vect{o}\in\mathcal{O}$ and some $\vect{b}$ with $\norm{\vect{b}}\le r$. The last statement says precisely that $\pos\in\mathcal{O}\oplus\disc{\vect{0}}{r}$. The second claim applies the first to every point of the path. \qedhere
+\end{proof}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch02/minkowski-inflation}
+  \caption{Obstacle inflation. (a)~In the workspace the disc robot of radius $r$ can at best touch the obstacle. (b)~In the configuration space the obstacle grows by $r$ (note the rounded corners) and the robot shrinks to a point; the path that touches the inflated boundary corresponds to the touching disc in~(a). (c)~On a grid, every cell whose centre lies within $r=1.5$ cells of an obstacle square is blocked.}
+  \label{fig:ch02-minkowski}
+\end{figure}
+
+\Cref{fig:ch02-minkowski} shows the construction. Inflating a polygon by a disc rounds its corners, and inflating a union of obstacles inflates each of them. The same idea serves twice more in this book. In \cref{ch:ch12} the two drones of an encounter are both discs; viewed from drone~$A$, drone~$B$ is a disc of radius $r_A+r_B$ (the Minkowski sum of the two discs, \cref{thm:ch02-disc-minkowski}) and $A$ is a point. In \cref{ch:ch24} the obstacle is a \emph{predicted} position with a covariance, and the inflation radius grows with the uncertainty of the prediction.
+
+\paragraph{The drone as a bounding sphere.}
+A quadrotor with its rotor guards is not a disc, and it rotates about its vertical axis while flying. Modelling it exactly would add the yaw angle to the configuration, giving $\Cspace=\R^3\times S^1$ and an obstacle region that depends on the heading; for a car-like ground robot this is unavoidable \cite{lavalle2006planning}. For a drone it is unnecessary: the body fits into a \textbf{bounding sphere}\index{bounding sphere} of radius $r$ that is the same in every heading, so the configuration is the position alone, $\Cspace=\R^3$ (or $\R^2$ at constant altitude), and \cref{thm:ch02-inflation} applies with the sphere radius. In this book every drone is such a sphere. Its radius includes a safety margin, as the following pitfall explains.
+
+\paragraph{Inflation on a grid.}
+On a grid the inflation is approximated cell by cell: a cell is added to $O$ if its centre lies within $r$ of some obstacle square, which is what \code{Grid.inflate} does. Blocking a single cell and inflating by $r=0.6$, $1.0$ and $1.6$ cell widths blocks $5$, $9$ and $21$ cells respectively: a plus shape, a $3\times3$ block, and the block with a ring of $12$ further cells. The grid version is only a sampled Minkowski sum; a free cell may still contain points that are closer than $r$ to an obstacle. This is harmless for straight moves between cell centres, because for grid-aligned squares the distance to the obstacle along such a move is smallest at one of its endpoints, and the corner-cutting rule guards the diagonal moves.
+
+\begin{pitfall}[Inflating by the body radius alone]
+The radius you inflate by is a promise that the drone's centre will never leave the inflated free space. Three things break that promise: the drone is larger than its nominal radius when propellers and guards are counted, the position estimate is off by the localisation error, and the controller does not track the plan exactly. Use $r = r_{\text{body}} + \text{margin}$, where the margin covers the localisation and tracking errors you expect, and on a grid round the result \emph{up} to the next cell width. A margin that is too small shows up as scraped walls; one that is too large closes narrow passages and makes the planner report that no path exists. \Cref{ch:ch25} measures the resulting minimum separation.
+\end{pitfall}

@@ -56,12 +56,7 @@ def panel(grid, res, start, goal, xshift, caption, labels=True, path=True,
             if expanded_index:
                 out.append("\\node[font=\\tiny,text=sbGray,anchor=north west,inner sep=1pt]"
                            " at (%d,%d) {%d};" % (x, y + 1, i))
-        f_open = {}
-        for e in res.expansions:
-            pass
-        for (x, y) in sorted(res.open_nodes):
-            f = res.g[(x, y)] + (0 if (x, y) == goal else 0)
-            # f of an Open node = g + h; recompute h from the search's records
+        for (x, y) in sorted(res.open_nodes):       # f = g + h of Open nodes
             out.append("\\node[font=\\scriptsize,text=sbBlue] at (%.1f,%.1f) {%s};"
                        % (x + 0.5, y + 0.5, num(res.open_f[(x, y)])))
     sx, sy = start

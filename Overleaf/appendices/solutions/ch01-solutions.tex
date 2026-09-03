@@ -1,1 +1,87 @@
 % Solutions/hints for ch01 exercises (assembled into Appendix C)
+
+\begin{solution}{exr:ch01-classify}
+(a)~Global planner: a planned conflict, known before take-off, resolved by \cbs or
+\ecbs. (b)~Prediction layer plus local safety layer: the bird is tracked and its
+motion predicted; with a time to collision of $1.5$~s inside the safety horizon, the
+local layer produces an avoidance velocity. (c)~Replanning layer: the local layer can
+keep $C$ clear of the hovering intruder but cannot make progress through the blocked
+corridor, so reconnection fails and \dstarlite replans from the current state; the
+new path must then be re-checked against the swarm. (d)~Global planner: the zone is
+known before the flight, so it becomes part of the map. (e)~Global planner, in its
+re-check role (step~5 of the decision logic): a new inter-agent conflict is a planned
+conflict again. (f)~Prediction layer: the Kalman filter turns the noisy measurements
+into a state estimate and the predictor extrapolates it. (g)~None of the four layers:
+the flight controller tracks the commanded velocity and corrects the disturbance; only
+if the deviation grew large enough to threaten a conflict would the local layer
+notice it. (h)~Local safety layer with a formation constraint, and the replanner if the
+constraint cannot be met; how to trade the constraint against the collision risk is
+one of the research directions of \cref{ch:ch01}.
+\end{solution}
+
+\begin{solution}{exr:ch01-deadlock}
+(a)~In a corridor one cell wide, two drones heading towards each other see the same
+situation mirrored. A reactive rule maps the current situation to an action and has
+no memory and no look-ahead, so both drones slow down, stop, or try to sidestep into
+the same wall; neither has a reason to back up to the last passing place, because
+backing up does not reduce the immediate collision risk and moves the drone away from
+its goal. They hover facing each other: a deadlock. (b)~Four drones at the corners of
+a square, each heading for the opposite corner, all meet in the middle at the same
+time. A symmetric rule gives symmetric actions, so the drones either all stop at the
+same distance from the centre or all circle around it; nothing in the rule breaks the
+symmetry, and none of them reaches its goal. A global plan adds exactly what the
+reactive rule lacks: knowledge of the other drones' full routes and of time, which
+lets a planner decide that one drone waits or takes a detour \emph{before} the
+encounter. A random component does break the symmetry and often resolves the
+deadlock in practice, but at the cost of losing every guarantee: there is no bound on
+how long the resolution takes, the outcome is not reproducible, and in a corridor a
+random choice can still oscillate for a long time. \Cref{ch:ch13} shows this
+behaviour with \orca and \cref{ch:ch15} with potential fields.
+\end{solution}
+
+\begin{solution}{exr:ch01-trace}
+(a)~At $t=4$ drone $A$ is at its fifth cell $(3,3)$ and drone $C$ at its fifth cell
+$(3,3)$: a vertex conflict. An edge conflict would need $A$ and $C$ to exchange cells
+between two consecutive steps; at $t=3\to 4$ the moves are $(4,3)\to(3,3)$ and
+$(3,4)\to(3,3)$, and at $t=4\to 5$ they are $(3,3)\to(2,3)$ and $(3,3)\to(3,2)$, so
+no swap occurs. (b)~The new path of $C$ is
+$(6,4),(5,4),(4,4),(3,4),(3,4),(3,3),(3,2),(3,1)$ with $7$ steps. At $t=4$ drone $C$
+is at $(3,4)$ and $A$ at $(3,3)$; at $t=5$ drone $C$ enters $(3,3)$ while $A$ has moved
+on to $(2,3)$, so there is no conflict, and \code{find\_conflicts} confirms it. The sum
+of costs is $10+9+7=26$ and the makespan stays $10$. Letting $A$ wait instead costs
+the same: sum of costs $26$, makespan $11$ because $A$ is the longest path, so waiting
+$C$ is better for the makespan. (c)~The relative position is
+$\pos_I(t)-\pos_B(t)=(11-0.54t-1.5-t,\;7.5-0.38t-5.5)=(9.5-1.54t,\;2-0.38t)$. Its
+squared norm is a parabola in $t$ whose minimum lies where the derivative vanishes:
+$1.54\,(9.5-1.54t)+0.38\,(2-0.38t)=0$, that is,
+$t^*=(1.54\cdot 9.5+0.38\cdot 2)/(1.54^2+0.38^2)=15.39/2.5160\approx 6.12$. At that
+time the relative position is $(0.08,\,-0.32)$ and the distance is $\approx 0.33$
+cells, slightly less than the $0.38$ that the table reports at the integer time
+$t=6$; checking only integer steps can miss the true closest approach.
+(d)~With the book's code, waiting one step gives a minimum distance of $0.72$ cells
+(at $t=7$), two steps $0.98$, and three steps $1.06$, so three wait steps are needed.
+Such a decision would be made by the local safety layer, during the flight, from the
+prediction; before take-off the intruder is not known, and even if it were, its
+velocity is a prediction that may be wrong by the time the wait would matter.
+\end{solution}
+
+\begin{solution}{exr:ch01-coding}
+Hints rather than a full solution. (a)~Draw the obstacles with
+\code{random.Random(seed).sample}, then draw $2k$ distinct free cells and keep them
+only if every start-goal pair is at a minimum Manhattan distance and breadth-first
+search reaches every goal; redraw the obstacles if that fails too often. For the
+intruder, choose a border side, a random entry point on it and a random exit point on
+the opposite side, and normalise the difference to a random speed; walk along the
+line in small steps and reject it if it enters a blocked cell. (b)~Clamp the time
+index to the last cell so that a drone stays at its goal; a vertex conflict is
+$v_t^i=v_t^j$, an edge conflict is $v_t^i=v_{t+1}^j$ and $v_{t+1}^i=v_t^j$ with
+$v_t^i\ne v_{t+1}^i$. (c)~With the book's generator on a $12\times 8$ grid with $15\%$
+blocked cells and seeds $0$ to $199$, the fraction of scenarios whose independent
+shortest paths conflict is about $0.22$ for $k=2$, $0.60$ for $k=4$ and $0.99$ for
+$k=8$; your numbers will differ with the tie-breaking of your search and the minimum
+start-goal distance, but the trend is the same: with a handful of drones on a small
+map, planning independently almost always produces a collision, which is why
+\cref{ch:ch07,ch:ch08,ch:ch09} exist. (d)~Store the intruders as a list of
+position-velocity pairs and keep the check that every line is free; the book's
+\code{to\_json} method shows a suitable layout.
+\end{solution}

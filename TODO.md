@@ -44,18 +44,18 @@ Legend: `[ ]` open · `[x]` done · `[~]` in progress · `[-]` dropped (with rea
 Each chapter: outline → draft following the template → figures (≥4, TikZ) → worked example with trace table → pseudocode → verified Python → pitfalls → drone-system box → summary → exercises → compile check.
 
 ### Part I — Foundations
-- [ ] 2.01 Ch 1 Planning for Drone Swarms (problem, the four-layer hybrid architecture preview, roadmap, established vs open research)
-- [ ] 2.02 Ch 2 The Toolbox (graphs and grids, configuration space, time-indexed paths, kinematics, uncertainty, complexity, priority queues)
+- [~] 2.01 Ch 1 Planning for Drone Swarms (problem, the four-layer hybrid architecture preview, roadmap, established vs open research) — [~] author running (relaunched after container restart); text 1165 lines so far, 6 figure files, code present
+- [~] 2.02 Ch 2 The Toolbox (graphs and grids, configuration space, time-indexed paths, kinematics, uncertainty, complexity, priority queues) — [~] author running (relaunched after container restart); text 195 lines so far, 7 figure files, code present
 
 ### Part II — Single-Agent Graph Search
-- [ ] 2.03 Ch 3 Dijkstra's Algorithm
-- [ ] 2.04 Ch 4 A* Search (admissible/consistent heuristics, optimality proof, weighted A*, space-time A*)
-- [ ] 2.05 Ch 5 Incremental Search: LPA* and D* Lite
-- [ ] 2.06 Ch 6 Anytime Search: ARA* (and Anytime D* pointer)
+- [~] 2.03 Ch 3 Dijkstra's Algorithm — [~] author running (relaunched after container restart); text 4 lines so far, 6 figure files, code present
+- [~] 2.04 Ch 4 A* Search (admissible/consistent heuristics, optimality proof, weighted A*, space-time A*) — [~] author running (relaunched after container restart); text 4 lines so far, 2 figure files, code present
+- [~] 2.05 Ch 5 Incremental Search: LPA* and D* Lite — [~] author running (relaunched after container restart); text 473 lines so far, 0 figure files, code pending
+- [~] 2.06 Ch 6 Anytime Search: ARA* (and Anytime D* pointer) — [~] author running (relaunched after container restart); text 4 lines so far, 0 figure files, code present
 
 ### Part III — Multi-Agent Path Finding
-- [ ] 2.07 Ch 7 The MAPF Problem (conflict types, objectives, complexity, benchmarks)
-- [ ] 2.08 Ch 8 Prioritized Planning and Space-Time A* (reservation tables, Cooperative A*, incompleteness)
+- [~] 2.07 Ch 7 The MAPF Problem (conflict types, objectives, complexity, benchmarks) — [~] author running (relaunched after container restart); text 4 lines so far, 8 figure files, code present
+- [~] 2.08 Ch 8 Prioritized Planning and Space-Time A* (reservation tables, Cooperative A*, incompleteness) — [~] author running (relaunched after container restart); text 4 lines so far, 0 figure files, code pending
 - [ ] 2.09 Ch 9 Conflict-Based Search (constraint tree, high/low level, optimality, ICBS improvements)
 - [ ] 2.10 Ch 10 Bounded-Suboptimal Search: ECBS (focal search, bounds, benchmarks vs CBS)
 - [ ] 2.11 Ch 11 M*, Push-and-Swap, Push-and-Rotate
@@ -93,8 +93,8 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 ## Phase 4 — Back matter
 
-- [ ] 4.1 Appendix A: the twelve-week study plan (week → chapters → coding exercise → milestone → completion checklist)
-- [ ] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics)
+- [~] 4.1 Appendix A: the twelve-week study plan (week → chapters → coding exercise → milestone → completion checklist) — [~] author running; draft 238 lines
+- [~] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics) — [~] author running
 - [ ] 4.3 Appendix C: hints and solutions to selected exercises (≥2 per chapter)
 - [ ] 4.4 Glossary (every bold term of the book)
 - [ ] 4.5 Index (≥15 entries per chapter; check for duplicates and synonyms)
@@ -156,6 +156,22 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 - [ ] 8.4 Update `README.md` (repo root and `Overleaf/`) with upload/compile instructions
 - [ ] 8.5 Final QA of the PDF: open, check TOC, every chapter has figures/tables/examples/exercises, index and bibliography present
 - [ ] 8.6 Commit, push, merge into `main`, remove the working branch (single-branch policy)
+
+---
+
+## Loop log (one line per iteration; each iteration starts 30 s after the previous one finished)
+
+| # | Time (UTC) | Task | Result |
+|---|---|---|---|
+| 1 | 02:40 | 0.1–0.8 requirements, toolchain, TOC, skeleton, style guide, macros, bibliography | done |
+| 2 | 03:00 | 0.9 skeleton compile + style test | 45 pages, 0 errors; every environment renders |
+| 3 | 03:05 | 0.10 commit/push skeleton | 54a705f, d6483fc |
+| 4 | 03:06 | 2.01–2.08 launch authors for Chapters 1–8 (batch 1 of 4) | lost in container restart at ~03:40 (code/figures survived and were committed) |
+| 5 | 03:08 | 4.1, 4.2 launch authors for Appendices A and B | Appendix A draft survived (238 lines); B lost |
+| 6 | 03:12 | 1.2 preface | drafted, compiles (3 pages) |
+| 7 | 03:15 | 4.6 bibliography audit attempt via Semantic Scholar | egress blocked; web search works and will be used in Phase 4 |
+| 8 | 03:45 | relaunch 2.01–2.08, 4.1, 4.2 with "text first" order; autosave to main every 5 min | running |
+| 9 | 03:50 | single-branch policy: merged into main, local branch removed | remote branch deletion refused by proxy; delete in GitHub UI |
 
 ---
 

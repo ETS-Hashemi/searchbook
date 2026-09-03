@@ -73,6 +73,7 @@ class Expansion:
     g: float
     h: float
     f: float
+    open_after: tuple = ()      # (node, f) pairs of Open after the expansion
 
 
 @dataclass
@@ -103,17 +104,19 @@ def _reconstruct(parent, node):
 # Generic A* on an implicit graph
 # ---------------------------------------------------------------------------
 def astar(start, goal, successors, heuristic, weight=1.0, tie_break="high_g",
-          reopen=True):
+          reopen=True, record_open=False):
     """A* graph search with a closed set and a lazy priority queue.
 
     start        : hashable start node.
     goal         : a node, or a predicate ``is_goal(node)``.
-    successors   : ``successors(n)`` yields ``(n2, cost)`` pairs, cost > 0.
+    successors   : ``successors(n)`` yields ``(n2, cost)`` pairs, cost >= 0.
     heuristic    : ``heuristic(n)`` returns h(n) >= 0.
     weight       : w >= 1 gives weighted A* with f = g + w * h.
     tie_break    : "high_g" (prefer larger g), "low_g" or "fifo".
     reopen       : allow a closed node to be re-opened when a cheaper path
                    to it is found (only needed for inconsistent heuristics).
+    record_open  : store a snapshot of Open after every expansion (slow;
+                   meant for traces and pictures of small instances).
     """
     is_goal = goal if callable(goal) else (lambda n: n == goal)
     counter = itertools.count()          # FIFO among full ties
@@ -125,6 +128,11 @@ def astar(start, goal, successors, heuristic, weight=1.0, tie_break="high_g",
         if tie_break == "low_g":
             return (f, g_value, next(counter))
         return (f, next(counter))
+
+    def live_open():                     # nodes in Open with their current f
+        return tuple(sorted((m, round(ge + weight * heuristic(m), 9))
+                            for (_, ge, m) in open_heap
+                            if ge == g[m] and m not in closed))
 
     g = {start: 0.0}
     parent = {start: None}
@@ -139,10 +147,11 @@ def astar(start, goal, successors, heuristic, weight=1.0, tie_break="high_g",
         h_n = heuristic(n)
         expansions.append(Expansion(n, g[n], h_n, g[n] + weight * h_n))
         if is_goal(n):
-            open_nodes = {m for (_, ge, m) in open_heap
-                          if ge == g[m] and m not in closed}
+            snapshot = live_open()
+            if record_open:
+                expansions[-1].open_after = snapshot
             return SearchResult(_reconstruct(parent, n), g[n], expansions,
-                                closed, open_nodes, g, reopenings)
+                                closed, {m for (m, _) in snapshot}, g, reopenings)
         closed.add(n)
         for n2, c in successors(n):
             g2 = g[n] + c
@@ -156,6 +165,8 @@ def astar(start, goal, successors, heuristic, weight=1.0, tie_break="high_g",
                 parent[n2] = n
                 f2 = g2 + weight * heuristic(n2)
                 heapq.heappush(open_heap, (key(f2, g2), g2, n2))
+        if record_open:
+            expansions[-1].open_after = live_open()
     return SearchResult(None, INF, expansions, closed, set(), g, reopenings)
 
 
@@ -290,15 +301,32 @@ class ReservationTable:
         return max(times, default=-1)
 
 
+def default_horizon(grid, goal, table, connectivity=4):
+    """Latest arrival time worth searching.
+
+    After the last constraint (time H = table.horizon()) the world is
+    static, so if a solution exists, one exists that arrives no later than
+    H + 1 + (largest static distance to the goal when the parked agents are
+    treated as walls).  States beyond this time are not generated.
+    """
+    post = grid.copy()
+    for (x, y) in table.parked:
+        post[y, x] = 1
+    reach = static_distances(post, tuple(goal), connectivity)
+    return table.horizon() + 1 + max(reach.values())
+
+
 def space_time_astar(grid, start, goal, constraints=(), max_time=None,
-                     connectivity=4, tie_break="high_g"):
+                     connectivity=4, tie_break="high_g", record_open=False):
     """Space-time A* with waits, vertex/edge constraints and goal-stay test.
 
     constraints : a ReservationTable or an iterable of (v, t) and (u, v, t).
-    max_time    : time horizon; None derives a horizon that guarantees
-                  completeness (no state with t > max_time is generated).
+    max_time    : time horizon; None uses default_horizon(), which keeps
+                  the search complete (no state with t > max_time exists).
     The returned path is indexed by time: path[t] is the cell at step t,
-    and the agent stays at path[-1] for ever afterwards.
+    and the agent stays at path[-1] for ever afterwards.  Every step (move
+    or wait) costs 1, so g(v, t) = t and the first discovery of a state
+    is already its cheapest: duplicate detection replaces relaxation.
     """
     table = (constraints if isinstance(constraints, ReservationTable)
              else ReservationTable(constraints))
@@ -309,11 +337,7 @@ def space_time_astar(grid, start, goal, constraints=(), max_time=None,
     if start not in h or t_goal == INF:
         return SearchResult(None, INF)
     if max_time is None:
-        post = grid.copy()                           # world after the last
-        for (x, y) in table.parked:                  # time-indexed constraint
-            post[y, x] = 1
-        max_time = table.horizon() + 1 + max(static_distances(post, goal,
-                                                              connectivity).values())
+        max_time = default_horizon(grid, goal, table, connectivity)
     counter = itertools.count()
 
     def key(v, t):
@@ -321,34 +345,40 @@ def space_time_astar(grid, start, goal, constraints=(), max_time=None,
         return (f, -t, next(counter)) if tie_break == "high_g" else (f, t, next(counter))
 
     s0 = (start, 0)
-    parent = {s0: None}
+    parent = {s0: None}                 # parents = the set of generated states
     closed = set()
     expansions = []
     heap = [(key(*s0), s0)]
     while heap:
-        _, (v, t) = heapq.heappop(heap)
-        if (v, t) in closed:
-            continue
+        _, (v, t) = heapq.heappop(heap)  # every state is pushed exactly once
         closed.add((v, t))
         expansions.append(Expansion((v, t), t, h[v], t + h[v]))
         if v == goal and t > t_goal:                 # stay-at-goal is safe
             path = [s[0] for s in _reconstruct(parent, (v, t))]
-            open_nodes = {s for (_, s) in heap if s not in closed}
-            return SearchResult(path, float(t), expansions, closed, open_nodes,
-                                {s: s[1] for s in closed})
-        if t >= max_time:
-            continue
-        for v2 in [v] + [n for n, _ in succ(v)]:     # wait first, then moves
-            if v2 not in h:                          # cannot reach the goal
-                continue
-            if table.vertex_blocked(v2, t + 1) or table.edge_blocked(v, v2, t):
-                continue
-            s2 = (v2, t + 1)
-            if s2 in parent:                         # g = t: first path is best
-                continue
-            parent[s2] = (v, t)
-            heapq.heappush(heap, (key(*s2), s2))
+            if record_open:
+                expansions[-1].open_after = tuple(sorted((s, s[1] + h[s[0]]) for (_, s) in heap))
+            return SearchResult(path, float(t), expansions, closed,
+                                {s for (_, s) in heap}, {s: s[1] for s in closed})
+        if t < max_time:
+            for v2 in [v] + [n for n, _ in succ(v)]:     # wait first, then moves
+                if v2 not in h:                          # cannot reach the goal
+                    continue
+                if table.vertex_blocked(v2, t + 1) or table.edge_blocked(v, v2, t):
+                    continue
+                s2 = (v2, t + 1)
+                if s2 in parent:                         # g = t + 1: first path is best
+                    continue
+                parent[s2] = (v, t)
+                heapq.heappush(heap, (key(*s2), s2))
+        if record_open:
+            expansions[-1].open_after = tuple(sorted((s, s[1] + h[s[0]]) for (_, s) in heap))
     return SearchResult(None, INF, expansions, closed, set(), {})
+
+
+def constraints_for_agent(agent, constraints):
+    """Keep the MAPF constraints (a, v, t) and (a, u, v, t) of one agent and
+    drop the agent index: the (v, t) / (u, v, t) tuples space_time_astar uses."""
+    return [tuple(c[1:]) for c in constraints if c[0] == agent]
 
 
 def path_respects(path, table):
@@ -449,11 +479,17 @@ def _self_test():
                 surely = {e.node for e in strong.expansions if e.f < strong.cost - 1e-9}
                 assert surely <= {e.node for e in weak.expansions}
 
-    # 2. Manhattan distance is NOT admissible on an 8-connected grid.
-    grid = np.zeros((4, 4), dtype=int)
-    res = astar_grid(grid, (0, 0), (3, 3), "manhattan", 8)
-    assert res.cost > dijkstra_grid(grid, (0, 0), 8)[(3, 3)] + 1e-9 or True
-    assert manhattan((0, 0), (1, 1)) > SQRT2               # overestimates
+    # 2. Manhattan distance is NOT admissible on an 8-connected grid: it
+    #    overestimates a diagonal step, and A* then misses optimal paths.
+    assert manhattan((0, 0), (1, 1)) > SQRT2
+    suboptimal = 0
+    rng8 = np.random.default_rng(4)
+    for _ in range(40):
+        grid = _random_grid(rng8, 12, 0.25)
+        s, z = _random_pair(rng8, grid, 8)
+        res = astar_grid(grid, s, z, "manhattan", 8)
+        suboptimal += res.cost > dijkstra_grid(grid, s, 8)[z] + 1e-9
+    assert suboptimal > 0, "expected at least one suboptimal path"
 
     # 3. The inadmissible counterexample of the chapter.
     edges, h_bad = inadmissible_example()
@@ -472,19 +508,29 @@ def _self_test():
     # 5. The worked example: numbers quoted in the chapter.
     grid = worked_example_grid()
     res = astar_grid(grid, WORKED_START, WORKED_GOAL, "manhattan", 4)
-    assert res.cost == 13.0 and res.num_expansions == 23
+    assert res.cost == 13.0 and res.num_expansions == 21 and res.reopenings == 0
     assert res.path == [(0, 0), (1, 0), (1, 1), (1, 2), (1, 3), (1, 4), (2, 4),
                         (3, 4), (3, 5), (4, 5), (5, 5), (5, 4), (5, 3), (5, 2)]
     first = [(e.node, e.g, e.h, e.f) for e in res.expansions[:10]]
     assert first == [((0, 0), 0, 7, 7), ((1, 0), 1, 6, 7), ((1, 1), 2, 5, 7),
-                     ((1, 2), 3, 4, 7), ((1, 3), 4, 3, 7), ((1, 4), 5, 2, 7),
-                     ((2, 4), 6, 3, 9), ((0, 1), 1, 6, 7), ((0, 2), 2, 5, 7),
-                     ((0, 3), 3, 4, 7)], first
-    assert len(res.open_nodes) == 3
+                     ((1, 2), 3, 4, 7), ((0, 1), 1, 6, 7), ((0, 2), 2, 5, 7),
+                     ((1, 3), 4, 5, 9), ((0, 3), 3, 6, 9), ((1, 4), 5, 6, 11),
+                     ((2, 4), 6, 5, 11)], first
+    assert [e.node for e in res.expansions[10:]] == [
+        (3, 4), (3, 3), (3, 2), (0, 4), (3, 1), (3, 5), (4, 5), (5, 5), (5, 4),
+        (5, 3), (5, 2)]
+    assert sorted(res.open_nodes) == [(0, 5), (1, 5), (2, 5), (3, 0)]
+    traced = astar_grid(grid, WORKED_START, WORKED_GOAL, "manhattan", 4)
+    traced = astar(WORKED_START, WORKED_GOAL, grid_successors(grid, 4),
+                   lambda n: manhattan(n, WORKED_GOAL), record_open=True)
+    assert {m for (m, _) in traced.expansions[-1].open_after} == res.open_nodes
+    assert traced.expansions[0].open_after == (((0, 1), 7), ((1, 0), 7))
     dij = astar_grid(grid, WORKED_START, WORKED_GOAL, "zero", 4)
-    assert dij.cost == 13.0 and dij.num_expansions == 27
+    assert dij.cost == 13.0 and dij.num_expansions == 26
     low = astar_grid(grid, WORKED_START, WORKED_GOAL, "manhattan", 4, tie_break="low_g")
     assert low.cost == 13.0 and low.num_expansions == 24
+    oct8 = astar_grid(grid, WORKED_START, WORKED_GOAL, "octile", 8)
+    assert abs(oct8.cost - (9 + 2 * SQRT2)) < 1e-9 and oct8.num_expansions == 24
 
     # 6. Tie-breaking on an empty 20x20 grid: larger g first is much faster.
     grid = np.zeros((20, 20), dtype=int)
@@ -497,16 +543,18 @@ def _self_test():
     grid, s, z, cons = spacetime_example()
     free = space_time_astar(grid, s, z)
     assert free.cost == 2.0 and free.path == [(0, 1), (1, 1), (2, 1)]
+    assert free.num_expansions == 3
     res = space_time_astar(grid, s, z, cons)
     assert res.cost == 3.0 and res.path == [(0, 1), (0, 1), (1, 1), (2, 1)]
-    assert res.num_expansions == 5 and path_respects(res.path, ReservationTable(cons))
+    assert res.num_expansions == 4 and path_respects(res.path, ReservationTable(cons))
     assert all(state != ((1, 1), 1) for state in res.closed)
     # an edge constraint forbids the move (0,1)->(1,1) at t = 1
     res = space_time_astar(grid, s, z, cons + [((0, 1), (1, 1), 1)])
-    assert res.cost == 3.0 and path_respects(res.path, ReservationTable(cons + [((0, 1), (1, 1), 1)]))
+    assert res.cost == 4.0 and path_respects(res.path, ReservationTable(cons + [((0, 1), (1, 1), 1)]))
     # goal-stay handling: the goal is blocked at t = 5, so arrive after 5
     res = space_time_astar(grid, s, z, [((2, 1), 5)])
     assert res.cost == 6.0 and path_respects(res.path, ReservationTable([((2, 1), 5)]))
+    assert res.path == [(0, 1), (1, 1), (2, 1), (2, 1), (2, 1), (2, 2), (2, 1)]
     # unsolvable: start walled in by constraints -> finite failure
     res = space_time_astar(grid, s, z, [((0, 1), 1), ((0, 0), 1), ((0, 2), 1), ((1, 1), 1)])
     assert res.path is None and res.num_expansions == 1
@@ -525,10 +573,18 @@ def _self_test():
     table = ReservationTable()
     p1 = space_time_astar(grid, (0, 0), (4, 0), table).path
     table.add_path(p1)               # agent 1 moves first and parks at (4,0)
-    p2 = space_time_astar(grid, (4, 0), (0, 0), table).path
     assert p1 == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)]
+    # agent 2 wants to go the other way: it must hide in the bay and wait
+    assert space_time_astar(grid, (3, 0), (0, 0)).cost == 3.0    # alone
+    p2 = space_time_astar(grid, (3, 0), (0, 0), table).path
     assert p2 is not None and path_respects(p2, table)
-    assert (2, 1) in p2 and len(p2) - 1 == 6   # steps into the bay, waits
+    assert p2 == [(3, 0), (2, 0), (2, 1), (2, 1), (2, 0), (1, 0), (0, 0)]
+    # from the far end there is no way past agent 1: prioritized planning
+    # is incomplete (ch08); the search reports the failure in finite time
+    assert space_time_astar(grid, (4, 0), (0, 0), table).path is None
+    # MAPF-style constraints carry the agent index in front
+    assert constraints_for_agent(1, [(1, (1, 1), 1), (2, (0, 0), 3),
+                                     (1, (0, 1), (1, 1), 1)]) == [((1, 1), 1), ((0, 1), (1, 1), 1)]
     for t in range(max(len(p1), len(p2)) + 3):
         a = p1[min(t, len(p1) - 1)]
         b = p2[min(t, len(p2) - 1)]

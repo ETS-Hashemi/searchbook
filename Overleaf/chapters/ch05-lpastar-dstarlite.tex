@@ -1,4 +1,473 @@
-\chapter{Incremental Search: LP\astar and \dstarlite}
+\chapter{Incremental Search: \lpastar and \dstarlite}
 \label{ch:ch05}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode (unique across the book: prefixed Lpa/Dsl/Inc).
+\SetKwFunction{LpaCalculateKey}{CalculateKey}
+\SetKwFunction{LpaInitialize}{Initialize}
+\SetKwFunction{LpaUpdateVertex}{UpdateVertex}
+\SetKwFunction{LpaComputeShortestPath}{ComputeShortestPath}
+\SetKwFunction{LpaMain}{Main}
+\SetKwFunction{DslCalculateKey}{CalculateKey}
+\SetKwFunction{DslInitialize}{Initialize}
+\SetKwFunction{DslUpdateVertex}{UpdateVertex}
+\SetKwFunction{DslComputeShortestPath}{ComputeShortestPath}
+\SetKwFunction{DslMain}{Main}
+\SetKwFunction{IncTopKey}{TopKey}
+\SetKwFunction{IncPop}{Pop}
+\SetKwFunction{IncInsert}{Insert}
+\SetKwFunction{IncRemove}{Remove}
+
+\begin{objectives}
+\begin{itemize}
+  \item Explain why re-running \astar after a small map change wastes work, and what an
+    \emph{incremental} search reuses instead.
+  \item Define the $\gcost$- and $\rhs$-values of \lpastar, local consistency, over- and
+    underconsistency, and the two-component priority key, and trace \lpastar by hand on a
+    small grid.
+  \item Explain why \dstarlite searches backward from the goal, what the key modifier
+    $k_m$ repairs when the robot moves, and reproduce its pseudocode.
+  \item State the conditions under which \dstarlite returns the same path costs as
+    re-running \astar, and bound its number of vertex expansions.
+  \item Implement \dstarlite in \python, change obstacles while the agent executes its
+    plan, and measure the saving relative to re-running \astar.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch05-motivation}
+
+Picture one drone of a swarm on its nominal route through a warehouse. The route was
+computed by the global planner (\cref{ch:ch09,ch:ch10}) before take-off, on a grid of
+$200 \times 200$ cells at ten flight levels. Halfway through the mission the prediction
+layer (\cref{ch:ch18,ch:ch20}) announces that an unknown drone will cross the corridor
+ahead within the next few seconds. The local layer (\cref{ch:ch13,ch:ch14}) can dodge for
+a moment, but the intruder is going to hover in the corridor, and the local manoeuvre
+cannot return the drone to its nominal route. Now the replanning layer must deliver a new
+route from the drone's \emph{current} position, and it has one control cycle,
+say $50$~ms, to do so.
+
+Re-running \astar (\cref{ch:ch04}) from scratch is the obvious answer. It is also
+wasteful: of the $400\,000$ cells of the map, only a few dozen have changed. Every
+distance that \astar computed last time is still valid, except in a small region around
+the intruder. An \emph{incremental} search keeps the old search results and repairs only
+what the change invalidated. \dstarlite, the algorithm of this chapter, does exactly
+that, and on top of it handles the fact that the drone keeps moving while it replans.
+It is the replanning algorithm of the hybrid architecture in \cref{ch:ch24}, and the
+training plan rates it \priority{Essential}; its conceptual parent \lpastar is rated
+\priority{Medium}.
+
+The chapter proceeds in two halves. The first half develops \lpastar, which repairs a
+shortest path from a fixed start to a fixed goal when edge costs change. It introduces
+the two numbers stored per vertex ($\gcost$ and $\rhs$), the notion of local consistency,
+and the two-component key that orders the work. The second half turns \lpastar into
+\dstarlite by reversing the search direction and adding the key modifier $k_m$, so that
+the start vertex may move. Both halves have a fully worked grid example whose numbers
+come from the chapter's \python code, and the chapter ends with an experiment that
+compares \dstarlite with repeated \astar on a $50 \times 50$ grid as obstacles appear
+one by one.
+
+% ---------------------------------------------------------------------
+\section{The idea in plain words}
+\label{sec:ch05-intuition}
+
+\Cref{fig:ch05-idea} shows the situation of the motivation on a small grid. The drone
+has a shortest path to its goal. An obstacle appears on that path. In the left panel,
+\astar is re-run from scratch: it expands every cell shaded grey again, including
+hundreds whose distance did not change at all. In the right panel, an incremental search
+touches only the orange cells: the ones whose distance value became stale because the
+obstacle removed the edge they relied on, plus the few cells needed to find the detour.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch05/idea}
+  \caption{An obstacle (black, with a cross) appears on the planned path (blue). Left:
+  \astar re-run from scratch expands all grey cells again. Right: \dstarlite expands only
+  the orange cells, those whose goal distance was invalidated or is needed for the
+  detour (dashed). The numbers of expansions are printed under each panel.}
+  \label{fig:ch05-idea}
+\end{figure}
+
+How does the incremental search know which cells are stale? It stores \emph{two}
+numbers per vertex instead of one. The first, $\gcost(s)$, is the distance value from
+the last search, exactly as in \astar. The second, $\rhs(s)$, is what the neighbours of
+$s$ currently say the value \emph{should} be: one step of lookahead, ``the best
+neighbour's $\gcost$ plus the edge cost''. As long as the two numbers agree, nothing at
+$s$ needs attention. When an edge cost changes, the $\rhs$-value of the affected vertex
+changes but its $\gcost$-value does not, and the disagreement flags the vertex as
+\emph{locally inconsistent}. Inconsistent vertices go into a priority queue, ordered by
+the same kind of key that \astar uses ($\gcost + \hcost$), and are processed in that
+order. Processing a vertex makes it consistent and may make its neighbours inconsistent,
+so the repair spreads outward from the change, but only as far as distance values
+actually differ, and only until the goal is consistent and no queued key is smaller than
+the goal's key. Cells far from the change, or cells whose distance happens to stay the
+same, are never touched.
+
+\begin{keyidea}
+Store, for every vertex, the value from the last search ($\gcost$) next to the value its
+neighbours currently imply ($\rhs$). Only vertices where the two disagree need work.
+Process them in \astar order, from the change outward, and stop as soon as the query
+vertex agrees with its neighbours and nothing with a smaller key is left. The result
+equals what \astar would compute from scratch, at a fraction of the expansions when the
+change is small.
+\end{keyidea}
+
+\dstarlite adds one more idea. A moving robot changes the \emph{start} of the search at
+every step. If distance values were measured from the start, every one of them would
+change with every step. Distances \emph{to the goal} do not change when the robot moves.
+So \dstarlite searches backward from the goal, and the robot's motion only affects the
+heuristic part of the keys, which a single running offset $k_m$ can absorb.
+
+% ---------------------------------------------------------------------
+\section{Problem statement and notation}
+\label{sec:ch05-problem}
+
+We use the graph notation of \cref{ch:ch02,ch:ch03}: a finite directed graph $G=(V,E)$
+with edge costs $c(u,v) \in (0,\infty]$ for $(u,v)\in E$, a start vertex
+$s_{\mathrm{start}}$ and a goal vertex $s_{\mathrm{goal}}$. $\Pred(s)$ and $\Succ(s)$
+are the predecessors and successors of $s$. A cost of $\infty$ means that the edge is
+currently unusable; we write $c(u,v)=\infty$ also for pairs that are not adjacent, which
+keeps formulas uniform. The true distance from $u$ to $v$ under the current costs is
+$\dist(u,v)$, and $\dist(u,v)=\infty$ if no path exists.
+
+\begin{definition}[Incremental shortest-path problem]
+\label{def:ch05-problem}
+An \textbf{incremental shortest-path problem}\index{incremental search}\index{shortest
+path!incremental} is a sequence of shortest-path queries between the same two vertices
+$s_{\mathrm{start}}$ and $s_{\mathrm{goal}}$ on a graph whose edge costs change between
+queries. An \textbf{incremental search algorithm} answers each query using information
+saved from the previous queries, and it must return a path of cost
+$\dist(s_{\mathrm{start}}, s_{\mathrm{goal}})$ under the costs current at the time of
+the query.
+\end{definition}
+
+The grids of this chapter are 4-connected with unit costs (\cref{ch:ch02}). A cell is
+either \emph{free} or \emph{blocked}. Blocking a cell $b$ is modelled as an edge-cost
+change: \emph{every} edge that enters $b$ and every edge that leaves $b$ changes from
+cost $1$ to cost $\infty$. Unblocking reverses the change.\index{obstacle!as infinite
+edge cost} We keep blocked cells as vertices of the graph, with all their edges at
+$\infty$, rather than deleting them; that way the graph structure is fixed and only the
+costs vary, which is exactly what the algorithms assume. The heuristic on these grids is
+the Manhattan distance, which is consistent (\cref{ch:ch04}).
+
+\lpastar stores two values per vertex.
+
+\begin{definition}[$\gcost$-value and $\rhs$-value]
+\label{def:ch05-rhs}
+For every vertex $s\in V$, $\gcost(s)\in[0,\infty]$ is the \textbf{g-value}\index{LPA*!g-value},
+an estimate of $\dist(s_{\mathrm{start}},s)$ that is only changed when $s$ is expanded.
+The \textbf{rhs-value}\index{LPA*!rhs-value}\index{rhs-value} (``right-hand side'',
+after the Bellman equation it comes from) is the one-step lookahead
+\begin{equation}
+\label{eq:ch05-rhs}
+\rhs(s) =
+\begin{cases}
+0 & \text{if } s = s_{\mathrm{start}},\\[2pt]
+\displaystyle\min_{s'\in\Pred(s)} \bigl(\gcost(s') + c(s',s)\bigr) & \text{otherwise.}
+\end{cases}
+\end{equation}
+\end{definition}
+
+The $\rhs$-value is always kept up to date with respect to the current $\gcost$-values
+of the predecessors and the current edge costs; the $\gcost$-value is allowed to lag
+behind. The gap between them is the central concept.
+
+\begin{definition}[Local consistency]
+\label{def:ch05-consistency}
+A vertex $s$ is \textbf{locally consistent}\index{local consistency}\index{LPA*!local
+consistency} if $\gcost(s) = \rhs(s)$, and \textbf{locally inconsistent} otherwise. An
+inconsistent vertex is \textbf{overconsistent}\index{overconsistent vertex} if
+$\gcost(s) > \rhs(s)$ (its neighbours now offer a cheaper way to reach it than it
+knows) and \textbf{underconsistent}\index{underconsistent vertex} if
+$\gcost(s) < \rhs(s)$ (it believes in a cost that its neighbours can no longer
+support).
+\end{definition}
+
+A freshly discovered vertex has $\gcost=\infty$ and a finite $\rhs$, so it is
+overconsistent; this is the only kind of inconsistency \astar ever meets. Underconsistent
+vertices appear when a cost \emph{increases}, for example when an obstacle appears on
+the path: the vertex behind the obstacle still holds its old, now too optimistic
+$\gcost$-value. The following proposition says why consistency is the right target.
+
+\begin{proposition}[Consistency everywhere means correct distances]
+\label{thm:ch05-consistent-correct}
+Suppose all edge costs are positive. If every vertex is locally consistent, then
+$\gcost(s) = \dist(s_{\mathrm{start}}, s)$ for all $s \in V$, and a shortest path from
+$s_{\mathrm{start}}$ to any reachable $s$ is obtained by moving backward from $s$ to a
+predecessor $s'$ that attains the minimum in \cref{eq:ch05-rhs}, until
+$s_{\mathrm{start}}$ is reached.
+\end{proposition}
+\begin{proof}
+If all vertices are consistent, the $\gcost$-values satisfy $\gcost(s_{\mathrm{start}})=0$
+and $\gcost(s)=\min_{s'\in\Pred(s)}(\gcost(s')+c(s',s))$ for all other $s$: the Bellman
+equations of the shortest-path problem. With positive edge costs, the true distances are
+the unique solution of these equations (\cref{ch:ch03}), so $\gcost \equiv \dist(s_{\mathrm{start}},\cdot)$.
+Following a minimising predecessor decreases $\gcost$ by exactly the edge cost at every
+step, so the walk terminates at $s_{\mathrm{start}}$ and has cost $\gcost(s)$.
+\end{proof}
+
+\lpastar does not make \emph{all} vertices consistent; like \astar it stops early. What
+it guarantees is that the goal is consistent and that no queued vertex could still
+improve the goal, and that suffices for the goal's $\gcost$-value and the path traced
+from it to be correct (\cref{thm:ch05-correct}). To decide the order of work it uses a
+key with two components.
+
+\begin{definition}[Priority key]
+\label{def:ch05-key}
+The \textbf{key}\index{key!two-component}\index{LPA*!key} of a vertex $s$ is the pair
+\begin{equation}
+\label{eq:ch05-key}
+k(s) = \bigl[\,k_1(s);\; k_2(s)\,\bigr] =
+\bigl[\,\min(\gcost(s),\rhs(s)) + \hcost(s);\;\; \min(\gcost(s),\rhs(s))\,\bigr],
+\end{equation}
+where $\hcost(s)$ estimates $\dist(s,s_{\mathrm{goal}})$ and is nonnegative and
+consistent: $\hcost(s_{\mathrm{goal}})=0$ and $\hcost(s)\le c(s,s')+\hcost(s')$ for all
+$(s,s')\in E$. Keys are compared \textbf{lexicographically}: $k \le k'$ iff $k_1 < k'_1$,
+or $k_1 = k'_1$ and $k_2 \le k'_2$.
+\end{definition}
+
+Read $k_1$ as the $\fcost$-value of \astar and $k_2$ as its $\gcost$-value used for
+tie-breaking, both computed from the \emph{smaller} of the two stored values. For an
+overconsistent vertex the smaller value is $\rhs$, the tentative new distance, exactly
+as in \astar. For an underconsistent vertex it is the old $\gcost$, which is too small.
+Using the too-small value on purpose puts the vertex \emph{early} in the queue, before
+every vertex whose value depends on it, so that the stale value is retracted before it
+can be propagated further. \Cref{fig:ch05-consistency} illustrates the three states.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch05/consistency}
+  \caption{Local consistency on a three-vertex fragment (edge costs on the arrows,
+  $\gcost/\rhs$ inside the vertices). Left: all consistent. Middle: the edge into $v$
+  became expensive, so $\rhs(v)$ rose and $v$ is underconsistent; its key uses the old
+  $\gcost(v)=3$ and puts $v$ before $w$, whose $\rhs$ still relies on $\gcost(v)$. Right:
+  a new cheap edge into $v$ makes $v$ overconsistent; its key uses $\rhs(v)=1$.}
+  \label{fig:ch05-consistency}
+\end{figure}
+
+The priority queue $U$ holds exactly the locally inconsistent vertices, each with the
+key it had when it was last inserted. $U.\IncTopKey{}$ returns the smallest key in $U$
+(or $[\infty;\infty]$ if $U$ is empty), $U.\IncPop{}$ removes and returns the vertex
+with that key, $U.\IncInsert{s, k}$ inserts $s$ with key $k$, and $U.\IncRemove{s}$
+removes $s$.
+
+% ---------------------------------------------------------------------
+\section{The algorithm: \lpastar}
+\label{sec:ch05-lpastar}
+
+\Cref{alg:ch05-lpastar} is Lifelong Planning \astar (\lpastar) of Koenig, Likhachev and
+Furcy \cite{koenig2004lpa}, in the form of the original paper. It searches
+\emph{forward} from $s_{\mathrm{start}}$; $\gcost$-values are start distances, and
+$\rhs$-values look at predecessors.\index{LPA*}\index{Lifelong Planning A*|see{LPA*}}
+
+\begin{algorithm}[htb]
+\caption{Lifelong Planning \astar (\lpastar) \cite{koenig2004lpa}}
+\label{alg:ch05-lpastar}
+\KwIn{graph $G$, costs $c$, start $s_{\mathrm{start}}$, goal $s_{\mathrm{goal}}$, consistent heuristic $\hcost$}
+\KwOut{after every call of \LpaComputeShortestPath: $\gcost(s_{\mathrm{goal}})=\dist(s_{\mathrm{start}},s_{\mathrm{goal}})$ and a shortest path (\cref{thm:ch05-correct})}
+\Fn{\LpaCalculateKey{$s$}}{
+  \KwRet{$[\min(\gcost(s),\rhs(s)) + \hcost(s);\ \min(\gcost(s),\rhs(s))]$}\label{alg:ch05-lpastar:key}\;
+}
+\Fn{\LpaInitialize{}}{
+  $U \gets \emptyset$\;
+  \lForEach{$s \in V$}{$\rhs(s) \gets \gcost(s) \gets \infty$}
+  $\rhs(s_{\mathrm{start}}) \gets 0$\label{alg:ch05-lpastar:init}\;
+  $U.\IncInsert{$s_{\mathrm{start}}$, $[\hcost(s_{\mathrm{start}});\,0]$}$\;
+}
+\Fn{\LpaUpdateVertex{$u$}}{
+  \lIf{$u \neq s_{\mathrm{start}}$}{$\rhs(u) \gets \min_{s' \in \Pred(u)} \bigl(\gcost(s') + c(s',u)\bigr)$\label{alg:ch05-lpastar:rhs}}
+  \lIf{$u \in U$}{$U.\IncRemove{$u$}$\label{alg:ch05-lpastar:remove}}
+  \lIf{$\gcost(u) \neq \rhs(u)$}{$U.\IncInsert{$u$, \LpaCalculateKey{$u$}}$\label{alg:ch05-lpastar:insert}}
+}
+\Fn{\LpaComputeShortestPath{}}{
+  \While{$U.\IncTopKey{} < $ \LpaCalculateKey{$s_{\mathrm{goal}}$} \KwOr $\rhs(s_{\mathrm{goal}}) \neq \gcost(s_{\mathrm{goal}})$\label{alg:ch05-lpastar:while}}{
+    $u \gets U.\IncPop{}$\label{alg:ch05-lpastar:pop}\;
+    \uIf(\tcp*[f]{overconsistent}){$\gcost(u) > \rhs(u)$\label{alg:ch05-lpastar:over}}{
+      $\gcost(u) \gets \rhs(u)$\;
+      \lForEach{$s \in \Succ(u)$}{\LpaUpdateVertex{$s$}\label{alg:ch05-lpastar:oversucc}}
+    }
+    \Else(\tcp*[f]{underconsistent}){
+      $\gcost(u) \gets \infty$\label{alg:ch05-lpastar:under}\;
+      \lForEach{$s \in \Succ(u) \cup \set{u}$}{\LpaUpdateVertex{$s$}\label{alg:ch05-lpastar:undersucc}}
+    }
+  }
+}
+\Fn{\LpaMain{}}{
+  \LpaInitialize{}\;
+  \While{\KwTrue}{
+    \LpaComputeShortestPath{}\label{alg:ch05-lpastar:compute}\;
+    wait for changes in edge costs\;
+    \ForEach{directed edge $(u,v)$ whose cost changed\label{alg:ch05-lpastar:scan}}{
+      update the stored cost $c(u,v)$\;
+      \LpaUpdateVertex{$v$}\label{alg:ch05-lpastar:changed}\;
+    }
+  }
+}
+\end{algorithm}
+
+\paragraph{Walkthrough.}
+\LpaInitialize sets every $\gcost$ and $\rhs$ to $\infty$ except
+$\rhs(s_{\mathrm{start}})=0$ (line~\ref{alg:ch05-lpastar:init}); the start is thus the
+only inconsistent vertex and the only entry of $U$, just as it is the only entry of
+\Open at the start of \astar.
+
+\LpaUpdateVertex{$u$} is the maintenance routine. Line~\ref{alg:ch05-lpastar:rhs}
+recomputes $\rhs(u)$ from \cref{eq:ch05-rhs}; the start keeps $\rhs=0$ forever.
+Lines~\ref{alg:ch05-lpastar:remove}--\ref{alg:ch05-lpastar:insert} then restore the
+invariant ``$U$ contains exactly the inconsistent vertices, with current keys'': $u$ is
+taken out, and put back with a fresh key only if it is inconsistent. Every path of the
+algorithm that touches a $\gcost$-value or an edge cost calls \LpaUpdateVertex on the
+vertices whose $\rhs$ could have changed, and nothing else ever modifies $\rhs$.
+
+\LpaComputeShortestPath is the search proper. Its loop condition
+(line~\ref{alg:ch05-lpastar:while}) mirrors the termination of \astar: continue while
+some queued vertex has a key smaller than the goal's, or while the goal itself is
+inconsistent. Each iteration pops the vertex $u$ with the smallest key
+(line~\ref{alg:ch05-lpastar:pop}) and treats the two kinds of inconsistency
+differently:
+\begin{itemize}
+  \item \emph{Overconsistent} ($\gcost(u) > \rhs(u)$, line~\ref{alg:ch05-lpastar:over}):
+    accept the better value, $\gcost(u)\gets\rhs(u)$. This is the expansion of \astar.
+    The successors of $u$ may now have a better predecessor, so they are updated
+    (line~\ref{alg:ch05-lpastar:oversucc}). After this step $u$ is consistent.
+  \item \emph{Underconsistent} ($\gcost(u) < \rhs(u)$, line~\ref{alg:ch05-lpastar:under}):
+    the old value cannot be trusted, so it is thrown away, $\gcost(u)\gets\infty$.
+    Now every successor that computed its $\rhs$ through $u$ must recompute it, and $u$
+    itself must recompute its own $\rhs$ and re-enter the queue if it is not $\infty$
+    (line~\ref{alg:ch05-lpastar:undersucc}, note the $\cup\set{u}$). After this step $u$
+    is either consistent (both $\infty$) or overconsistent with a fresh, larger key, and
+    will be expanded a second time later as an ordinary \astar expansion.
+\end{itemize}
+
+\LpaMain glues the pieces together: after each search, wait for the environment to
+report changed edges, update their costs, and call \LpaUpdateVertex on the \emph{head}
+$v$ of every changed edge (line~\ref{alg:ch05-lpastar:changed}), because it is $v$
+whose $\rhs$ depends on $c(u,v)$. Then search again. The first call of
+\LpaComputeShortestPath is exactly an \astar search (\cref{thm:ch05-expansions}); each
+later call is a repair.
+
+\paragraph{Why the two-component key works.}
+Consider what the loop condition must guarantee: when it stops, the goal's
+$\gcost$-value must equal the true distance. The first key component
+$k_1 = \min(\gcost,\rhs) + \hcost$ is a lower bound on the cost of any path to the goal
+through the queued vertex, so as long as $\IncTopKey{} \ge k(s_{\mathrm{goal}})$ no
+queued vertex can lead to a cheaper path to the goal than the goal's own value, exactly
+the argument that proves \astar optimal with a consistent heuristic (\cref{ch:ch04}).
+The second component breaks ties in favour of \emph{smaller} $\min(\gcost,\rhs)$, which
+matters more here than in \astar: among vertices with equal $k_1$, an underconsistent
+vertex $u$ with a small old $\gcost(u)$ must be processed before a successor $w$ whose
+$\rhs(w)=\gcost(u)+c(u,w)$ was derived from it. Because $c(u,w)>0$, $k_2(u) < k_2(w)$
+whenever $k_1(u)=k_1(w)$, so the stale value is withdrawn first and $w$ is recomputed
+from correct information. Without the second component, $w$ could be expanded with a
+value that is about to be retracted, and would have to be expanded a third time.
+
+\begin{pitfall}[Comparing keys as single numbers]
+A key is a pair, and both components matter. Comparing only $k_1$ (or, worse, only
+$k_2$) breaks the ordering argument above and can make \lpastar expand vertices with
+stale values, or terminate with a wrong $\gcost(s_{\mathrm{goal}})$. In \python, store
+keys as tuples \code{(k1, k2)}; tuple comparison is lexicographic, which is what the
+algorithm needs. Also never compare keys for equality with floating-point tolerance
+tricks: the algorithm only needs $<$ and $\le$.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{A worked example: \lpastar repairs a path}
+\label{sec:ch05-lpastar-example}
+
+\begin{example}[An obstacle appears on the path]
+\label{ex:ch05-lpastar}
+\Cref{fig:ch05-lpastar-example} shows a $5\times 3$ grid of free cells. Cells are named
+$(x,y)$ with $x$ the column from the left and $y$ the row from the bottom, both starting
+at $0$. The start is $S=(0,1)$, the goal is $T=(4,1)$, moves are 4-connected with unit
+cost, and $\hcost$ is the Manhattan distance to $T$. Ties between equal keys are broken
+toward the smaller $x$, then the smaller $y$. First \lpastar computes a shortest path.
+Then cell $(3,1)$, which lies on the path, becomes blocked, and \lpastar repairs the
+path.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch05/lpastar-example}
+  \caption{\lpastar on \cref{ex:ch05-lpastar}. Each cell shows $\gcost/\rhs$; grey cells
+  are locally consistent with finite values (expanded), blue cells are in the queue $U$,
+  orange cells are underconsistent. Left: after the first search, path of cost $4$.
+  Middle: right after cell $(3,1)$ is blocked and \LpaUpdateVertex has run on the
+  affected vertices, before \LpaComputeShortestPath. Right: after the repair, the new path
+  of cost $6$.}
+  \label{fig:ch05-lpastar-example}
+\end{figure}
+
+\paragraph{The first search.}
+\Cref{tab:ch05-lpastar-first} traces the first call of \LpaComputeShortestPath. Every
+popped vertex is overconsistent, so this is an \astar search: the cells of the middle
+row are expanded one after the other, each with key $[4;\,x]$, because for a cell on
+the straight line $\gcost + \hcost = 4$. The side cells receive finite $\rhs$-values and
+enter the queue with $k_1 = 6$, but they are never expanded: after $T$ is popped and made
+consistent, the smallest queued key is $[6;1]$, which is not smaller than $k(T)=[4;4]$,
+and the loop stops. Five expansions, ten cells left in the queue with correct
+$\rhs$-values but $\gcost=\infty$.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{First call of \LpaComputeShortestPath in \cref{ex:ch05-lpastar}. ``Updated''
+  lists the vertices on which \LpaUpdateVertex changed something, with their new
+  $\rhs$-value and key.}
+  \label{tab:ch05-lpastar-first}
+  \begin{tabular}{@{}rllll@{}}
+  \toprule
+  Step & Popped $u$ (key) & Case & $\gcost(u)$ after & Updated: $\rhs$, key\\
+  \midrule
+  %%NUM-LPA-FIRST
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{The change.}
+Blocking $(3,1)$ changes eight directed edges: the four that enter $(3,1)$ and the four
+that leave it. \LpaMain calls \LpaUpdateVertex on the head of each. For the entering
+edges the head is $(3,1)$ itself: all its predecessors are now at cost $\infty$, so
+$\rhs(3,1)=\infty$ while $\gcost(3,1)=3$; the cell is underconsistent and enters the
+queue with key $[3+1;\,3]=[4;3]$. For the leaving edges the heads are the neighbours.
+$T=(4,1)$ loses its only finite predecessor, $\rhs(T)=\infty$ against $\gcost(T)=4$:
+underconsistent, key $[4;4]$. $(2,1)$ still has $S$'s side as predecessor and keeps
+$\rhs=2$. $(3,0)$ and $(3,2)$ had $\rhs=4$ through $(3,1)$; now their only finite
+predecessor is gone, $\rhs=\infty=\gcost$, and they \emph{leave} the queue. The middle
+panel of \cref{fig:ch05-lpastar-example} shows this state: two underconsistent cells,
+eight queued cells, and every $\gcost$-value untouched.
+
+\paragraph{The repair.}
+\Cref{tab:ch05-lpastar-repair} traces the second call. The two underconsistent cells
+come first, because their keys use the old, small $\gcost$-values. Popping $(3,1)$ sets
+$\gcost(3,1)=\infty$; its successors are updated but nothing changes, since their
+$\rhs$-values already ignored $(3,1)$. Popping $T$ sets $\gcost(T)=\infty$, and now the
+cells $(4,0)$ and $(4,2)$, whose $\rhs=5$ came through $T$, also drop out of the queue.
+From here on the search is a plain \astar over the side rows: the queued cells are
+expanded in order of their keys, all with $k_1=6$ and increasing $k_2$, the detour
+$(2,0)\to(3,0)\to(4,0)$ is discovered, and $T$ is finally re-expanded with
+$\gcost(T)=6$. The repair costs %%NUM-LPA-REPAIR expansions, of which the first two
+are underconsistent. Compare this with \astar from scratch on the changed grid, which
+expands %%NUM-ASTAR-AFTER cells: on such a small instance the saving is modest, because
+almost every cell has $\fcost = 6$ and has to be looked at by any best-first search.
+What \lpastar reuses are the $\gcost$-values of $S$, $(1,1)$ and $(2,1)$, which are
+never expanded again. \Cref{sec:ch05-experiment} shows that on larger maps the reused
+part dominates.
+
+\begin{table}[tb]
+  \centering\footnotesize
+  \caption{Second call of \LpaComputeShortestPath in \cref{ex:ch05-lpastar}, after
+  $(3,1)$ was blocked. Steps 1--2 retract stale values (underconsistent); the remaining
+  steps are ordinary expansions. ``--'' means that \LpaUpdateVertex changed nothing.}
+  \label{tab:ch05-lpastar-repair}
+  \begin{tabular}{@{}rllll@{}}
+  \toprule
+  Step & Popped $u$ (key) & Case & $\gcost(u)$ after & Updated: $\rhs$, key\\
+  \midrule
+  %%NUM-LPA-SECOND
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+The path is read off at the end by walking backward from $T$: from each cell move to
+the predecessor that attains the minimum in \cref{eq:ch05-rhs}. In the right panel of
+\cref{fig:ch05-lpastar-example} this gives $T \to (4,0) \to (3,0) \to (2,0) \to (2,1)
+\to (1,1) \to S$, the blue path of cost $6$ (the symmetric path through the top row has
+the same cost; the tie-break picks the bottom row).
