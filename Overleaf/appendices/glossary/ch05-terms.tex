@@ -1,1 +1,12 @@
 % Glossary terms from ch05: lines of the form \item[Term] Definition.
+\item[Incremental search] A search that answers a sequence of shortest-path queries on a changing graph by reusing the values computed for the previous queries and repairing only what a change invalidated.
+\item[Lifelong Planning A* (LPA*)] The incremental version of \astar for a fixed start and goal: it keeps $\gcost$- and $\rhs$-values across edge-cost changes and re-expands only locally inconsistent vertices.
+\item[D* Lite] \lpastar turned around to search backward from the goal, with a key modifier $k_m$ so that the robot may move while it replans; the replanning algorithm of the hybrid architecture.
+\item[rhs-value] The one-step lookahead $\rhs(s)$ of a vertex, the best value its neighbours currently imply ($\min$ over predecessors of $\gcost + $ edge cost in \lpastar, over successors in \dstarlite); it is always kept up to date.
+\item[Local consistency] The property $\gcost(s)=\rhs(s)$; only locally inconsistent vertices are in the priority queue and need work.
+\item[Overconsistent vertex] A vertex with $\gcost(s)>\rhs(s)$: a cheaper value is available and expanding it sets $\gcost(s)\gets\rhs(s)$, as an \astar expansion would.
+\item[Underconsistent vertex] A vertex with $\gcost(s)<\rhs(s)$: its stored value relies on a cost that no longer exists; expanding it retracts the value ($\gcost(s)\gets\infty$) before it can propagate further.
+\item[Two-component key] The priority $[\min(\gcost,\rhs)+\hcost;\ \min(\gcost,\rhs)]$ of a queued vertex, compared lexicographically; the first component is the $\fcost$-value of \astar, the second breaks ties toward smaller values so that stale values are retracted before their dependents are expanded.
+\item[Key modifier] The running sum $k_m$ of the heuristic distances the robot has moved between repairs; added to every new key of \dstarlite, it turns the keys already in the queue into lower bounds instead of forcing the heap to be rebuilt.
+\item[Lazy deletion] Implementing priority-queue removal by marking an entry stale in a side table and discarding it when it surfaces at the top of the heap.
+\item[Replanning layer] The layer of the hybrid drone architecture that, when the local avoidance manoeuvre cannot rejoin the nominal route, recomputes a route from the drone's current cell with the predicted intruder region encoded as changed edge costs.

@@ -7,9 +7,10 @@ Run this file to execute the self-test (a few seconds):
 The self-test draws random 20x20 grids for many seeds, lets the robot walk
 while random obstacles are inserted and removed, and checks after every
 change that the path cost of D* Lite (and of LPA*) equals the cost that A*
-computes from scratch, that the extracted path is valid, and that the
-priority queue holds exactly the locally inconsistent vertices.  It also
-replays the two worked examples of the chapter.  Run with --examples to
+computes from scratch, that the extracted path is valid, that the priority
+queue holds exactly the locally inconsistent vertices, and that the first
+search expands exactly as many vertices as A* with the same tie-breaking.
+It also replays the two worked examples of the chapter.  Run with --examples to
 print the traces and the LaTeX table rows used in the text.
 
 Cells are (x, y) tuples with x the column (from the left) and y the row
@@ -79,13 +80,12 @@ class Grid:
 # ---------------------------------------------------------------------------
 
 class PriorityQueue:
-    """Min-heap of (key, vertex) entries that supports Remove.
+    """Min-heap of (key, vertex) entries with Remove by lazy deletion.
 
-    key_of maps every queued vertex to its current key.  A heap entry is live
-    only if its key equals key_of[vertex]; entries invalidated by remove()
-    or by a re-insert with a new key are skipped when they surface.  Keys
-    are tuples, compared lexicographically; equal keys are ordered by the
-    vertex tuple so that traces are deterministic.
+    key_of maps each queued vertex to its current key; a heap entry is live
+    only if its key equals key_of[vertex], and stale entries are skipped
+    when they surface.  Keys are tuples (lexicographic order); equal keys
+    are ordered by the vertex so that traces are deterministic.
     """
 
     def __init__(self):
@@ -339,12 +339,17 @@ class DStarLite:
 AStarResult = namedtuple("AStarResult", "cost path expansions closed")
 
 
-def astar(grid, start, goal, heuristic=manhattan):
-    """Plain A* with a closed set; ties on f broken toward smaller h."""
+def astar(grid, start, goal, heuristic=manhattan, tie="h"):
+    """Plain A* with a closed set.
+
+    Ties on f are broken toward smaller h (tie="h", the usual choice on
+    grids) or toward smaller g (tie="g", the order of the LPA*/D* Lite key).
+    """
     g = {start: 0.0}
     parent = {start: None}
     closed = set()
-    frontier = [(heuristic(start, goal), heuristic(start, goal), start)]
+    h0 = heuristic(start, goal)
+    frontier = [(h0, 0.0 if tie == "g" else h0, start)]
     expansions = 0
     while frontier:
         _, _, u = heapq.heappop(frontier)
@@ -366,7 +371,7 @@ def astar(grid, start, goal, heuristic=manhattan):
                 g[v] = g[u] + c
                 parent[v] = u
                 hv = heuristic(v, goal)
-                heapq.heappush(frontier, (g[v] + hv, hv, v))
+                heapq.heappush(frontier, (g[v] + hv, g[v] if tie == "g" else hv, v))
     return AStarResult(INF, None, expansions, closed)
 
 
@@ -579,7 +584,11 @@ def check_path(grid, path, cost):
 
 
 def check_queue_invariant(planner):
-    """U contains exactly the inconsistent vertices; keys are lower bounds."""
+    """U contains exactly the inconsistent vertices; keys are lower bounds.
+
+    For D* Lite the second part holds right after ComputeShortestPath, when
+    k_m accounts for every move of the robot so far (line 37'' of Main).
+    """
     for s in planner.grid.cells():
         inconsistent = planner.g_of(s) != planner.rhs_of(s)
         assert inconsistent == (s in planner.U), s
@@ -600,8 +609,10 @@ def random_walk_test(seed, size=20, density=0.25, steps=20):
     lpa.compute_shortest_path()
     ref = astar(grid, start, goal)
     assert dsl.g_of(start) == ref.cost == lpa.g_of(goal)
-    if ref.cost < INF:                    # first search == A* size (up to ties)
-        assert abs(dsl.expansions - ref.expansions) <= ref.expansions
+    # The first search is A* with the same tie-breaking, expansion for
+    # expansion: backward from the goal for D* Lite, forward for LPA*.
+    assert dsl.expansions == astar(grid, goal, start, tie="g").expansions, seed
+    assert lpa.expansions == astar(grid, start, goal, tie="g").expansions, seed
     for _ in range(steps):
         if dsl.start != goal and dsl.next_step() is not None:
             dsl.move()
@@ -615,7 +626,8 @@ def random_walk_test(seed, size=20, density=0.25, steps=20):
         dsl.notify_changed_cells(changed)
         lpa.notify_changed_cells(changed)
         lpa.compute_shortest_path()
-        check_queue_invariant(dsl)
+        if changed:                       # k_m is up to date after a repair
+            check_queue_invariant(dsl)
         check_queue_invariant(lpa)
         ref = astar(grid, dsl.start, goal)
         assert dsl.g_of(dsl.start) == ref.cost, (seed, dsl.start, dsl.g_of(dsl.start), ref.cost)

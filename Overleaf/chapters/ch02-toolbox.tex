@@ -1,5 +1,6 @@
 \chapter{The Toolbox: Graphs, Grids, Time, Motion and Uncertainty}
 \label{ch:ch02}
+\chaptermark{The Toolbox}  % short running head; the full title is too long next to the section mark
 % Function names for pseudocode are prefixed with "Toolbox" to stay unique.
 \SetKwFunction{ToolboxLazyPush}{LazyPush}
 \SetKwFunction{ToolboxLazyPop}{LazyPop}
@@ -80,7 +81,7 @@ A \textbf{shortest path}\index{shortest path} from $s$ to $g$ is a path of minim
 \end{definition}
 
 \begin{proposition}[Triangle inequality]
-\label{thm:ch02-triangle}
+\label[proposition]{thm:ch02-triangle}
 For all vertices $u,v,w$ of a graph with non-negative costs, $\dist(u,w)\le \dist(u,v)+\dist(v,w)$.
 \end{proposition}
 \begin{proof}
@@ -163,7 +164,7 @@ The \textbf{Minkowski sum}\index{Minkowski sum} of two sets $A,B\subseteq\R^n$ i
 \end{definition}
 
 \begin{proposition}[Point-robot planning on the inflated map is exact]
-\label{thm:ch02-inflation}
+\label[proposition]{thm:ch02-inflation}
 For a disc (in 3D: a ball) robot of radius $r$ whose configuration is its centre $\pos$,
 \begin{equation}
 \Cobs=\mathcal{O}\oplus\disc{\vect{0}}{r}.
@@ -314,7 +315,7 @@ For two agents with positions $\pos_i(t)$ and $\pos_j(t)$, the \textbf{separatio
 For a plan on a graph the separation can be evaluated at the integer times only (the toolbox function \code{min\_separation}) or along the straight-line motion of \cref{eq:ch02-path-to-trajectory} between consecutive steps (\code{min\_separation\_continuous}, which uses the closest-approach formula of \cref{sec:ch02-geometry} on every interval). The two answers differ, as the worked example shows.
 
 \begin{example}[Two agents on a small grid]
-\label{ex:ch02-costs}
+\label[example]{ex:ch02-costs}
 Take an empty 4-connected grid with $W=4$ and $H=3$. Agent $A$ goes from $(0,1)$ to $(3,1)$ along the middle row, agent $B$ from $(1,2)$ down to $(1,0)$. If both move without waiting, $\pi_A=\bigl((0,1),(1,1),(2,1),(3,1)\bigr)$ and $\pi_B'=\bigl((1,2),(1,1),(1,0)\bigr)$ put both agents in cell $(1,1)$ at $t=1$: the separation is $0$. Let $B$ wait one step first, $\pi_B=\bigl((1,2),(1,2),(1,1),(1,0)\bigr)$. \Cref{tab:ch02-costs-trace} traces the plan $\Pi=(\pi_A,\pi_B)$. The lengths are $L(\pi_A)=3$ and $L(\pi_B)=2$, the travel times are $T(\pi_A)=3$ and $T(\pi_B)=3$, hence $\makespan(\Pi)=3$ and $\sumcost(\Pi)=6$. At integer times the minimum separation is $1$. Between $t=1$ and $t=2$, however, $A$ moves from $(1,1)$ to $(2,1)$ while $B$ moves from $(1,2)$ to $(1,1)$; in the middle of that step, at $t=1.5$, the agents are at $(1.5,1)$ and $(1,1.5)$, only $\sqrt{0.5}\approx0.707$ apart. With a body radius of $0.3$ cells (collision distance $0.6$) the plan is safe; with a radius of $0.4$ (collision distance $0.8$) the two agents touch although they never share a cell.
 \end{example}
 
@@ -353,7 +354,7 @@ The \textbf{single integrator}\index{single integrator} (point-mass model) has t
 \end{equation}
 \end{definition}
 
-The single integrator assumes that the drone can change its velocity instantly. That is the model behind velocity obstacles and \orca (\cref{ch:ch12,ch:ch13}), whose output is a velocity, and it is implicitly the model of a grid planner, where a move of one cell per step is a velocity of one cell per $\dt$.
+The single integrator assumes that the drone can change its velocity instantly. That is the model behind velocity obstacles and optimal reciprocal collision avoidance (\orca; \cref{ch:ch12,ch:ch13}), whose output is a velocity, and it is implicitly the model of a grid planner, where a move of one cell per step is a velocity of one cell per $\dt$.
 
 \begin{definition}[Double integrator]
 \label{def:ch02-double-integrator}
@@ -370,6 +371,7 @@ where $\mat{I}$ is the $n\times n$ identity.
 To see where $\mat{A}$ and $\mat{B}$ come from, integrate a constant acceleration $\acc$ over one step: the velocity becomes $\vel+\dt\,\acc$ and the position, which is the integral of the velocity, becomes $\pos+\dt\,\vel+\tfrac12\dt^2\acc$. The two rows of \cref{eq:ch02-double-integrator} say exactly this. The model is exact, not an approximation; the forward-Euler update $\pos_{k+1}=\pos_k+\dt\,\vel_k$ that many programs use drops the term $\tfrac12\dt^2\acc$ and is exact only when the acceleration is zero. The Kalman filter of \cref{ch:ch18} uses the same $\mat{A}$ with the acceleration replaced by noise (the \emph{constant-velocity model}), and the controller of \cref{ch:ch21} uses $\mat{A}$ and $\mat{B}$ as its prediction model.
 
 \paragraph{Holonomic and non-holonomic.}
+Not every robot can move in every direction; the distinction has a name.
 \begin{definition}[Holonomic and non-holonomic systems]
 \label{def:ch02-holonomic}
 A robot is \textbf{holonomic}\index{holonomic} if every constraint on its motion restricts only the configurations it may occupy, so that from any configuration it can move in every direction of the configuration space. It is \textbf{non-holonomic}\index{non-holonomic} if some constraint restricts its velocity without restricting the reachable configurations.
@@ -380,7 +382,7 @@ A car is the textbook non-holonomic system: it cannot slide sideways, yet it can
 A quadrotor produces one thrust force along its body axis and controls its direction by tilting. Its centre of mass therefore obeys $m\ddot{\pos}=\vect{f}_{\text{thrust}}-m g\,\vect{e}_z$: given a desired acceleration $\acc$, the flight controller solves for the thrust magnitude and the attitude that produce it. Because the attitude loop of a small quadrotor settles in a fraction of a second, the position dynamics seen by a planner that replans every $\dt=0.1$~s or slower are very nearly the double integrator, with $a_{\max}$ set by the thrust-to-weight ratio and the maximum tilt. The theory of differential flatness makes this precise: any sufficiently smooth position trajectory can be tracked by a quadrotor \cite{mellinger2011minimum}. The caveats are that the acceleration cannot jump (the attitude must first rotate), that the limits are not symmetric (gravity helps descending and hinders climbing), that aerodynamic drag grows with speed, and that a heavy payload slows the attitude loop. Choose $a_{\max}$ and $v_{\max}$ with a margin below the physical limits, and the abstraction holds.
 
 \begin{proposition}[Stopping distance]
-\label{thm:ch02-stopping-distance}
+\label[proposition]{thm:ch02-stopping-distance}
 A double integrator moving at speed $v$ that brakes with the maximal deceleration $a_{\max}$ comes to rest after the time $v/a_{\max}$ and the \textbf{stopping distance}\index{stopping distance}
 \begin{equation}
 d_{\text{stop}}(v)=\frac{v^2}{2\,a_{\max}} .
@@ -447,13 +449,14 @@ the point $\vect{q}$ is the \textbf{closest point}\index{point--segment distance
 The unclamped fraction in \cref{eq:ch02-point-segment} is the projection of $\vect{p}$ onto the line through $\vect{a}$ and $\vect{b}$, expressed as a multiple of $\vect{b}-\vect{a}$. Clamping it to $[0,1]$ handles the three cases: the foot of the perpendicular lies inside the segment ($0<s<1$), or before $\vect{a}$ ($s=0$), or beyond $\vect{b}$ ($s=1$). This one function is the collision checker of the book: a disc obstacle of radius $r$ blocks a straight motion from $\vect{a}$ to $\vect{b}$ if and only if the distance from its centre to the segment is at most $r$, and the clearance of a candidate motion in \cref{ch:ch14} is the smallest such distance over all obstacles.
 
 \begin{proposition}[Ray--circle and segment--circle intersection]
-\label{thm:ch02-ray-circle}
+\label[proposition]{thm:ch02-ray-circle}
 Let $\vect{o}+t\,\vect{d}$, $t\ge0$, be a ray and $\norm{\vect{x}-\vect{c}}=r$ a circle, and put $\vect{f}=\vect{o}-\vect{c}$. The ray meets the circle where
 \begin{equation}
-(\vect{d}\cdot\vect{d})\,t^2+2\,(\vect{f}\cdot\vect{d})\,t+(\vect{f}\cdot\vect{f}-r^2)=0 ,
-\qquad
+\begin{gathered}
+(\vect{d}\cdot\vect{d})\,t^2+2\,(\vect{f}\cdot\vect{d})\,t+(\vect{f}\cdot\vect{f}-r^2)=0 ,\\
 t_{1,2}=\frac{-(\vect{f}\cdot\vect{d})\mp\sqrt{\Delta}}{\vect{d}\cdot\vect{d}},
-\quad \Delta=(\vect{f}\cdot\vect{d})^2-(\vect{d}\cdot\vect{d})(\vect{f}\cdot\vect{f}-r^2).
+\qquad \Delta=(\vect{f}\cdot\vect{d})^2-(\vect{d}\cdot\vect{d})(\vect{f}\cdot\vect{f}-r^2).
+\end{gathered}
 \label{eq:ch02-ray-circle}
 \end{equation}
 If $\Delta<0$ the ray misses the circle; otherwise the first contact is at the smaller root $t_1$, provided $t_1\ge0$. If $\vect{f}\cdot\vect{f}\le r^2$ the ray starts inside the disc and the contact time is $0$. The segment from $\vect{a}$ to $\vect{b}$ meets the disc $\disc{\vect{c}}{r}$ if and only if $\dist(\vect{c},\overline{\vect{a}\vect{b}})\le r$; it crosses the circle at the roots of \cref{eq:ch02-ray-circle} with $\vect{o}=\vect{a}$, $\vect{d}=\vect{b}-\vect{a}$ that lie in $[0,1]$.
@@ -470,7 +473,7 @@ Substitute $\vect{x}=\vect{o}+t\vect{d}$ into $\norm{\vect{x}-\vect{c}}^2=r^2$ a
 \end{figure}
 
 \begin{proposition}[Minkowski sum of two discs]
-\label{thm:ch02-disc-minkowski}
+\label[proposition]{thm:ch02-disc-minkowski}
 $\disc{\vect{c}_1}{r_1}\oplus\disc{\vect{c}_2}{r_2}=\disc{\vect{c}_1+\vect{c}_2}{r_1+r_2}$. In particular, two discs $\disc{\pos_A}{r_A}$ and $\disc{\pos_B}{r_B}$ overlap if and only if $\norm{\pos_B-\pos_A}\le r_A+r_B$, i.e.\ if and only if the point $\pos_B-\pos_A$ lies in $\disc{\vect{0}}{r_A+r_B}$.
 \end{proposition}
 \begin{proof}
@@ -480,7 +483,7 @@ If $\vect{x}=\vect{a}+\vect{b}$ with $\norm{\vect{a}-\vect{c}_1}\le r_1$ and $\n
 This is the \emph{relative frame} that \cref{ch:ch12,ch:ch13} use throughout: put drone $A$ at the origin as a point, and replace drone $B$ by a disc of radius $r_A+r_B$ at the relative position $\pos_B-\pos_A$. The next primitive describes the directions in which that disc is visible from the origin.
 
 \begin{proposition}[Tangent lines from a point to a circle]
-\label{thm:ch02-tangents}
+\label[proposition]{thm:ch02-tangents}
 Let $d=\norm{\vect{p}-\vect{c}}>r$ and $\vect{u}=(\vect{p}-\vect{c})/d$. The two tangents from $\vect{p}$ to the circle $\norm{\vect{x}-\vect{c}}=r$ touch it at
 \begin{equation}
 \vect{t}_{\pm}=\vect{c}+r\,\bigl(\cos\alpha\,\vect{u}\pm\sin\alpha\,\vect{u}^{\perp}\bigr),
@@ -501,7 +504,7 @@ Let two objects move with constant velocities, $\pos_A(t)=\pos_A+t\,\vel_A$ and 
 \end{definition}
 
 \begin{proposition}[Closest approach of two constant-velocity objects]
-\label{thm:ch02-closest-approach}
+\label[proposition]{thm:ch02-closest-approach}
 If $\vel\neq\vect{0}$ then
 \begin{equation}
 t^*=\max\Bigl(0,\ -\frac{\pos\cdot\vel}{\vel\cdot\vel}\Bigr),
@@ -528,7 +531,7 @@ $D(t)^2=\norm{\pos}^2+2t\,(\pos\cdot\vel)+t^2\norm{\vel}^2$ is a parabola in $t$
 \end{figure}
 
 \begin{example}[Two drones on crossing courses]
-\label{ex:ch02-closest-approach}
+\label[example]{ex:ch02-closest-approach}
 Drone $A$ is at the origin and flies along the $x$-axis at $1$~m/s; drone $B$ is at $(4,2)$ and flies straight down at $1$~m/s. Then $\pos=(4,2)$ and $\vel=(0,-1)-(1,0)=(-1,-1)$. From \cref{eq:ch02-tca}, $t^*=-(\pos\cdot\vel)/(\vel\cdot\vel)=-(-6)/2=3$~s and $d_{\min}=\abs{\pos\times\vel}/\norm{\vel}=\abs{4\cdot(-1)-2\cdot(-1)}/\sqrt2=2/\sqrt2=\sqrt2\approx1.414$~m. If both drones have radius $0.75$~m, the collision distance is $R=1.5>\sqrt2$, and \cref{eq:ch02-ttc} gives the first contact at $t_c=3-\sqrt{2.25-2}/\sqrt2\approx2.646$~s. If both have radius $0.5$~m then $R=1<\sqrt2$ and they pass each other safely. The toolbox functions \code{time\_of\_closest\_approach} and \code{time\_to\_collision} return exactly these numbers; \cref{fig:ch02-closest-approach} draws the situation.
 \end{example}
 
@@ -579,7 +582,7 @@ The \textbf{$k\sigma$ covariance ellipse}\index{covariance ellipse} (in 3D: elli
 \end{definition}
 
 \begin{proposition}[Axes of the covariance ellipse]
-\label{thm:ch02-ellipse-axes}
+\label[proposition]{thm:ch02-ellipse-axes}
 Let $\mat{\Sigma}=\mat{E}\mat{\Lambda}\mat{E}\T$ be the eigen-decomposition of a $2\times2$ covariance, with orthonormal eigenvectors $\vect{e}_1,\vect{e}_2$ as the columns of $\mat{E}$ and eigenvalues $\lambda_1\ge\lambda_2>0$. Then $\mathcal{E}_k$ is the ellipse centred at $\vect{\mu}$ with semi-axis $k\sqrt{\lambda_1}$ along $\vect{e}_1$ and $k\sqrt{\lambda_2}$ along $\vect{e}_2$,
 \begin{equation}
 \state(\varphi)=\vect{\mu}+k\bigl(\sqrt{\lambda_1}\cos\varphi\;\vect{e}_1+\sqrt{\lambda_2}\sin\varphi\;\vect{e}_2\bigr),\qquad \varphi\in[0,2\pi),
@@ -594,7 +597,7 @@ Substitute $\vect{y}=\mat{E}\T(\state-\vect{\mu})$. Since $\mat{E}$ is orthogona
 To draw the ellipse in practice, call \code{numpy.linalg.eigh} on $\mat{\Sigma}$ (it returns the eigenvalues in ascending order, so reverse them), take the square roots, and evaluate \cref{eq:ch02-ellipse-param} at, say, $72$ angles. The toolbox does this in \code{covariance\_ellipse} and \code{ellipse\_points}; the self-test checks that every returned point has squared Mahalanobis distance exactly $k^2$.
 
 \begin{example}[Reading a covariance matrix]
-\label{ex:ch02-ellipse}
+\label[example]{ex:ch02-ellipse}
 Let $\vect{\mu}=(2,1)$ and $\mat{\Sigma}=\begin{psmallmatrix}2&1.2\\1.2&1\end{psmallmatrix}$, so $\sigma_x=\sqrt2$, $\sigma_y=1$ and $\rho=1.2/\sqrt2\approx0.85$. The eigenvalues solve $\lambda^2-3\lambda+0.56=0$, giving $\lambda_1=2.8$ and $\lambda_2=0.2$, with $\vect{e}_1\propto(3,2)$. The $1\sigma$ ellipse therefore has semi-axes $\sqrt{2.8}\approx1.673$ and $\sqrt{0.2}\approx0.447$, and its major axis is tilted by $\arctan(2/3)\approx33.7^\circ$. \Cref{fig:ch02-gaussian} shows $400$ samples drawn with a fixed seed: $39.8\%$ of them fall inside the $1\sigma$ ellipse and $85.8\%$ inside the $2\sigma$ ellipse, close to the theoretical $39.3\%$ and $86.5\%$.
 \end{example}
 
@@ -612,10 +615,10 @@ In one dimension $68.3\%$ of the mass of a Gaussian lies within $1\sigma$ and $9
 \paragraph{Bayes' rule.}
 Everything in Part~VI is an application of one formula. If $\state$ is the unknown state and $\meas$ a measurement, then
 \begin{equation}
-p\left(\state\given\meas\right)=\frac{p\left(\meas\given\state\right)\,p(\state)}{p(\meas)},\qquad p(\meas)=\int p\left(\meas\given\state\right)\,p(\state)\,d\state,
+p(\state\mid\meas)=\frac{p(\meas\mid\state)\,p(\state)}{p(\meas)},\qquad p(\meas)=\int p(\meas\mid\state)\,p(\state)\,d\state,
 \label{eq:ch02-bayes}
 \end{equation}
-where $p(\state)$ is the \textbf{prior}\index{Bayes' rule} (what you believed before the measurement), $p\left(\meas\given\state\right)$ the \textbf{likelihood} (how probable the measurement is for each state) and $p\left(\state\given\meas\right)$ the \textbf{posterior}; the denominator is a normalising constant that does not depend on $\state$, so in practice one writes posterior $\propto$ likelihood $\times$ prior. Tracking applies the rule again and again: today's posterior, pushed through the motion model, becomes tomorrow's prior. With a Gaussian prior, a linear motion model and a linear measurement with Gaussian noise, the posterior is again Gaussian and \cref{eq:ch02-bayes} reduces to a few matrix operations, which is the Kalman filter of \cref{ch:ch18}; \cref{ch:ch19} covers what to do when the models are not linear. The standard reference for all of this is \textcite{thrun2005probabilistic}.
+where $p(\state)$ is the \textbf{prior}\index{Bayes' rule} (what you believed before the measurement), $p(\meas\mid\state)$ the \textbf{likelihood} (how probable the measurement is for each state) and $p(\state\mid\meas)$ the \textbf{posterior}; the denominator is a normalising constant that does not depend on $\state$, so in practice one writes posterior $\propto$ likelihood $\times$ prior. Tracking applies the rule again and again: today's posterior, pushed through the motion model, becomes tomorrow's prior. With a Gaussian prior, a linear motion model and a linear measurement with Gaussian noise, the posterior is again Gaussian and \cref{eq:ch02-bayes} reduces to a few matrix operations, which is the Kalman filter of \cref{ch:ch18}; \cref{ch:ch19} covers what to do when the models are not linear. The standard reference for all of this is \textcite{thrun2005probabilistic}.
 
 % ---------------------------------------------------------------------
 \section{Computation: complexity, priority queues and hashing}
@@ -794,7 +797,7 @@ class LazyPQ:
         self.stale_pops = 0
 
     def push(self, key, item):
-        """Insert ``item`` with ``key``; ignored if a key <= ``key`` is known."""
+        """Insert ``item`` with ``key``; ignored unless ``key`` improves."""
         if item in self._best and self._best[item] <= key:
             return False
         self._best[item] = key
@@ -831,7 +834,7 @@ Each of the four layers of the hybrid architecture in \cref{ch:ch24} is built fr
   \item Path length, travel time, makespan $\makespan=\max_i T_i$, sum of costs $\sumcost=\sum_i T_i$ and minimum separation are the cost measures of the book; a plan without grid conflicts can still bring physical agents too close.
   \item The single integrator chooses velocities, the double integrator chooses accelerations with exact discrete matrices $\mat{A},\mat{B}$; a quadrotor is nearly the latter; the stopping distance is $v^2/(2a_{\max})$.
   \item Distance to a segment, ray--circle intersection, the Minkowski disc, tangent lines and the time of closest approach $t^*=-(\pos\cdot\vel)/\norm{\vel}^2$ with $d_{\min}=\abs{\pos\times\vel}/\norm{\vel}$ are the geometry of collision avoidance.
-  \item A covariance is an ellipse with axes $\sqrt{\lambda_i}\,\vect{e}_i$; in 2D the $1\sigma$ ellipse holds only $39\%$ of the mass; Bayes' rule turns a prior and a measurement into a posterior.
+  \item A covariance is an ellipse with axes $\sqrt{\lambda_i}\,\vect{e}_i$ (\cref{thm:ch02-ellipse-axes}); in 2D the $1\sigma$ ellipse holds only $39\%$ of the mass; Bayes' rule turns a prior and a measurement into a posterior.
   \item Searches use a binary heap with lazy deletion (push duplicates, skip stale pops) and dictionaries keyed by integer tuples; \python and NumPy are enough for every instance in this book.
 \end{itemize}
 \end{summary}

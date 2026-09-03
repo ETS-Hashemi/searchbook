@@ -267,390 +267,551 @@ empty before $t$ is popped and the search reports failure, which for a drone mea
 is sealed off by obstacles or no-fly zones and the map, not the planner, has to change.
 
 % ---------------------------------------------------------------------
-\section{The algorithm: detecting conflicts}
-\label{sec:ch07-detection}
-
-Given $k$ time-indexed paths, we want the \emph{first} vertex or swapping conflict, or the
-verdict that there is none. ``First'' means earliest in time; within one time step, a vertex
-conflict in the snapshot at $t$ comes before a swapping conflict during the step from $t$ to
-$t+1$, which comes before the snapshot at $t+1$. Returning the first conflict, rather than any
-conflict, is what \cbs needs (\cref{ch:ch09}), and it makes the output deterministic.
-
-Two small ingredients handle paths of different lengths. The function \MapfPos
-(line~\ref{alg:ch07-first-conflict:pad} of \cref{alg:ch07-first-conflict}) returns the entry
-$\pi_i[t]$ for $t\le T_i$ and the goal $g_i$ afterwards; this is the stay-at-target convention
-turned into code, and it is the only place where the convention enters. The
-\textbf{horizon}\index{horizon of a plan} $T=\max_i T_i$
-(line~\ref{alg:ch07-first-conflict:horizon}) is the last time step that needs checking:
-after $T$ every agent is parked, so no new vertex conflict can appear and no swap can happen
-(\cref{thm:ch07-detection}).
-
-\begin{algorithm}[htb]
-\caption{Pairwise conflict detection}
-\label{alg:ch07-first-conflict}
-\KwIn{time-indexed paths $\pi_1,\dots,\pi_k$ in canonical form, with costs $T_1,\dots,T_k$}
-\KwOut{the earliest vertex or swapping conflict, or \KwNil if the plan is conflict-free}
-\Fn{\MapfPos{$\pi_i$, $t$}}{
-  \lIf{$t\le T_i$}{\KwRet{$\pi_i[t]$}}
-  \KwRet{$g_i$}\tcp*{stay at target: pad with the goal}\label{alg:ch07-first-conflict:pad}
-}
-\Fn{\MapfFirstConflict{$\pi_1,\dots,\pi_k$}}{
-  $T\gets\max_i T_i$\label{alg:ch07-first-conflict:horizon}\;
-  \For{$t\gets 0$ \KwTo $T$}{
-    \ForEach{pair $i<j$\label{alg:ch07-first-conflict:vertex}}{
-      $v\gets$ \MapfPos{$\pi_i$, $t$}\;
-      \lIf{$v=$ \MapfPos{$\pi_j$, $t$}}{\KwRet{vertex conflict $\langle a_i,a_j,v,t\rangle$}}
-    }
-    \If{$t<T$}{
-      \ForEach{pair $i<j$\label{alg:ch07-first-conflict:swap}}{
-        $u_i,v_i\gets$ \MapfPos{$\pi_i$, $t$}, \MapfPos{$\pi_i$, $t+1$};\quad
-        $u_j,v_j\gets$ \MapfPos{$\pi_j$, $t$}, \MapfPos{$\pi_j$, $t+1$}\;
-        \lIf{$u_i\neq v_i$ \KwAnd $u_i=v_j$ \KwAnd $v_i=u_j$}{\KwRet{swapping conflict $\langle
-a_i,a_j,u_i,v_i,t\rangle$}}
-      }
-    }
-  }
-  \KwRet{\KwNil}\;
-}
-\end{algorithm}
-
-\paragraph{Walkthrough of \cref{alg:ch07-first-conflict}.}
-The outer loop visits the columns of the plan table in order. At column $t$,
-line~\ref{alg:ch07-first-conflict:vertex} compares every pair of agents and reports the
-first pair that shares a vertex. If the column is clean and it is not the last one,
-line~\ref{alg:ch07-first-conflict:swap} looks at the step from $t$ to $t+1$: for each pair
-it reads the two moves $u_i\to v_i$ and $u_j\to v_j$ and reports a swap if they are the
-reverse of each other. The test $u_i\neq v_i$ excludes the case where both agents wait on
-the same vertex, which is a vertex conflict already reported at $t$. The order of the pairs
-in the two inner loops (increasing $i$, then increasing $j$) fixes which conflict is reported
-when several exist at the same time; the \python version follows the same order. There are
-$\binom{k}{2}$ pairs per column and $T+1$ columns, each test costs constant time, so the
-running time is $\bigO{k^2\,T}$\index{conflict detection!pairwise}. The memory beyond the
-input is constant.
-
-\paragraph{The hash-map version.}
-A vertex conflict at column $t$ is nothing but a \emph{duplicate entry} in that column, and
-duplicates in a list of $k$ items are found in expected $\bigO{k}$ time with a hash map.
-\Cref{alg:ch07-hashed} keeps a map from vertices to the agent that occupies them
-(line~\ref{alg:ch07-hashed:occ}); an agent whose vertex is already in the map conflicts with
-the agent stored there. Swaps are found the same way with a map from directed edges to
-agents (line~\ref{alg:ch07-hashed:mov}): agent $a_i$ moving $u\to v$ swaps with whoever is
-stored under the reverse edge $(v,u)$. Each column now costs $\bigO{k}$ expected time, so the
-whole scan costs $\bigO{k\,T}$\index{conflict detection!hash map} expected time and
-$\bigO{k}$ extra memory. The saving matters: a planner that validates thousands of candidate
-plans for a hundred agents cannot afford $\binom{100}{2}$ comparisons per time step.
-
-\begin{algorithm}[htb]
-\caption{Conflict detection with hash maps}
-\label{alg:ch07-hashed}
-\KwIn{time-indexed paths $\pi_1,\dots,\pi_k$ in canonical form}
-\KwOut{the earliest vertex or swapping conflict, or \KwNil}
-\Fn{\MapfFirstConflictHashed{$\pi_1,\dots,\pi_k$}}{
-  $T\gets\max_i T_i$\;
-  \For{$t\gets 0$ \KwTo $T$}{
-    $\mathit{occupied}\gets$ empty map from vertices to agents\label{alg:ch07-hashed:occ}\;
-    \For{$i\gets 1$ \KwTo $k$}{
-      $v\gets$ \MapfPos{$\pi_i$, $t$}\;
-      \lIf{$v\in\mathit{occupied}$}{\KwRet{vertex conflict $\langle
-a_{\mathit{occupied}[v]},a_i,v,t\rangle$}}
-      $\mathit{occupied}[v]\gets i$\;
-    }
-    \lIf{$t=T$}{\KwBreak}
-    $\mathit{moving}\gets$ empty map from directed edges $(u,v)$ to
-agents\label{alg:ch07-hashed:mov}\;
-    \For{$i\gets 1$ \KwTo $k$}{
-      $u,v\gets$ \MapfPos{$\pi_i$, $t$}, \MapfPos{$\pi_i$, $t+1$}\;
-      \lIf{$u=v$}{\KwContinue}
-      \lIf{$(v,u)\in\mathit{moving}$}{\KwRet{swapping conflict $\langle
-a_{\mathit{moving}[(v,u)]},a_i,v,u,t\rangle$}}
-      $\mathit{moving}[(u,v)]\gets i$\;
-    }
-  }
-  \KwRet{\KwNil}\;
-}
-\end{algorithm}
-
-One detail makes the two algorithms interchangeable. When a column holds several
-conflicts, \cref{alg:ch07-hashed} as written returns the one it meets first while scanning
-$i=1,\dots,k$, which need not be the lexicographically smallest pair $(i,j)$ that
-\cref{alg:ch07-first-conflict} returns. The \python implementation
-(\cref{lst:ch07-hashed}) finishes the column and keeps the smallest pair, so that both
-detectors return exactly the same conflict; the self-test checks this on sixty random plans.
-
-\paragraph{Validating a plan.}
-A solver's output, a plan read from a file, or a plan repaired after a replan should be
-\emph{validated} before anybody trusts it. \Cref{alg:ch07-validate} checks that each path is a
-legal time-indexed path from its start to its goal---right endpoints, every vertex in $V$,
-every step a wait or a move along an edge---and then runs conflict detection. Path legality
-costs $\bigO{\sum_i T_i}$, so the whole check is dominated by detection. The listing in
-\cref{sec:ch07-implementation} returns \emph{all} problems rather than the first one, which
-is more useful when debugging a solver.
-
-\begin{algorithm}[htb]
-\caption{Plan validator}
-\label{alg:ch07-validate}
-\KwIn{instance $\langle G,s,g\rangle$, plan $\pi=(\pi_1,\dots,\pi_k)$}
-\KwOut{\KwTrue if $\pi$ is a valid solution, otherwise the list of problems found}
-\Fn{\MapfValidatePlan{$G$, $s$, $g$, $\pi$}}{
-  $\mathit{problems}\gets$ empty list\;
-  \For{$i\gets 1$ \KwTo $k$}{
-    \lIf{$\pi_i[0]\neq s_i$ \KwOr $\pi_i[T_i]\neq g_i$}{append ``wrong endpoints of $a_i$''}
-    \For{$t\gets 0$ \KwTo $T_i$}{
-      \lIf{$\pi_i[t]\notin V$}{append ``$a_i$ leaves the graph at $t$''}
-      \lIf{$t<T_i$ \KwAnd $\pi_i[t+1]\neq\pi_i[t]$ \KwAnd $\set{\pi_i[t],\pi_i[t+1]}\notin
-E$}{append ``illegal step of $a_i$ at $t$''}
-    }
-  }
-  \If{$\mathit{problems}$ is empty}{
-    $c\gets$ \MapfFirstConflict{$\pi_1,\dots,\pi_k$}\;
-    \lIf{$c\neq$ \KwNil}{append $c$}
-  }
-  \lIf{$\mathit{problems}$ is empty}{\KwRet{\KwTrue}}
-  \KwRet{$\mathit{problems}$}\;
-}
-\end{algorithm}
-
-% ---------------------------------------------------------------------
 \section{A worked example}
-\label{sec:ch07-example}
+\label{sec:ch03-example}
 
-\begin{example}[Three agents on a $4\times4$ grid]
-\label{ex:ch07-worked}
-\Cref{fig:ch07-example-instance} shows a $4\times4$ grid with obstacles at $(1,0)$ and
-$(1,2)$ and three agents: $a_1$ from $(0,0)$ to $(0,3)$, $a_2$ from $(0,3)$ to $(0,0)$, and
-$a_3$ from the pocket $(1,1)$ to $(0,1)$. Cell $(0,0)$ is a dead end whose only neighbour is
-$(0,1)$, and $(0,2)$ connects only to $(0,1)$ and $(0,3)$, so every path of $a_1$ and of
-$a_2$ must pass through $(0,1)$ and $(0,2)$, and $(0,1)$ is also the goal of $a_3$. The
-instance is the function \code{worked\_example()} of \code{ch07\_mapf.py}; in the code the
-agents are numbered $0,1,2$.
+Two examples follow. The first is an explicit graph small enough to trace on paper, with every
+state of the heap written out; the second is a grid, on which the wave of
+\cref{sec:ch03-intuition} becomes visible. Both live in \code{code/ch03\_dijkstra.py}, whose
+self-test checks every number quoted here.
+
+\begin{example}[Seven waypoints]
+\label{ex:ch03-graph}
+\Cref{fig:ch03-example-graph} shows a waypoint graph with seven vertices $A,\dots,G$ and eleven
+undirected edges whose costs are flight times in minutes. The source is $A$ and the target is
+$G$. We first run \cref{alg:ch03-dijkstra} from $A$ \emph{without} a target, so that the whole
+shortest-path tree appears, and then look at what the early exit would have changed. The graph
+is \code{EXAMPLE\_GRAPH} in the chapter code; \code{python3 ch03\_dijkstra.py} prints the trace
+of \cref{tab:ch03-trace}.
 \end{example}
 
 \begin{figure}[tb]
   \centering
-  \inputfigure{ch07/example-instance}
-  \caption{The instance of \cref{ex:ch07-worked} with the independent shortest paths
-  (the naive plan). All three agents need cell $(0,1)$ within two time steps, and $a_1$
-  and $a_2$ need the corridor $(0,1)$--$(0,2)$ in opposite directions.}
-  \label{fig:ch07-example-instance}
+  \inputfigure{ch03/example-graph}
+  \caption{The waypoint graph of \cref{ex:ch03-graph}. Edge labels are costs; after the search
+the thick blue edges form the shortest-path tree from $A$, and the grey numbers are the final
+distances $\delta(A,v)$. Notice that the direct edge $A$--$C$ of cost 5 is not in the tree,
+because the detour through $B$ costs only 3, and that $F$ is reached through the target $G$.}
+  \label{fig:ch03-example-graph}
 \end{figure}
 
-\paragraph{The naive plan.}
-Planning each agent alone with breadth-first search (\code{naive\_plan}) gives the paths of
-\cref{tab:ch07-naive-paths}. Their costs are $3$, $3$ and $1$, so if the plan were valid
-it would have $\sumcost=7$ and $\makespan=3$; by \cref{prop:ch07-bounds} these are lower
-bounds for every valid solution. The path of $a_3$ has only two entries, so its column
-entries for $t\ge 2$ are the goal $(0,1)$ by stay-at-target; the table shows them in grey.
-
 \begin{table}[tb]
   \centering\small
-  \caption{Naive plan of \cref{ex:ch07-worked}: independent shortest paths, written as the
-  plan table. Grey entries are the stay-at-target padding of $a_3$.}
-  \label{tab:ch07-naive-paths}
-  \begin{tabular}{@{}lccccc@{}}
+  \caption{Trace of \cref{alg:ch03-dijkstra} on \cref{ex:ch03-graph} from $A$ without a target.
+Each row is one pop from the heap. ``Push $(3,C)$ (improves 5)'' means that the tentative cost
+of $C$ drops from 5 to 3 and the entry $(3,C)$ is pushed; the old entry $(5,C)$ stays in the
+heap and is discarded as stale when it surfaces. The last column is the heap after the row,
+sorted by key. Produced by \code{dijkstra\_trace}.}
+  \label{tab:ch03-trace}
+  \begin{tabular}{@{}rlL{5.9cm}L{4.4cm}@{}}
   \toprule
-  Agent & $t=0$ & $t=1$ & $t=2$ & $t=3$ & $T_i$\\
+  Step & Popped & Action & \Open after the step\\
   \midrule
-  $a_1$ & $(0,0)$ & $(0,1)$ & $(0,2)$ & $(0,3)$ & 3\\
-  $a_2$ & $(0,3)$ & $(0,2)$ & $(0,1)$ & $(0,0)$ & 3\\
-  $a_3$ & $(1,1)$ & $(0,1)$ & \textcolor{sbGray}{$(0,1)$} & \textcolor{sbGray}{$(0,1)$} & 1\\
+  1 & $(0,A)$ & settle $A$; push $(2,B)$, $(5,C)$ & $(2,B)\ (5,C)$\\
+  2 & $(2,B)$ & settle $B$; push $(3,C)$ (improves 5), $(6,D)$, $(9,E)$ & $(3,C)\ (5,C)\ (6,D)\ (9,E)$\\
+  3 & $(3,C)$ & settle $C$; push $(5,D)$ (improves 6) & $(5,C)\ (5,D)\ (6,D)\ (9,E)$\\
+  4 & $(5,C)$ & stale, $C$ is already settled: discarded & $(5,D)\ (6,D)\ (9,E)$\\
+  5 & $(5,D)$ & settle $D$; push $(8,E)$ (improves 9), $(13,F)$ & $(6,D)\ (8,E)\ (9,E)\ (13,F)$\\
+  6 & $(6,D)$ & stale: discarded & $(8,E)\ (9,E)\ (13,F)$\\
+  7 & $(8,E)$ & settle $E$; push $(12,F)$ (improves 13), $(10,G)$ & $(9,E)\ (10,G)\ (12,F)\ (13,F)$\\
+  8 & $(9,E)$ & stale: discarded & $(10,G)\ (12,F)\ (13,F)$\\
+  9 & $(10,G)$ & settle $G$, the target (an early exit stops here); push $(11,F)$ (improves 12) & $(11,F)\ (12,F)\ (13,F)$\\
+  10 & $(11,F)$ & settle $F$; nothing improves & $(12,F)\ (13,F)$\\
+  11 & $(12,F)$ & stale: discarded & $(13,F)$\\
+  12 & $(13,F)$ & stale: discarded & empty\\
   \bottomrule
   \end{tabular}
 \end{table}
 
-\paragraph{Detection by hand.}
-\Cref{tab:ch07-detection-trace} runs \cref{alg:ch07-first-conflict} on the naive plan with
-$T=3$. The first column, $t=0$, holds three distinct cells. The step from $0$ to $1$ has
-no pair of reversed moves. Column $t=1$ holds $(0,1)$ twice, for $a_1$ and $a_3$, so the
-algorithm stops and returns the vertex conflict $\langle a_1,a_3,(0,1),1\rangle$. The
-table continues the scan to list every conflict, as \code{all\_conflicts} does: the step
-from $1$ to $2$ has $a_1$ moving $(0,1)\to(0,2)$ and $a_2$ moving $(0,2)\to(0,1)$, a
-swapping conflict; column $t=2$ has $a_2$ arriving at $(0,1)$ where $a_3$ is parked, a
-vertex conflict that only exists because of stay-at-target; the rest is clean. Running
-\code{python3 ch07\_mapf.py} prints exactly these three conflicts.
+\paragraph{Reading the trace.} Step~1 settles the source and discovers its two neighbours.
+Step~2 is the first improvement: $C$ was discovered from $A$ at cost 5, but through $B$ it costs
+$2+1=3$, so $(3,C)$ is pushed while $(5,C)$ stays in the heap. Step~3 settles $C$ with the
+smaller key, and step~4 pops the old entry and discards it: this is lazy deletion at work. The
+same pattern repeats for $D$ (steps 3--6) and for $E$ (steps 5--8). Vertex $F$ is the most
+instructive. It is discovered at cost 13 through $D$, improved to 12 through $E$ and to 11
+through $G$, and settled only at step~10 with $\delta(A,F)=11$ along the six-edge path
+$A,B,C,D,E,G,F$, which beats both the direct edge $D$--$F$ ($5+8=13$) and the edge $E$--$F$
+($8+4=12$). The settling order $A,B,C,D,E,G,F$ has costs $0,2,3,5,8,10,11$: non-decreasing,
+as the wave picture promised.
 
-\begin{table}[tb]
-  \centering\small
-  \caption{Trace of \cref{alg:ch07-first-conflict} on \cref{tab:ch07-naive-paths}. The
-  algorithm returns at the third check; the remaining rows show what a full scan finds.}
-  \label{tab:ch07-detection-trace}
-  \begin{tabular}{@{}lL{5.6cm}L{5.9cm}@{}}
-  \toprule
-  Check & Column entries or moves & Result\\
-  \midrule
-  vertex, $t=0$ & $(0,0),\ (0,3),\ (1,1)$ & all distinct\\
-  swap, $0\to1$ & $a_1\!:(0,0)\to(0,1)$; $a_2\!:(0,3)\to(0,2)$; $a_3\!:(1,1)\to(0,1)$ & no
-reversed pair\\
-  vertex, $t=1$ & $(0,1),\ (0,2),\ (0,1)$ & \textbf{return} $\langle a_1,a_3,(0,1),1\rangle$\\
-  \midrule
-  swap, $1\to2$ & $a_1\!:(0,1)\to(0,2)$; $a_2\!:(0,2)\to(0,1)$; $a_3$ waits & swap $\langle
-a_1,a_2,(0,1),(0,2),1\rangle$\\
-  vertex, $t=2$ & $(0,2),\ (0,1),\ (0,1)$ & vertex $\langle a_2,a_3,(0,1),2\rangle$ (parked
-$a_3$)\\
-  swap, $2\to3$ & $a_1\!:(0,2)\to(0,3)$; $a_2\!:(0,1)\to(0,0)$; $a_3$ waits & no reversed pair\\
-  vertex, $t=3$ & $(0,3),\ (0,0),\ (0,1)$ & all distinct\\
-  \bottomrule
-  \end{tabular}
-\end{table}
+\paragraph{Counting.} There are twelve pops, seven of which settle a vertex and five of which
+are stale, and twelve pushes: one per vertex and one per improvement. The heap never holds
+more than four entries. Every stale entry is the trace of an improvement of a vertex that was
+already in the heap, so without an early exit the number of stale pops equals the number of
+improvements; \cref{thm:ch03-complexity} turns this observation into a bound.
 
-\paragraph{A conflict-free plan.}
-\Cref{tab:ch07-solution-paths} and \cref{fig:ch07-example-solution} show a valid solution.
-Agent $a_3$ first steps \emph{down} to $(2,1)$ to free the pocket; $a_1$ enters the pocket
-at $t=2$ so that $a_2$ can pass along the top row and reach its dead-end goal at $t=3$;
-$a_1$ then comes back up and continues, and $a_3$ follows it into the pocket and up to its
-goal. Run the detector on the table to confirm that no column has a duplicate and no step
-has a reversed pair; note in particular that the step from $2$ to $3$ has $a_1$ moving
-$(1,1)\to(0,1)$ while $a_2$ moves $(0,1)\to(0,0)$ and $a_3$ moves $(2,1)\to(1,1)$---two
-following conflicts, both allowed. The costs are $T_1=5$, $T_2=3$, $T_3=4$, so
-\[
-  \sumcost = 5+3+4 = 12, \qquad \makespan = \max(5,3,4) = 5 .
-\]
-The brute-force search of the code reports $12$ as the optimal sum of costs and $5$ as the
-optimal makespan, so this plan is optimal for both objectives. Compare with the lower
-bounds $7$ and $3$: the difference of five time steps is the price of coupling. All three
-agents need one cell, and the only way to order them through it is to have two of them
-step aside.
+\paragraph{The early exit.} With the target $G$ the search stops at step~9, after nine pops.
+The parent pointers give $\mathrm{parent}(G)=E$, $\mathrm{parent}(E)=D$,
+$\mathrm{parent}(D)=C$, $\mathrm{parent}(C)=B$ and $\mathrm{parent}(B)=A$; reversed, that is the
+path $A,B,C,D,E,G$ of cost 10. Every vertex settled before $G$ carries its final cost. But $F$
+is still in the heap with the tentative cost 12, not the true 11: the improvement through $G$
+is made only when $G$ is expanded, and the early exit skips that expansion.
+\code{dijkstra(EXAMPLE\_GRAPH, 'A', target='G')} indeed returns \code{dist['F'] == 12}. The
+tentative cost of an unsettled vertex is an upper bound and nothing more.
 
-\begin{table}[tb]
-  \centering\small
-  \caption{A valid solution of \cref{ex:ch07-worked}, optimal for both objectives.
-  Grey entries are stay-at-target padding; $\sumcost=12$, $\makespan=5$.}
-  \label{tab:ch07-solution-paths}
-  \begin{tabular}{@{}lccccccc@{}}
-  \toprule
-  Agent & $t=0$ & $t=1$ & $t=2$ & $t=3$ & $t=4$ & $t=5$ & $T_i$\\
-  \midrule
-  $a_1$ & $(0,0)$ & $(0,1)$ & $(1,1)$ & $(0,1)$ & $(0,2)$ & $(0,3)$ & 5\\
-  $a_2$ & $(0,3)$ & $(0,2)$ & $(0,1)$ & $(0,0)$ & \textcolor{sbGray}{$(0,0)$} &
-\textcolor{sbGray}{$(0,0)$} & 3\\
-  $a_3$ & $(1,1)$ & $(2,1)$ & $(2,1)$ & $(1,1)$ & $(0,1)$ & \textcolor{sbGray}{$(0,1)$} & 4\\
-  \bottomrule
-  \end{tabular}
-\end{table}
+\begin{example}[A $5\times5$ grid with slow cells]
+\label{ex:ch03-grid}
+\Cref{fig:ch03-grid-closed} shows a 4-connected $5\times5$ grid. Cells are named $(r,c)$ by row
+and column, counted from the top-left corner; the start $S$ is $(0,0)$ and the target $T$ is
+$(4,4)$. Two cells are blocked, the centre $(2,2)$ and $(2,4)$ on the right edge. The eight
+hatched cells around the centre are \emph{slow}: entering one of them costs 3 instead of 1, the
+kind of penalty an operator attaches to a wind-exposed corridor. Leaving a slow cell costs 1,
+so the grid graph is directed. The instance is \code{EXAMPLE\_GRID} in the chapter code, with
+23 free cells. We run \cref{alg:ch03-dijkstra} from $S$ with the target $T$.
+\end{example}
 
 \begin{figure}[tb]
   \centering
-  \inputfigure{ch07/example-solution}
-  \caption{The solution of \cref{tab:ch07-solution-paths} as six snapshots; arrows show
-  the move of the coming step. Notice how $a_1$ dips into the pocket at $t=2$ to let $a_2$
-  pass, and how $a_3$ vacates the pocket beforehand and refills it afterwards.}
-  \label{fig:ch07-example-solution}
+  \inputfigure{ch03/grid-closed}
+  \caption{The closed set growing on the grid of \cref{ex:ch03-grid}: snapshots after 5, 10, 17
+and 19 expansions of a run with target $T$. Grey cells are settled and carry their final cost,
+blue cells are in the heap with their tentative cost. At every moment the settled cells are
+exactly the cells whose cost is at most the last popped key: this is the wave. It runs along
+the free border before it seeps into the slow ring, and it stops when $T$ is popped with
+$\gcost(T)=8$; the blue line is the path read off the parent pointers. Cell $(3,4)$ is never
+even discovered.}
+  \label{fig:ch03-grid-closed}
+\end{figure}
+
+\paragraph{Following the wave.} The first pop settles $S$ and discovers $(0,1)$ and $(1,0)$ at
+cost 1. Ties are broken by comparing the cells themselves, so $(0,1)$ is settled before $(1,0)$;
+it discovers $(0,2)$ at cost 2 and the slow cell $(1,1)$ at cost $1+3=4$. After five expansions
+(first panel) every cell with $\gcost\le2$ is settled and the heap holds $(0,3)$ and $(3,0)$ at
+cost 3, $(1,1)$ at 4, and $(1,2)$ and $(2,1)$ at 5. The wave keeps running along the free top
+row and left column, where every step costs 1, and enters the slow ring only when nothing
+cheaper is left: $(1,1)$ is settled ninth, at cost 4, after $(0,4)$ and before $(4,0)$, which
+have the same cost. After ten expansions all cells with $\gcost\le4$ are settled (second
+panel), after seventeen all cells with $\gcost\le6$ (third panel), and the nineteenth pop
+settles $T$ with $\gcost(T)=8$ (fourth panel). The path read off the parent pointers runs down
+the left column and along the bottom row, eight moves of cost 1. The route along the top row
+and the right column is blocked by $(2,4)$, and every route through the slow ring enters at
+least two slow cells; the cheapest of them, down to $(2,0)$ and across $(2,1)$ and $(3,1)$,
+costs 12. The full settling order, with costs, is
+\[
+\begin{aligned}
+&(0,0)\!:0,\ (0,1)\!:1,\ (1,0)\!:1,\ (0,2)\!:2,\ (2,0)\!:2,\ (0,3)\!:3,\ (3,0)\!:3,\ (0,4)\!:4,\
+(1,1)\!:4,\ (4,0)\!:4,\\
+&(1,2)\!:5,\ (1,4)\!:5,\ (2,1)\!:5,\ (4,1)\!:5,\ (1,3)\!:6,\ (3,1)\!:6,\ (4,2)\!:6,\ (4,3)\!:7,\
+(4,4)\!:8 .
+\end{aligned}
+\]
+Nineteen of the 23 free cells are settled when the search stops. Three cells, $(2,3)$, $(3,2)$
+and $(3,3)$, are in the heap with the tentative costs 9, 9 and 10; a full run without a target
+settles them at exactly these values, because no cheaper route to them exists, but the search
+cannot know that when it stops. One cell, $(3,4)$, has not been discovered at all: its only free
+neighbours are $(3,3)$, which is not expanded, and $T$, which is popped but, because of the
+early exit, never expanded. This instance produces no stale entries, since every cell keeps
+the cost of its first discovery; \cref{exr:ch03-grid8} shows that 8-connectivity changes that.
+
+% ---------------------------------------------------------------------
+\section{Properties: correctness, optimality, complexity}
+\label{sec:ch03-properties}
+
+Throughout this section $G=(V,E,c)$ is a finite graph with $c\ge0$, $s$ is the source, and
+$\gcost$, \Open and \Closed refer to \cref{alg:ch03-dijkstra}. Two facts hold at every moment
+of a run and are used without further comment. First, $\gcost(v)\ge\delta(s,v)$ for every $v$,
+because $\gcost(v)$ is always the cost of an actual path from $s$ to $v$, the one recorded by
+the parent pointers: line~\ref{alg:ch03-dijkstra:relax} only ever stores the cost of a path to
+$u$ extended by one edge. Second, $\gcost(v)$ never increases, because
+line~\ref{alg:ch03-dijkstra:test} allows only strict improvements.
+
+\begin{lemma}[Monotone settling order]
+\label{lem:ch03-monotone}
+\index{Dijkstra's algorithm!settling order}%
+The keys of the entries popped on line~\ref{alg:ch03-dijkstra:pop} form a non-decreasing
+sequence. Moreover, when an entry $(g,u)$ is popped and $u$ is not yet settled, $g$ equals the
+current tentative cost $\gcost(u)$. Hence vertices are settled in non-decreasing order of the
+cost they carry at the moment of settling.
+\end{lemma}
+\begin{proof}
+Let $(g,u)$ be popped. Every entry still in the heap has a key of at least $g$, because the
+heap returned the minimum. Every entry pushed while $u$ is expanded has the key
+$g+c(u,v)\ge g$, because $c\ge0$. So the next pop has a key of at least $g$, and by induction so
+do all later pops. For the second claim, suppose $(g,u)$ is popped, $u$ is not settled, and
+$\gcost(u)<g$. Then $\gcost(u)$ was lowered after $(g,u)$ was pushed, and at that moment an
+entry $(\gcost(u),u)$ with a smaller key was pushed. That entry is still in the heap, since an
+entry of $u$ leaves the heap only by being popped, which either settles $u$ or requires $u$ to
+be settled already. A heap never returns $(g,u)$ while it holds a smaller key, a contradiction.
+\end{proof}
+
+The lemma is the wave: the radius of the settled region, measured by the popped key, never
+shrinks. Note where $c\ge0$ entered. With a negative edge, an entry pushed during an expansion
+could have a smaller key than the entry just popped, and the popped keys would no longer be
+sorted.
+
+\begin{theorem}[Settled-node invariant]
+\label{thm:ch03-invariant}
+\index{settled-node invariant}\index{Dijkstra's algorithm!correctness}%
+When \cref{alg:ch03-dijkstra} settles a vertex $u$ on line~\ref{alg:ch03-dijkstra:settle},
+$\gcost(u)=\delta(s,u)$, and from then on $\gcost(u)$ does not change. Consequently:
+\begin{enumerate}
+  \item Without a target, the algorithm settles every vertex reachable from $s$, returns
+$\gcost(v)=\delta(s,v)$ for all $v\in V$ (with $\gcost(v)=\infty$ exactly for the unreachable
+vertices), and its parent pointers form a shortest-path tree.
+  \item With a target $t$, the algorithm returns $\gcost(t)=\delta(s,t)$ and a shortest path
+from $s$ to $t$ if $t$ is reachable, and ends with an empty heap otherwise.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+Suppose the claim fails, and let $u$ be the \emph{first} vertex settled with
+$\gcost(u)>\delta(s,u)$. Then $u\neq s$, because $s$ is settled first with
+$\gcost(s)=0=\delta(s,s)$, and $\delta(s,u)<\infty$, so a shortest path $\pi$ from $s$ to $u$
+exists. Look at the moment just before $u$ is settled. The first vertex of $\pi$, namely $s$, is
+settled and the last, $u$, is not, so $\pi$ has a first unsettled vertex $y$; let $x$ be its
+predecessor on $\pi$ ($x$ may be $s$). We collect three facts.
+\begin{enumerate}[label=(\roman*)]
+  \item $\gcost(x)=\delta(s,x)$, because $x$ was settled before $u$ and $u$ is the first
+violation.
+  \item $\gcost(y)=\delta(s,y)$, and the heap holds the entry $(\gcost(y),y)$. When $x$ was
+settled it was expanded, and the edge $(x,y)$ was relaxed on line~\ref{alg:ch03-dijkstra:test}:
+afterwards $\gcost(y)\le\gcost(x)+c(x,y)=\delta(s,x)+c(x,y)=\delta(s,y)$, the last step because
+the prefix of $\pi$ up to $y$ is a shortest path to $y$ (subpaths of shortest paths are shortest
+paths, \cref{sec:ch03-problem}). Together with $\gcost(y)\ge\delta(s,y)$ this gives equality.
+The push that established this value put $(\delta(s,y),y)$ into the heap, and since $y$ is not
+settled, the entry is still there.
+  \item $\delta(s,y)\le\delta(s,u)$, because $y$ precedes $u$ on $\pi$ and the edges between
+them cost at least 0. \emph{This is the only place where $c\ge0$ is used.}
+\end{enumerate}
+Now $u$ is being settled because the heap returned $(\gcost(u),u)$ as its minimum, so every key
+in the heap is at least $\gcost(u)$. But by (ii) and (iii) the heap holds the key
+$\delta(s,y)\le\delta(s,u)<\gcost(u)$. This contradiction shows that no violation exists. That
+$\gcost(u)$ does not change after settling follows: it cannot increase, and it cannot decrease
+below $\delta(s,u)$.
+
+For consequence~1, let $v$ be reachable and let $\pi$ be a shortest path to $v$. By induction
+along $\pi$, every vertex of $\pi$ is settled: the source is, and when a vertex of $\pi$ is
+expanded, its successor on $\pi$ is pushed, or already has a finite cost and an entry in the
+heap, and is therefore popped before the heap runs empty. Unreachable vertices are never
+pushed. For the tree: when $u$ is settled, $\mathrm{parent}(u)$ is the vertex $x$ whose
+expansion produced $\gcost(u)=\gcost(x)+c(x,u)$; $x$ was settled, so $\gcost(x)=\delta(s,x)$ and
+$\delta(s,u)=\delta(s,x)+c(x,u)$: the edge $(x,u)$ lies on a shortest path, and following the
+pointers back to $s$ traces one. Consequence~2 is the invariant applied to $t$: if $t$ is
+reachable it is pushed and settled by the argument above, and if it is not, it is never
+pushed, so the loop ends with an empty heap and never breaks on line~\ref{alg:ch03-dijkstra:exit}.
+\end{proof}
+
+\begin{corollary}[Uniform-cost search]
+\label{cor:ch03-ucs}
+\index{uniform-cost search!correctness}%
+With a target $t$, \cref{alg:ch03-dijkstra} settles only vertices $v$ with
+$\delta(s,v)\le\delta(s,t)$, and it settles every vertex with $\delta(s,v)<\delta(s,t)$. The
+tentative costs of the vertices left in the heap are upper bounds on their distances and may be
+strictly larger.
+\end{corollary}
+\begin{proof}
+By \cref{lem:ch03-monotone} every vertex settled before $t$ has a key of at most $\gcost(t)$,
+and by \cref{thm:ch03-invariant} these keys are the true distances. The second claim and the
+remaining details are \cref{exr:ch03-monotone}; \cref{ex:ch03-graph} shows the upper bound
+$\gcost(F)=12>11$ at the exit.
+\end{proof}
+
+\paragraph{Why the costs must be non-negative.} The proof used $c\ge0$ exactly once, in
+step~(iii), and a single negative edge is enough to break the algorithm.
+
+\begin{example}[A negative edge]
+\label{ex:ch03-negative}
+\index{negative edge cost}%
+\Cref{fig:ch03-negative-edge} shows a directed graph with four vertices and one negative edge,
+$B\to A$ of cost $-2$. Run \cref{alg:ch03-dijkstra} from $S$. The first pop settles $S$ and
+pushes $(1,A)$ and $(2,B)$. The second pop settles $A$ with $\gcost(A)=1$ and pushes $(2,T)$. The
+third pop settles $B$ with cost 2 and looks at the edge $B\to A$: the new cost $2+(-2)=0$ would
+improve $A$, but $A$ is settled, so line~\ref{alg:ch03-dijkstra:succ} skips it (and had it not,
+the successor $T$ of $A$ would still keep the cost 2 it inherited from the wrong value). The
+fourth pop settles $T$ with $\gcost(T)=2$ and the path $S,A,T$. The true distances are
+$\delta(S,A)=0$ and $\delta(S,T)=1$, along $S,B,A,T$. In the proof, the first violation is
+$u=A$: the shortest path to $A$ is $S,B,A$, its first unsettled vertex is $y=B$ with
+$\gcost(B)=\delta(S,B)=2$, and step~(iii) would need $\delta(S,B)\le\delta(S,A)$, that is
+$2\le0$, which is false precisely because $c(B,A)<0$. The chapter code reproduces this run as
+\code{NEGATIVE\_EXAMPLE}: \code{dijkstra} returns 2 for $T$, and the Bellman--Ford reference
+returns 1.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch03/negative-edge}
+  \caption{The graph of \cref{ex:ch03-negative}. Vertex $A$ is settled with $\gcost=1$ before
+$B$ reveals the route $S,B,A$ of cost 0; a settled value is never revised, so the search
+returns $S,A,T$ (cost 2) instead of the optimal $S,B,A,T$ (cost 1). Nothing warns the caller.}
+  \label{fig:ch03-negative-edge}
+\end{figure}
+
+The failure is silent, which is what makes it dangerous. Allowing settled vertices to be
+reopened restores correctness on graphs without negative cycles, but the running-time
+guarantee is lost, and the algorithm of choice becomes Bellman--Ford\index{Bellman--Ford
+algorithm}, which relaxes every edge $\abs{V}-1$ times and runs in $\bigO{\abs{V}\,\abs{E}}$
+\cite{cormen2009clrs}. The chapter code uses it only as a reference in the self-test; in
+planning, negative costs are best avoided altogether (see the pitfalls in
+\cref{sec:ch03-implementation}).
+
+\begin{theorem}[Running time and memory]
+\label{thm:ch03-complexity}
+\index{Dijkstra's algorithm!complexity}\index{complexity!Dijkstra's algorithm}%
+On a graph with $\abs{V}$ vertices and $\abs{E}$ directed edges, \cref{alg:ch03-dijkstra} with
+a binary heap and lazy deletion performs at most $\abs{V}$ expansions and at most $\abs{E}+1$
+pushes and pops, runs in $\bigO{(\abs{V}+\abs{E})\log\abs{V}}$ time, and uses
+$\bigO{\abs{V}+\abs{E}}$ memory beyond the graph.
+\end{theorem}
+\begin{proof}
+A vertex is settled at most once, because line~\ref{alg:ch03-dijkstra:stale} discards every
+later entry, so the loop of line~\ref{alg:ch03-dijkstra:succ} runs at most once per vertex and
+relaxes each directed edge at most once. Each relaxation pushes at most one entry, so the heap
+receives at most $\abs{E}+1$ entries including the initial one, and every pop removes one, so
+there are at most $\abs{E}+1$ pops. The heap never holds more than $\abs{E}+1$ entries, and
+$\abs{E}\le\abs{V}^2$, so each push or pop costs $\bigO{\log(\abs{E}+1)}=\bigO{\log\abs{V}}$.
+Generating successors costs $\bigO{\abs{V}+\abs{E}}$ in total, and each dictionary lookup or
+update costs $\bigO{1}$ expected time. Adding up gives
+$\bigO{\abs{V}+\abs{E}+(\abs{E}+1)\log\abs{V}}\subseteq\bigO{(\abs{V}+\abs{E})\log\abs{V}}$.
+The memory is the heap, at most $\abs{E}+1$ entries, plus the dictionaries $\gcost$, parent
+and \Closed of at most $\abs{V}$ entries each.
+\end{proof}
+
+\paragraph{Reading the bound.} On a grid every cell has at most 8 neighbours, so
+$\abs{E}\le8\abs{V}$ and the time is $\bigO{\abs{V}\log\abs{V}}$, almost linear in the number
+of cells. The lazy-deletion heap can hold more entries than the classic version with a
+decrease-key operation, which keeps at most $\abs{V}$, but both perform up to $\abs{E}$ key
+updates or pushes at $\bigO{\log\abs{V}}$ each, so the asymptotic bound is the same, and the
+constant factors favour the lazy version, whose heap operations are the simplest possible. In
+the worked example the heap never held more than four entries for seven vertices. Three
+refinements are worth knowing.
+\begin{itemize}
+  \item \emph{Fibonacci heaps}\index{Fibonacci heap} \cite{fredman1987fibonacci} make
+decrease-key cost $\bigO{1}$ amortised and bring the time to $\bigO{\abs{E}+\abs{V}\log\abs{V}}$.
+The gain is real only when $\abs{E}\gg\abs{V}$; on sparse graphs such as grids the binary heap
+with lazy deletion is faster in practice, and it is the version used throughout this book.
+  \item \emph{Dense graphs.}\index{Dijkstra's algorithm!dense graphs} When
+$\abs{E}=\Theta(\abs{V}^2)$, for instance on a complete visibility graph between waypoints, the
+heap bound becomes $\bigO{\abs{V}^2\log\abs{V}}$, and the original formulation of
+\textcite{dijkstra1959note}, which keeps the tentative costs in an array and finds the minimum
+by scanning it in $\bigO{\abs{V}}$ time per expansion, is better: $\bigO{\abs{V}^2}$ in total.
+  \item \emph{Small integer costs.} If all costs are integers between 0 and a small $C$, the
+heap can be replaced by an array of buckets indexed by cost, with $\bigO{\abs{E}+C\abs{V}}$
+total time; the unit-cost case is breadth-first search (\cref{sec:ch03-bfs}).
+\end{itemize}
+
+\paragraph{Expansions in practice.} The bound counts every vertex, but the work of a run is
+really the area of the wave. \Cref{fig:ch03-expansions} measures it on random $n\times n$ grids
+with $25\,\%$ obstacles, 8-connected, with the source in the top-left corner, averaged over ten
+seeded instances per size (\code{code/figures/gen\_ch03\_expansions.py}). Without a target the
+wave settles every reachable cell, about $99\,\%$ of the free cells (7\,438 of 7\,499 at
+$n=100$; the rest are pockets sealed off by obstacles), so the count grows with the area of the
+map: four times as many cells from $n=50$ to $n=100$. With the early exit and the target in the
+far corner the saving is nil, 7\,437 settled cells instead of 7\,438, because the far corner is
+among the last cells the wave reaches, at a cost of $165.5$ on average. With the target at the
+centre of the map, at a cost of $85.3$, the wave stops at about half the radius and settles
+$3\,020$ cells, $41\,\%$ of the full run. The early exit therefore helps exactly when the
+target is close, and the only way to do better when it is not is to steer the wave towards the
+target, which is what the heuristic of \astar does in \cref{ch:ch04}.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch03/expansions}
+  \caption{Settled cells against grid size on random 8-connected grids with $25\,\%$ obstacles,
+mean of ten seeded instances per size; the source is the top-left cell. Without a target almost
+every free cell is settled. The early exit saves nothing when the target is the far corner,
+the last region the wave reaches, and about $60\,\%$ of the expansions when the target is the
+centre of the map, whose distance from the source is about half that of the far corner.}
+  \label{fig:ch03-expansions}
 \end{figure}
 
 % ---------------------------------------------------------------------
-\section{Properties: detection, bounds and complexity}
-\label{sec:ch07-properties}
+\section{Variants and extensions}
+\label{sec:ch03-variants}
 
-\begin{theorem}[Correctness of conflict detection]
-\label{thm:ch07-detection}
-Let $\pi_1,\dots,\pi_k$ be time-indexed paths in canonical form and $T=\max_i T_i$.
-\Cref{alg:ch07-first-conflict,alg:ch07-hashed} return \KwNil if and only if the plan has no
-vertex and no swapping conflict at any time $t\ge0$ under stay-at-target; otherwise they
-return the earliest such conflict. \Cref{alg:ch07-first-conflict} runs in $\bigO{k^2 T}$
-time; \cref{alg:ch07-hashed} runs in $\bigO{kT}$ expected time.
-\end{theorem}
-\begin{proof}
-By construction \MapfPos{$\pi_i$,$t$} equals the vertex of $a_i$ at time $t$ under
-stay-at-target for every $t\ge0$, so the tests at columns $0,\dots,T$ and at the steps
-between them are exactly the conditions of
-\cref{def:ch07-vertex-conflict,def:ch07-swapping-conflict}. It remains to show that nothing
-is missed after $T$. For $t\ge T$ every agent is at its goal and stays there, so
-\MapfPos{$\pi_i$,$t$}$=$\MapfPos{$\pi_i$,$T$}. A vertex conflict at some $t>T$ is
-therefore also a vertex conflict at $T$, which the scan checks. A swapping conflict during a
-step $t\to t+1$ with $t\ge T$ needs two moving agents, but nobody moves after $T$. Hence
-the scan up to $T$ finds a conflict if and only if one exists, and because it visits the
-columns and the steps in chronological order, the conflict returned is the earliest. The
-running times were derived in \cref{sec:ch07-detection}.
-\end{proof}
+The invariant of \cref{thm:ch03-invariant} survives a number of changes to
+\cref{alg:ch03-dijkstra}, as long as they alter only where the wave starts, on which graph it
+runs, or when it stops. \Cref{tab:ch03-variants} lists the variants used in this book; the rest
+of the section explains them.
 
-\begin{proposition}[Bounds and relations between the objectives]
-\label{prop:ch07-bounds}
-Write $d(u,v)$ for the shortest-path distance in $G$. For every valid solution $\pi$ of
-$\langle G,s,g\rangle$:
-\begin{enumerate}[label=(\alph*)]
-  \item $\sumcost(\pi)\ge\sum_i d(s_i,g_i)$ and $\makespan(\pi)\ge\max_i d(s_i,g_i)$;
-  \item $\makespan(\pi)\le\sumcost(\pi)\le k\cdot\makespan(\pi)$;
-  \item if the plan of independent shortest paths (the \textbf{naive plan}\index{naive plan})
-        is conflict-free, it is optimal for both objectives.
-\end{enumerate}
-\end{proposition}
-\begin{proof}
-(a) $T_i$ counts all actions of $a_i$ before its final arrival, so $T_i\ge$ number of
-moves $\ge d(s_i,g_i)$; sum or maximise over $i$. (b) The maximum of $k$ non-negative
-numbers is at most their sum, and their sum is at most $k$ times their maximum. (c) The naive
-plan attains the lower bounds of (a) and is valid, so nothing valid is cheaper.
-\end{proof}
+\begin{table}[tb]
+  \centering\small
+  \caption{Variants of Dijkstra's algorithm and what they deliver. $G^{R}$ is the graph with
+every edge reversed, and $\mu$ is the cost of the best connecting path found so far by a
+bidirectional search.}
+  \label{tab:ch03-variants}
+  \begin{tabular}{@{}lllL{3.1cm}L{3.7cm}@{}}
+  \toprule
+  Variant & Starts from & Runs on & Stops when & Delivers\\
+  \midrule
+  Dijkstra & $s$ & $G$ & heap empty & $\delta(s,v)$ for all $v$, tree\\
+  Uniform-cost search & $s$ & $G$ & $t$ settled & $\delta(s,t)$, one path\\
+  Breadth-first search & $s$ & $G$, unit costs & $t$ discovered & hop counts, one path\\
+  Multi-source & every $s\in S$ & $G$ & heap empty & distance to the nearest source\\
+  Backward & $t$ & $G^{R}$ & heap empty & $\hcost^*(v)=\delta(v,t)$ for all $v$\\
+  Bidirectional & $s$ and $t$ & $G$ and $G^{R}$ & smallest keys sum to $\ge\mu$ & $\delta(s,t)$, one path\\
+  \bottomrule
+  \end{tabular}
+\end{table}
 
-The bounds in (a) are the starting point of every optimal solver: \cbs begins with the
-naive plan and only pays for the conflicts it has to resolve (\cref{ch:ch09}), and the
-sum of the single-agent distances is the natural admissible heuristic for the joint search
-of \mstar (\cref{ch:ch11}). \Cref{ex:ch07-objectives} shows that (b) is all one can say in
-general: the two objectives can be optimised by different plans.
+\subsection{Several sources}
+\label{sec:ch03-multisource}
+\index{Dijkstra's algorithm!multi-source}\index{multi-source Dijkstra}%
+Push every source of a set $S\subseteq V$ with key 0 instead of the single entry $(0,s)$ on
+line~\ref{alg:ch03-dijkstra:queue}, and leave the rest of the algorithm unchanged. The run is
+identical to a single-source run from a virtual vertex joined to every $s\in S$ by an edge of
+cost 0, so \cref{thm:ch03-invariant} applies and the result is
+\[
+\gcost(v)=\delta(S,v)=\min_{s\in S}\delta(s,v),
+\]
+the cost from the source \emph{nearest} to $v$, with parent pointers that lead back to it. Two
+uses recur in the book. Started from all obstacle cells of a grid with unit costs, the run
+labels every free cell with its distance to the nearest obstacle, a distance map from which
+the inflated obstacles of \cref{ch:ch02} and clearance penalties can be read off. Started from
+all depots or landing sites, it tells every drone which one is closest, in one run rather than
+one run per depot. The function \code{multi\_source\_dijkstra} in the chapter code does this;
+its self-test checks that the table equals the element-wise minimum over single-source runs.
 
-\begin{theorem}[Optimal MAPF is NP-hard]
-\label{thm:ch07-nphard}
-Finding a valid solution of a classical MAPF instance with minimum sum of costs, or with
-minimum makespan, is NP-hard \cite{yu2013structure,surynek2010optimization}. Consequently,
-unless $\mathrm{P}=\mathrm{NP}$, no algorithm solves every instance optimally in time
-polynomial in $\abs{V}$ and $k$.\index{NP-hardness!optimal MAPF}
-\end{theorem}
-\begin{proof}[Proof sketch]
-Both results are reductions from Boolean satisfiability. Surynek~\cite{surynek2010optimization}
-showed that deciding whether a makespan below a given bound is achievable is NP-hard. Yu and
-LaValle~\cite{yu2013structure} built, from a 3-SAT formula, a graph and a set of agents such
-that each variable agent must commit to one of two equally short routes (``true'' or
-``false'') and each clause gadget lets the agents through without delay only if the route of
-at least one of its literals is chosen; the resulting instance has a solution matching the
-single-agent lower bound if and only if the formula is satisfiable, and the construction
-works for the makespan and for the sum of costs. The models used in the two papers differ
-in minor motion rules, but the hardness carries over to the classical setting used here
-(see \cite{stern2019mapf} for the discussion). Ma and colleagues later strengthened the
-makespan result to an inapproximability bound: even a solution within a factor smaller than
-$4/3$ of the optimal makespan is NP-hard to find, as summarised in \cite{stern2019mapf}.
-\end{proof}
+\subsection{Backward search: the true-distance heuristic}
+\label{sec:ch03-backward}
+\index{Dijkstra's algorithm!backward}\index{backward Dijkstra}\index{heuristic!true-distance}%
+\astar (\cref{ch:ch04}) orders its queue by $\gcost(v)+\hcost(v)$, where $\hcost(v)$ estimates
+the cost that remains from $v$ to the target $t$. The best conceivable estimate is the true
+cost-to-go $\delta(v,t)$, and Dijkstra's algorithm can compute it for \emph{every} vertex at
+once: run it from $t$ on the graph with all edges reversed. \Cref{alg:ch03-backward} states the
+recipe. The resulting table is written $\hcost^*$ and called the \textbf{true-distance
+heuristic}\index{true-distance heuristic} or \emph{perfect heuristic}.
 
-\paragraph{Where the hardness comes from.}
-A single agent lives in a state space of size $\abs{V}$. The $k$ agents together live in the
-space of configurations, of size up to $\abs{V}^k$, and a solver that treats the swarm as one
-big agent explores that space---this is the joint-state blow-up that \cref{ch:ch11} starts
-from. What the reduction shows is that the blow-up cannot be avoided in general: at each
-bottleneck somebody has to yield, the choice of who yields is essentially binary, and the
-choices are \emph{coupled}\index{coupling of agents}---letting $a_1$ pass first pushes $a_2$
-into the way of $a_3$, and so on. In the worst case the number of consistent combinations
-of these choices is exponential, which is exactly what a constraint tree (\cref{ch:ch09}) or a
-priority ordering (\cref{ch:ch08}) has to search through. In practice most agents never
-interact, and the successful solvers exploit that; \cref{fig:ch07-conflict-growth} shows how
-quickly interactions nevertheless multiply.
+\begin{algorithm}[htb]
+\caption{Backward Dijkstra: the true-distance heuristic table for a goal $t$.}
+\label{alg:ch03-backward}
+\KwIn{graph $G=(V,E,c)$ with $c\ge0$; goal $t$}
+\KwOut{table $\hcost^*$ with $\hcost^*(v)=\delta(v,t)$ for every $v$ from which $t$ can be
+reached, and $\hcost^*(v)=\infty$ otherwise}
+\Fn{\DijkstraBackward{$G$, $t$}}{
+  $G^{R}\gets(V,E^{R},c^{R})$ with $E^{R}=\set{(v,u):(u,v)\in E}$ and
+$c^{R}(v,u)=c(u,v)$\label{alg:ch03-backward:reverse}\tcp*{reverse every edge}
+  $(\gcost^{R},\cdot)\gets$ \DijkstraSearch{$G^{R}$, $t$,
+\KwNil}\label{alg:ch03-backward:run}\tcp*{one full run from $t$, no target}
+  \KwRet{$\hcost^*\gets\gcost^{R}$}\label{alg:ch03-backward:ret}\;
+}
+\end{algorithm}
+
+Reversing matters whenever the graph is directed: a path $v=v_0,v_1,\dots,v_k=t$ in $G$ is a
+path $t=v_k,\dots,v_0=v$ in $G^{R}$ with the same cost, so $\delta_G(v,t)=\delta_{G^{R}}(t,v)$,
+which is what the run from $t$ on $G^{R}$ computes. On an undirected graph $G^{R}=G$, and a
+plain forward run from $t$ suffices, as in \cref{exr:ch03-backward}(a). The grid of
+\cref{ex:ch03-grid} is directed, and \cref{fig:ch03-backward-heuristic} shows the difference: a
+forward run from $T$ would say that $(3,3)$ costs 4 from $T$ (leave $T$ for 1, enter the slow
+cell for 3), whereas $\hcost^*(3,3)=2$, because from $(3,3)$ the drone leaves the slow cell for
+1 and enters $T$ for 1. An implementation does not need to build $G^{R}$:
+\code{GridGraph.reversed()} in the chapter code simply charges the cost of a slow cell when the
+cell is \emph{left} instead of when it is entered, and \code{reverse\_graph} flips an adjacency
+list in $\bigO{\abs{V}+\abs{E}}$ time.
 
 \begin{figure}[tb]
   \centering
-  \inputfigure{ch07/conflict-growth}
-  \caption{Conflicts of the naive plan on random $16\times16$ grids with $20\%$ obstacles,
-  averaged over $60$ seeded instances per $k$ (generated by
-  \code{code/figures/gen\_ch07\_conflict\_growth.py}). Left: the number of vertex and
-  swapping conflicts grows roughly quadratically with the number of agents (about $5$ at
-  $k=10$, $21$ at $k=20$, $97$ at $k=40$). Right: beyond a dozen agents the naive plan is
-  never conflict-free.}
-  \label{fig:ch07-conflict-growth}
+  \inputfigure{ch03/backward-heuristic}
+  \caption{Forward and backward tables on the grid of \cref{ex:ch03-grid}, both from full runs.
+Left: $\gcost(v)=\delta(S,v)$ from $S$. Middle: $\hcost^*(v)=\delta(v,T)$ from
+\cref{alg:ch03-backward}; because entering a slow cell costs 3 but leaving it costs 1, this is
+not the distance from $T$ (compare $\hcost^*(3,3)=2$ with the 4 that a forward run from $T$
+gives). Right: $\gcost(v)+\hcost^*(v)$, the cost of the best path from $S$ to $T$ through $v$.
+The green cells, where the sum equals $\delta(S,T)=8$, are exactly the cells of the optimal
+path; every other cell has a larger sum, which is how \astar will know to avoid them.}
+  \label{fig:ch03-backward-heuristic}
 \end{figure}
 
-\begin{proposition}[Feasibility is polynomial]
-\label{prop:ch07-feasibility}
-Deciding whether a classical MAPF instance is solvable, and constructing a valid solution
-when it is, can be done in polynomial time. Kornhauser, Miller and
-Spirakis~\cite{kornhauser1984pebble} proved this for \emph{pebble motion on graphs}, in which
-one agent at a time moves into an empty neighbouring vertex; every such sequential move is a
-classical MAPF step in which all other agents wait, so every solvable pebble-motion instance
-is a solvable MAPF instance. Push-and-Rotate \cite{dewilde2014push} is a practical
-polynomial-time algorithm that solves every solvable instance on a connected graph with at
-least two unoccupied vertices; it is presented in
-\cref{ch:ch11}.\index{feasibility!MAPF}\index{Push-and-Rotate}
-\end{proposition}
+\begin{theorem}[The true-distance heuristic]
+\label{thm:ch03-true-distance}
+\index{heuristic!consistent}\index{heuristic!admissible}%
+Let $\hcost^*$ be the table returned by \DijkstraBackward{$G$, $t$} for a graph with $c\ge0$.
+Then:
+\begin{enumerate}
+  \item \emph{Exactness.} $\hcost^*(v)=\delta(v,t)$ for every $v\in V$, with
+$\hcost^*(v)=\infty$ if $t$ cannot be reached from $v$. A vertex $v$ lies on some shortest path
+from $s$ to $t$ if and only if $\delta(s,v)+\hcost^*(v)=\delta(s,t)$.
+  \item \emph{Consistency.} $\hcost^*(t)=0$ and $\hcost^*(u)\le c(u,v)+\hcost^*(v)$ for every
+edge $(u,v)\in E$. Consequently $\hcost^*(v)\le c(\pi)$ for every path $\pi$ from $v$ to $t$.
+  \item \emph{Admissibility in space-time.} Consider the space-time graph of \cref{ch:ch02}
+built on $G$, in which a state is a pair (vertex, time), a move along $(u,v)$ costs $c(u,v)$,
+waiting costs a non-negative amount, and any set of states or moves may be forbidden. Every
+path in it from a state $(v,\tau)$ to a state $(t,\tau')$ costs at least $\hcost^*(v)$.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+(1) By the correspondence between paths in $G$ and in $G^{R}$, $\delta_{G^{R}}(t,v)=\delta_G(v,t)$,
+and \cref{thm:ch03-invariant} applied to $G^{R}$ gives $\hcost^*(v)=\delta_{G^{R}}(t,v)$. For the
+second statement, if $v$ lies on a shortest $s$--$t$ path, its two halves are shortest paths,
+so $\delta(s,t)=\delta(s,v)+\delta(v,t)$. Conversely, if equality holds, a shortest $s$--$v$ path
+followed by a shortest $v$--$t$ path costs $\delta(s,t)$; it may repeat vertices, but removing
+the cycles costs nothing extra ($c\ge0$) and leaves a shortest path through $v$.
+(2) $\hcost^*(t)=\delta(t,t)=0$. For an edge $(u,v)$, going from $u$ to $v$ and then along a
+shortest path from $v$ to $t$ is a path from $u$ to $t$ of cost $c(u,v)+\delta(v,t)$, which is at
+least $\delta(u,t)$; this is the third fact of \cref{eq:ch03-triangle}. Applying the inequality
+to the edges $(v_0,v_1),\dots,(v_{k-1},v_k)$ of a path $\pi$ from $v_0=v$ to $v_k=t$ and adding
+up, the $\hcost^*$ terms telescope to $\hcost^*(v)\le c(\pi)+\hcost^*(t)=c(\pi)$.
+(3) Drop the time index from the space-time path and delete every wait step. What remains is a
+walk in $G$ from $v$ to $t$ whose cost is at most that of the space-time path, because waiting
+costs at least 0 and every move keeps its cost. A walk from $v$ to $t$ costs at least
+$\delta(v,t)=\hcost^*(v)$, since removing its cycles cannot increase the cost. Forbidding states
+or moves removes paths from the space-time graph and adds none, so the bound is unaffected.
+\end{proof}
 
-The two results together are the central fact of Part~III: \emph{finding some plan is easy,
-finding a good plan is hard}. Push-and-Rotate finds valid but long plans; prioritized
-planning (\cref{ch:ch08}) finds short plans quickly but sometimes none at all; \cbs
-(\cref{ch:ch09}) finds optimal plans at exponential worst-case cost; \ecbs (\cref{ch:ch10})
-buys speed with a bounded loss of quality. The next section lays these out.
+\Cref{ch:ch04} calls property~2 \emph{consistency} and its consequence \emph{admissibility},
+and proves that they make \astar optimal. The point of property~1 is visible in the right-hand
+panel of \cref{fig:ch03-backward-heuristic}: the cells with $\gcost(v)+\hcost^*(v)=\delta(S,T)=8$,
+shaded green, are exactly the cells of the optimal path, and every other cell has a larger sum.
+An \astar search guided by $\hcost^*$ therefore expands only cells that lie on a shortest path;
+no heuristic can do better on a static map, which is why $\hcost^*$ is the reference against
+which the grid heuristics of \cref{ch:ch04} are judged. Property~3 is what makes the table
+useful beyond this chapter. The multi-agent solvers of \cref{ch:ch08,ch:ch09} route one drone
+at a time through \emph{space-time}, where waiting is an action and the reservations or
+constraints of other drones forbid certain cells at certain times. Those searches run
+thousands of times on the same map with the same goals. One backward run per goal, costing
+$\bigO{\abs{V}\log\abs{V}}$ on a grid, produces a table that every one of those searches reads
+in $\bigO{1}$ per expansion, and property~3 guarantees that the table never overestimates,
+whatever the constraints. It is no longer exact there, since a forced wait or detour is not in
+the table (\cref{exr:ch03-backward}(c)), but it stays admissible, and admissibility is all that
+\astar needs for optimality. \dstarlite (\cref{ch:ch05}) goes one step further: it searches
+backward from the goal in the same way and repairs the table when the map changes, instead of
+recomputing it.
+
+\subsection{Bidirectional search}
+\label{sec:ch03-bidirectional}
+\index{bidirectional search}\index{Dijkstra's algorithm!bidirectional}%
+For a single pair $(s,t)$ on a large graph, one may grow two waves at once: a forward wave from
+$s$ on $G$ with costs $\gcost_f$, and a backward wave from $t$ on $G^{R}$ with costs $\gcost_b$,
+each with its own heap and closed set, alternating expansions between the two sides (a common
+rule is to expand on the side whose smallest key is smaller). Whenever one side scans an edge
+$(u,v)$ during an expansion, including edges to vertices that either side has settled, and both
+$\gcost_f(u)$ and $\gcost_b(v)$ are finite, the concatenation is an $s$--$t$ path of cost
+$\gcost_f(u)+c(u,v)+\gcost_b(v)$, and the best such cost seen so far is kept in $\mu$. The
+search stops when
+\begin{equation}
+\label{eq:ch03-bidir-stop}
+\min_{\text{\Open}_f}\gcost_f+\min_{\text{\Open}_b}\gcost_b\ \ge\ \mu ,
+\end{equation}
+and returns the path that achieved $\mu$. The tempting rule ``stop as soon as one vertex has
+been settled by both sides'' is wrong: the first common vertex need not lie on a shortest path,
+because the two waves may meet at a vertex that is close to both but not on the cheapest route.
+The rule of \cref{eq:ch03-bidir-stop} is correct: any $s$--$t$ path cheaper than $\mu$ would
+have to contain a vertex that is still open on the forward side ahead of a vertex still open on
+the backward side, and such a path costs at least the sum of the two smallest keys.
+\Cref{exr:ch03-bidirectional} asks for the counterexample and the proof.
+
+The saving comes from geometry. On a map the number of settled cells grows with the area of the
+wave. One wave that reaches a target at distance $d$ covers an area proportional to $d^2$; two
+waves that meet halfway each have radius $d/2$ and together cover an area proportional to
+$2\,(d/2)^2=d^2/2$, half as much. In three dimensions the two half-waves cover a quarter. The
+gain is real but modest, and it shrinks when a good heuristic is available, so the book uses
+bidirectional search only as a benchmark; \textcite{russell2020aima} give a careful treatment,
+including the heuristic version.
+
+\subsection{Unit costs: breadth-first search}
+\label{sec:ch03-bfs}
+\index{breadth-first search}\index{Dijkstra's algorithm!unit costs}%
+When every edge has the same cost $c_0>0$, the keys in the heap are multiples of $c_0$ and the
+heap can be replaced by a first-in-first-out queue. The reason is \cref{lem:ch03-monotone}: at
+any moment the queue holds vertices of at most two consecutive levels $k$ and $k+1$ (in units
+of $c_0$), all of level $k$ ahead of all of level $k+1$, so the front of the queue always has
+the smallest key. Two further simplifications follow. A vertex is pushed at most once, because
+its first discovery is already at the smallest possible level, so there are no stale entries
+and no relaxation test. And the target may be recognised when it is \emph{discovered}, since no
+later discovery can be cheaper. The result is \textbf{breadth-first search}, which runs in
+$\bigO{\abs{V}+\abs{E}}$ time, without the logarithm. The function \code{bfs} in the chapter
+code implements it, and the self-test checks that on random 4-connected grids with unit costs
+it returns exactly the distances of \code{dijkstra}. On an 8-connected grid the diagonal costs
+$\sqrt2$, the levels interleave, and breadth-first search is wrong; every search from
+\cref{ch:ch04} onwards is built on the heap version for this reason.
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
@@ -878,7 +1039,7 @@ but not settled?
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch03-monotone}
-Use \cref{thm:ch03-monotone,thm:ch03-invariant} to prove that uniform-cost search with target
+Use \cref{lem:ch03-monotone,thm:ch03-invariant} to prove that uniform-cost search with target
 $t$ settles every vertex $v$ with $\delta(s,v)<\delta(s,t)$, no vertex with
 $\delta(s,v)>\delta(s,t)$, and that which vertices with $\delta(s,v)=\delta(s,t)$ it settles
 depends only on tie-breaking. Then show that the tentative cost of every vertex left in the

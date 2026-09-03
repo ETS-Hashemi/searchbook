@@ -418,7 +418,7 @@ class LazyPQ:
         self.stale_pops = 0
 
     def push(self, key, item):
-        """Insert ``item`` with ``key``; ignored if a key <= ``key`` is known."""
+        """Insert ``item`` with ``key``; ignored unless ``key`` improves."""
         if item in self._best and self._best[item] <= key:
             return False
         self._best[item] = key

@@ -45,7 +45,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 ### Part I — Foundations
 - [~] 2.01 Ch 1 Planning for Drone Swarms (problem, the four-layer hybrid architecture preview, roadmap, established vs open research) — [~] author running (relaunched after container restart); text 1165 lines so far, 6 figure files, code present
-- [~] 2.02 Ch 2 The Toolbox (graphs and grids, configuration space, time-indexed paths, kinematics, uncertainty, complexity, priority queues) — [~] author running (relaunched after container restart); text 195 lines so far, 7 figure files, code present
+- [x] 2.02 Ch 2 The Toolbox (graphs and grids, configuration space, time-indexed paths, kinematics, uncertainty, complexity, priority queues) — done: 23 pages, compiles, self-test passes (7 figures, 7 tables, 10 exercises, solutions, glossary); over the length target, cut candidates noted for review
 
 ### Part II — Single-Agent Graph Search
 - [~] 2.03 Ch 3 Dijkstra's Algorithm — [~] author running (relaunched after container restart); text 4 lines so far, 6 figure files, code present
@@ -173,6 +173,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 8 | 03:45 | relaunch 2.01–2.08, 4.1, 4.2 with "text first" order; autosave to main every 5 min | running |
 | 9 | 03:50 | single-branch policy: merged into main, local branch removed | remote branch deletion refused by proxy; delete in GitHub UI |
 | 10 | 04:00–12:50 | usage limit hit; all authors stopped (drafts of Ch 1–5, 8 and App. A survived via autosave) | paused until reset |
+| 12 | 13:15 | 2.02 Chapter 2 finished; global cleveref fix (aliascnt) in searchbook.sty | Ch 2: 23 pp, 0 errors |
 | 11 | 12:55 | specs saved to docs/specs/; finishers launched for Ch 2, 3, 4, 5, 8 (5 in parallel to stay under the limit) | running |
 
 ---
