@@ -467,3 +467,356 @@ When several conflicts share a time step, the two versions may report
 different ones; the implementation of \cref{sec:ch07-implementation} breaks
 ties by the smallest agent pair in both, so that they agree, and its self-test
 checks the agreement on random plans.
+
+% ---------------------------------------------------------------------
+\section{A worked example}
+\label{sec:ch07-example}
+
+\begin{example}[Three agents on a $4 \times 4$ grid]
+\label{ex:ch07-grid}
+\Cref{fig:ch07-example-instance} shows a $4 \times 4$ grid whose cells
+$(1,0)$ and $(1,2)$ are blocked. Agent $a_1$ must fly along the top row from
+$(0,0)$ to $(0,3)$, agent $a_2$ along the same row in the opposite direction
+from $(0,3)$ to $(0,0)$, and agent $a_3$ starts in the pocket $(1,1)$ below
+the row and wants the cell $(0,1)$ right above it. The instance is
+\code{worked\_example()} in \code{ch07\_mapf.py}; every number below is
+checked by its self-test, which numbers the agents from $0$ where the text
+numbers them from $1$.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch07/example-instance}
+  \caption{\Cref{ex:ch07-grid} with the naive plan of independent shortest
+  paths. Solid circles are starts, dashed rings goals, and the small numbers
+  give the time at which each agent reaches a cell. The crosses mark the three
+  conflicts found by hand in \cref{tab:ch07-example-paths}: two vertex
+  conflicts at $(0,1)$ and a swap on the edge $(0,1)$--$(0,2)$.}
+  \label{fig:ch07-example-instance}
+\end{figure}
+
+\paragraph{The naive plan.}
+Planning each agent alone with breadth-first search (or with \astar,
+\cref{ch:ch04}) gives the three paths in the upper half of
+\cref{tab:ch07-example-paths}: $\pi_1$ and $\pi_2$ run along the top row in
+three moves each and $\pi_3$ needs a single move up. Their costs are $3$,
+$3$ and $1$, so $\sumcost = 7$ and $\makespan = 3$; by \cref{thm:ch07-bounds}
+below no solution can beat either number. Agent $a_3$ arrives at $t = 1$, and
+the grey entries are the padding of \cref{def:ch07-path}: from then on
+$\pi_3[t] = (0,1)$.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The naive plan (top) and the conflict-free plan (bottom) of
+  \cref{ex:ch07-grid} as tables of positions. Grey entries are positions
+  after the final arrival, added by the stay-at-target padding; they cost
+  nothing, but they do block the cell.}
+  \label{tab:ch07-example-paths}
+  \begin{tabular}{@{}lccccccr@{}}
+  \toprule
+  Agent & $t=0$ & $t=1$ & $t=2$ & $t=3$ & $t=4$ & $t=5$ & $\cost(\pi_i)$\\
+  \midrule
+  \multicolumn{8}{@{}l}{\emph{Naive plan (independent shortest paths): $\sumcost = 7$, $\makespan = 3$, three conflicts}}\\
+  $a_1$ & $(0,0)$ & $(0,1)$ & $(0,2)$ & $(0,3)$ & \textcolor{sbGray}{$(0,3)$} & \textcolor{sbGray}{$(0,3)$} & 3\\
+  $a_2$ & $(0,3)$ & $(0,2)$ & $(0,1)$ & $(0,0)$ & \textcolor{sbGray}{$(0,0)$} & \textcolor{sbGray}{$(0,0)$} & 3\\
+  $a_3$ & $(1,1)$ & $(0,1)$ & \textcolor{sbGray}{$(0,1)$} & \textcolor{sbGray}{$(0,1)$} & \textcolor{sbGray}{$(0,1)$} & \textcolor{sbGray}{$(0,1)$} & 1\\
+  \midrule
+  \multicolumn{8}{@{}l}{\emph{Conflict-free plan, optimal for both objectives: $\sumcost = 12$, $\makespan = 5$}}\\
+  $a_1$ & $(0,0)$ & $(0,1)$ & $(1,1)$ & $(0,1)$ & $(0,2)$ & $(0,3)$ & 5\\
+  $a_2$ & $(0,3)$ & $(0,2)$ & $(0,1)$ & $(0,0)$ & \textcolor{sbGray}{$(0,0)$} & \textcolor{sbGray}{$(0,0)$} & 3\\
+  $a_3$ & $(1,1)$ & $(2,1)$ & $(2,1)$ & $(1,1)$ & $(0,1)$ & \textcolor{sbGray}{$(0,1)$} & 4\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Detection by hand.}
+Run \cref{alg:ch07-pairwise} on the upper table. The horizon is $T = 3$. At
+$t = 0$ the three positions $(0,0)$, $(0,3)$, $(1,1)$ are distinct, and no
+pair reverses an edge between $t = 0$ and $t = 1$. At $t = 1$ the column
+reads $(0,1)$, $(0,2)$, $(0,1)$: agents $a_1$ and $a_3$ share $(0,1)$, and
+the algorithm returns the vertex conflict $\langle a_1, a_3, (0,1), 1\rangle$.
+If we collect every conflict instead of stopping, the swap check between
+$t = 1$ and $t = 2$ finds $a_1$ moving $(0,1) \to (0,2)$ while $a_2$ moves
+$(0,2) \to (0,1)$, the swapping conflict
+$\langle a_1, a_2, (0,1), (0,2), 1\rangle$. At $t = 2$ the column reads
+$(0,2)$, $(0,1)$, $(0,1)$, a second vertex conflict
+$\langle a_2, a_3, (0,1), 2\rangle$, caused by nothing but the padding:
+$a_3$ has been parked at its goal since $t = 1$ and $a_2$ runs into it. The
+moves between $t = 2$ and $t = 3$ reverse no edge, the column at $t = 3$
+holds three different cells, and the scan ends. The plan has exactly these
+three conflicts, in this order, and
+\code{all\_conflicts(naive\_plan(inst))} prints the same three.
+
+\paragraph{The space-time view.}
+\Cref{fig:ch07-spacetime} draws the same three paths in the time-expanded
+graph of \cref{ch:ch04}\index{space-time!MAPF view}: one copy of every vertex
+per time step, a vertical edge for a wait and a diagonal edge for a move. A
+vertex conflict is a space-time node used by two paths; a swapping conflict
+is a pair of crossing move edges. This picture is behind every solver of
+\cref{ch:ch08,ch:ch09,ch:ch10}. A single agent is planned by space-time
+\astar; a vertex constraint $\langle a_i, v, t\rangle$ deletes the node
+$(v, t)$ for agent $a_i$, an edge constraint $\langle a_i, u, v, t\rangle$
+deletes its move edge from $(u, t)$ to $(v, t+1)$, and the goal-stay test
+makes sure that the agent can park at $g_i$ for ever once it arrives. What a
+MAPF solver adds is the choice of the constraints; what this chapter adds is
+the detector that tells it which conflict to resolve next.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch07/spacetime}
+  \caption{The naive plan of \cref{ex:ch07-grid} in space-time. Columns are
+  the cells of the top row and the pocket $(1,1)$, rows are time steps, and
+  the grey lines are the wait and move edges of the time-expanded graph. The
+  two red rings on nodes are the vertex conflicts at $(0,1)$; the ring between
+  the rows marks the crossing move edges of the swap.}
+  \label{fig:ch07-spacetime}
+\end{figure}
+
+\paragraph{A conflict-free plan.}
+The lower half of \cref{tab:ch07-example-paths} and
+\cref{fig:ch07-example-solution} show a solution. Agent $a_3$ backs down into
+$(2,1)$ and waits there for one step; $a_1$ steps into the vacated pocket
+$(1,1)$ at $t = 2$ and lets $a_2$ pass along the row; then $a_1$ climbs back
+and continues, and $a_3$ follows one step behind it to its goal. Check the
+columns: at $t = 2$ the positions are $(1,1)$, $(0,1)$, $(2,1)$, at $t = 3$
+they are $(0,1)$, $(0,0)$, $(1,1)$, no column repeats a cell, and no pair of
+moves reverses an edge. The plan does contain following conflicts. Between
+$t = 1$ and $t = 2$, $a_2$ enters $(0,1)$ in the step in which $a_1$ leaves
+it; between $t = 2$ and $t = 3$, $a_1$ enters $(0,1)$ as $a_2$ leaves it while
+$a_3$ enters $(1,1)$ as $a_1$ leaves it, a convoy of three. Classical MAPF
+allows all of them, and \code{validate\_plan} accepts the plan. Its costs are
+$5$, $3$ and $4$, so $\sumcost = 12$ and $\makespan = 5$: coordination costs
+five extra time steps in total and two extra steps of mission time compared
+with the lower bounds $7$ and $3$. The reason is easy to see. Both $a_1$ and
+$a_2$ need the whole top row and one of them must step aside; the only side
+cells are $(1,1)$ and $(1,3)$, and $(1,3)$ is useless because whoever hides
+there has to come back through $(0,3)$, where $a_1$ parks. So the pocket
+$(1,1)$ must be used, and $a_3$ has to clear it first. The brute-force
+searches of the joint state space in \code{ch07\_mapf.py} confirm that no
+solution has $\sumcost < 12$ or $\makespan < 5$, so this plan is optimal for
+both objectives at once; \cref{ex:ch07-disagree} showed that this is a
+property of the instance, not a rule.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch07/example-solution}
+  \caption{The conflict-free plan of \cref{ex:ch07-grid} as six snapshots;
+  an arrow shows the move that an agent executes in the step that follows.
+  At $t = 2$, $a_1$ hides in the pocket while $a_2$ passes; from $t = 3$ on,
+  $a_3$ follows $a_1$ one cell behind, which classical MAPF allows.}
+  \label{fig:ch07-example-solution}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\section{Properties: feasibility, optimality and complexity}
+\label{sec:ch07-properties}
+
+\subsection{Lower bounds}
+
+\begin{proposition}[Elementary bounds]
+\label{thm:ch07-bounds}
+Let $d(u, v)$ be the length of a shortest path between $u$ and $v$ in $G$
+and let $\Pi$ be any solution of $\langle G, s, g\rangle$. Then
+\begin{equation}
+  \sumcost(\Pi) \ge \sum_{i=1}^{k} d(s_i, g_i), \qquad
+  \makespan(\Pi) \ge \max_{i} d(s_i, g_i), \qquad
+  \makespan(\Pi) \le \sumcost(\Pi) \le k \cdot \makespan(\Pi).
+  \label{eq:ch07-bounds}
+\end{equation}
+\end{proposition}
+\begin{proof}
+The path $\pi_i$ is at $g_i$ from time $\cost(\pi_i)$ on and makes at most
+one move per step, so $\cost(\pi_i) \ge d(s_i, g_i)$; summing or maximising
+over $i$ gives the first two inequalities. The third holds because a sum of
+$k$ non-negative numbers lies between their maximum and $k$ times their
+maximum.
+\end{proof}
+
+The first two bounds are the values of the naive plan\index{naive plan!lower
+bound}, and they are the starting point of every optimal solver: the root of
+the constraint tree of \cbs (\cref{ch:ch09}) is the naive plan, the bound is
+what \ecbs (\cref{ch:ch10}) compares its solutions against, and the gap
+between the bound and the optimal cost is the price of coordination. In
+\cref{ex:ch07-grid} that gap is $5$ for the sum of costs and $2$ for the
+makespan.
+
+\subsection{Feasibility is easy}
+
+\begin{theorem}[Feasibility can be decided in polynomial time]
+\label{thm:ch07-feasible}
+Let $G$ be connected and let at least two vertices be empty,
+$k \le \abs{V} - 2$. Whether $\langle G, s, g\rangle$ has a solution can be
+decided in polynomial time, and if it has one, a solution with
+$\bigO{\abs{V}^3}$ moves can be constructed in polynomial
+time~\cite{kornhauser1984pebble,dewilde2014push}.
+\end{theorem}
+\begin{proof}[Proof sketch]
+Kornhauser, Miller and Spirakis~\cite{kornhauser1984pebble} studied the
+\textbf{pebble motion}\index{pebble motion} problem, the sequential version
+of MAPF in which one agent at a time moves to an adjacent empty vertex. They
+showed that its solvability can be decided in polynomial time and that a
+solvable instance has a solution of $\bigO{\abs{V}^3}$ moves. A sequence of
+single moves is a classical MAPF plan in which all other agents wait, so a
+solvable pebble instance is a solvable MAPF instance. Conversely, as long as
+one vertex is empty, every parallel step of a MAPF solution can be
+serialised. The moves of a step form chains and cycles; a chain ends at an
+empty vertex and is executed from its head backwards. For a rotation on a
+fully occupied cycle, walk the empty vertex to a neighbour of the cycle by a
+sequence of single moves, step one agent of the cycle out into it, move the
+remaining agents of the cycle one by one, step the agent back in at the
+other end, and walk the empty vertex back along the same route, which undoes
+the displacement of the agents on that route. The two problems therefore
+have the same solvable instances, and the decision procedure for pebble
+motion decides MAPF. Push-and-Rotate (\cref{ch:ch11}) turns this argument
+into an algorithm: it is complete for instances with at least two empty
+vertices, reports the unsolvable ones, and builds a solution in polynomial
+time~\cite{dewilde2014push}.
+\end{proof}
+
+Two remarks put the theorem in perspective. First, solvable does not mean
+easy to see. Two agents at the ends of a corridor that must exchange places
+have no solution however many empty cells the corridor contains, because on
+a path graph the left-to-right order of the agents can only change through a
+swap (\cref{exr:ch07-corridor}); a single pocket cell makes the instance
+solvable. With exactly one empty vertex, the classic case is the
+15-puzzle\index{15-puzzle}, where half of all arrangements of the tiles are
+unreachable; the decision procedure of Kornhauser et al.\ is a generalisation
+of that parity argument to arbitrary graphs. Second, the solutions of the
+theorem are long, $\bigO{\abs{V}^3}$ moves executed largely one at a time,
+and nobody would fly them. Feasibility tells you that a solution exists and
+that a planner which fails on a solvable instance, as prioritized planning
+does in \cref{ch:ch08}, is failing for reasons of its own.
+
+\subsection{Optimality is hard}
+
+\begin{theorem}[Optimal MAPF is NP-hard]
+\label{thm:ch07-nphard}
+Given a classical MAPF instance and an integer $B$, deciding whether a
+solution with $\makespan \le B$ exists is NP-hard, and so is deciding whether
+a solution with $\sumcost \le B$
+exists~\cite{surynek2010optimization,yu2013structure}. Unless
+$\mathrm{P} = \mathrm{NP}$, no algorithm finds optimal solutions for either
+objective in time polynomial in the size of the
+instance.\index{MAPF!NP-hardness}\index{NP-hardness!MAPF}
+\end{theorem}
+\begin{proof}[Proof idea]
+Both results are reductions from Boolean satisfiability.
+Surynek~\cite{surynek2010optimization} proved that the optimisation variant
+of multi-robot path planning on graphs is intractable; Yu and
+LaValle~\cite{yu2013structure} gave reductions from 3-SAT for the makespan,
+for the total arrival time, which is our sum of costs, and for the total
+distance. The reductions share one idea. Every variable of the formula
+becomes an agent with exactly two shortest routes, one standing for
+\emph{true} and one for \emph{false}. Every clause becomes a gadget that the
+routes of its literals pass through, timed so that the plan can stay at the
+naive lower bound of \cref{thm:ch07-bounds} only if at least one literal of
+the clause is true; when all three are false, some agent has to wait or make
+a detour and pays at least one extra step. A solution with cost equal to the
+lower bound therefore exists if and only if the formula is satisfiable, for
+the makespan as well as for the sum of costs. The gadgets that make the
+routes and the time offsets work are the substance of the two papers.
+\end{proof}
+
+NP-hardness does not say that every instance is hard. It says that a solver
+which guarantees optimality must, on some instances, take exponential time,
+and the solvers of \cref{ch:ch09,ch:ch10,ch:ch11} are designed around three
+observations about the instances that occur in practice. Most pairs of
+agents never interact, so a solver should couple agents only where their
+paths conflict; Standley's independence detection~\cite{standley2010finding}
+and \mstar (\cref{ch:ch11}) are built on this. The optimal cost is usually
+close to the naive lower bound, so a search that starts from the naive plan
+and adds one constraint at a time has little ground to cover; that is \cbs.
+And a solution that is a few per cent more expensive than the optimum is
+often good enough, which is what bounded-suboptimal solvers such as \ecbs
+exploit. The alternative of searching the joint state space directly, with
+one state per configuration of all $k$ agents, is optimal but hopeless
+beyond a handful of agents: the joint space has $\abs{V}^k$ configurations,
+and the brute-force searches used to verify \cref{ex:ch07-grid} explore
+$14^3 = 2\,744$ of them per time step for three agents on fourteen free
+cells, but would face $14^{10}$ for ten.\index{joint state space}
+
+% ---------------------------------------------------------------------
+\section{Solver families}
+\label{sec:ch07-solvers}
+
+\Cref{thm:ch07-feasible,thm:ch07-nphard} split the design space. A solver
+that promises optimality must in the worst case take exponential time, a
+solver that promises polynomial time must give up on optimality, and the
+families in \cref{fig:ch07-solver-families} and
+\cref{tab:ch07-solver-families} differ in what they promise about solution
+quality and in what they pay for it~\cite{stern2019mapf,felner2017search}.
+\index{solver families (MAPF)}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch07/solver-families}
+  \caption{Five families of MAPF solvers, ordered from the strongest to the
+  weakest guarantee on solution quality. The chapters in brackets treat the
+  algorithms in this book; the other names are pointers to the literature.}
+  \label{fig:ch07-solver-families}
+\end{figure}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Solver families for classical MAPF. ``Complete'' means that the
+  solver returns a solution whenever one exists, given enough time; the
+  guarantee refers to the objective the solver is run with.}
+  \label{tab:ch07-solver-families}
+  \begin{tabularx}{\textwidth}{@{}L{2.1cm}L{2.6cm}L{4.2cm}Y@{}}
+  \toprule
+  Family & Guarantee & Representatives & Where to use it\\
+  \midrule
+  optimal, search-based & optimal and complete & \cbs (\cref{ch:ch09}); \mstar (\cref{ch:ch11}); ICTS \cite{sharon2013icts}; \astar in the joint space with operator decomposition and independence detection \cite{standley2010finding} & tens of agents; when the plan is flown many times or optimality is the point\\
+  bounded-suboptimal & cost $\le w \cdot$ optimum, complete & \ecbs (\cref{ch:ch10}); EECBS \cite{li2021eecbs} & hundreds of agents; the default choice for a swarm planner\\
+  unbounded-suboptimal & none on cost; prioritized planning is incomplete, Push-and-Rotate is complete & prioritized planning, cooperative \astar \cite{silver2005cooperative} (\cref{ch:ch08}); Push-and-Swap, Push-and-Rotate (\cref{ch:ch11}) & real-time replanning, very many agents, sparse maps\\
+  reduction-based & optimal for the encoded objective, usually the makespan; complete & SAT encodings \cite{felner2017search}; integer programming \cite{yu2016optimal} (\cref{ch:ch22}) & small dense instances; when a strong external solver is at hand\\
+  learned & none & PRIMAL \cite{sartoretti2019primal} & decentralised execution with partial observation; needs a validator and a fallback\\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+\paragraph{Optimal search-based solvers.}
+\cbs~\cite{sharon2015cbs}\index{CBS!as solver family} searches a tree of
+constraints: it plans every agent alone, finds the first conflict with the
+detector of \cref{sec:ch07-detection}, and branches by forbidding one of the
+two agents the conflicting vertex or edge at that time. \mstar searches the
+joint space but couples only the agents that actually conflict, and
+ICTS\index{ICTS} enumerates vectors of path costs in increasing order and
+checks whether the paths of those costs can be combined. All three are
+optimal and complete, and all three are exponential in the worst case, as
+\cref{thm:ch07-nphard} demands.
+
+\paragraph{Bounded-suboptimal solvers.}
+\ecbs~\cite{barer2014ecbs} relaxes \cbs with focal search on both levels and
+returns a solution of cost at most $w$ times the optimum for a chosen
+$w \ge 1$, typically $w = 1.1$ to $1.5$; EECBS~\cite{li2021eecbs} adds
+better lower bounds and heuristics. For a drone swarm this is the family to
+start from: a few per cent of extra flight time buys an order of magnitude
+in the number of agents.
+
+\paragraph{Unbounded-suboptimal solvers.}
+Prioritized planning\index{prioritized planning} \cite{silver2005cooperative}
+fixes an order of the agents and plans each with space-time \astar while
+treating the paths of the earlier agents as moving obstacles. It is fast and
+simple, but it can fail on solvable instances and its plans can be far from
+optimal; \cref{ch:ch08} shows both with counterexamples. Push-and-Swap and
+Push-and-Rotate~\cite{luna2011push,dewilde2014push}\index{Push-and-Rotate}
+are rule-based: they move agents to their goals one by one and resolve
+blockages with local manoeuvres, and Push-and-Rotate is the complete
+algorithm behind \cref{thm:ch07-feasible}.
+
+\paragraph{Reduction-based solvers.}
+Fix a makespan bound $B$, encode ``is there a solution with
+$\makespan \le B$?'' as a Boolean formula or an integer program with one
+variable per agent, vertex and time step, hand it to a SAT or ILP solver, and
+increase $B$ until the answer is yes. The first yes is makespan-optimal by
+construction. \cref{ch:ch22} shows the integer-programming
+encoding~\cite{yu2016optimal}.
+
+\paragraph{Learned solvers.}
+PRIMAL~\cite{sartoretti2019primal} trains a decentralised policy by
+imitation of an optimal solver and by reinforcement learning; each agent
+chooses its next move from a local observation. Such policies scale and
+react, but they guarantee nothing, neither completeness nor collision
+freedom, so a plan they produce must pass the validator of this chapter and
+a classical solver must be ready as a fallback.

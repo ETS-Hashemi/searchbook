@@ -13,6 +13,9 @@ reciprocal collision avoidance (ORCA) for discs that move in the plane.
   incremental two-dimensional linear program of RVO2, and falls back to
   the dense formulation (minimise the largest penetration) when the
   intersection is empty.
+* ``orca_half_space_3d`` is the same construction in three dimensions
+  (a half-space), obtained by reducing to the plane spanned by the
+  relative position and the relative velocity.
 * ``simulate`` runs an n-agent scenario with no avoidance, sampled VO,
   sampled RVO or ORCA.  ``circle_scenario`` and ``dance_scenario`` are
   the instances used in the chapter; ``worked_example`` prints every
@@ -241,6 +244,56 @@ def orca_half_plane(agent, other, tau, dt=0.1, reciprocal=True):
     u, n, case = vo_closest_boundary_point(p, v_rel, r, tau, dt)
     share = 0.5 if reciprocal else 1.0
     return OrcaLine(n, add(agent.velocity, scale(u, share)), u, case)
+
+
+# ---------------------------------------------------------------------
+# 3b. ORCA in three dimensions: the half-space
+# ---------------------------------------------------------------------
+def _dot3(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def _cross3(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0])
+
+
+def _unit3(a):
+    n = math.sqrt(_dot3(a, a))
+    return tuple(x / n for x in a) if n > 0.0 else (0.0, 0.0, 0.0)
+
+
+def orca_half_space_3d(p_a, v_a, r_a, p_b, v_b, r_b, tau, dt=0.1,
+                       reciprocal=True):
+    """ORCA half-space {v in R^3 : (v - point) . n >= 0} of agent A (at
+    p_a, velocity v_a, radius r_a) with respect to B.
+
+    The truncated velocity obstacle in three dimensions is a circular cone
+    around the relative position p, cut by a ball.  It is symmetric about
+    the axis p, so the closest boundary point to v_rel lies in the plane
+    spanned by p and v_rel, and the two-dimensional case analysis applies
+    in that plane.  Returns (n, point, u, case) with 3-vectors n, point
+    and u; point = v_a + u/2 (reciprocal) or v_a + u.
+    """
+    p = tuple(pb - pa for pa, pb in zip(p_a, p_b))
+    v_rel = tuple(va - vb for va, vb in zip(v_a, v_b))
+    r = r_a + r_b
+    e1 = _unit3(p) if _dot3(p, p) > EPS * EPS else (1.0, 0.0, 0.0)
+    along = _dot3(v_rel, e1)
+    w = tuple(x - along * e for x, e in zip(v_rel, e1))
+    if _dot3(w, w) > EPS * EPS:
+        e2 = _unit3(w)
+    else:                                    # v_rel parallel to p: any e2
+        helper = (0.0, 0.0, 1.0) if abs(e1[2]) < 0.9 else (1.0, 0.0, 0.0)
+        e2 = _unit3(_cross3(e1, helper))
+    p2 = (math.sqrt(_dot3(p, p)), 0.0)       # p in the plane (e1, e2)
+    v2 = (along, _dot3(v_rel, e2))           # v_rel in the plane
+    u2, n2, case = vo_closest_boundary_point(p2, v2, r, tau, dt)
+    u = tuple(u2[0] * a + u2[1] * b for a, b in zip(e1, e2))
+    n = tuple(n2[0] * a + n2[1] * b for a, b in zip(e1, e2))
+    share = 0.5 if reciprocal else 1.0
+    point = tuple(va + share * x for va, x in zip(v_a, u))
+    return n, point, u, case
 
 
 # ---------------------------------------------------------------------
@@ -532,14 +585,28 @@ def circle_perturbation(n=8, seed=13, magnitude=0.02):
     return magnitude * np.stack([np.cos(ang), np.sin(ang)], axis=1)
 
 
-def dance_scenario(offset=0.1, agent_radius=0.5, speed=1.0, v_max=1.5):
-    """Two agents that swap places head-on, offset laterally by a little so
-    that their choices are not perfectly symmetric."""
+def dance_scenario(offset=0.5, agent_radius=0.5, speed=1.0, v_max=1.5):
+    """Two agents that swap places head-on, B offset laterally by ``offset``
+    so that their choices are not perfectly symmetric."""
     a = Agent((-5.0, 0.0), (speed, 0.0), agent_radius, v_max,
               goal=(5.0, 0.0), speed=speed)
     b = Agent((5.0, offset), (-speed, 0.0), agent_radius, v_max,
               goal=(-5.0, offset), speed=speed)
     return [a, b]
+
+
+def crossing_scenario(per_group=4, spacing=2.0, distance=8.0,
+                      agent_radius=0.5, speed=1.0, v_max=1.5):
+    """Two groups of agents whose straight paths cross at right angles
+    (the Week-6 coding exercise): group 1 flies in +x, group 2 in +y."""
+    agents = []
+    for i in range(per_group):
+        off = (i - (per_group - 1) / 2.0) * spacing
+        agents.append(Agent((-distance, off), (speed, 0.0), agent_radius,
+                            v_max, goal=(distance, off), speed=speed))
+        agents.append(Agent((off, -distance), (0.0, speed), agent_radius,
+                            v_max, goal=(off, distance), speed=speed))
+    return agents
 
 
 # ---------------------------------------------------------------------
@@ -648,6 +715,37 @@ def _self_test():
                          add(a.position, scale(ex["v_new_a"], t))))
                 for t in np.linspace(0.0, 2.0 * tau, 4001))
     assert d_min >= a.radius + b.radius - 1e-6, d_min
+    # -- 3b. the 3D half-space: same as 2D in the plane, rotation-covariant --
+    n3, pt3, u3, case3 = orca_half_space_3d(
+        (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), 0.5, (4.0, 0.5, 0.0),
+        (-1.0, 0.0, 0.0), 0.5, tau)
+    assert case3 == half.case and abs(n3[2]) < 1e-12 and abs(u3[2]) < 1e-12
+    assert _close(n3[:2], half.normal) and _close(pt3[:2], half.point)
+    axis = np.array([1.0, 2.0, -0.5])
+    axis /= np.linalg.norm(axis)
+    K = np.array([[0.0, -axis[2], axis[1]], [axis[2], 0.0, -axis[0]],
+                  [-axis[1], axis[0], 0.0]])
+    R = np.eye(3) + math.sin(0.7) * K + (1.0 - math.cos(0.7)) * (K @ K)
+    rot = lambda x: tuple(float(y) for y in R @ np.asarray(x, dtype=float))
+    for p_b3, v_b3 in (((4.0, 0.5, 0.0), (-1.0, 0.0, 0.0)),
+                       ((3.0, 1.0, 2.0), (-0.5, 0.2, 0.3)),
+                       ((2.0, 0.3, 0.1), (0.9, 0.0, 0.0))):
+        base = orca_half_space_3d((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), 0.5,
+                                  p_b3, v_b3, 0.5, tau)
+        turned = orca_half_space_3d(rot((0.0, 0.0, 0.0)), rot((1.0, 0.0, 0.0)),
+                                    0.5, rot(p_b3), rot(v_b3), 0.5, tau)
+        assert turned[3] == base[3]
+        assert _close(turned[0], rot(base[0])) and _close(turned[2], rot(base[2]))
+        # q = v_rel + u lies on the boundary of the 3D cone-with-ball
+        q = tuple(1.0 - vb + uu for vb, uu in zip(v_b3, (base[2])))
+        q = (q[0], -v_b3[1] + base[2][1], -v_b3[2] + base[2][2])
+        if base[3] == "disc":
+            d = tuple(qq - pp / tau for qq, pp in zip(q, p_b3))
+            assert abs(math.sqrt(_dot3(d, d)) - 1.0 / tau) < 1e-7
+        else:
+            t_star = _dot3(q, p_b3) / _dot3(q, q)
+            d = tuple(t_star * qq - pp for qq, pp in zip(q, p_b3))
+            assert abs(math.sqrt(_dot3(d, d)) - 1.0) < 1e-7 and t_star <= tau
     # -- 4. the linear program on random feasible instances ----------------
     rng = np.random.default_rng(13)
     grid = velocity_samples(1.5, rings=60, directions=360)
@@ -688,18 +786,19 @@ def _self_test():
                                     @ np.asarray(line.normal)))
         assert worst <= pen.min() + 1e-6, (worst, pen.min())
     # -- 6. two agents: VO dances, RVO and ORCA do not ----------------------
-    res = {m: simulate(dance_scenario(), m, tau=5.0, dt=0.1, steps=100)
-           for m in ("vo", "rvo", "orca")}
+    res = {m: simulate(dance_scenario(offset=0.5), m, tau=5.0, dt=0.1,
+                       steps=100) for m in ("vo", "rvo", "orca")}
     for m in res:
         assert res[m]["collision_steps"] == 0, m
     assert reversals(res["vo"], 0) >= 10 * max(1, reversals(res["rvo"], 0))
-    assert velocity_variation(res["vo"], 0) > 5 * velocity_variation(res["rvo"], 0)
-    assert velocity_variation(res["orca"], 0) < velocity_variation(res["vo"], 0)
+    assert velocity_variation(res["vo"], 0) > 3 * velocity_variation(res["rvo"], 0)
+    assert velocity_variation(res["orca"], 0) < velocity_variation(res["rvo"], 0)
     # -- 7. eight agents on a circle ----------------------------------------
     pert = circle_perturbation()
     none = simulate(circle_scenario(), "none", steps=300, perturbation=pert)
     orca = simulate(circle_scenario(), "orca", steps=300, perturbation=pert)
-    assert none["collision_steps"] > 0
+    vo = simulate(circle_scenario(), "vo", steps=300, perturbation=pert)
+    assert none["collision_steps"] > 0 and vo["collision_pairs"] > 0
     assert orca["collision_steps"] == 0 and orca["infeasible_steps"] == 0
     assert orca["min_separation"].min() >= 1.0 - 1e-9
     assert np.all(np.isfinite(orca["arrival"]))

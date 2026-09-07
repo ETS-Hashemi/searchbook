@@ -73,7 +73,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 ### Part VI — Tracking and Prediction
 - [ ] 2.18 Ch 18 The Kalman Filter (linear-Gaussian model, predict/update, tuning, constant-velocity tracking)
 - [ ] 2.19 Ch 19 EKF, UKF and Particle Filters
-- [ ] 2.20 Ch 20 Trajectory Prediction (constant-velocity baselines, LSTM, Transformers, ADE/FDE, uncertainty)
+- [~] 2.20 Ch 20 Trajectory Prediction (constant-velocity baselines, LSTM, Transformers, ADE/FDE, uncertainty) — drafted on Fable (24 pp, 1571 lines, compiles); Opus review in progress
 
 ### Part VII — Optimization and Control
 - [ ] 2.21 Ch 21 Model Predictive Control (receding horizon, constraints, QP formulation, collision constraints)

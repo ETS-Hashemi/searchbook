@@ -28,12 +28,12 @@ class Seq2SeqLSTM(nn.Module):
         super().__init__()
         self.encoder = nn.LSTM(2, n_hidden, batch_first=True)
         self.decoder = nn.LSTMCell(2, n_hidden)
-        self.readout = nn.Linear(n_hidden, 4)        # mu_x, mu_y, log s_x, log s_y
+        self.readout = nn.Linear(n_hidden, 4)   # mu (2), log sigma (2)
 
     def forward(self, x, horizon=T_PRED):
         _, (h, c) = self.encoder(x)                  # h, c: (1, B, n_hidden)
         h, c = h[0], c[0]
-        base = x.mean(dim=1)                         # constant-velocity residual
+        base = x.mean(dim=1)                 # CV displacement (residual)
         u, outs = x[:, -1], []
         for _ in range(horizon):
             h, c = self.decoder(u, (h, c))

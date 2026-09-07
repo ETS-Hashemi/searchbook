@@ -33,10 +33,10 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from ch20_prediction import (DT, SUBSETS, T_OBS, T_PRED, TOY_AGENTS_POS,  # noqa: E402
-                             TOY_AGENTS_VEL, covariance_ellipse,
+                             TOY_AGENTS_VEL, agent_frame, covariance_ellipse,
                              displacement_errors, lstm_cell_example,
                              print_results, run_experiment, subset_mask,
-                             toy_agent_attention)
+                             to_frame, toy_agent_attention)
 
 DATA = os.path.join(os.path.dirname(HERE), "..", "figures", "data")
 SHORT = {"CV (k=1)": "cv1", "CV (tuned)": "cv", "CA (tuned)": "ca", "KF (tuned)": "kf",
@@ -62,11 +62,14 @@ def with_origin(last_obs, pred):
     return np.concatenate([last_obs[None], pred], axis=0)
 
 
-def ellipse_columns(prefix, means, covs):
-    """Columns <prefix><h>x, <prefix><h>y of the 95% ellipses at ELLIPSE_STEPS."""
+def ellipse_columns(prefix, means, covs, transform=None):
+    """Columns <prefix><h>x, <prefix><h>y of the 95% ellipses at ELLIPSE_STEPS;
+    ``transform`` optionally maps the (48, 2) points into another frame."""
     cols, arrays = [], []
     for h in ELLIPSE_STEPS:
         pts = covariance_ellipse(means[h - 1], covs[h - 1], p=0.95, n_points=48)
+        if transform is not None:
+            pts = transform(pts)
         cols += ["%s%dx" % (prefix, h), "%s%dy" % (prefix, h)]
         arrays += [pts[:, 0], pts[:, 1]]
     return cols, np.stack(arrays, axis=1)
@@ -111,14 +114,22 @@ def main():
     turn = median_example(test, preds["LSTM-NLL"], "turn")
     last = test["obs"][turn, -1]
     steps = np.arange(0, T_PRED + 1)
+    #    plotted in the agent frame of the example (origin = last observation,
+    #    observed heading along +x) so that the figure is wide, not tall
+    origin, rot = agent_frame(test["obs"][turn:turn + 1])
+
+    def turn_frame(points):
+        return to_frame(points[None], origin, rot)[0]
+
     write_table("ch20-baselines-obs.dat", ["t", "x", "y"],
-                np.column_stack([np.arange(T_OBS), test["obs"][turn]]))
+                np.column_stack([np.arange(T_OBS), turn_frame(test["obs"][turn])]))
     cols = ["t", "x_gt", "y_gt", "x_cv1", "y_cv1", "x_cv", "y_cv", "x_ca", "y_ca", "x_kf", "y_kf"]
-    arrays = [steps, with_origin(test["clean"][turn, T_OBS - 1], test["future"][turn])]
+    arrays = [steps, turn_frame(with_origin(test["clean"][turn, T_OBS - 1], test["future"][turn]))]
     for name in ("CV (k=1)", "CV (tuned)", "CA (tuned)", "KF (tuned)"):
-        arrays.append(with_origin(last, preds[name][turn]))
+        arrays.append(turn_frame(with_origin(last, preds[name][turn])))
     write_table("ch20-baselines-pred.dat", cols, np.column_stack(arrays))
-    ecols, epts = ellipse_columns("k", preds["KF (tuned)"][turn], res["covs"]["KF (tuned)"])
+    ecols, epts = ellipse_columns("k", preds["KF (tuned)"][turn], res["covs"]["KF (tuned)"],
+                                  transform=turn_frame)
     write_table("ch20-baselines-ellipses.dat", ecols, epts)
     speed = np.linalg.norm(test["clean"][turn, 1] - test["clean"][turn, 0]) / DT
     print("turning example: test index %d, rate %.3f rad/s, speed %.2f m/s" % (turn, test["rate"][turn], speed))

@@ -1,5 +1,6 @@
 \chapter{Trajectory Prediction: From Constant Velocity to LSTMs and Transformers}
 \label{ch:ch20}
+\chaptermark{Trajectory Prediction}
 % Function names for pseudocode are prefixed with "Pred" to stay unique
 % across the book.
 \SetKwFunction{PredCV}{ConstantVelocity}
@@ -226,7 +227,7 @@ this chapter has five rules.
 \end{enumerate}
 
 % ---------------------------------------------------------------------
-\section{The baselines: constant velocity, constant acceleration, Kalman extrapolation}
+\section[The physics baselines]{The baselines: constant velocity, constant acceleration, Kalman extrapolation}
 \label{sec:ch20-baselines}
 
 \begin{algorithm}[htb]
@@ -314,8 +315,10 @@ from data.
   \centering
   \inputfigure{ch20/baselines}
   \caption{The physics baselines on a gently turning test trajectory (turn
-  rate $0.17$~rad/s, speed $2.9$~m/s). Both CV predictions leave the turn
-  along a tangent; the constant-acceleration prediction (dashed) extrapolates
+  rate $0.17$~rad/s, speed $2.9$~m/s), plotted relative to the last observed
+  position with the observed heading along $+x$ (the agent frame of
+  \cref{sec:ch20-seq2seq}). Both CV predictions leave the turn along a
+  tangent; the constant-acceleration prediction (dashed) extrapolates
   the rotating centripetal acceleration as a constant and overshoots, ending
   $4.0$~m from the truth against $1.5$~m for the tuned CV. The Kalman
   extrapolation is a smoothed CV prediction with a $95\,\%$ ellipse at
@@ -326,7 +329,7 @@ from data.
 \end{figure}
 
 % ---------------------------------------------------------------------
-\section{Sequence models: the LSTM and sequence-to-sequence prediction}
+\section[LSTM and sequence-to-sequence prediction]{Sequence models: the LSTM and sequence-to-sequence prediction}
 \label{sec:ch20-lstm}
 
 \subsection{The LSTM cell}
@@ -850,7 +853,7 @@ repair is a per-horizon inflation factor fitted on the validation set
 \dstarlite and MPC do with the region.
 
 % ---------------------------------------------------------------------
-\section{A worked example: constant velocity against a learned predictor}
+\section[A worked example]{A worked example: constant velocity against a learned predictor}
 \label{sec:ch20-example}
 
 The experiment of this chapter is the Week~10 exercise of the study plan,
@@ -1042,7 +1045,7 @@ are normalised and the decoder is trained the way it is used. The uncertainty
 it reports is informative but not calibrated.
 
 % ---------------------------------------------------------------------
-\section{Properties: when the baseline is optimal, and what the models cost}
+\section[Properties]{Properties: when the baseline is optimal, and what the models cost}
 \label{sec:ch20-properties}
 
 \begin{proposition}[Error of constant-velocity extrapolation]
@@ -1304,12 +1307,12 @@ class Seq2SeqLSTM(nn.Module):
         super().__init__()
         self.encoder = nn.LSTM(2, n_hidden, batch_first=True)
         self.decoder = nn.LSTMCell(2, n_hidden)
-        self.readout = nn.Linear(n_hidden, 4)        # mu_x, mu_y, log s_x, log s_y
+        self.readout = nn.Linear(n_hidden, 4)   # mu (2), log sigma (2)
 
     def forward(self, x, horizon=T_PRED):
         _, (h, c) = self.encoder(x)                  # h, c: (1, B, n_hidden)
         h, c = h[0], c[0]
-        base = x.mean(dim=1)                         # constant-velocity residual
+        base = x.mean(dim=1)                 # CV displacement (residual)
         u, outs = x[:, -1], []
         for _ in range(horizon):
             h, c = self.decoder(u, (h, c))
@@ -1364,7 +1367,7 @@ weight is not negligible.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
-\section{Where this fits in the drone system: predictions as constraints}
+\section[Where this fits in the drone system]{Where this fits in the drone system: predictions as constraints}
 \label{sec:ch20-drone}
 
 The three consumers of a prediction use the same quantity, derived from the
