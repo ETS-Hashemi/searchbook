@@ -363,14 +363,18 @@ def corridor(gap, radius=1.0):
 CORRIDOR_GOAL = np.array([8.0, 4.2])   # slightly off the axis, as in any real scene
 
 
-def corridor_case(gap, dt, prm=None, start=(0.0, 4.3)):
-    """Cross the passage from an off-axis start; report status, reversals and
-    the stiffness of the potential at the passage midpoint (4, 4)."""
+def corridor_case(gap, dt, prm=None, v_max=1.0, start=(0.0, 4.3)):
+    """Cross the passage from an off-axis start.  Reports the status, the
+    number of lateral reversals and the largest lateral excursion inside the
+    passage (3 < x < 5), and the stiffness of U at the passage midpoint."""
     prm = ApfParams() if prm is None else prm
-    prm = replace(prm, dt=dt, stuck_window=int(round(1.0 / dt)))
+    prm = replace(prm, dt=dt, v_max=v_max, stuck_window=max(10, int(round(1.0 / dt))))
     obs = corridor(gap)
     res = simulate(start, CORRIDOR_GOAL, obs, prm)
-    return dict(result=res, reversals=lateral_reversals(res["path"], (3.0, 5.0)),
+    path = res["path"]
+    inside = path[(path[:, 0] > 3.0) & (path[:, 0] < 5.0)]
+    amp = float(np.abs(inside[:, 1] - 4.0).max()) if len(inside) else float("nan")
+    return dict(result=res, reversals=lateral_reversals(path, (3.0, 5.0)), amplitude=amp,
                 stiffness=stiffness((4.0, 4.0), CORRIDOR_GOAL, obs, prm))
 
 
@@ -440,10 +444,15 @@ def _self_test():
     assert abs(total_potential(goal, goal, DISC, fixed)) < 1e-12
     assert np.all(total_potential(rng.uniform(0, 9, (200, 2)), goal, DISC, fixed) >= 0.0)
 
-    # 5. corridor: small dt crosses smoothly, large dt oscillates (dt*stiffness > 2)
-    smooth, zig = corridor_case(1.0, 0.01, prm), corridor_case(1.0, 0.05, prm)
+    # 5. corridor: dt*stiffness < 2 crosses smoothly; beyond it the explicit
+    #    update zigzags (no speed limit) or, with a larger dt, hits the wall
+    smooth = corridor_case(1.0, 0.01, prm)
+    zig = corridor_case(1.0, 0.05, prm, v_max=np.inf)
+    crash = corridor_case(1.0, 0.10, prm, v_max=np.inf)
     assert smooth["result"]["status"] == "reached" and smooth["reversals"] <= 2, smooth["reversals"]
-    assert zig["reversals"] >= smooth["reversals"] + 20, (zig["reversals"], smooth["reversals"])
+    assert zig["result"]["status"] == "reached" and zig["reversals"] >= smooth["reversals"] + 5
+    assert zig["amplitude"] > 2.0 * smooth["amplitude"], (zig["amplitude"], smooth["amplitude"])
+    assert crash["result"]["status"] == "collision", crash["result"]["status"]
     assert 0.01 * smooth["stiffness"] < 2.0 < 0.05 * zig["stiffness"]
 
     # 6. no passage: the 0.6-wide gap is free, but the drone stops in front of it
@@ -490,12 +499,18 @@ def _self_test():
         lm["result"]["final"][0], lm["result"]["steps"], lm["equilibrium_x"]))
     print("GNRON: plain stops %.3f from the goal (%s, %d steps); n=2 %s in %d steps" % (
         g["d_plain"], g["plain"]["status"], g["plain"]["steps"], g["fixed"]["status"], g["fixed"]["steps"]))
-    print("corridor gap/dt/status/reversals/stiffness/dt*stiffness:")
+    print("corridor (v_max=1) gap/dt/status/steps/reversals/amplitude/stiffness/dt*stiffness:")
     for gap in (0.6, 0.8, 1.0, 1.2, 1.6):
         for dt in (0.01, 0.05):
             c = corridor_case(gap, dt, prm)
-            print("  %.1f %.2f %-8s %4d %8.1f %6.2f" % (gap, dt, c["result"]["status"],
-                  c["reversals"], c["stiffness"], dt * c["stiffness"]))
+            print("  %.1f %.2f %-9s %5d %4d %.3f %8.1f %6.2f" % (
+                gap, dt, c["result"]["status"], c["result"]["steps"], c["reversals"],
+                c["amplitude"], c["stiffness"], dt * c["stiffness"]))
+    for name, c in (("smooth dt=0.01 v_max=1", smooth), ("zigzag dt=0.05 no limit", zig),
+                    ("crash dt=0.10 no limit", crash)):
+        print("  %s: %s after %d steps, %d reversals, amplitude %.3f, min clearance %.3f" % (
+            name, c["result"]["status"], c["result"]["steps"], c["reversals"], c["amplitude"],
+            c["result"]["min_clearance"]))
     print("basin: plain %.1f%% reached, %.1f%% stuck; with random walk %.1f%% reached" % (
         100 * share_plain, 100 * np.mean(plain["status"] == "stuck"), 100 * share_walk))
     print("swarm min separation: with repulsion %.3f, without %.3f" % (

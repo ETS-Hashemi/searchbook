@@ -226,7 +226,7 @@ def evaluate(p, v_a, obstacles, target, prm, goal=None):
     for v in window_candidates(v_a, prm):
         speed = float(np.linalg.norm(v))
         if speed < 1e-9:
-            dist = prm.d_max          # standing still never hits a static obstacle
+            dist = prm.d_max   # standing still is safe (static obstacles)
         else:
             dist = free_distance(p, v / speed, obstacles, prm.radius, prm.d_max, v)
         adm = speed <= admissible_speed(dist, prm.a_brake, prm.dt) + 1e-9
