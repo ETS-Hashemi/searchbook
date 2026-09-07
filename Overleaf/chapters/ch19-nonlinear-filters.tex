@@ -29,22 +29,17 @@ architecture (\cref{ch:ch24}) a stable estimate of an intruder's state and a
 covariance that says how much to trust it. It rests on two assumptions: the
 intruder moves according to a \emph{linear} model, and the sensor reports a
 \emph{linear} function of the state. Both fail in the situations that matter
-most for collision avoidance.
+most. An unknown quadrotor that enters a survey site flies a straight leg,
+banks into a turn around a crane and straightens out; a constant-velocity
+model lags behind in every turn, and the natural model for a banked drone,
+the \textbf{coordinated-turn model}\index{coordinated-turn model} with speed,
+heading and turn rate in the state, contains the sine and cosine of the
+heading. The sensor our drone carries, a radar, a lidar or a camera with a
+rangefinder, reports how \emph{far} the intruder is and in which
+\emph{direction}: a range and a bearing, the square root and the arctangent
+of the position. The Kalman filter has no place for a sine or an arctangent.
 
-Picture a survey swarm over a construction site. An unknown quadrotor enters,
-flies a straight leg, banks into a turn around a crane, and straightens out.
-A constant-velocity model extrapolates the last velocity and lags behind in
-every turn. The natural model for a banked drone is the
-\textbf{coordinated-turn model}\index{coordinated-turn model}, whose state
-carries speed, heading and turn rate; it predicts the arc the drone actually
-flies, but its position update contains the sine and cosine of the heading.
-At the same time, the sensor our drone carries, a radar, a scanning lidar or
-a camera with a rangefinder, reports how \emph{far} the intruder is and in
-which \emph{direction}: a range and a bearing, the square root and the
-arctangent of the position. The Kalman filter has no place for a sine or an
-arctangent.
-
-This chapter presents the three standard answers, in increasing order of
+This chapter presents the three standard answers in increasing order of
 generality and cost. The \textbf{extended Kalman filter}\index{extended Kalman filter}
 (EKF) linearises the models around the current estimate and runs the Kalman
 equations on the linearisation. The \textbf{unscented Kalman filter}
@@ -57,63 +52,57 @@ right'' alive at once. All three live in the prediction layer of
 \cref{ch:ch24}: they consume raw measurements and deliver a state estimate
 with its uncertainty to the local avoidance layer (\cref{ch:ch13,ch:ch14}),
 to the trajectory predictor of \cref{ch:ch20} and to the prediction-aware
-constraints of the planner. In the study plan (\cref{ch:appA}) this is the
-second half of Week~9.
-
-\Cref{sec:ch19-intuition} states the one problem all three filters solve
-differently; \cref{sec:ch19-problem} fixes notation and the two models;
-\cref{sec:ch19-ekf,sec:ch19-ukf,sec:ch19-pf} develop the three filters, each
-with pseudocode and a worked example, and compare them on a turning target;
-\cref{sec:ch19-properties} collects properties, costs and a decision guide;
-\cref{sec:ch19-variants,sec:ch19-implementation,sec:ch19-drone} cover
-variants, implementation and the place in the drone system.
+constraints of the planner; in the study plan (\cref{ch:appA}) they are the
+second half of Week~9. \Cref{sec:ch19-intuition} states the one problem all
+three solve differently, \cref{sec:ch19-problem} fixes notation and models,
+\cref{sec:ch19-ekf,sec:ch19-ukf,sec:ch19-pf} develop the filters with
+pseudocode and worked examples and compare them on a turning target, and
+\cref{sec:ch19-properties,sec:ch19-variants,sec:ch19-implementation,sec:ch19-drone}
+cover properties, variants, implementation and the place in the drone
+system.
 
 % ---------------------------------------------------------------------
 \section{The idea in plain words}
 \label{sec:ch19-intuition}
 
-Every filter step does the same thing twice: it takes a Gaussian belief,
-pushes it through a function, and describes the result by a mean and a
-covariance. As long as the function is affine, $\vect{y} = \mat{A}\state +
-\vect{b}$, the result is Gaussian with mean $\mat{A}\vect{\mu} + \vect{b}$ and
-covariance $\mat{A}\mat{\Sigma}\mat{A}\T$ (\cref{ch:ch02}), and the Kalman
-filter is exact. As soon as the function bends, the output is no longer
-Gaussian: push a Gaussian in range and bearing through the polar-to-Cartesian
-map and you get a \emph{banana}, a curved region no ellipse describes well
-(\cref{fig:ch19-idea}). The three filters are three approximations of that
-banana.\index{linearisation error}\index{banana distribution}
+Every filter step takes a Gaussian belief, pushes it through a function,
+and describes the result by a mean and a covariance. As long as the function
+is affine, $\vect{y} = \mat{A}\state + \vect{b}$, the result is Gaussian with
+mean $\mat{A}\vect{\mu} + \vect{b}$ and covariance $\mat{A}\mat{\Sigma}\mat{A}\T$
+(\cref{ch:ch02}), and the Kalman filter is exact. As soon as the function
+bends, the output is no longer Gaussian: push a Gaussian in range and bearing
+through the polar-to-Cartesian map and you get a \emph{banana}, a curved
+region that no ellipse describes well (\cref{fig:ch19-idea}). The three
+filters are three approximations of that banana. The EKF replaces the bent
+function by its tangent at the current estimate; it costs one Jacobian per
+step, but its answer is the Gaussian the \emph{tangent} produces, and the
+more the function curves within the width of the belief, the larger the
+error. The UKF keeps the true function and changes the representation of
+the input: $2n+1$ \emph{sigma points} whose sample mean and covariance are
+exactly those of the belief are mapped through the true function, and mean
+and covariance are read off the images; no derivative is needed, and the
+mean is correct up to the second-order Taylor term, precisely the term the
+EKF drops. The particle filter represents the belief by many random samples
+with weights, moves every sample through the true function with its own
+noise, and re-weights the samples by how well they explain the measurement;
+nothing forces the result to be an ellipse, so the belief can be curved,
+skewed or split in two, and the price is the number of samples.
+\index{linearisation error}\index{banana distribution}
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch19/idea}
   \caption{Three ways of pushing a Gaussian belief (left) through a
   nonlinear function $f$ into the curved true output distribution (shaded
-  banana). (a) The EKF replaces $f$ by its tangent at the mean and moves the
-  ellipse as if $f$ were linear; the ellipse sits on the image of the mean,
-  not on the mean of the banana, and its ends miss the curved tails. (b) The
-  UKF pushes $2n+1$ sigma points through the true $f$ and fits an ellipse to
-  the images; the fitted mean lies inside the banana. (c) The particle filter
-  pushes a cloud of random samples through $f$ and keeps the cloud as the
-  belief, curvature included.}
+  banana). (a) The EKF moves the ellipse with the tangent at the mean; the
+  ellipse sits on the image of the mean, not on the mean of the banana, and
+  its ends miss the curved tails. (b) The UKF pushes $2n+1$ sigma points
+  through the true $f$ and fits an ellipse to the images; the fitted mean
+  lies inside the banana. (c) The particle filter pushes a cloud of random
+  samples through $f$ and keeps the cloud as the belief, curvature
+  included.}
   \label{fig:ch19-idea}
 \end{figure}
-
-The EKF replaces the bent function by its tangent at the current estimate.
-It costs one Jacobian per step and is exactly the Kalman filter when the
-function is linear, but its answer is the Gaussian the \emph{tangent}
-produces: the mean sits where the tangent puts it, and the more the function
-curves within the width of the belief, the larger the error. The UKF keeps
-the true function and changes the representation of the input: it picks
-$2n+1$ \emph{sigma points} whose sample mean and covariance are exactly those
-of the belief, maps each through the true function and reads mean and
-covariance off the images. No derivative is needed, and the mean is correct
-up to the second-order Taylor term, which is precisely the term the EKF
-drops. The particle filter goes further: it represents the belief by many
-random samples with weights, moves every sample through the true function
-with its own random noise, and re-weights the samples by how well they
-explain the measurement. Nothing forces the result to be an ellipse, so the
-belief can be curved, skewed or split in two. The price is the number of
-samples.
 
 \begin{keyidea}
 A nonlinear filter has to push a belief through a bent function. The EKF
@@ -168,7 +157,11 @@ Bayes' rule of \cref{ch:ch02} with the likelihood $p(\meas_k \mid \state_k) =
 \Normal(\meas_k; h(\state_k), \mat{R}_k)$. For linear-Gaussian models both
 steps have closed forms; for the models below they do not, and each filter
 replaces them by an approximation: a linearisation, a set of sigma points,
-or a set of samples.
+or a set of samples. We write $\partial g/\partial\state$ for the
+\textbf{Jacobian}\index{Jacobian} of $g$, the $p \times n$ matrix of partial
+derivatives $\partial g_i/\partial x_j$, which gives the best affine
+approximation $g(\state + \vect{d}) \approx g(\state) + \frac{\partial
+g}{\partial \state}(\state)\,\vect{d}$.
 
 \subsection{The coordinated-turn model}
 \label{sec:ch19-ct}
@@ -206,14 +199,14 @@ step gives the exact discrete model
   \ (\omega = 0),
   \label{eq:ch19-ct}
 \end{equation}
-where the second form is the limit of the first; an implementation switches
-to it below a small threshold on $\abs{\omega}$. The model is nonlinear
-through $v\sin\psi$, $v\cos\psi$ and the division by $\omega$. Bar-Shalom,
-Li and Kirubarajan~\cite{barshalom2001estimation} write the same motion with
-Cartesian velocities, $(x, \dot{x}, y, \dot{y}, \omega)$, which is linear in
-the first four components when $\omega$ is known; we use the polar form
-because its Jacobian is compact and because speed and heading are what the
-avoidance layer wants.
+where the second form is the limit of the first, used below a small
+threshold on $\abs{\omega}$. The model is nonlinear through $v\sin\psi$,
+$v\cos\psi$ and the division by $\omega$. Bar-Shalom, Li and
+Kirubarajan~\cite{barshalom2001estimation} write the same motion with
+Cartesian velocities, $(x, \dot{x}, y, \dot{y}, \omega)$, linear in the
+first four components when $\omega$ is known; the polar form has the more
+compact Jacobian and delivers the speed and heading the avoidance layer
+wants.
 
 \begin{figure}[tb]
   \centering
@@ -271,36 +264,25 @@ $\varphi \in (-\pi, \pi]$ of the intruder,
   \label{eq:ch19-rb}
 \end{equation}
 $h$ depends only on the position; the filter learns $v$, $\psi$ and $\omega$
-indirectly, from how the position changes over time.
+from how the position changes over time.
 \end{definition}
 
 A bearing error of $\sigma_\varphi$ radians at range $r$ displaces the
 position by about $r\sigma_\varphi$ across the line of sight, $5\,\mathrm{m}$
-for $2^\circ$ at $150\,\mathrm{m}$, more than a typical range error; the
-error region is a thin arc, the banana of \cref{fig:ch19-idea}.
-
-Headings and bearings live on a circle. The difference between the bearings
-$3.10$ and $-3.10$ is not $6.20$ but $-0.083$. We write
+for $2^\circ$ at $150\,\mathrm{m}$; the error region is a thin arc, the
+banana of \cref{fig:ch19-idea}. Headings and bearings live on a circle: the
+difference between the bearings $3.10$ and $-3.10$ is not $6.20$ but
+$-0.083$. We write
 \begin{equation}
   \operatorname{wrap}(\theta) = \theta - 2\pi\Bigl\lceil \frac{\theta - \pi}{2\pi} \Bigr\rceil
   \in (-\pi, \pi]
   \label{eq:ch19-wrap}
 \end{equation}
-for the representative of $\theta$ on the circle, and every difference of
-two angles in this chapter, in an innovation, in a residual between a sigma
-point and a mean, or in a likelihood, is $\operatorname{wrap}(\theta_1 -
-\theta_2)$; we write $\meas \ominus \hat{\meas}$ for a componentwise
-difference whose angular components are wrapped.\index{angle wrapping}
-The heading of an estimate is wrapped after every update.
-
-\begin{definition}[Jacobian]
-\label{def:ch19-jacobian}
-The \textbf{Jacobian}\index{Jacobian} of a differentiable $g \colon \R^n \to
-\R^p$ at $\state$ is the $p \times n$ matrix $\partial g/\partial\state$ of
-partial derivatives $\partial g_i/\partial x_j$; it is the matrix of the best
-affine approximation, $g(\state + \vect{d}) = g(\state) + \frac{\partial
-g}{\partial \state}(\state)\,\vect{d} + \bigO{\norm{\vect{d}}^2}$.
-\end{definition}
+for the representative of $\theta$ on the circle; every difference of two
+angles in this chapter, in an innovation, a residual or a likelihood, is
+$\operatorname{wrap}(\theta_1 - \theta_2)$, and $\meas \ominus \hat{\meas}$
+denotes a componentwise difference whose angular components are wrapped.
+The heading of an estimate is wrapped after every update.\index{angle wrapping}
 
 % ---------------------------------------------------------------------
 \section{The extended Kalman filter}
@@ -336,10 +318,9 @@ true $f$ and $h$ for the means:
 \end{align}
 Only the covariances and the gain use the linearisation. The Jacobians are
 evaluated at the current estimate, so they change from step to step and
-depend on the data; unlike the Kalman filter, the EKF covariance cannot be
-computed in advance, and a wrong estimate produces a wrong Jacobian and a
-wrong gain (\cref{sec:ch19-ekf-failure}).
-\index{extended Kalman filter!equations}
+depend on the data: the EKF covariance cannot be computed in advance, and a
+wrong estimate produces a wrong Jacobian and a wrong gain
+(\cref{sec:ch19-ekf-failure}).\index{extended Kalman filter!equations}
 
 \begin{algorithm}[htb]
 \caption{One step of the extended Kalman filter}
@@ -358,19 +339,15 @@ wrong gain (\cref{sec:ch19-ekf-failure}).
 }
 \end{algorithm}
 
-\paragraph{Walkthrough.}
-Line~\ref{alg:ch19-ekf:predict} is the predict step, with $\mat{F}_k$ at the
-\emph{previous} estimate, the point around which $f$ is linearised.
-Line~\ref{alg:ch19-ekf:missing} handles a step without measurement, for
-instance while the sensor loses the intruder behind an obstacle: the
-prediction becomes the estimate, as in \cref{ch:ch18}. The update linearises
-$h$ at the \emph{predicted} estimate (line~\ref{alg:ch19-ekf:H}); the
-innovation on line~\ref{alg:ch19-ekf:innovation} has its bearing component
-wrapped, without which an intruder near the $\pm\pi$ seam produces an
-innovation of almost $2\pi$ (\cref{sec:ch19-ekf-example}).
-Lines~\ref{alg:ch19-ekf:gain}--\ref{alg:ch19-ekf:update} are the Kalman gain
-and the corrected mean, and line~\ref{alg:ch19-ekf:joseph} the Joseph form of
-the covariance update, algebraically equal to $(\mat{I} -
+Line~\ref{alg:ch19-ekf:predict} of \cref{alg:ch19-ekf} is the predict step,
+with $\mat{F}_k$ at the \emph{previous} estimate; line~\ref{alg:ch19-ekf:missing}
+handles a step without measurement, as when an obstacle hides the intruder,
+by taking the prediction as the estimate. The update linearises $h$ at the
+\emph{predicted} estimate (line~\ref{alg:ch19-ekf:H}); the innovation on
+line~\ref{alg:ch19-ekf:innovation} has its bearing wrapped, without which an
+intruder near the $\pm\pi$ seam produces an innovation of almost $2\pi$
+(\cref{sec:ch19-ekf-example}). Line~\ref{alg:ch19-ekf:joseph} uses the
+Joseph form of the covariance update, algebraically equal to $(\mat{I} -
 \Kgain_k\mat{H}_k)\mat{P}_k^-$ but symmetric and positive definite under
 rounding.
 
@@ -408,14 +385,14 @@ $\omega$. In the first row, $v$ enters linearly with the factor
 $(\sin\psi' - \sin\psi)/\omega$; differentiating $\frac{v}{\omega}(\sin\psi'
 - \sin\psi)$ with respect to $\psi$ uses $\partial\psi'/\partial\psi = 1$,
 and with respect to $\omega$ the quotient rule on $1/\omega$ together with
-$\partial\psi'/\partial\omega = \dt$. The second row is the same computation
+$\partial\psi'/\partial\omega = \dt$; the second row is the same computation
 for $-\frac{v}{\omega}(\cos\psi' - \cos\psi)$. The $\omega = 0$ entries are
-the limits: expanding $\sin\psi' = \sin\psi + \omega\dt\cos\psi -
+the limits: $\sin\psi' = \sin\psi + \omega\dt\cos\psi -
 \tfrac12\omega^2\dt^2\sin\psi + \bigO{\omega^3}$ gives $x' = x + v\dt\cos\psi
 - \tfrac12 v\omega\dt^2\sin\psi + \bigO{\omega^2}$, whose $\omega$-derivative
 at $0$ is $-\tfrac12 v\dt^2\sin\psi$; \cref{exr:ch19-ct-jacobian} completes
-the remaining limits, and the self-test of the chapter code checks every
-entry against finite differences.
+the limits, and the self-test of the chapter code checks every entry against
+finite differences.
 \end{proof}
 
 \begin{proposition}[Jacobian of the range--bearing model]
@@ -432,7 +409,7 @@ With $d_x = x - s_x$, $d_y = y - s_y$ and $r = \sqrt{d_x^2 + d_y^2} > 0$,
 \index{Jacobian!range--bearing}
 \end{proposition}
 \begin{proof}
-The chain rule on the square root gives the first row. For the bearing,
+The chain rule on the square root gives the first row; for the bearing,
 $\varphi = \operatorname{atan2}(d_y, d_x)$ has $\partial\varphi/\partial x =
 -d_y/(d_x^2 + d_y^2)$ and $\partial\varphi/\partial y = d_x/(d_x^2 + d_y^2)$
 wherever $r > 0$, on every branch of the arctangent. The last three columns
@@ -440,10 +417,10 @@ vanish because $h$ ignores $v$, $\psi$, $\omega$.
 \end{proof}
 
 The first row of $\mat{H}$ is the unit vector from the sensor to the
-intruder: a range measurement constrains the position along the line of
-sight. The second row is the perpendicular unit vector divided by $r$: a
-bearing constrains the position across the line of sight, and the further
-the intruder, the less a radian of bearing is worth.
+intruder: a range constrains the position along the line of sight. The
+second row is the perpendicular unit vector divided by $r$: a bearing
+constrains the position across the line of sight, and the further the
+intruder, the less a radian of bearing is worth.
 
 \subsection{A worked example: one EKF step by hand}
 \label{sec:ch19-ekf-example}
@@ -497,10 +474,9 @@ intruder is expected just south of the negative $x$ axis, so its bearing is
 just above $-\pi$, while the measured bearing $3.12$ is just below $+\pi$.
 Subtracting naively gives $6.2117$, an innovation of $356^\circ$ that would
 send the estimate to the other side of the sensor; wrapping gives
-$\operatorname{wrap}(6.2117) = -0.0715\,\mathrm{rad}$, and $\vect{y}_k =
-(1.51,\ -0.0715)$: $1.5\,\mathrm{m}$ further away and $4.1^\circ$ clockwise
-of the prediction. The Jacobian \cref{eq:ch19-rb-jacobian} at the predicted
-position is
+$-0.0715\,\mathrm{rad}$, and $\vect{y}_k = (1.51,\ -0.0715)$: $1.5\,\mathrm{m}$
+further away and $4.1^\circ$ clockwise of the prediction. The Jacobian
+\cref{eq:ch19-rb-jacobian} at the predicted position is
 \[
   \mat{H}_k = \begin{pmatrix} -0.9988 & -0.0499 & 0 & 0 & 0\\
   0.00045 & -0.00908 & 0 & 0 & 0\end{pmatrix},
@@ -590,24 +566,22 @@ samples.
 \end{figure}
 
 \paragraph{A poor initial estimate.}
-The Jacobians are evaluated at the estimate. If the estimate is far from the
-truth, $\mat{F}_k$ and $\mat{H}_k$ describe the wrong tangent, the gain is
-computed for a fictitious geometry, and an update can push the estimate
-further away while the covariance, which knows nothing about the error, keeps
-shrinking: the filter has \textbf{diverged}\index{divergence (EKF)}. Whether
-this happens depends on how strongly the measurements constrain the state. A
-range--bearing sensor measures the position directly, so a position error is
-corrected in one step and a heading error through the correlations that the
-process noise builds up over a few steps; in the experiment of
+If the estimate is far from the truth, $\mat{F}_k$ and $\mat{H}_k$ describe
+the wrong tangent, the gain is computed for a fictitious geometry, and an
+update can push the estimate further away while the covariance, which knows
+nothing about the error, keeps shrinking: the filter has
+\textbf{diverged}\index{divergence (EKF)}. Whether this happens depends on
+how strongly the measurements constrain the state. A range--bearing sensor
+measures the position directly, and in the experiment of
 \cref{sec:ch19-ukf-compare} the EKF recovers from a $90^\circ$ heading error
-and an overconfident covariance in every run. Divergence is the real danger
-with weak or bearing-only measurements, long gaps, and an initial covariance
-small enough to make the filter ignore its innovations. The cures are an
-honest $\mat{P}_0$, a filter whose approximation does not depend on a
+and an overconfident covariance in every run; divergence is the real danger
+with weak or bearing-only measurements, long gaps, and an initial
+covariance small enough to make the filter ignore its innovations. The cures
+are an honest $\mat{P}_0$, a filter whose approximation does not depend on a
 tangent, and, when the measurements cannot resolve the ambiguity, a particle
-filter that keeps several hypotheses alive. The same experiment shows the
-other side of the coin: a particle filter started with an overconfident
-cloud that contains no particle near the truth fares worse than the EKF.
+filter that keeps several hypotheses alive; the same experiment shows that a
+particle filter started with an overconfident cloud that contains no
+particle near the truth fares worse than the EKF.
 
 % ---------------------------------------------------------------------
 \section{The unscented Kalman filter}
@@ -641,9 +615,10 @@ $\mat{L}\mat{L}\T = (n + \lambda)\mat{P}$, with columns $\vect{l}_1, \dots,
     \mathcal{X}_0 &= \bar{\state}, &
     W_0^{(m)} &= \frac{\lambda}{n + \lambda}, &
     W_0^{(c)} &= \frac{\lambda}{n + \lambda} + 1 - \alpha^2 + \beta,\\
-    \mathcal{X}_i &= \bar{\state} + \vect{l}_i, \quad
-    \mathcal{X}_{n+i} = \bar{\state} - \vect{l}_i, &
-    W_i^{(m)} &= W_i^{(c)} = W_{n+i}^{(m)} = W_{n+i}^{(c)} = \frac{1}{2(n + \lambda)}, & & i = 1, \dots, n.
+    \mathcal{X}_i &= \bar{\state} + \vect{l}_i, &
+    W_i^{(m)} &= W_i^{(c)} = \frac{1}{2(n + \lambda)}, & & i = 1, \dots, n,\\
+    \mathcal{X}_{n+i} &= \bar{\state} - \vect{l}_i, &
+    W_{n+i}^{(m)} &= W_{n+i}^{(c)} = \frac{1}{2(n + \lambda)}, & & i = 1, \dots, n.
   \end{aligned}
   \label{eq:ch19-sigma-points}
 \end{equation}
@@ -669,31 +644,27 @@ points are exactly $\bar{\state}$ and $\mat{P}$, and that the transform is
 exact for affine $g$; \cref{thm:ch19-ut-second-order} that its mean is
 correct to second order for any smooth $g$. The parameters control what
 happens beyond that: $\alpha$ scales the spread, from $\sqrt{n+\kappa}$
-standard deviations at $\alpha = 1$ to a central-difference-like cluster at
-$\alpha = 10^{-3}$, the usual range being $10^{-3} \le \alpha \le 1$;
-$\beta$ enters only $W_0^{(c)}$ and encodes the fourth moment of the
-distribution, $\beta = 2$ being optimal for a Gaussian
+standard deviations at $\alpha = 1$ down to a central-difference-like
+cluster at $\alpha = 10^{-3}$; $\beta$ enters only $W_0^{(c)}$ and encodes
+the fourth moment, $\beta = 2$ being optimal for a Gaussian
 \cite{wan2000unscented}; $\kappa$ is a secondary spread parameter, $\kappa =
 0$ or $\kappa = 3 - n$, the latter Julier and Uhlmann's original choice,
-which matches the Gaussian's fourth moment for $n \le 3$ but makes $\lambda$
-and $W_0^{(m)}$ negative for larger $n$. The chapter code uses $\alpha = 1$,
-$\beta = 2$, $\kappa = 0$ for the five-dimensional tracker, so $\lambda = 0$,
-the points are at $\sqrt{5} \approx 2.24$ standard deviations,
-$W_0^{(m)} = 0$, $W_0^{(c)} = 2$ and all other weights are $0.1$; for the
-two-dimensional example of \cref{fig:ch19-linearisation} it uses
-$\kappa = 3 - n = 1$, so $\lambda = 1$, points at $\sqrt{3}$ standard
-deviations, $W_0^{(m)} = 1/3$, $W_0^{(c)} = 7/3$, $W_i = 1/6$.
-\index{unscented transform!parameters}
-
-\paragraph{The matrix square root.}
-Any $\mat{L}$ with $\mat{L}\mat{L}\T = (n + \lambda)\mat{P}$ works; the standard
-choice is the \textbf{Cholesky factor}\index{Cholesky factorisation}, the
-lower-triangular $\mat{L}$ with positive diagonal that
-\code{numpy.linalg.cholesky} computes in $\bigO{n^3}$. For a diagonal
+which matches the Gaussian's fourth moment for $n \le 3$ but makes
+$\lambda$ and $W_0^{(m)}$ negative for larger $n$. The chapter code uses
+$\alpha = 1$, $\beta = 2$, $\kappa = 0$ for the five-dimensional tracker, so
+$\lambda = 0$, the points are at $\sqrt{5} \approx 2.24$ standard
+deviations, $W_0^{(m)} = 0$, $W_0^{(c)} = 2$ and all other weights are
+$0.1$; for the two-dimensional example of \cref{fig:ch19-linearisation} it
+uses $\kappa = 3 - n = 1$, so $\lambda = 1$, points at $\sqrt{3}$ standard
+deviations, $W_0^{(m)} = 1/3$, $W_0^{(c)} = 7/3$, $W_i = 1/6$. The standard
+square root is the \textbf{Cholesky factor}\index{Cholesky factorisation},
+the lower-triangular $\mat{L}$ with positive diagonal that
+\code{numpy.linalg.cholesky} computes in $\bigO{n^3}$; for a diagonal
 $\mat{P}$ it is the diagonal matrix of standard deviations scaled by
 $\sqrt{n + \lambda}$, which makes the worked example easy to check by hand.
 The factorisation needs a symmetric positive definite $\mat{P}$;
 \cref{sec:ch19-implementation} says what to do when rounding breaks that.
+\index{unscented transform!parameters}
 
 \begin{algorithm}[htb]
 \caption{Sigma points and the unscented transform}
@@ -715,19 +686,16 @@ The factorisation needs a symmetric positive definite $\mat{P}$;
 }
 \end{algorithm}
 
-\paragraph{Walkthrough.}
-Line~\ref{alg:ch19-ut:chol} is the only expensive step and the reason the
-UKF costs about as much as the EKF. Lines~\ref{alg:ch19-ut:points}
-and~\ref{alg:ch19-ut:weights} build the symmetric point set and the two
-weight vectors; only the mean weights sum to one. The mean on
+In \cref{alg:ch19-ut}, line~\ref{alg:ch19-ut:chol} is the only expensive
+step and the reason the UKF costs about as much as the EKF. The mean on
 line~\ref{alg:ch19-ut:mean} needs care for angles: the plain weighted mean
-of the bearings $3.1$ and $-3.1$ is $0$, the opposite direction. Wrapped
+of the bearings $3.1$ and $-3.1$ is $0$, the opposite direction; wrapped
 residuals relative to the central image $\mathcal{Y}_0$, averaged and added
 back, give the right answer as long as the images spread over less than half
-a turn; line~\ref{alg:ch19-ut:residuals} wraps the residuals for the same
-reason. The cross-covariance $\mat{P}_{xy}$ of line~\ref{alg:ch19-ut:cov} is
-what makes the UKF possible: it plays the role of $\mat{P}\mat{H}\T$ without an
-$\mat{H}$.
+a turn, and line~\ref{alg:ch19-ut:residuals} wraps the residuals for the
+same reason. The cross-covariance $\mat{P}_{xy}$ of line~\ref{alg:ch19-ut:cov}
+is what makes the UKF possible: it plays the role of $\mat{P}\mat{H}\T$
+without an $\mat{H}$.
 
 \subsection{The filter}
 \label{sec:ch19-ukf-step}
@@ -750,22 +718,19 @@ $\mat{H}$.
 \end{algorithm}
 
 \Cref{alg:ch19-ukf} is the EKF with both linearisations replaced by
-unscented transforms \cite{wan2000unscented}. Line~\ref{alg:ch19-ukf:sp1}
-draws sigma points around the previous estimate and
-line~\ref{alg:ch19-ukf:predict} pushes them through the motion model; the
-process noise is additive, so $\mat{Q}_k$ is simply added.
-Line~\ref{alg:ch19-ukf:sp2} draws a fresh set around the prediction: reusing
-the propagated points saves a factorisation but they no longer represent
-$\mat{P}_k^-$ once $\mat{Q}_k$ has been added. Line~\ref{alg:ch19-ukf:measure}
-maps the new points through $h$ and returns the predicted measurement, the
-innovation covariance and the cross-covariance $\mat{C}_k$; the gain
-$\mat{C}_k\mat{S}_k\inv$ on line~\ref{alg:ch19-ukf:gain} equals
-\cref{eq:ch19-ekf-update} when $\mat{C}_k = \mat{P}_k^-\mat{H}_k\T$, and the
-covariance update $\mat{P}_k^- - \Kgain_k\mat{S}_k\Kgain_k\T$ equals
-$(\mat{I} - \Kgain_k\mat{H}_k)\mat{P}_k^-$ in the linear case and needs no
-$\mat{H}_k$. Every evaluation of $f$ and $h$ is of the true function; the only
-approximation is the Gaussian fitted to $2n+1$ images.
-\index{unscented Kalman filter!equations}
+unscented transforms \cite{wan2000unscented}. Line~\ref{alg:ch19-ukf:predict}
+pushes the sigma points through the motion model and adds the additive
+$\mat{Q}_k$; line~\ref{alg:ch19-ukf:sp2} draws a fresh set around the
+prediction, because the propagated points no longer represent $\mat{P}_k^-$
+once $\mat{Q}_k$ has been added. Line~\ref{alg:ch19-ukf:measure} maps the new
+points through $h$ and returns the predicted measurement, the innovation
+covariance and the cross-covariance $\mat{C}_k$; the gain
+$\mat{C}_k\mat{S}_k\inv$ equals \cref{eq:ch19-ekf-update} when $\mat{C}_k =
+\mat{P}_k^-\mat{H}_k\T$, and the covariance update $\mat{P}_k^- -
+\Kgain_k\mat{S}_k\Kgain_k\T$ equals $(\mat{I} - \Kgain_k\mat{H}_k)\mat{P}_k^-$ in
+the linear case and needs no $\mat{H}_k$. Every evaluation of $f$ and $h$ is
+of the true function; the only approximation is the Gaussian fitted to
+$2n+1$ images.\index{unscented Kalman filter!equations}
 
 \subsection{The worked example, continued}
 \label{sec:ch19-ukf-example}
@@ -815,14 +780,14 @@ EKF's $-109.851$ by $0.21\,\mathrm{m}$: the two heading points
 $\mathcal{X}_4$ and $\mathcal{X}_9$ both end up \emph{east} of the mean's
 image, because a heading error in either direction shortens the westward
 progress, and the UT averages this second-order effect in while the tangent
-cannot see it. (The exact mean of $-\cos\psi$ under $\psi \sim \Normal(\pi,
+cannot see it (the exact mean of $-\cos\psi$ under $\psi \sim \Normal(\pi,
 0.2^2)$ is $e^{-0.02} = 0.980$ times the linearised value, a shift of
-$0.2\,\mathrm{m}$ over $10\,\mathrm{m}$ of travel.) The update proceeds with
+$0.2\,\mathrm{m}$ over $10\,\mathrm{m}$ of travel). After the update, with
 sigma points redrawn around the prediction and mapped through the
-range--bearing model, and the two filters' updated estimates agree to
-$0.11\,\mathrm{m}$ in $x$, $0.04\,\mathrm{m}$ in $y$, $0.02\,\mathrm{m/s}$ in
-speed and $0.003\,\mathrm{rad}$ in heading. For a mild nonlinearity the two
-are interchangeable; the next experiment shows when they are not.
+range--bearing model, the two filters agree to $0.11\,\mathrm{m}$ in $x$,
+$0.04\,\mathrm{m}$ in $y$, $0.02\,\mathrm{m/s}$ in speed and
+$0.003\,\mathrm{rad}$ in heading. For a mild nonlinearity the two are
+interchangeable; the next experiment shows when they are not.
 
 \subsection{EKF versus UKF on a turning target}
 \label{sec:ch19-ukf-compare}
@@ -860,32 +825,29 @@ period of $5\,\mathrm{s}$.
 \Cref{tab:ch19-rmse} reports the root-mean-square position error (RMSE)
 over $100$ Monte Carlo runs in four scenarios. In the baseline all three
 filters beat the raw measurements by about a quarter ($2.7$--$2.8$ against
-$3.8\,\mathrm{m}$), and the EKF and the UKF are indistinguishable: with
-$2^\circ$ of bearing noise at $45$ to $160\,\mathrm{m}$ the models are nearly
-linear across the belief. The particle filter's mean of $4.0\,\mathrm{m}$
-hides a median of $2.8\,\mathrm{m}$: one run lost the track, and a lost
-particle filter does not come back, because no particle is left near the
-truth. With $8^\circ$ of bearing noise the EKF's error rises to
-$6.9\,\mathrm{m}$, $11\,\%$ above the UKF's $6.2\,\mathrm{m}$, and the
-particle filter ($7.6\,\mathrm{m}$ mean, $6.0\,\mathrm{m}$ median) also beats
-the EKF in the typical run: the linearisation error of
-\cref{fig:ch19-linearisation} at work, since the wider the bearing belief,
-the worse the tangent represents the arc. The close pass makes the same point
-with a precise sensor: when the intruder passes $10\,\mathrm{m}$ from the
-sensor, the bearing changes by tens of degrees per step, the tangent taken at
-the prediction no longer describes the geometry at the true position, and
-the EKF's error grows to $3.1\,\mathrm{m}$ while UKF and particle filter stay
-at $2.7\,\mathrm{m}$. The poor initialisation surprises anyone who expects
-the EKF to be the fragile one: with a heading $90^\circ$ wrong and a
-covariance claiming $\pm 0.3\,\mathrm{rad}$, EKF and UKF both recover within
-a few steps ($3.1$ against $2.9\,\mathrm{m}$), because the measurements pin
-the position down at every step and the process noise re-inflates the
-covariance until the gain takes the correction. The particle filter suffers
-more: its initial cloud contains no particle with the right heading, the
-likelihood favours the least wrong ones, and recovery depends on the process
-noise carrying some of them to the truth before the cloud collapses; mean
-$5.7\,\mathrm{m}$, median $3.1\,\mathrm{m}$, one run lost. A particle filter
-is only as good as its samples.
+$3.8\,\mathrm{m}$), and EKF and UKF are indistinguishable: with $2^\circ$ of
+bearing noise at $45$ to $160\,\mathrm{m}$ the models are nearly linear
+across the belief. The particle filter's mean of $4.0\,\mathrm{m}$ hides a
+median of $2.8\,\mathrm{m}$: one run lost the track, and a lost particle
+filter does not come back, because no particle is left near the truth. With
+$8^\circ$ of bearing noise the EKF's error rises to $6.9\,\mathrm{m}$,
+$11\,\%$ above the UKF's $6.2\,\mathrm{m}$, and the particle filter
+($7.6\,\mathrm{m}$ mean, $6.0\,\mathrm{m}$ median) also beats the EKF in the
+typical run: the linearisation error of \cref{fig:ch19-linearisation} at
+work. The close pass makes the same point with a precise sensor: at
+$10\,\mathrm{m}$ range the bearing changes by tens of degrees per step, the
+tangent taken at the prediction no longer describes the geometry at the true
+position, and the EKF's error grows to $3.1\,\mathrm{m}$ while UKF and
+particle filter stay at $2.7\,\mathrm{m}$. The poor initialisation surprises
+anyone who expects the EKF to be the fragile one: with a heading $90^\circ$
+wrong and a covariance claiming $\pm 0.3\,\mathrm{rad}$, EKF and UKF recover
+within a few steps ($3.1$ against $2.9\,\mathrm{m}$), because the
+measurements pin the position down and the process noise re-inflates the
+covariance until the gain takes the correction, whereas the particle
+filter's initial cloud contains no particle with the right heading and
+recovery depends on the process noise carrying some of them to the truth
+before the cloud collapses (mean $5.7\,\mathrm{m}$, median $3.1\,\mathrm{m}$,
+one run lost). A particle filter is only as good as its samples.
 
 \begin{table}[tb]
   \centering\small
@@ -898,14 +860,14 @@ is only as good as its samples.
   every filter with a heading error of $90^\circ$ and an initial heading
   standard deviation of $0.3\,\mathrm{rad}$.}
   \label{tab:ch19-rmse}
-  \begin{tabular}{@{}lrrrrrrr@{}}
+  \begin{tabular}{@{}lrrrrc@{}}
   \toprule
-  Scenario & Measurement & EKF & UKF & PF & \multicolumn{3}{c}{Lost (EKF / UKF / PF)}\\
+  Scenario & Measurement & EKF & UKF & PF & Lost (EKF / UKF / PF)\\
   \midrule
-  baseline, $\sigma_\varphi = 2^\circ$, minimum range $45\,\mathrm{m}$ & 3.78 & 2.74 & 2.76 & 4.04 & 0 & 0 & 1\\
-  wide bearing noise, $\sigma_\varphi = 8^\circ$ & 10.11 & 6.88 & 6.21 & 7.62 & 0 & 0 & 0\\
-  close pass, $\sigma_\varphi = 2^\circ$, minimum range $10\,\mathrm{m}$ & 3.92 & 3.09 & 2.71 & 2.68 & 0 & 0 & 0\\
-  poor initialisation, $90^\circ$ heading error & 3.89 & 3.10 & 2.90 & 5.74 & 0 & 0 & 1\\
+  baseline ($\sigma_\varphi = 2^\circ$, minimum range $45\,\mathrm{m}$) & 3.78 & 2.74 & 2.76 & 4.04 & 0 / 0 / 1\\
+  wide bearing noise ($\sigma_\varphi = 8^\circ$) & 10.11 & 6.88 & 6.21 & 7.62 & 0 / 0 / 0\\
+  close pass ($\sigma_\varphi = 2^\circ$, minimum range $10\,\mathrm{m}$) & 3.92 & 3.09 & 2.71 & 2.68 & 0 / 0 / 0\\
+  poor initialisation ($90^\circ$ heading error) & 3.89 & 3.10 & 2.90 & 5.74 & 0 / 0 / 1\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -935,14 +897,14 @@ $\phi(\state) = \state$ and $\phi(\state) = (\state - \hat{\state})(\state -
 
 The representation makes no assumption about the shape of $p$: a set with
 half of its weight around one state and half around another is a belief with
-two modes. Where do particles and weights come from? The idea is
-\textbf{importance sampling}\index{importance sampling}: we cannot draw from
-the posterior, but we can draw from the motion model, so we draw each new
-particle from $p(\state_k \mid \state_{k-1}^{(i)})$ and correct for the
-difference between where we sampled and where we wanted to sample by a
-weight, the ratio of target to proposal density. For the recursion
-\cref{eq:ch19-bayes} with the motion model as proposal everything cancels
-except the likelihood \cite{arulampalam2002tutorial}:
+two modes. Particles and weights come from \textbf{importance sampling}
+\index{importance sampling}: we cannot draw from the posterior, but we can
+draw from the motion model, so we draw each new particle from $p(\state_k
+\mid \state_{k-1}^{(i)})$ and correct for the difference between where we
+sampled and where we wanted to sample by a weight, the ratio of target to
+proposal density. For the recursion \cref{eq:ch19-bayes} with the motion
+model as proposal everything cancels except the likelihood
+\cite{arulampalam2002tutorial}:
 \begin{equation}
   \state_k^{(i)} \sim p(\state_k \mid \state_{k-1}^{(i)}), \qquad
   w_k^{(i)} \propto w_{k-1}^{(i)}\, p(\meas_k \mid \state_k^{(i)}).
@@ -950,9 +912,9 @@ except the likelihood \cite{arulampalam2002tutorial}:
 \end{equation}
 This choice is the \textbf{bootstrap filter}\index{bootstrap filter} of
 Gordon, Salmond and Smith~\cite{gordon1993novel}, also called sequential
-importance resampling (SIR)\index{sequential importance resampling}. It needs
-only the ability to sample the motion model and to evaluate the likelihood.
-For the range--bearing sensor,
+importance resampling (SIR)\index{sequential importance resampling}; it
+needs only the ability to sample the motion model and to evaluate the
+likelihood. For the range--bearing sensor,
 \begin{equation}
   \log p(\meas_k \mid \state^{(i)}) = -\frac12\,\vect{y}^{(i)\mathsf{T}}\mat{R}\inv\vect{y}^{(i)} + \text{const},
   \qquad \vect{y}^{(i)} = \meas_k \ominus h(\state^{(i)}),
@@ -965,12 +927,12 @@ that is $0$ inside and $1$ outside, which \cref{sec:ch19-pf-example} uses.
 \subsection{Degeneracy, the effective sample size and resampling}
 \label{sec:ch19-resampling}
 
-Applied naively, \cref{eq:ch19-sis} fails within a few steps. Every particle
+Applied naively, \cref{eq:ch19-sis} fails within a few steps: every particle
 is a random guess of the whole trajectory, most guesses drift away from the
 truth, and after normalisation a single particle carries almost all the
-weight: \textbf{weight degeneracy}\index{degeneracy (particle filter)}, which
-is unavoidable because the variance of the weights can only grow over time
-\cite{doucet2001sequential}. The standard diagnostic is the following.
+weight. This \textbf{weight degeneracy}\index{degeneracy (particle filter)}
+is unavoidable, because the variance of the weights can only grow over time
+\cite{doucet2001sequential}; the standard diagnostic is the following.
 
 \begin{definition}[Effective sample size]
 \label{def:ch19-ess}
@@ -983,30 +945,27 @@ normalised weight vector is
 \end{definition}
 
 $N_{\mathrm{eff}}$ lies between $1$ (one particle has all the weight) and $N$
-(all weights equal), see \cref{thm:ch19-ess}, and it is roughly the number of
+(all weights equal), see \cref{thm:ch19-ess}, and is roughly the number of
 equally weighted particles that would give an estimate of the same variance.
 The cure for degeneracy is \textbf{resampling}\index{resampling}: draw $N$
 particles from the current set with probabilities equal to the weights, so
 that heavy particles are copied and light ones disappear, and reset all
-weights to $1/N$. Resampling is applied when $N_{\mathrm{eff}}$ falls below a
+weights to $1/N$. It is applied when $N_{\mathrm{eff}}$ falls below a
 threshold $N_{\mathrm{thr}}$, typically $N/2$; the original bootstrap filter
-resampled at every step, which is simpler but wasteful. Copies of one
-particle are identical until the process noise separates them, and when the
-noise is small or measurements are missing for a while the set collapses
-onto a few distinct states: \textbf{sample impoverishment}
-\index{sample impoverishment}. Resampling only when needed limits it;
-\cref{sec:ch19-variants} lists stronger remedies.
-
-How the draws are made matters. Independent draws (multinomial resampling)
-add unnecessary randomness. \textbf{Systematic resampling}
-\index{resampling!systematic} \cite{kitagawa1996monte,arulampalam2002tutorial}
-draws a single uniform $u \in [0, 1/N)$, places the points $u, u + 1/N,
-\dots, u + (N-1)/N$ on the unit interval, and selects particle $i$ once for
-every point in its slot $(c_{i-1}, c_i]$ of the cumulative weights
-(\cref{alg:ch19-resample}). Each particle is copied $\lfloor N w^{(i)}
-\rfloor$ or $\lceil N w^{(i)} \rceil$ times with expectation $N w^{(i)}$
-(\cref{thm:ch19-systematic}), in a single $\bigO{N}$ pass: the grid points
-come in increasing order, so the pointer $i$ on
+resampled at every step, which is simpler but wasteful, because copies of
+one particle are identical until the process noise separates them, and when
+the noise is small or measurements are missing for a while the set collapses
+onto a few distinct states, the \textbf{sample impoverishment}
+\index{sample impoverishment} that \cref{sec:ch19-variants} lists remedies
+for. \textbf{Systematic resampling}\index{resampling!systematic}
+\cite{kitagawa1996monte,arulampalam2002tutorial} draws a single uniform
+$u \in [0, 1/N)$, places the points $u, u + 1/N, \dots, u + (N-1)/N$ on the
+unit interval, and selects particle $i$ once for every point in its slot
+$(c_{i-1}, c_i]$ of the cumulative weights (\cref{alg:ch19-resample}). Each
+particle is copied $\lfloor N w^{(i)} \rfloor$ or $\lceil N w^{(i)} \rceil$
+times with expectation $N w^{(i)}$ (\cref{thm:ch19-systematic}), with less
+randomness than independent draws, in a single $\bigO{N}$ pass: the grid
+points come in increasing order, so the pointer $i$ on
 line~\ref{alg:ch19-resample:advance} only moves forward. Clamp the last
 cumulative sum to $1$ so that rounding cannot run the loop past the end.
 
@@ -1051,21 +1010,20 @@ cumulative sum to $1$ so that rounding cannot run the loop past the end.
 }
 \end{algorithm}
 
-\paragraph{Walkthrough.}
-Line~\ref{alg:ch19-pf:propagate} is the predict step: every particle follows
-the true motion model with its own noise, so the cloud spreads exactly as the
-model says, curvature and all. Line~\ref{alg:ch19-pf:weight} is the update; a
-missing measurement skips it and the cloud keeps spreading.
-Line~\ref{alg:ch19-pf:normalise} normalises in the log domain, subtracting
-the largest log-weight first so that the exponentials cannot underflow: with
-a sharp likelihood, raw values of $10^{-300}$ are routine.
-Line~\ref{alg:ch19-pf:estimate} extracts a point estimate and covariance for
-consumers that need one, the heading averaged as an angle through the
-weighted mean of $(\cos\psi, \sin\psi)$; when the cloud is bimodal the mean
-lies between the modes and is not a plausible state, and \cref{sec:ch19-drone}
-argues that the planner should then receive the cloud.
-Line~\ref{alg:ch19-pf:resample} resamples only when the effective sample size
-has dropped below the threshold.
+In \cref{alg:ch19-pf}, line~\ref{alg:ch19-pf:propagate} is the predict step:
+every particle follows the true motion model with its own noise, so the
+cloud spreads exactly as the model says, curvature and all.
+Line~\ref{alg:ch19-pf:weight} is the update; a missing measurement skips it
+and the cloud keeps spreading. Line~\ref{alg:ch19-pf:normalise} normalises
+in the log domain, subtracting the largest log-weight first so that the
+exponentials cannot underflow (with a sharp likelihood, raw values of
+$10^{-300}$ are routine). Line~\ref{alg:ch19-pf:estimate} extracts a point
+estimate and covariance for consumers that need one, the heading averaged
+as an angle through the weighted mean of $(\cos\psi, \sin\psi)$; when the
+cloud is bimodal the mean lies between the modes and is not a plausible
+state, and \cref{sec:ch19-drone} argues that the planner should then
+receive the cloud. Line~\ref{alg:ch19-pf:resample} resamples only when the
+effective sample size has dropped below the threshold.
 \index{particle filter!bootstrap}\index{log-sum-exp}
 
 \subsection{A worked example: an intruder behind a building}
@@ -1109,9 +1067,8 @@ At $k = 7$ ($t = 3.5\,\mathrm{s}$) the sensor delivers its last measurement
 before the canyon; the cloud (blue) is a tight blob around the true position
 $(0, 33)$, the measurement leaves $N_{\mathrm{eff}} = 514$, and the filter
 resamples. From $k = 8$ on only line~\ref{alg:ch19-pf:propagate} of
-\cref{alg:ch19-pf} runs: every particle follows its own acceleration and
-turn-rate noise, and the cloud fans out northwards. Between $k = 10$ and
-$k = 12$ the leading particles reach the south face of the building at
+\cref{alg:ch19-pf} runs, and the cloud fans out northwards. Between $k = 10$
+and $k = 12$ the leading particles reach the south face of the building at
 $y = 50$; those inside receive weight zero, $N_{\mathrm{eff}}$ falls from
 $1\,911$ to $861$, and the filter resamples, copying the survivors on both
 sides. At $k = 15$ ($t = 7.5\,\mathrm{s}$, orange) the belief has two lobes,
@@ -1131,7 +1088,7 @@ is gone. The collapse is sample impoverishment in action: the $2\,000$
 particles are now copies of a few dozen ancestors, and the process noise
 needs several steps to spread them again ($N_{\mathrm{eff}} = 432$ at $k =
 21$, above $1\,000$ at $k = 22$). Over the run the filter resamples $13$
-times in $29$ steps. \Cref{exr:ch19-occlusion} explores roughening, other
+times in $29$ steps; \cref{exr:ch19-occlusion} explores roughening, other
 resampling rules and a right turn.
 
 % ---------------------------------------------------------------------
@@ -1161,10 +1118,10 @@ For nonlinear models the EKF has no such guarantee: its predicted mean
 $f(\hat{\state}_{k-1})$ differs from the true mean of $f(\state_{k-1})$ by
 the second-order term $\tfrac12\sum_{jk} P_{jk}\,\partial^2 f/\partial
 x_j\partial x_k$ and higher, its covariance ignores the same terms, and it
-may diverge from a poor start. Convergence results exist under bounds on
-the nonlinearity and the initial error \cite{sarkka2013bayesian}; in
-practice the covariance is validated by looking at the innovations, as in
-\cref{ch:ch18}.
+may diverge from a poor start; convergence results under bounds on the
+nonlinearity and the initial error are given by
+\textcite{sarkka2013bayesian}, and in practice the covariance is validated
+by looking at the innovations, as in \cref{ch:ch18}.
 
 \begin{proposition}[Properties of the sigma points]
 \label{thm:ch19-ut}
@@ -1279,11 +1236,11 @@ conditions under which $c_k$ stays bounded in $k$; see also
 
 The particle filter is therefore consistent: with enough particles it
 computes the Bayes filter for any model, Gaussian or not, unimodal or not.
-The catch is ``enough'': the constant $c_k$ and the particle count needed for
-a given accuracy grow exponentially with the state dimension, because the
-likelihood concentrates in a region whose volume fraction shrinks with every
-dimension. Five or six dimensions are comfortable with a few thousand
-particles; a dozen are not.
+The catch is ``enough'': the particle count needed for a given accuracy
+grows exponentially with the state dimension, because the likelihood
+concentrates in a region whose volume fraction shrinks with every dimension.
+Five or six dimensions are comfortable with a few thousand particles; a
+dozen are not.
 
 \paragraph{Costs and a decision guide.}
 \label{sec:ch19-decision}
@@ -1302,13 +1259,13 @@ ask whether anything is nonlinear at all: a constant-velocity intruder seen
 with Cartesian positions is the Kalman filter's home ground. Then ask how
 strongly the models bend across the belief: a turning intruder seen with
 positions, or a range--bearing sensor at long range with a few degrees of
-noise, is mild, the EKF and the UKF give the same answer and the EKF is
-cheaper to run, though the UKF is cheaper to \emph{write}; bearing-only or
-short-range sensing, large bearing noise and abrupt manoeuvres favour the
-UKF. Finally ask whether the belief can have more than one mode: occlusions,
-junctions, maps and discrete manoeuvre choices call for the particle filter,
-or for an interacting multiple-model filter (\cref{sec:ch19-variants}) when
-the hypotheses are few and Gaussian.
+noise, is mild, EKF and UKF give the same answer and the EKF is cheaper to
+run, though the UKF is cheaper to \emph{write}; bearing-only or short-range
+sensing, large bearing noise and abrupt manoeuvres favour the UKF. Finally
+ask whether the belief can have more than one mode: occlusions, junctions,
+maps and discrete manoeuvre choices call for the particle filter, or for an
+interacting multiple-model filter (\cref{sec:ch19-variants}) when the
+hypotheses are few and Gaussian.
 \index{particle filter!when to use}\index{extended Kalman filter!when to use}\index{unscented Kalman filter!when to use}
 
 \begin{table}[tb]
@@ -1355,39 +1312,33 @@ the hypotheses are few and Gaussian.
 
 % ---------------------------------------------------------------------
 \section{Variants and extensions}
-\label{sec:ch19-variants}
-
 The \textbf{iterated EKF}\index{iterated EKF} repeats the update a few times,
 re-linearising $h$ at the updated estimate, which helps when a measurement is
-both informative and strongly nonlinear, as a bearing at short range; the
-second-order EKF adds the Hessian terms of \cref{thm:ch19-ut-second-order},
-which the UKF gets for free. The \textbf{square-root UKF} propagates the
-Cholesky factor of $\mat{P}$ and never forms a covariance that could lose
-positive definiteness; the \textbf{cubature Kalman filter}
-\index{cubature Kalman filter} of Arasaratnam and
-Haykin~\cite{arasaratnam2009cubature} uses $2n$ points at $\sqrt{n}$
+both informative and strongly nonlinear, as a bearing at short range. The
+\textbf{square-root UKF} propagates the Cholesky factor of $\mat{P}$ and never
+forms a covariance that could lose positive definiteness; the
+\textbf{cubature Kalman filter}\index{cubature Kalman filter} of Arasaratnam
+and Haykin~\cite{arasaratnam2009cubature} uses $2n$ points at $\sqrt{n}$
 standard deviations with equal weights, the UT with $\alpha = 1$, $\beta =
 0$, $\kappa = 0$ without the centre point, and has no parameters and no
-negative weights; the augmented UKF appends the noise variables to the state
-so that non-additive noise such as $\mat{G}(\state)\vect{\eta}_k$ passes
-through the sigma points. \textcite{sarkka2013bayesian} treats the whole
-sigma-point family and the corresponding smoothers. On the particle side,
-the regularised particle filter adds a small jitter (roughening) to the
-copies produced by resampling, the auxiliary particle filter looks one
-measurement ahead before resampling, and the \textbf{Rao--Blackwellised
-particle filter}\index{Rao--Blackwellised particle filter} samples only the
-nonlinear part of the state and runs a Kalman filter per particle for the
-linear part, which is how simultaneous localisation and mapping keeps
-thousands of landmarks tractable; \textcite{arulampalam2002tutorial} and
-\textcite{doucet2001sequential} survey these and better proposal
-distributions. For an intruder that switches between a few regimes
-(straight, left turn, right turn), the \textbf{interacting multiple model}
-\index{interacting multiple model} (IMM) filter of Blom and
-Bar-Shalom~\cite{blom1988imm} runs one EKF or UKF per regime and mixes them
-by transition probabilities: two Gaussians instead of two thousand
-particles, as long as the hypotheses do not interact with a map. All of
-these have three-dimensional versions: add altitude and vertical speed to
-the state and an elevation angle to the sensor (\cref{exr:ch19-coding}).
+negative weights; the augmented UKF passes non-additive noise such as
+$\mat{G}(\state)\vect{\eta}_k$ through the sigma points.
+\textcite{sarkka2013bayesian} treats the whole sigma-point family and the
+corresponding smoothers. On the particle side, the regularised particle
+filter adds a small jitter (roughening) to the copies produced by
+resampling, and the \textbf{Rao--Blackwellised particle filter}
+\index{Rao--Blackwellised particle filter} samples only the nonlinear part of
+the state and runs a Kalman filter per particle for the linear part;
+\textcite{arulampalam2002tutorial} and \textcite{doucet2001sequential} survey
+these and better proposal distributions. For an intruder that switches
+between a few regimes (straight, left turn, right turn), the
+\textbf{interacting multiple model}\index{interacting multiple model} (IMM)
+filter of Blom and Bar-Shalom~\cite{blom1988imm} runs one EKF or UKF per
+regime and mixes them by transition probabilities: two Gaussians instead of
+two thousand particles, as long as the hypotheses do not interact with a
+map. All of these have three-dimensional versions: add altitude and vertical
+speed to the state and an elevation angle to the sensor
+(\cref{exr:ch19-coding}).
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
@@ -1398,7 +1349,7 @@ coordinated-turn model with Jacobian and noise, the range--bearing sensor
 with Jacobian and log-likelihood, the classes \code{ExtendedKalmanFilter},
 \code{UnscentedKalmanFilter} and \code{ParticleFilter}, systematic
 resampling, the turning-target simulator and the two worked examples;
-\cref{lst:ch19-ekf,lst:ch19-ut,lst:ch19-pf} are excerpts.
+\cref{lst:ch19-ekf,lst:ch19-pf} are excerpts.
 
 \paragraph{Covariances.}
 \index{Cholesky factorisation!failure}
@@ -1408,7 +1359,7 @@ $\mat{F}\mat{P}\mat{F}\T$ is symmetric only up to rounding, and $(\mat{I} -
 Joseph form; the UKF's update $\mat{P}^- - \Kgain\mat{S}\Kgain\T$ has no Joseph
 form, so the code symmetrises $\mat{P} \gets \tfrac12(\mat{P} + \mat{P}\T)$ after
 every step and adds a jitter $\epsilon\mat{I}$, $\epsilon = 10^{-9}$, before
-each Cholesky factorisation (\cref{lst:ch19-ut}). When
+each Cholesky factorisation (\code{sigma\_points} in the code). When
 \code{numpy.linalg.cholesky} still fails, the cause is a perfectly known
 component (zero variance), a $\lambda < 0$ that produced a negative weight,
 or a diverged filter, and it must be fixed at the source. A related detail
@@ -1468,38 +1419,6 @@ def update(self, z):
     return self.x, self.P
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Sigma points and the unscented transform (from \code{code/ch19\_nonlinear\_filters.py}); \code{weighted\_mean} and \code{residuals} average and subtract with wrapped angular components.},label={lst:ch19-ut}]
-def sigma_points(mean, cov, alpha=1.0, beta=2.0, kappa=0.0, jitter=1e-9):
-    """The 2n+1 sigma points (rows) and the weight vectors W_m, W_c."""
-    mean = np.asarray(mean, dtype=float)
-    n = mean.size
-    lam = alpha ** 2 * (n + kappa) - n
-    P = 0.5 * (cov + cov.T) + jitter * np.eye(n)     # symmetrise, guard the factorisation
-    L = np.linalg.cholesky((n + lam) * P)            # columns l_i: L L^T = (n+lam) P
-    X = np.empty((2 * n + 1, n))
-    X[0] = mean
-    X[1:n + 1] = mean + L.T                          # row i of L.T is column i of L
-    X[n + 1:] = mean - L.T
-    W_m = np.full(2 * n + 1, 1.0 / (2.0 * (n + lam)))
-    W_c = W_m.copy()
-    W_m[0] = lam / (n + lam)
-    W_c[0] = lam / (n + lam) + 1.0 - alpha ** 2 + beta
-    return X, W_m, W_c
-
-
-def unscented_transform(X, W_m, W_c, g, x_mean=None, angle_in=(), angle_out=()):
-    """Push sigma points through g; return mean, covariance and cross-covariance."""
-    Y = g(X)                                         # g must accept an (2n+1, n) array
-    y_mean = weighted_mean(Y, W_m, angle_out)
-    E = residuals(Y, y_mean, angle_out)
-    if x_mean is None:
-        x_mean = weighted_mean(X, W_m, angle_in)
-    D = residuals(X, x_mean, angle_in)
-    P_yy = (E.T * W_c) @ E                           # sum_i W_c[i] e_i e_i^T
-    P_xy = (D.T * W_c) @ E
-    return y_mean, P_yy, P_xy
-\end{lstlisting}
-
 \begin{lstlisting}[caption={Systematic resampling and the bootstrap step of the particle filter (from \code{code/ch19\_nonlinear\_filters.py}), vectorised over the $N \times 5$ particle array with log-weights.},label={lst:ch19-pf}]
 def systematic_resample(weights, rng):
     """Indices of the particles to keep: one uniform draw, N evenly spaced points."""
@@ -1545,48 +1464,44 @@ def update(self, z=None):
 The EKF linearises $f$ at the \emph{previous} estimate and $h$ at the
 \emph{predicted} one. Evaluating $\mat{H}_k$ at $\hat{\state}_{k-1}$, a natural
 slip when both Jacobians are computed at the top of the step, uses the
-geometry of where the intruder \emph{was}; at $12\,\mathrm{m/s}$ and
-$50\,\mathrm{m}$ range that is a $7^\circ$ error in the bearing row of
-$\mat{H}$, and the covariance quietly becomes wrong. A finite-difference check
-of the Jacobians at random states, as in the self-test, catches sign and
-index mistakes in \cref{sec:ch19-ekf-jacobians}; only a test against a
-simulated track catches the wrong evaluation point.
+geometry of where the intruder \emph{was}: at $12\,\mathrm{m/s}$ and
+$50\,\mathrm{m}$ range a $7^\circ$ error in the bearing row of $\mat{H}$, and
+a covariance that is quietly wrong. A finite-difference check at random
+states, as in the self-test, catches sign and index mistakes in the formulas;
+only a test against a simulated track catches the wrong evaluation point.
 \end{pitfall}
 
 \begin{pitfall}[Forgetting to wrap angles]
 An unwrapped bearing innovation near the $\pm\pi$ seam is about $2\pi$
-instead of nearly zero. In \cref{ex:ch19-ekf} the EKF would multiply
-$6.21\,\mathrm{rad}$ by a gain of $-47$ and move the estimate by hundreds of
-metres in one step; the next innovation is huge as well, and the track is
-lost. The bug is invisible while the intruder stays away from the seam,
-which is why it survives testing: place the sensor so that the seam crosses
-the test trajectory, and wrap every angle difference, not only the
-innovation. The particle filter has the same bug in its likelihood, where it
-silently assigns weight zero to every particle on the far side of the seam.
+instead of nearly zero: in \cref{ex:ch19-ekf} the EKF would multiply
+$6.21\,\mathrm{rad}$ by a gain of $-47$, move the estimate by hundreds of
+metres, and lose the track. The bug is invisible while the intruder stays
+away from the seam, which is why it survives testing: place the sensor so
+that the seam crosses the test trajectory, and wrap every angle difference,
+not only the innovation. The particle filter has the same bug in its
+likelihood, which then assigns weight zero to every particle on the far side
+of the seam.
 \end{pitfall}
 
 \begin{pitfall}[Resampling at every step]
-Resampling replaces distinct particles by copies that stay identical until
-the process noise separates them. Resampling while $N_{\mathrm{eff}}$ is
-still close to $N$ throws away diversity for nothing; over a long gap without
-measurements, as in \cref{ex:ch19-occlusion}, a filter that resamples every
-step ends with a cloud descended from a handful of ancestors and can no
-longer represent two lobes. Resample when $N_{\mathrm{eff}} < N/2$, add
-roughening if the process noise is small, and monitor the number of distinct
-particles.
+Copies produced by resampling stay identical until the process noise
+separates them. Resampling while $N_{\mathrm{eff}}$ is still close to $N$
+throws away diversity for nothing, and over a long gap without measurements,
+as in \cref{ex:ch19-occlusion}, a filter that resamples every step ends with
+a cloud descended from a handful of ancestors that can no longer represent
+two lobes. Resample when $N_{\mathrm{eff}} < N/2$, add roughening if the
+process noise is small, and monitor the number of distinct particles.
 \end{pitfall}
 
 \begin{pitfall}[Too few particles in six dimensions]
 A particle filter that works with $500$ particles on a planar coordinated
 turn will not work with $500$ particles on a seven-dimensional
-three-dimensional state. A precise likelihood concentrates in a region whose
-volume fraction shrinks with every dimension, so most particles receive
-negligible weight, $N_{\mathrm{eff}}$ collapses after every measurement, and
-the estimate jumps between a few survivors. The symptoms are a small
-$N_{\mathrm{eff}}$ after every update and an error that does not improve with
-more measurements. Increase $N$ until the error curve flattens, or move the
-linear part of the state into a Kalman filter per particle
-(\cref{sec:ch19-variants}).
+three-dimensional state: a precise likelihood concentrates in a region whose
+volume fraction shrinks with every dimension, most particles receive
+negligible weight, $N_{\mathrm{eff}}$ collapses after every measurement and
+the estimate jumps between a few survivors. Increase $N$ until the error
+curve flattens, or move the linear part of the state into a Kalman filter
+per particle (\cref{sec:ch19-variants}).
 \end{pitfall}
 
 % ---------------------------------------------------------------------
@@ -1599,19 +1514,18 @@ the prediction layer's trackers for \emph{manoeuvring} intruders, taking over
 from the Kalman filter of \cref{ch:ch18} whenever the intruder turns or the
 sensor reports range and bearing. They receive raw measurements, possibly
 with gaps, and deliver at every cycle position, speed, heading and turn rate
-with a covariance. Three consumers use that output: the local avoidance layer
-(\cref{ch:ch13,ch:ch14}), which needs the intruder's velocity now; the
-trajectory predictor of \cref{ch:ch20}, for which the coordinated-turn model
-is a stronger baseline than constant velocity; and the prediction-aware
-constraints of \cref{ch:ch24}, which inflate the intruder's footprint by its
-uncertainty. The particle filter adds what the Gaussian filters cannot: when
-the belief is multimodal, the cloud itself is the right thing to hand over.
-Propagating every particle over the safety horizon yields, at each future
-time, an empirical distribution of where the intruder may be, from which the
-planner can compute the probability that a candidate path collides or block
-the cells that more than a chosen fraction of the particles visit, without
-pretending that the intruder is in one place. In the study plan
-(\cref{ch:appA}) this chapter completes Week~9.
+with a covariance to the local avoidance layer (\cref{ch:ch13,ch:ch14}), to
+the trajectory predictor of \cref{ch:ch20}, for which the coordinated-turn
+model is a stronger baseline than constant velocity, and to the
+prediction-aware constraints of \cref{ch:ch24}, which inflate the intruder's
+footprint by its uncertainty. The particle filter adds what the Gaussian
+filters cannot: when the belief is multimodal, the cloud itself is the right
+thing to hand over. Propagating every particle over the safety horizon gives,
+at each future time, an empirical distribution of where the intruder may be,
+from which the planner can compute the probability that a candidate path
+collides, or block the cells that more than a chosen fraction of the
+particles visit, without pretending that the intruder is in one place. In
+the study plan (\cref{ch:appA}) this chapter completes Week~9.
 \end{dronebox}
 
 % ---------------------------------------------------------------------
@@ -1737,16 +1651,15 @@ The second half of the Week~9 exercise of the study plan (\cref{ch:appA}).
 Simulate a drone that flies straight legs and turns, observed with
 range--bearing measurements at $2$--$10\,\mathrm{Hz}$ with occasional
 dropouts, and track it with an EKF, a UKF and a particle filter using the
-coordinated-turn model. (a) Reproduce \cref{tab:ch19-rmse}: position RMSE of
-each filter and of the raw measurements over $100$ runs, and the number of
-lost tracks. (b) Vary the bearing noise from $1^\circ$ to $15^\circ$ and the
-minimum range from $20$ to $200\,\mathrm{m}$, plot the RMSE of EKF and UKF
-against each, and find where the two separate. (c) Vary $N$ from $100$ to
-$10\,000$, plot RMSE and running time, and identify the $N$ beyond which the
-curve flattens. (d) Add altitude and vertical speed to the state and an
-elevation angle to the sensor and repeat (a) in three dimensions. Keep the
-code: \cref{ch:ch20} uses the estimates as input to trajectory prediction
-and \cref{ch:ch24} feeds them into the planner.
+coordinated-turn model. (a) Reproduce \cref{tab:ch19-rmse} over $100$ runs.
+(b) Vary the bearing noise from $1^\circ$ to $15^\circ$ and the minimum
+range from $20$ to $200\,\mathrm{m}$, plot the RMSE of EKF and UKF against
+each, and find where the two separate. (c) Vary $N$ from $100$ to $10\,000$,
+plot RMSE and running time, and identify the $N$ beyond which the curve
+flattens. (d) Add altitude and vertical speed to the state and an elevation
+angle to the sensor and repeat (a) in three dimensions. Keep the code:
+\cref{ch:ch20} uses the estimates as input to trajectory prediction and
+\cref{ch:ch24} feeds them into the planner.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3}]
@@ -1756,10 +1669,9 @@ ellipse while the intruder is hidden and relate it to the building. (b) Let
 the intruder go right instead of left and confirm that the particle filter
 needs no change. (c) Replace the resampling rule by ``resample every step'',
 count the distinct particles when the intruder reappears, and explain the
-result with \cref{sec:ch19-resampling}. (d) Add roughening (Gaussian jitter
-of $0.5\,\mathrm{m}$ in position and $0.05\,\mathrm{rad}$ in heading after
-each resampling; the code has a \code{roughening} option) and repeat (c).
-(e) Propagate the hidden-phase cloud $3\,\mathrm{s}$ ahead and compute, for a
+result; then add roughening (the code has a \code{roughening} option:
+$0.5\,\mathrm{m}$ in position, $0.05\,\mathrm{rad}$ in heading) and repeat.
+(d) Propagate the hidden-phase cloud $3\,\mathrm{s}$ ahead and compute, for a
 drone of ours that plans to cross the canyon at $(0, 80)$, the probability
 that the intruder is within $10\,\mathrm{m}$ of it at that time; compare with
 what a single Gaussian would say.
