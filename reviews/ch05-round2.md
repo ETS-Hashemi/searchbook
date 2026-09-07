@@ -182,3 +182,76 @@ and then explains exactly why (the second key component forces the whole f-band)
 numbers is machine-generated and reproduces exactly. The five pitfall boxes are all real and all
 distinct, the exercise set is well graded and genuinely solvable from the chapter, and the six written
 solutions are worth more than most textbooks' answer keys.
+
+## Response to review (round 2)
+
+Both required changes applied; all eight suggestions applied except the one the reviewer
+himself marked as out of scope (`frontmatter/notation.tex`, a Phase-1 file). Nothing was
+removed: the two-halves structure, Table 2.3, both pseudocode listings, the whole `k_m`
+treatment, the five pitfall boxes and every machine-generated number are untouched.
+
+### Required change 1 - Algorithm 2.2 printed after the exercises
+
+**Done.** `chapters/ch05-lpastar-dstarlite.tex` line 677: `\begin{algorithm}[htb]` ->
+`\begin{algorithm}[!htbp]` (the variant the reviewer named as equivalent; it also lifts
+`\topfraction`, which is what actually blocked `t` here). The algorithm body is unchanged,
+line for line.
+
+Verified in the rebuilt PDF (`pdftotext build/only-ch05-lpastar-dstarlite.pdf -`; in the
+single-chapter build the chapter is numbered 4, so read "4.x" for the review's "2.x"):
+the caption "Algorithm 4.2. D* Lite, final version" is now set at the top of book page 75,
+inside 2.6.3 "Pseudocode", one page *before* the "2.7 A worked example: D* Lite repairs a
+plan" heading. The paragraph that introduces it ("Algorithm 2.2 is the final, optimised
+version ...") ends book page 74, and the "Walkthrough" paragraph that cites lines 8, 10, 14,
+15, 18, 20-24, 28, 30, 31, 33, 35, 39, 40 now begins on the very next page, 76. Section 2.7,
+Section 2.10, Listing 2.3's caption and Exercises 2.4 and 2.5 all now follow the algorithm.
+No float page containing only the algorithm was created and no "Text page contains only
+floats" warning appears.
+
+### Required change 2 - Tables 2.5 and 2.6 printed after the exercises
+
+**Done.** Lines 805 and 825: `\begin{table}[tb]` -> `\begin{table}[htbp]` for
+`tab:ch05-dstarlite-trace` and `tab:ch05-dstarlite-repair`; and `\FloatBarrier` inserted on
+its own line immediately before `\section{Properties: correctness, optimality, complexity}`
+(no package change - `placeins` is already loaded by `searchbook.sty`).
+
+Verified: Table 2.5 ("Events of Example 2.7") is on book page 76 and Table 2.6 ("The repair
+in Example 2.7") on book page 77, i.e. both between the "2.7 A worked example" heading
+(page 76) and the "2.8 Properties" heading (page 78), on the same pages as the text that
+discusses them. Figure 2.4 sits with them on page 77.
+
+### Suggestions
+
+* `\cref{sec:ch05-dstarlite}` in the proof sketch of Thm 2.9 -> `\cref{sec:ch05-reverse}`. Done.
+* 2.5, "The change": "eight queued cells" -> "eight **further** queued cells". Done.
+* 2.8, second remark: now reads "within one call of ComputeShortestPath its only cost is at
+  most one extra pop-and-reinsert per queue entry that was inserted before a move (across
+  several calls an entry can be reinserted once per increase of `k_m`)". Done.
+* Table 2.4, last row: "v (no `k_m`)" -> "v, from the stored keys". Done.
+* Solutions: a written solution for Exercise 2.6 (the Week-2 coding exercise) added to
+  `appendices/solutions/ch05-solutions.tex`, giving the expected outcome - path costs must
+  agree at every tick, the three usual bug sources, zero expansions for off-path changes and
+  an order-of-magnitude total saving, the first search several times (about 4.6x) more
+  expensive because the second key component expands the whole f-band, and the warning that
+  wall-clock time need not follow expansions. Solutions now cover 7 of 8 exercises; 2.7 is
+  left open deliberately, since its answer (the crossover value of phi) is the thing the
+  exercise asks the reader to measure.
+* 2.9, original D*: softened to "computes the same paths, **expands no more vertices than D*
+  in the experiments of** \textcite{koenig2005fast}, and fits on half a page". Done.
+* Figure 2.4 caption: added "(the third changed vertex, the gap cell (3,4), simply leaves the
+  queue)", matching the text's "three vertices changed". Done.
+* `frontmatter/notation.tex`: out of scope for this chapter, as the reviewer notes. The five
+  symbols to carry forward remain `\rhs` (lookahead value), `k_m` (key modifier), `\Pred`,
+  `\Succ` and `\dist`.
+
+### Build, code and numbers
+
+* `cd Overleaf && ./build.sh ch05-lpastar-dstarlite` -> **status 0**, no `!` errors, no
+  overfull box and no float warning, no undefined ch05 reference or citation (the remaining
+  `??` are cross-chapter, as expected in a single-chapter build). The one underfull `\hbox`
+  (badness 4859) is the loose line in the fixed-width caption of Listing 2.3; it is
+  independent of page position and was present before this revision.
+* The chapter is still **23 pages** (book pages 65-87 in this build), inside the 24-page cap.
+* `python3 code/ch05_dstar_lite.py` -> `self-test passed in 0.8 s`, exit 0. No code and no
+  `.dat` file was touched, so every quoted number is unchanged and still reproduces; no
+  numeric claim in the text was edited.

@@ -36,7 +36,7 @@ the cheapest, and how do we know that no cheaper route exists?
 
 This is the \textbf{single-source shortest-path problem}\index{shortest path!single-source} on a
 graph with non-negative edge costs, and Dijkstra's algorithm \cite{dijkstra1959note} solves it
-exactly. It is the oldest of the shortest-path algorithms in this book, and the one you will use
+exactly. It is the oldest algorithm this book studies in detail, and the one you will use
 most often, for three reasons.
 \begin{enumerate}
   \item \emph{It is the baseline planner.} Every other single-agent planner in
@@ -174,9 +174,10 @@ given, and only $\delta(s,t)$ and one shortest path from $s$ to $t$ are required
 During the search every vertex carries a \textbf{tentative cost}\index{tentative cost}
 $\gcost(v)$, the cost of the best path to $v$ found so far, so that $\gcost(v)\ge\delta(s,v)$ at
 all times. The open vertices form the priority queue \Open and the settled vertices the set
-\Closed. Both are new here; from \cref{ch:ch02} we reuse only the implicit successor interface
-$\Succ$ and the lazy-deletion queue \code{LazyPQ} (\cref{alg:ch02-lazypq,lst:ch02-lazypq}). In
-later chapters $\gcost$ is
+\Closed. Both are new here; from \cref{ch:ch02} we reuse the implicit successor interface
+$\Succ$ and the lazy-deletion idiom of its priority queue \code{LazyPQ}
+(\cref{alg:ch02-lazypq}), in the closed-set form: since $\hcost=0$ here, the two forms settle
+exactly the same vertices. In later chapters $\gcost$ is
 joined by a heuristic $\hcost$; in this chapter $\hcost=0$ and the queue is ordered by $\gcost$
 alone.
 
@@ -260,9 +261,8 @@ expansions is what \cref{fig:ch03-expansions} and the comparisons of \cref{ch:ch
 
 \paragraph{The result.} After the loop, $\gcost(v)=\delta(s,v)$ for every settled vertex, and
 $\gcost(v)=\infty$ for every vertex the wave never reached because there is no path from $s$.
-Without a target every reachable vertex is settled. With a target, only the vertices with
-$\delta(s,v)\le\delta(s,t)$ have been settled, and the tentative costs of the vertices left in
-the queue are upper bounds, not answers. The shortest path to a settled vertex $v$ is read off
+Without a target every reachable vertex is settled; \cref{cor:ch03-ucs} says exactly which
+vertices a run with a target settles. The shortest path to a settled vertex $v$ is read off
 the parent pointers\index{parent pointer}: start at $v$, move to $\mathrm{parent}(v)$, and
 repeat until the source is reached; reversing the list gives the path from $s$ to $v$
 (\textbf{path reconstruction}\index{path reconstruction}). If $t$ is unreachable, the queue runs
@@ -502,9 +502,14 @@ By \cref{lem:ch03-monotone} every vertex settled before $t$ has a key of at most
 and by \cref{thm:ch03-invariant} these keys are the true distances. For the second claim,
 suppose $\delta(s,v)<\delta(s,t)$ and $v$ is not settled at the moment $t$ is popped. Take a
 shortest path from $s$ to $v$ and let $y$ be its first unsettled vertex; it exists, since $s$ is
-settled and $v$ is not. As in step~(ii) of the proof of \cref{thm:ch03-invariant}, the
-predecessor of $y$ on that path is settled and has relaxed the edge into $y$, so the heap holds
-the entry $(\delta(s,y),y)$ with $\delta(s,y)\le\delta(s,v)<\delta(s,t)=\gcost(t)$,
+settled and $v$ is not. Note first that $t$ does not lie on this path: the prefix of the path
+ending at $t$ would cost at least $\delta(s,t)$ and the rest of the path at least $0$, so
+$\delta(s,t)\le\delta(s,v)$, contradicting $\delta(s,v)<\delta(s,t)$ (here $c\ge0$ is used
+again). This step is needed because $t$ is the one vertex that the early exit on
+line~\ref{alg:ch03-dijkstra:exit} settles without expanding. Hence $y\neq t$, and the
+predecessor of $y$ on the path is a vertex settled \emph{and} expanded strictly before $t$ was
+popped, so, as in step~(ii) of the proof of \cref{thm:ch03-invariant}, it has relaxed the edge
+into $y$ and the heap holds the entry $(\delta(s,y),y)$ with $\delta(s,y)\le\delta(s,v)<\delta(s,t)=\gcost(t)$,
 contradicting that $(\gcost(t),t)$ was the minimum of the heap. Which of the vertices with
 $\delta(s,v)=\delta(s,t)$ are settled depends on tie-breaking, and termination in the presence
 of zero-cost edges is \cref{exr:ch03-monotone}; \cref{ex:ch03-graph} shows the upper bound
@@ -792,12 +797,21 @@ In \cref{eq:ch03-bidir-stop} an empty \Open counts as $\min=\infty$, so the rule
 correctly when one side exhausts its component. The rule is correct, and the argument has two
 cases. Let $\pi$ be an $s$--$t$ path with $c(\pi)<\mu$ at the moment the rule fires. If $\pi$
 holds a vertex still open on the forward side and, \emph{later} on $\pi$, a vertex still open on
-the backward side, then $c(\pi)$ is at least the sum of the two smallest keys, hence at least
-$\mu$: a contradiction. Otherwise the forward-settled prefix of $\pi$ and its backward-settled
+the backward side, let $u$ be the first vertex of $\pi$ the forward side has not settled and $w$
+the last one the backward side has not settled; by the case hypothesis $u$ comes no later than
+$w$ on $\pi$. The predecessor of $u$ on $\pi$ is settled forward, so step~(ii) of the proof of
+\cref{thm:ch03-invariant}, applied to the forward run, puts $u$ in $\text{\Open}_f$ with
+$\gcost_f(u)=\delta(s,u)$, and symmetrically $w$ is in $\text{\Open}_b$ with
+$\gcost_b(w)=\delta(w,t)$; hence $\min_{\text{\Open}_f}\gcost_f\le\delta(s,u)$ and
+$\min_{\text{\Open}_b}\gcost_b\le\delta(w,t)$. The prefix of $\pi$ up to $u$ costs at least
+$\delta(s,u)$, its suffix from $w$ at least $\delta(w,t)$, and the piece between them at least
+$0$, so $c(\pi)$ is at least the sum of the two smallest keys, hence at least $\mu$: a
+contradiction. Otherwise the forward-settled prefix of $\pi$ and its backward-settled
 suffix touch, so $\pi$ has an edge $(x,y)$ with $x$ settled forward and $y$ settled backward.
-That edge was scanned from one of its two ends --- this is what the clause ``including edges to
-vertices that either side has settled'' is for --- when $\gcost_f(x)$ and $\gcost_b(y)$ were
-already final, so $\mu\le\gcost_f(x)+c(x,y)+\gcost_b(y)\le c(\pi)$, again a contradiction. This
+Whichever of $x$ and $y$ was settled later scanned that edge during its own expansion --- $x$
+scans $(x,y)$ forward, $y$ scans it backward on $G^{R}$, and this is what the clause ``including
+edges to vertices that either side has settled'' is for --- and by then both $\gcost_f(x)$ and
+$\gcost_b(y)$ were already final, so $\mu\le\gcost_f(x)+c(x,y)+\gcost_b(y)\le c(\pi)$, again a contradiction. This
 second case is the crux; \cref{exr:ch03-bidirectional}(b) asks for it in full, and part~(a) for
 the counterexample to the naive rule.
 

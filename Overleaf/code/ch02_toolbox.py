@@ -281,8 +281,9 @@ def minkowski_disc(c1, r1, c2, r2):
 def tangent_points(p, c, r):
     """The two points where the tangent lines from p touch the circle
     (c, r), or None if p lies on or inside the circle.  Returns
-    (t_plus, t_minus) in the sign convention of Proposition 2.32:
-    t_plus uses +sin(alpha) along u rotated by +90 degrees."""
+    (t_plus, t_minus) in the sign convention of the chapter's
+    tangent-line proposition: t_plus uses +sin(alpha) along u rotated by
+    +90 degrees."""
     u = sub(p, c)
     d = norm(u)
     if d <= r:
@@ -382,7 +383,7 @@ def covariance_ellipse(sigma, n_sigma=1.0):
         vecs[:, 0] = -vecs[:, 0]                   # up to sign: point right
     vecs[:, 1] = (-vecs[1, 0], vecs[0, 0])         # minor axis = major + 90 deg
     a, b = n_sigma * np.sqrt(vals)
-    angle = math.atan2(vecs[1, 0], vecs[0, 0])     # in (-90, 90] degrees
+    angle = math.atan2(vecs[1, 0], vecs[0, 0])     # radians, in (-90, 90] deg
     return float(a), float(b), angle, vecs
 
 
@@ -420,7 +421,10 @@ class LazyPQ:
         self.stale_pops = 0
 
     def push(self, key, item):
-        """Insert ``item`` with ``key``; ignored unless ``key`` improves."""
+        """Insert ``item`` with ``key``.  While the item is queued the
+        push is ignored unless ``key`` improves; once the item has been
+        popped it is gone from ``self._best``, so any later push for it
+        is accepted and the item is queued again."""
         if item in self._best and self._best[item] <= key:
             return False
         self._best[item] = key

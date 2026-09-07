@@ -144,7 +144,7 @@ For a disc-shaped robot of radius $r$ whose orientation does not matter, the con
 
 \begin{definition}[Minkowski sum, inflation]
 \label{def:ch02-minkowski-sum}
-The \textbf{Minkowski sum}\index{Minkowski sum} of two sets $A,B\subseteq\R^n$ is $A\oplus B=\set{\vect{a}+\vect{b} : \vect{a}\in A,\ \vect{b}\in B}$. \textbf{Inflating}\index{obstacle inflation} a set $A$ by the radius $r$ means forming $A\oplus\disc{\vect{0}}{r}=\set{\vect{x} : \dist(\vect{x},A)\le r}$, the set of points within distance $r$ of $A$. Here $\dist(\vect{x},A)=\inf_{\vect{a}\in A}\norm{\vect{x}-\vect{a}}$ is the Euclidean distance from a point to a set; the same symbol $\dist$ denotes graph distance in \cref{def:ch02-shortest-path} and point-to-segment distance in \cref{def:ch02-point-segment-distance}, and which one is meant is always clear from its arguments.
+The \textbf{Minkowski sum}\index{Minkowski sum} of two sets $A,B\subseteq\R^n$ is $A\oplus B=\set{\vect{a}+\vect{b} : \vect{a}\in A,\ \vect{b}\in B}$. \textbf{Inflating}\index{obstacle inflation} a closed set $A$ by the radius $r$ means forming $A\oplus\disc{\vect{0}}{r}=\set{\vect{x} : \dist(\vect{x},A)\le r}$, the set of points within distance $r$ of $A$. Here $\dist(\vect{x},A)=\inf_{\vect{a}\in A}\norm{\vect{x}-\vect{a}}$ is the Euclidean distance from a point to a set; the same symbol $\dist$ denotes graph distance in \cref{def:ch02-shortest-path} and point-to-segment distance in \cref{def:ch02-point-segment-distance}, and which one is meant is always clear from its arguments.
 \end{definition}
 
 \begin{proposition}[Point-robot planning on the inflated map is exact]
@@ -250,7 +250,7 @@ Trajectory (\cref{def:ch02-trajectory}) & position at every time & \cref{ch:ch13
 \end{tabularx}
 \end{table}
 
-\Cref{tab:ch02-path-plan-trajectory} summarises the vocabulary; keep the three words apart. The hybrid architecture of \cref{ch:ch24} converts one into the next: the global planner produces a plan, each drone follows its time-indexed path as a trajectory, and the local layer edits that trajectory when an intruder appears.
+\Cref{tab:ch02-path-plan-trajectory} summarises the vocabulary; keep the three words apart.
 
 % ---------------------------------------------------------------------
 \section{Cost measures}
@@ -623,13 +623,10 @@ Big-O hides constants, and in \python the constants are large: a loop iteration 
 \toprule
 Operation & \python & Time & Note\\
 \midrule
-append, index, pop from the end & \code{list} & $\bigO{1}$ & \\
 pop from the front & \code{list.pop(0)} & $\bigO{n}$ & use \code{collections.deque}\\
 lookup, insert, delete & \code{dict}, \code{set} & $\bigO{1}$ & tuples of integers as keys\\
 push, pop-min & \code{heapq} & $\bigO{\log n}$ & binary heap on a list\\
 decrease-key & --- & --- & not available: use lazy deletion\\
-sort & \code{sorted} & $\bigO{n\log n}$ & \\
-vector operation of length $n$ & NumPy & $\bigO{n}$ & avoid \python loops over arrays\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -663,13 +660,13 @@ Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a
 }
 \end{algorithm}
 
-Line~\ref{alg:ch02-lazypq:best} of \cref{alg:ch02-lazypq} records the best key of each item, which is what makes a stale entry recognisable at line~\ref{alg:ch02-lazypq:pop}: an entry is stale exactly when its key differs from the recorded best key. Each push costs $\bigO{\log n}$, each pop costs $\bigO{\log n}$ plus one extra pop per stale entry it skips; since every entry is popped at most once, the total cost of a search with $P$ pushes is $\bigO{P\log P}$. A search that relaxes every edge once pushes at most $\abs{E}$ entries, so the heap can hold $\abs{E}$ rather than $\abs{V}$ entries; because $\log\abs{E}\le2\log\abs{V}$, the asymptotic bound of the search is unchanged. Two variants appear in the literature: some codes compare the popped key with the vertex's current $\gcost$ instead of a separate dictionary, and some skip a popped vertex if it is already in the closed set. The first two are equivalent to the version above. The closed-set variant differs: because a popped item is removed from $\mathit{best}$, \cref{alg:ch02-lazypq} re-opens a node when a strictly better key arrives later, while a closed set never does. The two agree whenever the heuristic is consistent (\cref{ch:ch04}); with an inconsistent heuristic the closed-set variant must reopen nodes explicitly to stay optimal. The toolbox version also counts pushes and stale pops so that you can watch the overhead in the exercises.
+Line~\ref{alg:ch02-lazypq:best} of \cref{alg:ch02-lazypq} records the best key of each item, which is what makes a stale entry recognisable at line~\ref{alg:ch02-lazypq:pop}: an entry is stale exactly when its key differs from the recorded best key. Each push costs $\bigO{\log n}$, each pop costs $\bigO{\log n}$ plus one extra pop per stale entry it skips; since every entry is popped at most once, the total cost of a search with $P$ pushes is $\bigO{P\log P}$. A search that relaxes every edge once pushes at most $\abs{E}$ entries, so the heap can hold $\abs{E}$ rather than $\abs{V}$ entries; because $\log\abs{E}\le2\log\abs{V}$, the asymptotic bound of the search is unchanged. Two variants appear in the literature: some codes compare the popped key with the vertex's current $\gcost$ instead of a separate dictionary, and some skip a popped vertex if it is already in the closed set. The first of these is equivalent to the version above. The closed-set variant differs: because a popped item is removed from $\mathit{best}$, the guard of \ToolboxLazyPush{} rejects only items that are still queued, so \cref{alg:ch02-lazypq} re-opens a node when a later push arrives for it, while a closed set never does. The two agree whenever the heuristic is consistent (\cref{ch:ch04}); with an inconsistent heuristic the closed-set variant must reopen nodes explicitly to stay optimal. The toolbox version also counts pushes and stale pops so that you can watch the overhead in the exercises.
 
 \paragraph{Hashing states.}
 The dictionaries of a search ($\gcost$-values, parents, the closed set, the best keys of the queue) need hashable keys. In this book a state is always a tuple of integers, such as \code{(x, y)} for a grid cell, \code{((x, y), t)} for a space-time state, or \code{(x, y, z)} for a lattice cell. Tuples of integers hash in constant time, compare quickly and cost about a hundred bytes each. Continuous states, as in \cref{ch:ch16,ch:ch17}, are \emph{not} hashed; they live in arrays and are searched with a KD-tree. If you must key a dictionary by a continuous quantity, round it to a resolution first.
 
 \begin{pitfall}[Floats and arrays as dictionary keys]
-\code{0.1 + 0.2 == 0.3} is \code{False} in floating point, so two states that are physically identical can hash to different keys and the closed set stops working: the search revisits states forever or until memory runs out. NumPy arrays are not hashable at all (\code{tuple(a)} is). Keep discrete states as tuples of integers, and if a continuous coordinate has to serve as a key, quantise it: \code{round(x / res)} with a fixed resolution \code{res}.
+\code{0.1 + 0.2 == 0.3} is \code{False} in floating point, so two states that are physically identical can hash to different keys and the closed set stops working: the search revisits states forever or until memory runs out. NumPy arrays are not hashable at all (\code{tuple(a)} is).
 \end{pitfall}
 
 \paragraph{Why dictionaries are enough.}
@@ -697,7 +694,7 @@ PyBullet, gym-pybullet-drones \cite{panerati2021learning} & optional & physics s
 \end{tabularx}
 \end{table}
 
-The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, listed in \cref{tab:ch02-stack}. Every algorithm is implemented with \python and NumPy alone; SciPy appears only for the optimisation problems of Part~VII. The code is one file per chapter, \code{Overleaf/code/chNN\_slug.py} (\code{ch02\_toolbox.py} here, \code{ch04\_astar.py} for \astar), self-contained apart from NumPy and the occasional import from an earlier chapter, and ending in an \code{if \_\_name\_\_ == "\_\_main\_\_":} block that runs a self-test of \code{assert} statements in a few seconds; every number quoted in a worked example comes from running it. Figures whose content is computed---a trajectory, a set of samples, a benchmark---are produced by scripts \code{Overleaf/code/figures/gen\_chNN\_slug.py} with fixed random seeds, which write whitespace-separated data files into \code{Overleaf/figures/data/} for the TikZ figure to read.
+The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, listed in \cref{tab:ch02-stack}. The code is one file per chapter, \code{Overleaf/code/chNN\_slug.py} (\code{ch02\_toolbox.py} here, \code{ch04\_astar.py} for \astar), self-contained apart from NumPy and the occasional import from an earlier chapter, and ending in an \code{if \_\_name\_\_ == "\_\_main\_\_":} block that runs a self-test of \code{assert} statements in a few seconds; every number quoted in a worked example comes from running it. Figures whose content is computed---a trajectory, a set of samples, a benchmark---are produced by scripts \code{Overleaf/code/figures/gen\_chNN\_slug.py} with fixed random seeds, which write whitespace-separated data files into \code{Overleaf/figures/data/} for the TikZ figure to read.
 
 \Cref{lst:ch02-grid-neighbors} shows the successor function of the toolbox grid, the one function that the searches of \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06} call most often; note the corner-cutting test and the two edge costs of \cref{def:ch02-grid}. \Cref{lst:ch02-geometry} shows the tangent construction of \cref{thm:ch02-tangents}; beside it in the same file, \code{time\_of\_closest\_approach} transcribes \cref{eq:ch02-tca} and \code{time\_to\_collision} is a one-line call to \code{ray\_circle\_intersection} in the relative frame. The class \code{LazyPQ} in \code{code/ch02\_toolbox.py} implements \cref{alg:ch02-lazypq} line for line, and counts its pushes and stale pops.
 
@@ -780,7 +777,7 @@ Suppose a diagonal move cost $1$ instead of $\sqrt2$. Give a start and goal on a
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch02-inflation}
-A single cell of a large grid is blocked. Using the cell-centre rule of \code{Grid.inflate}, determine by hand which cells are blocked after inflating by $r=0.6$, $r=1.0$ and $r=1.6$, and confirm the counts $5$, $9$ and $21$. At which values of $r$ does the count change next? Compare the blocked-cell count with the area $1+4r+\pi r^2$ of the exact Minkowski sum of the unit square with the disc of radius $r$, and check that the ratio tends to $1$.
+A single cell of a large grid is blocked. Using the cell-centre rule of \code{Grid.inflate}, determine by hand which cells are blocked after inflating by $r=0.6$, $r=1.0$ and $r=1.6$, and count them in each case. At which values of $r$ does the count change next? Compare the blocked-cell count with the area $1+4r+\pi r^2$ of the exact Minkowski sum of the unit square with the disc of radius $r$, and check that the ratio tends to $1$.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3}]
