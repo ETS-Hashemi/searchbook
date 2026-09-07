@@ -633,15 +633,17 @@ def worked_example(verbose=True):
     phi = math.degrees(math.atan2(p[1], p[0]))
     q = add(v_rel, line_a.u)
     new_rel = sub(v_a, v_b)
-    ang_new = phi - math.degrees(math.atan2(new_rel[1], new_rel[0]))
+    # signed angle from p_rel to the velocity, positive counter-clockwise
+    ang_new = math.degrees(math.atan2(new_rel[1], new_rel[0])) - phi
     full_rel = sub(v_full, b.velocity)
-    ang_full = phi - math.degrees(math.atan2(full_rel[1], full_rel[0]))
+    ang_full = math.degrees(math.atan2(full_rel[1], full_rel[0])) - phi
     out = {"tau": tau, "p": p, "r": r, "phi": phi, "theta": theta,
            "centre": scale(p, 1.0 / tau), "rho": r / tau,
            "v_rel": v_rel, "case": line_a.case, "q": q, "u": line_a.u,
            "n": line_a.normal, "point_a": line_a.point,
            "point_b": line_b.point, "n_b": line_b.normal,
            "v_new_a": v_a, "v_new_b": v_b, "feasible": ok_a and ok_b,
+           "change_a": norm(sub(v_a, a.velocity)),
            "angle_new_rel": ang_new,
            "point_full": line_full.point, "v_new_full": v_full,
            "angle_full_rel": ang_full,
@@ -708,8 +710,10 @@ def _self_test():
     # -- 3. the worked example --------------------------------------------
     ex = worked_example(verbose=False)
     assert ex["case"] == "right leg" and ex["feasible"]
-    assert abs(ex["angle_new_rel"] - ex["theta"]) < 1e-6   # on the boundary
-    assert abs(ex["angle_full_rel"] - ex["theta"]) < 1e-6
+    assert abs(ex["angle_new_rel"] + ex["theta"]) < 1e-6   # on the right leg
+    assert abs(ex["angle_full_rel"] + ex["theta"]) < 1e-6
+    assert abs(ex["change_a"] - 0.2350) < 5e-5             # not the 0.1512
+    assert abs(ex["violation_pref"] - 0.1512) < 5e-5
     assert half.half_plane().contains(ex["v_new_a"])
     # the new relative velocity lies on the boundary of VO^tau: the discs
     # graze at most, so the centre distance never drops below r

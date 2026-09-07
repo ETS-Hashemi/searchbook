@@ -21,7 +21,7 @@
 \end{objectives}
 
 % ---------------------------------------------------------------------
-\section{Why this matters for a drone swarm}
+\section[Why this matters]{Why this matters for a drone swarm}
 \label{sec:ch19-motivation}
 
 The Kalman filter of \cref{ch:ch18} gives the prediction layer of the hybrid
@@ -106,7 +106,7 @@ sensor satisfy.
 \end{keyidea}
 
 % ---------------------------------------------------------------------
-\section{Problem statement and notation}
+\section[Problem and notation]{Problem statement and notation}
 \label{sec:ch19-problem}
 
 \begin{definition}[Nonlinear state-space model]
@@ -196,7 +196,9 @@ velocities; the polar form has the more compact Jacobian and delivers the
 speed and heading the avoidance layer wants). Real intruders change speed
 and turn rate. We model a random longitudinal acceleration $a_k \sim
 \Normal(0, \sigma_a^2)$ and a random turn acceleration $\gamma_k \sim
-\Normal(0, \sigma_\gamma^2)$, constant during the step, so that
+\Normal(0, \sigma_\gamma^2)$, constant during the step, so that, to first
+order in $\dt$ (the construction ignores how the turn acceleration
+$\gamma_k$ bends the path within one step),
 \begin{equation}
   \vect{w}_k = \mat{G}(\state)\begin{pmatrix} a_k\\ \gamma_k\end{pmatrix},
   \quad
@@ -498,8 +500,12 @@ $\varphi \sim \Normal(\pi/2, 0.3^2)$, is pushed through $(r, \varphi) \mapsto
 (r\cos\varphi, r\sin\varphi)$, as when a track is initialised from one
 measurement. The true output, estimated from
 $2\,000$ samples, has its mean at $(-0.2, 95.6)$; the exact mean is
-$100\,e^{-0.3^2/2} = 95.6$, because the samples lie on an arc of radius $100$
-and the average of points on an arc is \emph{inside} the arc. The linearised
+$(0, 100\,e^{-0.3^2/2}) = (0, 95.6)$, because $r$ and $\varphi$ are
+independent and $\E[\sin\varphi] = e^{-\sigma_\varphi^2/2}$ for
+$\varphi \sim \Normal(\pi/2, \sigma_\varphi^2)$
+(\cref{exr:ch19-banana}). The picture to keep is the arc: the cloud bends
+away from the tangent, and the average of points on an arc lies
+\emph{inside} it. The linearised
 map puts the mean at the image of the input mean, $(0, 100)$,
 $4.4\,\mathrm{m}$ too far out, and its ellipse is a straight bar that cannot
 follow the curved tails: its standard deviation along $y$ is $5.0\,\mathrm{m}$
@@ -509,7 +515,11 @@ in the EKF signals the error: it reports a confident covariance around a
 biased mean (\cref{thm:ch19-ekf-order} quantifies the bias). The
 unscented transform of \cref{sec:ch19-ukf} puts the mean at $(0.0, 95.6)$
 with five function evaluations and no derivative, and its ellipse contains
-$91.6\,\%$ of the samples.
+$91.6\,\%$ of the samples. The mean is right; the ellipse is not exact
+either, only conservative---the transform reports a spread along $y$ of
+$10.1\,\mathrm{m}$ where the samples spread by $7.7$, so it covers
+\emph{more} than the nominal $86.5\,\%$. Over-covering is the safer error
+of the two, but $91.6\,\%$ is not ``better'' than $86.5\,\%$.
 
 \begin{figure}[tb]
   \centering
@@ -521,7 +531,13 @@ $91.6\,\%$ of the samples.
   (cross), and cannot bend. Right: the five sigma points of the unscented
   transform mapped through the same function (orange squares) and the
   ellipse fitted to them, centred inside the banana. The dashed ellipse is
-  the $2\sigma$ ellipse of the samples themselves.}
+  the $2\sigma$ ellipse of the samples themselves. The transform uses
+  $n = 2$, $\alpha = 1$, $\beta = 2$ and $\kappa = 1$, so $\lambda = 1$ and
+  the five points sit at $\sqrt{3}$ standard deviations
+  (\cref{exr:ch19-banana} repeats the computation by hand; the chapter's
+  default elsewhere is $\kappa = 0$). The two axes are not drawn to the same
+  scale: at equal scaling the $120\,\mathrm{m}$ width of the ellipses would
+  flatten the panels until the $4.4\,\mathrm{m}$ offset disappeared.}
   \label{fig:ch19-linearisation}
 \end{figure}
 
@@ -768,15 +784,16 @@ $8^\circ$ of bearing noise its RMSE is $10\,\%$ below the EKF's ($6.21$
 against $6.88\,\mathrm{m}$), and on the close pass, where $\mat{H}$ changes
 fastest, $12\,\%$ below ($2.71$ against $3.09\,\mathrm{m}$), with the
 particle filter matching the UKF. Third, the poor start is survived by
-every filter in every run, because the range--bearing measurement pins the
-position at each step; the UKF recovers faster than the EKF ($2.90$ against
-$3.10\,\mathrm{m}$), the particle filter more slowly (median $3.08$), and one
-of its runs never recovers: a cloud whose initial spread does not contain
-the true heading has nothing to reweight, whereas the Gaussian filters
-extrapolate along the tangent (the lost baseline run has the same cause at
-a turn onset). Fourth, the cost: $0.27\,\mathrm{ms}$ per step for the EKF,
-$0.47$ for the UKF and $1.2\,\mathrm{ms}$ for the particle filter with
-$2\,000$ particles, a factor that grows linearly with $N$.
+\emph{both Gaussian filters} in every run, because the range--bearing
+measurement pins the position at each step; the UKF recovers faster than the
+EKF ($2.90$ against $3.10\,\mathrm{m}$) and the particle filter more slowly
+(median $3.08$), and one of its hundred runs never recovers: a cloud whose
+initial spread does not contain the true heading has nothing to reweight,
+whereas the Gaussian filters extrapolate along the tangent (the lost
+baseline run has the same cause at a turn onset). Fourth, the cost: a UKF
+step costs about $1.8$ times an EKF step, and a particle-filter step with
+$2\,000$ particles about $4.5$ times, a factor that grows linearly with $N$
+(\cref{sec:ch19-properties} gives the absolute times).
 \index{unscented Kalman filter!versus EKF}
 
 % ---------------------------------------------------------------------
@@ -856,12 +873,20 @@ threshold $N_{\mathrm{thr}}$, typically $N/2$, the filter
 current set with probabilities $w^{(i)}$, with replacement, and gives the
 copies equal weights $1/N$: heavy particles are duplicated, light ones
 disappear. Drawing $N$ times independently (multinomial resampling)
-costs $\bigO{N\log N}$ and adds unnecessary randomness;
+costs $\bigO{N \log N}$ with one binary search per draw (or $\bigO{N}$ if
+the $N$ uniforms are generated in sorted order) and adds unnecessary
+randomness;
 \textbf{systematic resampling}\index{systematic resampling}
 \cite{kitagawa1996monte,arulampalam2002tutorial}, \cref{alg:ch19-resample},
 uses one uniform draw and a grid of $N$ evenly spaced points walked along
-the cumulative weights, in $\bigO{N}$ time and with the smallest variance
-of the standard schemes.
+the cumulative weights, in $\bigO{N}$ time; its per-particle counts obey
+\cref{thm:ch19-systematic}, and in practice its variance is far below
+multinomial resampling's, although---unlike \textbf{stratified
+resampling}\index{stratified resampling}, which draws one uniform per
+interval $[(m-1)/N, m/N)$ and provably never does worse than
+multinomial---systematic resampling carries no such guarantee, and its
+result depends on the order in which the particles are
+stored~\cite{douc2005comparison}.
 
 \begin{algorithm}[htb]
 \caption{Systematic resampling}
@@ -870,9 +895,10 @@ of the standard schemes.
 \KwOut{indices $j_1, \dots, j_N$ of the particles to copy}
 \Fn{\NlfSystematicResample{$w$}}{
   draw $u \sim \mathcal{U}[0, 1/N)$; $c \gets w^{(1)}$; $i \gets 1$\label{alg:ch19-resample:draw}\;
+  \tcp{the test $i < N$ guards against rounding: $\sum_i w^{(i)}$ may be $1 - \epsilon$}
   \For{$m = 1, \dots, N$}{
     $u_m \gets u + (m - 1)/N$\label{alg:ch19-resample:grid}\;
-    \While{$u_m > c$}{$i \gets i + 1$; $c \gets c + w^{(i)}$\label{alg:ch19-resample:walk}\;}
+    \While{$u_m > c$ \textnormal{and} $i < N$}{$i \gets i + 1$; $c \gets c + w^{(i)}$\label{alg:ch19-resample:walk}\;}
     $j_m \gets i$\;
   }
   \KwRet $(j_1, \dots, j_N)$\;
@@ -972,7 +998,9 @@ While measurements arrive, the cloud is a tight ellipse and behaves like a
 Gaussian filter. Once they stop, the process noise spreads the particles,
 the map removes those whose noise draws point them into the building, and
 the survivors flow round both sides: at $k = 15$, $68.3\,\%$ of the
-particles are west of the building and $27.8\,\%$ east of it. The UKF,
+particles are west of the building and $27.8\,\%$ east of it; the remaining
+$4\,\%$ are the ones still level with the building in $x$ but north or
+south of it, not a third hypothesis. The UKF,
 whose belief must be one ellipse, carries its mean straight through the
 building, $(-3.0, 61.4)$ at $k = 15$, a point where the intruder cannot be.
 At $k = 20$ the intruder reappears on the west side. The
@@ -988,7 +1016,7 @@ probabilities $0.68$ and $0.28$, each with its own predicted path;
 \cref{sec:ch19-drone} says what to do with them.\index{multimodal posterior}
 
 % ---------------------------------------------------------------------
-\section{Properties: accuracy, convergence and cost}
+\section[Properties and cost]{Properties: accuracy, convergence and cost}
 \label{sec:ch19-properties}
 
 None of the three filters is optimal for a nonlinear model; each
@@ -1094,21 +1122,25 @@ With $n$ states and $m$ measurements, the EKF evaluates one Jacobian pair and
 does $\bigO{n^3 + n^2 m}$ matrix work; the UKF adds two Cholesky
 factorisations and $2(2n+1)$ model evaluations; the particle filter costs
 $\bigO{Nn}$ for propagation and likelihoods and $\bigO{N}$ for resampling,
-with $N$ in the thousands: $0.27$, $0.47$ and $1.2\,\mathrm{ms}$ per step
-for $n = 5$ (\cref{sec:ch19-ukf-compare}). \Cref{tab:ch19-comparison}
-summarises.\index{particle filter!cost}
+with $N$ in the thousands. On the machine used for \cref{tab:ch19-rmse},
+one step of the five-dimensional model in NumPy takes about
+$0.27\,\mathrm{ms}$ (EKF), $0.47\,\mathrm{ms}$ (UKF) and
+$1.2\,\mathrm{ms}$ (particle filter, $N = 2\,000$); absolute times move
+with the machine, the ratios $1 : 1.8 : 4.5$ much less.
+\Cref{tab:ch19-comparison} summarises.\index{particle filter!cost}
 
 \begin{table}[tb]
   \centering\small
-  \caption{The three filters side by side. Times are per step for the
-  five-dimensional coordinated-turn model in NumPy (\cref{tab:ch19-rmse}).}
+  \caption{The three filters side by side. Costs per step are given
+  relative to one EKF step of the five-dimensional coordinated-turn model
+  in NumPy (\cref{sec:ch19-properties}).}
   \label{tab:ch19-comparison}
   \begin{tabular}{@{}p{2.2cm}p{3.5cm}p{3.5cm}p{3.9cm}@{}}
   \toprule
   & EKF & UKF & Particle filter\\
   \midrule
   Assumptions & Gaussian belief; Jacobians of $f$, $h$ in closed form; mild curvature across the belief & Gaussian belief; $f$, $h$ evaluable, no derivatives; $\mat{P}$ positive definite & $f$ can be simulated and $p(\meas \mid \state)$ evaluated; $N$ large enough to cover the posterior\\
-  Cost per step & one Jacobian pair, $\bigO{n^3}$; $0.27\,\mathrm{ms}$ & $2(2n+1)$ model calls, two Cholesky factorisations; $0.47\,\mathrm{ms}$ & $N$ model calls and likelihoods, $\bigO{N}$ resampling; $1.2\,\mathrm{ms}$ at $N = 2\,000$\\
+  Cost per step & one Jacobian pair, $\bigO{n^3}$; $1\times$ & $2(2n+1)$ model calls, two Cholesky factorisations; $1.8\times$ & $N$ model calls and likelihoods, $\bigO{N}$ resampling; $4.5\times$ at $N = 2\,000$\\
   Multimodality & no & no & yes (and any likelihood: maps, outliers)\\
   Tuning burden & $\mat{Q}$, $\mat{R}$, $\mat{P}_0$ & $\mat{Q}$, $\mat{R}$, $\mat{P}_0$, $\alpha$, $\beta$, $\kappa$ & $\mat{Q}$, $\mat{R}$, $\mat{P}_0$, $N$, $N_{\mathrm{thr}}$, roughening\\
   Typical use & mild manoeuvres at long range; embedded targets & short range, wide bearing noise, poor starts; models without Jacobians & occlusions, maps, unknown manoeuvre onset; input to multimodal prediction\\
@@ -1198,8 +1230,8 @@ this in \code{wrap\_angle}, \code{residual} and \code{weighted\_mean}.
 Store the particles as an $(N, n)$ array and write $f$, $h$ and the
 log-likelihood for arrays of states, so that a step is a handful of NumPy
 calls; systematic resampling is a cumulative sum and one
-\code{searchsorted}. With $N = 2\,000$ this gives $1.2\,\mathrm{ms}$ per
-step, a hundred times faster than a Python loop over particles. Keep
+\code{searchsorted}. With $N = 2\,000$ this brings a step down to about a
+millisecond, a hundred times faster than a Python loop over particles. Keep
 log-weights, normalise with the log-sum-exp trick, and detect a dead cloud
 (all log-weights $-\infty$) explicitly, restarting the weights flat rather
 than dividing by zero.\index{particle filter!vectorisation}
@@ -1209,7 +1241,7 @@ file transcribe \cref{alg:ch19-ukf} line by line.
 
 \begin{lstlisting}[caption={Systematic resampling and the update of the bootstrap particle filter with log-weights (from \code{code/ch19\_nonlinear\_filters.py}).},label={lst:ch19-pf}]
 def systematic_resample(weights, rng):
-    """Indices of the particles to keep: one uniform draw, N evenly spaced points."""
+    """Indices to keep: one uniform draw, N evenly spaced points."""
     n = len(weights)
     positions = (rng.random() + np.arange(n)) / n
     cumulative = np.cumsum(weights)
@@ -1217,16 +1249,16 @@ def systematic_resample(weights, rng):
     return np.searchsorted(cumulative, positions)
 
     def update(self, z=None):
-        """Weight by the likelihood (if any), normalise, estimate, resample if needed."""
+        """Weight by the likelihood, normalise, estimate, resample."""
         if z is not None:
             self.logw += self.sensor.log_likelihood(z, self.X)
         if self.constraint is not None:
             self.logw[~self.constraint(self.X)] = -np.inf
         top = np.max(self.logw)
-        if not np.isfinite(top):                     # every particle died: restart flat
+        if not np.isfinite(top):            # every particle died: flat
             self.logw[:] = -math.log(self.n)
             top = self.logw[0]
-        w = np.exp(self.logw - top)                  # log-sum-exp normalisation
+        w = np.exp(self.logw - top)         # log-sum-exp normalisation
         w /= np.sum(w)
         with np.errstate(divide="ignore"):
             self.logw = np.log(w)
@@ -1235,8 +1267,10 @@ def systematic_resample(weights, rng):
         if self.n_eff < self.threshold:
             idx = systematic_resample(w, self.rng)
             self.X = self.X[idx]
-            if self.roughening is not None:              # optional jitter of the copies
-                self.X = self.X + self.rng.normal(size=self.X.shape) * self.roughening
+            # optional jitter of the copies
+            if self.roughening is not None:
+                jitter = self.rng.normal(size=self.X.shape)
+                self.X = self.X + jitter * self.roughening
             self.logw = np.full(self.n, -math.log(self.n))
             self.resample_count += 1
         return self.x, self.P
@@ -1275,7 +1309,7 @@ filter or an IMM when it has not.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
-\section{Where this fits in the drone system}
+\section[Where this fits]{Where this fits in the drone system}
 \label{sec:ch19-drone}
 
 \begin{dronebox}
@@ -1407,7 +1441,7 @@ you about $N_{\mathrm{eff}}$ as a diagnostic. (d) Run
 and check the result against \cref{thm:ch19-systematic}.
 \end{exercise}
 
-\begin{exercise}[\difficulty{2} Coding]
+\begin{exercise}[\difficulty{3} Coding]
 \label{exr:ch19-occlusion}
 Modify \code{occlusion\_example()} in three ways and report, for each, the
 fraction of particles west and east of the building at $k = 15$ and

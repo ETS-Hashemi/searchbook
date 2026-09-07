@@ -287,3 +287,113 @@ the self-test checks all four geometric cases, the optimality of the LP solution
 brute-force grid, the minimax property of the dense fallback, the doubling of the shift in the
 non-reciprocal branch and the rotation covariance of the 3D half-space - and it all runs in
 2.1 s.
+
+## Response to review (round 1)
+
+All ten required changes are applied. Build: `./build.sh ch13-rvo-orca` ends with no
+`!` error, no overfull box above 15 pt, no undefined label or citation belonging to this
+chapter, and no multiply-defined label; the exit status is 12 for exactly the reason the
+review names, the 40 cross-chapter `??` of a single-chapter build (`ch:ch24`, `ch:ch12`,
+`ch:appA`, ...). The body is still 24 pages (pp. 58-81 of the current single-chapter PDF).
+`python3 code/ch13_orca.py` passes its self-test in 2.2 s and
+`python3 code/figures/gen_ch13_circle.py` rewrites `figures/data/ch13-dance.dat` and
+`ch13-circle-*.dat` byte-identically, so every generated number is unchanged.
+
+1. **Worked example, "the program" paragraph (0.1512 named the wrong quantity).** Rewritten
+   as required: "Each agent ends up $0.1512$ m/s away from its preferred velocity (and
+   $0.2350$ m/s away from the velocity it currently flies; the half-plane only required
+   $\tfrac12\norm{\vect{u}} = 0.1260$ m/s along $\vect{n}$)". `worked_example()` now prints
+   `change_a = norm(sub(v_a, a.velocity)) = 0.2350`, the self-test asserts it (and the
+   $0.1512$ violation), and `tab:ch13-example` gained a row
+   $\norm{\vel_A^{\mathrm{new}} - \vel_A} = 0.2350$ so the number in the text is in the table
+   and in the code output.
+
+2. **Three angle statements in two conventions.** The signed angle is now defined once, in
+   `sec:ch13-example` Step 1: $\angle(\vel,\pos_{\mathrm{rel}}) = \mathrm{atan2}(v_y,v_x) -
+   \varphi$, positive counter-clockwise, legs at $\pm\theta$. The table row is now
+   "$\angle(\vel_{\mathrm{rel}}^{\mathrm{new}}, \pos_{\mathrm{rel}})$, $-14.36^\circ =
+   -\theta$", the first sentence uses the same symbol, and the second reads "at
+   $-11.06^\circ$ from $\pos_{\mathrm{rel}}$ ($-3.93^\circ$ in the world frame), inside the
+   cone of half-angle $14.36^\circ$". `worked_example()` now computes
+   `ang_new = degrees(atan2(new_rel[1], new_rel[0])) - phi` (and the same for
+   `angle_full_rel`), printing $-14.3633$; the self-test asserts
+   `abs(ang_new + theta) < 1e-6`. The solution of `exr:ch13-shares` was aligned with the same
+   notation.
+
+3. **Dense fallback: the "shrinking the horizon"/"postpones the first collision" claim.**
+   Deleted and replaced by the wording asked for: relaxing every agent half-plane by the same
+   $\delta$ and taking the smallest feasible $\delta$ is exactly `eq:ch13-dense`; van den Berg
+   et al. call the result the *safest possible velocity*, the one that penetrates the
+   half-planes least [vandenberg2011orca]; "It is a heuristic: it minimises a penetration, not
+   the time to the first collision." The glossary entry *Dense fallback* now says "which
+   penetrates the half-planes least" and carries the same caveat. The same over-claim in
+   `sec:ch13-limits` ("postpones the first collision without excluding it") became "returns
+   the least-penetrating velocity, which does not exclude a collision".
+
+4. **3D justification.** The parenthesis is replaced by the argument supplied: invariance of
+   the truncated cone under reflection in any plane containing $\pos_{\mathrm{rel}}$,
+   uniqueness only for $\vel_{\mathrm{rel}}$ *outside* the convex body, "at least one nearest
+   point lies in that plane" when it is inside, and the parallel case in which every plane
+   through the axis gives an equally good $\vect{u}$, the code picking one as the 2D code
+   breaks the leg tie by a sign. The following sentence states how the code chooses: it spans
+   the plane by the unit vector along $\pos_{\mathrm{rel}}$ and the unit vector along the
+   component of $\vel_{\mathrm{rel}}$ perpendicular to it, "or, when that component vanishes,
+   along a fixed helper axis" (`orca_half_space_3d`, lines 281-290).
+
+5. **Optimality over-claim (Step 4) and Further reading.** The clause is replaced by the
+   reciprocal-maximality formulation given in the review, with a forward `\cref` to
+   `thm:ch13-pairwise` ("safe in the sense of Theorem 13.10"), "they argue this geometrically",
+   the fixed-split remark, and a new index entry `ORCA!reciprocal maximality`. Further reading
+   now reads "with the maximality argument".
+
+6. **Proof of `thm:ch13-incomplete` and `exr:ch13-corridor`(b).** The last third of the proof
+   is rewritten: the wall half-planes bound the lateral velocity by a fixed multiple of the
+   forward velocity (the exercise computes $0.75$), the head-on arc case gives
+   $\vect{u} = (d/\ttc)\hat{\pos} - \vel_{\mathrm{rel}}$ and $\vect{n} = -\hat{\pos}$ with
+   $d = \norm{\pos_{\mathrm{rel}}} - R$, so each agent may approach at no more than
+   $d/(2\ttc)$ whatever its current speed, the gap obeys $d_{k+1} = d_k(1 - \dt/\ttc)$ and both
+   speeds decay geometrically to zero; backing into the bay is never asked for, so no agent
+   reaches its goal although a collision-free joint plan exists. (The general $\vect{u}$ is
+   written with the $-\vel_{\mathrm{rel}}$ term; at a hover it is the review's
+   $((\norm{\pos_{\mathrm{rel}}}-R)/\ttc)\hat{\pos}$, and the bound $d/(2\ttc)$ is the same.)
+   Exercise (b) now asks for that bound, the derivation of $d_{k+1} = d_k(1-\dt/\ttc)$ and the
+   conclusion that the configuration *converges to* a stalled state; (a) asks for the bound of
+   $\abs{v_y}$ by a fixed multiple of $v_x$ instead of a bare threshold.
+
+7. **`sec:ch13-dance` lateral-velocity range.** Now "jumps back and forth between about
+   $+0.05$ and $-0.18$ m/s for the whole approach (range $[-0.18, +0.05]$ m/s)", with the
+   49 reversals in 100 steps kept; both match `figures/data/ch13-dance.dat` (min $-0.1823$,
+   max $+0.0518$) as regenerated.
+
+8. **Combined radius $r$ -> $R$.** Done throughout the chapter (44 occurrences: the display
+   `eq:ch13-relative`, `def:ch13-vo`, `thm:ch13-cases` and its proof, `alg:ch13-halfplane`,
+   the 3D section, `tab:ch13-example`, the theorem statements, the exercises), plus the
+   glossary entry, the solution of `exr:ch13-arc-case` and the label $R/\ttc$ in
+   `figures/ch13/orca-construction.tex`. `r_A`, `r_B` and the code keyword `r` in the two
+   listings are untouched, as the review allows. The sentence after `eq:ch13-relative` now
+   bolds **combined radius**, adds `\index{combined radius}` (the same index head as
+   `ch:ch12`) and says it is the symbol `ch:ch12` uses.
+
+9. **Index heads.** `\index{time horizon $\tau$}` is now `\index{time horizon!ORCA}`, and
+   `\index{time horizon!obstacles}` was added where $\ttc_{\mathrm{obst}}$ is introduced in
+   `sec:ch13-implementation`.
+
+10. **The acronym VO.** `sec:ch13-motivation` now reads "Velocity obstacles (VO,
+    \cref{ch:ch12}) give such a rule"; since the objectives box precedes it, that item was
+    also changed to "the velocity obstacle (VO) rule", so the acronym is defined at its true
+    first use.
+
+**Suggestions.** Applied: "at a time at most $\ttc$" in `sec:ch13-vo`; a sentence in
+`sec:ch13-limits` saying that `thm:ch13-pairwise` assumes $\norm{\pos_{\mathrm{rel}}} > R$ and
+that the overlap branch carries no $\ttc$-guarantee, only separation after one $\dt$;
+`eq:ch13-dense` is now called "a linear program in the three variables $(v_x,v_y,\delta)$
+together with the speed disc, the same half-plane-and-disc structure as `alg:ch13-lp`"; the
+`fig:ch13-circle` caption now says the lower panel shows all four methods, RVO included;
+solutions were added for `exr:ch13-lp-by-hand` (order-dependence, the boundary-line argument,
+the disc clamp) and `exr:ch13-infeasible` (equalised violations, the bisector half-planes, the
+independence of $\vel^{\mathrm{pref}}$), so six of ten exercises now have solutions.
+Not applied: the length trims (the review requires no cuts and the material is spec content;
+the chapter stays at 24 pages), the third RVO trace in `fig:ch13-dance` (it needs a new
+three-agent run in `gen_ch13_circle.py` and a fourth curve in a figure the review asks to
+keep; the panel already carries a fourth curve, the unequal-share RVO run), and the
+front-matter notation table, which is not this chapter's file.

@@ -57,7 +57,7 @@ def main():
     print("wrote ch19-particles*.dat")
     n_eff = res["n_eff"]
     print("N_eff by step:", " ".join(f"{k + 2}:{n:.0f}" for k, n in enumerate(n_eff)))
-    gap = res["ukf_est"][res["k_last"] + 1:res["k_first"]]
+    gap = res["ukf_est"][res["k_last"]:res["k_first"]]
     print("UKF mean while hidden (k, x, y):",
           " ".join(f"({res['k_last'] + 1 + i}, {g[0]:.1f}, {g[1]:.1f})" for i, g in enumerate(gap)))
 
