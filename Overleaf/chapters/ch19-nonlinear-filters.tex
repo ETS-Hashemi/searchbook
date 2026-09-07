@@ -87,9 +87,11 @@ error}\index{banana distribution}
   \caption{Three ways of pushing a Gaussian belief (left) through a
   nonlinear function $f$ into the curved true output distribution (shaded
   banana). (a) The EKF moves the ellipse with the tangent at the mean; the
-  ellipse sits on the image of the mean, not on the mean of the banana, and
-  cannot bend. (b) The UKF pushes $2n+1$ sigma points through the true $f$
-  and fits an ellipse to the images; the fitted mean lies inside the banana.
+  ellipse sits on the image of the mean, not on the mean of the banana (the
+  red cross), and cannot bend: the gap between the two is the arrow marked
+  \emph{bias}. (b) The UKF pushes $2n+1$ sigma points through the true $f$
+  and fits an ellipse to the images; the fitted mean lands on the dotted
+  true-mean level, inside the banana.
   (c) The particle filter pushes a cloud of random samples through $f$ and
   keeps the cloud as the belief, curvature included.}
   \label{fig:ch19-idea}
@@ -706,11 +708,9 @@ all eleven images, $\hat{\state}_k^- = (-109.641, -5.456, 10, -2.8416,
 0.3)$, is $0.21\,\mathrm{m}$ east of the EKF prediction: the second-order
 term $\tfrac12 P_{\psi\psi}\,\partial^2 x'/\partial\psi^2 = \tfrac12 \cdot
 0.04 \cdot 9.85 = 0.197\,\mathrm{m}$, plus a little from the $\omega$
-points. The covariance also changes shape slightly ($\sigma_x = 2.355$
-against $2.306$, $\sigma_y = 2.810$ against $2.854$). The update redraws
-eleven points around $\hat{\state}_k^-$, maps them through $h$ and obtains
-the predicted measurement $(109.81, -3.0918)$, the innovation $(1.69,
--0.0713)$ after wrapping, and the gain from the cross-covariance. The result
+points. The update redraws eleven points around $\hat{\state}_k^-$, maps
+them through $h$, and forms the wrapped innovation and the gain from the
+cross-covariance. The result
 (\cref{tab:ch19-ekf-trace}) lies within $0.11\,\mathrm{m}$ of the EKF's: on
 this step the two filters agree because the heading uncertainty
 ($0.2\,\mathrm{rad}$) is small compared with the curvature of the arc. The
@@ -776,18 +776,17 @@ Cartesian coordinates, is the baseline any filter must beat.
 \end{table}
 
 Four things to notice. First, in the baseline scenario the EKF and the UKF
-are indistinguishable ($2.74$ against $2.76\,\mathrm{m}$): at ranges of
+are indistinguishable: at ranges of
 $45$--$160\,\mathrm{m}$ with $2^\circ$ of bearing noise the belief is narrow
 compared with the curvature, and the tangent is as good as the sigma
 points. Second, when the belief widens the UKF pulls ahead: with
-$8^\circ$ of bearing noise its RMSE is $10\,\%$ below the EKF's ($6.21$
-against $6.88\,\mathrm{m}$), and on the close pass, where $\mat{H}$ changes
-fastest, $12\,\%$ below ($2.71$ against $3.09\,\mathrm{m}$), with the
+$8^\circ$ of bearing noise its RMSE is $10\,\%$ below the EKF's, and on the
+close pass, where $\mat{H}$ changes fastest, $12\,\%$ below, with the
 particle filter matching the UKF. Third, the poor start is survived by
 \emph{both Gaussian filters} in every run, because the range--bearing
 measurement pins the position at each step; the UKF recovers faster than the
-EKF ($2.90$ against $3.10\,\mathrm{m}$) and the particle filter more slowly
-(median $3.08$), and one of its hundred runs never recovers: a cloud whose
+EKF and the particle filter more slowly, and one of its hundred runs never
+recovers: a cloud whose
 initial spread does not contain the true heading has nothing to reweight,
 whereas the Gaussian filters extrapolate along the tangent (the lost
 baseline run has the same cause at a turn onset). Fourth, the cost: a UKF
@@ -1009,9 +1008,15 @@ for most western ones: $N_{\mathrm{eff}}$ collapses to $17$, the filter
 resamples, the eastern lobe vanishes and $99.9\,\%$ of the new particles lie
 within $15\,\mathrm{m}$ of the truth; one step later the process noise has
 separated the copies and $N_{\mathrm{eff}}$ is back at $432$. The filter
-resamples in $13$ of the $29$ steps, and after each one the curve in the
-right panel restarts near $N$: the sawtooth is the signature of a healthy
-filter. For the planner, the two lobes are two hypotheses with
+resamples in $13$ of the $29$ steps. Resampling resets the weights to
+$1/N$, but the very next measurement re-concentrates them at once, and
+$N_{\mathrm{eff}}$ is plotted \emph{before} resampling
+(line~\ref{alg:ch19-pf:ess}), so the curve climbs back only to between
+$0.2N$ and $0.8N$: that sawtooth between the threshold and a partial
+recovery is the signature of a healthy filter with informative
+measurements. A curve pinned near $N$, as in the measurement-free band,
+means the data are telling the filter nothing; one pinned near $1$ means a
+lost track. For the planner, the two lobes are two hypotheses with
 probabilities $0.68$ and $0.28$, each with its own predicted path;
 \cref{sec:ch19-drone} says what to do with them.\index{multimodal posterior}
 
@@ -1124,7 +1129,7 @@ factorisations and $2(2n+1)$ model evaluations; the particle filter costs
 $\bigO{Nn}$ for propagation and likelihoods and $\bigO{N}$ for resampling,
 with $N$ in the thousands. On the machine used for \cref{tab:ch19-rmse},
 one step of the five-dimensional model in NumPy takes about
-$0.26\,\mathrm{ms}$ (EKF), $0.46\,\mathrm{ms}$ (UKF) and
+$0.3\,\mathrm{ms}$ (EKF), $0.5\,\mathrm{ms}$ (UKF) and
 $1.2\,\mathrm{ms}$ (particle filter, $N = 2\,000$); absolute times move
 with the machine, the ratios, roughly $1 : 1.8 : 4.5$, much less.
 \Cref{tab:ch19-comparison} summarises.\index{particle filter!cost}
@@ -1193,9 +1198,7 @@ mode probabilities updated from the innovations, and switches within a step
 or two.
 
 \paragraph{Better particle filters, and three dimensions.}
-The \emph{auxiliary} particle filter looks at $\meas_k$ before choosing
-which particles to propagate; the \emph{regularised} filter resamples from a
-smoothed distribution; the \emph{Rao--Blackwellised} filter runs a Kalman
+The \emph{Rao--Blackwellised} particle filter runs a Kalman
 filter for the linear part of the state inside every particle and samples
 only the nonlinear part, which is what makes particle methods workable in
 higher dimensions~\cite{doucet2001sequential,arulampalam2002tutorial}. For a

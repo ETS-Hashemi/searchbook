@@ -157,7 +157,11 @@ and in three dimensions the same blocks appear with $3\times3$ identities. The
 physical limits $\norm{\acc}\le a_{\max}$ and $\norm{\vel}\le v_{\max}$ are
 discs, which are convex but not linear. Throughout this chapter we replace
 them by the per-axis boxes $\abs{u_{k,i}}\le a_{\max}$ and $\abs{v_{k,i}}\le
-v_{\max}$, which are linear; if you need the disc or ball exactly, use the
+v_{\max}$, which are linear. The box is a \emph{relaxation}: it contains the
+disc and admits $\norm{\acc}\le\sqrt{n}\,a_{\max}$ along a diagonal, so
+$a_{\max}$ must be declared per axis and set from what the vehicle can do on
+one axis --- the worked example of \cref{sec:ch21-example} accordingly takes
+$a_{\max}=2$~m/s$^2$ per axis. If you need the disc or ball exactly, use the
 largest box inside it, of half-width $a_{\max}/\sqrt{n}$ (and
 $v_{\max}/\sqrt{n}$ for the velocity), or the inscribed polygon of
 \cref{thm:ch21-polygon} below. Time is indexed by $k$
@@ -178,7 +182,8 @@ $\mat{R}\succ\mat{0}$ and $\mat{P}\succeq\mat{0}$, the problem is
 +\sum_{k=0}^{N-1}\ctrl_k\T\mat{R}\,\ctrl_k
 +(\state_N-\state_N^{\mathrm{ref}})\T\mat{P}\,(\state_N-\state_N^{\mathrm{ref}})\\
 \st & \state_{k+1}=\mat{A}\state_k+\mat{B}\ctrl_k,\qquad k=0,\dots,N-1,\\
-& \abs{u_{k,i}}\le a_{\max},\quad \abs{v_{k,i}}\le v_{\max},\quad \pos_k\in\mathcal{X},\qquad k=1,\dots,N,\\
+& \abs{u_{k,i}}\le a_{\max},\qquad k=0,\dots,N-1,\\
+& \abs{v_{k,i}}\le v_{\max},\quad \pos_k\in\mathcal{X},\qquad k=1,\dots,N,\\
 & \text{the swarm constraints of \cref{sec:ch21-constraints}.}
 \end{aligned}
 \label{eq:ch21-ocp}
@@ -502,9 +507,9 @@ constraints, but the algorithm is the same.
 \KwOut{minimiser $\vect{z}$, multipliers $\vect{y}$, status}
 \Fn{\MpcAdmm{$\mat{H},\vect{f},\mat{G},\vect{l},\vect{u},\vect{z},\vect{y}$}}{
   scale every row of $\mat{G}$ and of $\vect{l},\vect{u}$ to unit infinity norm\label{alg:ch21-admm:scale}\;
-  $\vect{w}\gets\Pi_{[\vect{l},\vect{u}]}(\mat{G}\vect{z})$; $\mat{K}\gets\mat{H}+\sigma\mat{I}+\rho\mat{G}\T\mat{G}$, factorised once\label{alg:ch21-admm:factor}\;
+  $\vect{w}\gets\Pi_{[\vect{l},\vect{u}]}(\mat{G}\vect{z})$; $\mat{M}\gets\mat{H}+\sigma\mat{I}+\rho\mat{G}\T\mat{G}$, factorised once\label{alg:ch21-admm:factor}\;
   \For{$i=1,2,\dots,i_{\max}$}{
-    $\tilde{\vect{z}}\gets\mat{K}\inv\bigl(\sigma\vect{z}-\vect{f}+\mat{G}\T(\rho\vect{w}-\vect{y})\bigr)$\label{alg:ch21-admm:linsys}\;
+    $\tilde{\vect{z}}\gets\mat{M}\inv\bigl(\sigma\vect{z}-\vect{f}+\mat{G}\T(\rho\vect{w}-\vect{y})\bigr)$\label{alg:ch21-admm:linsys}\;
     $\hat{\vect{w}}\gets\alpha\mat{G}\tilde{\vect{z}}+(1-\alpha)\vect{w}$;\quad $\vect{z}\gets\alpha\tilde{\vect{z}}+(1-\alpha)\vect{z}$\label{alg:ch21-admm:relax}\;
     $\vect{w}^{+}\gets\Pi_{[\vect{l},\vect{u}]}(\hat{\vect{w}}+\vect{y}/\rho)$\label{alg:ch21-admm:proj}\;
     $\vect{y}\gets\vect{y}+\rho(\hat{\vect{w}}-\vect{w}^{+})$;\quad $\vect{w}\gets\vect{w}^{+}$\label{alg:ch21-admm:dual}\;
@@ -512,7 +517,7 @@ constraints, but the algorithm is the same.
       polish: re-solve the KKT system on the active rows; \KwRet{$(\vect{z},\vect{y},\mathit{solved})$}\label{alg:ch21-admm:polish}\;
     }
     \If{the change of $\vect{y}$ certifies infeasibility}{\KwRet{$(\vect{z},\vect{y},\mathit{infeasible})$}\label{alg:ch21-admm:infeasible}\;}
-    every $30$ iterations: rebalance $\rho$ from the ratio of the two residuals and refactorise $\mat{K}$\label{alg:ch21-admm:rho}\;
+    every $30$ iterations: rebalance $\rho$ from the ratio of the two residuals and refactorise $\mat{M}$\label{alg:ch21-admm:rho}\;
   }
   \KwRet{$(\vect{z},\vect{y},\mathit{max\_iter})$}\;
 }
@@ -525,10 +530,13 @@ and a vector of
 \textbf{Lagrange multipliers}\index{Lagrange multiplier} $\vect{y}$ that
 pushes the two copies together. Line~\ref{alg:ch21-admm:linsys} minimises
 the cost plus a quadratic penalty for the disagreement between $\mat{G}\vect{z}$
-and $\vect{w}$; this is a linear system with the fixed matrix $\mat{K}$, so
+and $\vect{w}$; this is a linear system with the fixed matrix
+$\mat{M}=\mat{H}+\sigma\mat{I}+\rho\mat{G}\T\mat{G}$, so
 the factorisation (in the book's code, for a matrix with at most a few hundred
-rows, simply the inverse) is computed once and every iteration costs two
-matrix--vector products. Line~\ref{alg:ch21-admm:proj} clips the disagreeing
+rows, simply the inverse: \code{Kinv} in \cref{lst:ch21-admm} is $\mat{M}\inv$)
+is computed once and every iteration costs two
+matrix--vector products. The letter $\mat{M}$ is used here only for this
+matrix; $\mat{K}$ is reserved for the LQR gain of \cref{eq:ch21-riccati}. Line~\ref{alg:ch21-admm:proj} clips the disagreeing
 copy into the box, the cheapest operation imaginable, and
 line~\ref{alg:ch21-admm:dual} updates the multipliers by the remaining
 disagreement. Row scaling (line~\ref{alg:ch21-admm:scale}) matters more than
@@ -538,9 +546,15 @@ rows are equilibrated. The two residuals in the stopping test are the
 \textbf{primal residual}\index{residual!primal} (are the constraints
 satisfied?) and the \textbf{dual residual}\index{residual!dual} (is the
 gradient of the cost balanced by the constraint forces?); at a solution both
-are zero; the code tests them every ten iterations against the mixed tolerance
-$\eps_{\mathrm{abs}}+\eps_{\mathrm{rel}}\sigma$, where $\sigma$ is the largest
-of the terms that make up the residual being tested. ADMM converges to a
+are zero; the code tests them every ten iterations against the mixed tolerances
+$\eps_{\mathrm{abs}}+\eps_{\mathrm{rel}}s_{\mathrm{prim}}$ and
+$\eps_{\mathrm{abs}}+\eps_{\mathrm{rel}}s_{\mathrm{dual}}$, where
+$s_{\mathrm{prim}}=\max(\norm{\mat{G}\vect{z}}_\infty,\norm{\vect{w}}_\infty)$ and
+$s_{\mathrm{dual}}=\max(\norm{\mat{H}\vect{z}}_\infty,\norm{\vect{f}}_\infty,\norm{\mat{G}\T\vect{y}}_\infty)$
+are the largest of the terms that make up the residual being tested
+(\code{s\_prim} and \code{s\_dual} in \cref{lst:ch21-admm}); the letter
+$\sigma$ stays with the regularisation of
+line~\ref{alg:ch21-admm:factor}. ADMM converges to a
 modest accuracy quickly and to a high accuracy
 slowly, so line~\ref{alg:ch21-admm:polish} \textbf{polishes}\index{polishing}
 the answer: it reads the \textbf{active set}\index{active set} (the rows
@@ -862,7 +876,9 @@ because they held for the hard problem and $s_k=0$ is active with
 $\mu_k\ge0$. \qedhere
 \end{proof}
 
-This result, due to \textcite{kerrigan2000soft}, tells you how to choose the
+The MPC form of this classical exact-penalty result (exact penalties
+themselves go back to the nonlinear-programming literature of the nineteen
+sixties and seventies) is due to \textcite{kerrigan2000soft}; it tells you how to choose the
 slack weight: look at the multipliers of the hard problem in normal operation
 and take $w_1$ safely above the largest one. In the worked example the
 multipliers never exceed $19$, so $w_1=50$ reproduces the hard trajectory
@@ -875,15 +891,15 @@ violation is spread when one is unavoidable.
 
 The honest list, each item taken up in \cref{sec:ch21-implementation}:
 \begin{itemize}
-  \item \emph{The half-plane is an approximation.} The QP solves a convex
-  inner approximation of the true problem built around the previous plan. If
-  the plan was on the wrong side of the intruder, the half-plane excludes the
-  better side and the drone may take a long detour or, in symmetric
-  situations, alternate between the two sides from step to step.
-  \item \emph{Moving obstacles break the shifted-candidate argument.} A hard
+  \item \emph{The half-plane is an approximation} built around the previous
+  plan, so a plan on the wrong side of the intruder can cost a long detour or
+  make the drone alternate between the two sides (\cref{sec:ch21-implementation},
+  pitfall ``Linearising around a stale trajectory'').
+  \item \emph{Moving obstacles break the shifted-candidate argument}: a hard
   avoidance constraint can be infeasible at step $k=1$ when an intruder is
-  detected late or turns unexpectedly; then only soft constraints, or a
-  fallback, produce an input at all.
+  detected late, and then only soft constraints or a fallback produce an input
+  at all (\cref{sec:ch21-implementation}, pitfall ``Hard constraints that
+  become infeasible'').
   \item \emph{The solver is numerical.} The constraints hold to the solver's
   tolerance (a fraction of a millimetre after polishing, $10^{-4}$ relative
   without), at the sample times only, and for the model. Put the discretisation
@@ -901,7 +917,7 @@ The honest list, each item taken up in \cref{sec:ch21-implementation}:
 Building the condensed problem once costs $\bigO{N^3n^3}$ for
 $\mat{S}_u\T\bar{\mat{Q}}\mat{S}_u$ and is negligible. Per step, forming
 $\vect{f}$ and the constraint rows costs $\bigO{(nN)^2}$; each ADMM iteration
-costs one product with $\mat{K}\inv$ and two with $\mat{G}$, i.e.\
+costs one product with $\mat{M}\inv$ and two with $\mat{G}$, i.e.\
 $\bigO{(nN)^2+m\,nN}$ for $m$ rows; and every change of $\rho$ costs a new
 factorisation, $\bigO{(nN)^3}$. The number of iterations does not grow with
 $N$ in any simple way; it grows with how far the warm start is from the
@@ -928,7 +944,7 @@ preferable: its KKT matrix is banded and one iteration costs $\bigO{N}$
 \toprule
 Knob & Effect\\
 \midrule
-Horizon $N$ & Longer: constraints are seen earlier, manoeuvres are gentler, closer to the infinite-horizon optimum; but the QP grows quadratically, and predictions of others far ahead are unreliable. Must exceed the stopping time $v/a_{\max}$ and the reaction time of the prediction layer.\\
+Horizon $N$ & Longer: constraints are seen earlier, manoeuvres are gentler, closer to the infinite-horizon optimum; but the dense condensed Hessian grows quadratically with $N$ and a refactorisation cubically, and predictions of others far ahead are unreliable. Must exceed the stopping time $v/a_{\max}$ and the reaction time of the prediction layer.\\
 Time step $\dt$ & Smaller: finer control and constraints checked more often, more steps for the same horizon length; the model stays exact. Bounded below by the solve time and the flight controller's rate.\\
 $q_p$ (position weight) & Larger: tighter tracking, harder accelerations, larger multipliers (raise $w_1$ with it).\\
 $q_v$ (velocity weight) & Larger: the drone matches the reference speed even when its position lags; too large and it never catches up.\\
@@ -1402,7 +1418,7 @@ multipliers change, and by what factor?
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch21-horizon}
 Derive a lower bound on the horizon length $N\dt$ from the stopping distance
-of \cref{ch:ch02}, for a drone at speed $v$ that must be able to stop before
+of \cref{thm:ch02-stopping-distance}, for a drone at speed $v$ that must be able to stop before
 an obstacle that appears at the end of its horizon. Evaluate it for the
 example and for $v_{\max}$, then run \code{horizon\_experiment} with $N=3,4,5$
 and explain the failures at $N=3$.
@@ -1432,8 +1448,10 @@ as predicted. Hint: let the linearisation point change sides.
 \label{exr:ch21-chance}
 Derive \cref{eq:ch21-chance-linear} from \cref{eq:ch21-chance}. Compute
 $\kappa_\delta$ for $\delta=0.2,0.1,0.05,0.01$ with \code{normal\_quantile}, run
-\cref{ex:ch21-crossing} with \code{MPC(delta=$\delta$)} and
-$\mat{\Sigma}_k=\mat{\Sigma}_0+(k\dt)^2\mat{\Sigma}_v$, and plot the minimum
+\cref{ex:ch21-crossing} with \code{MPC(delta=$\delta$)} and the growing
+covariance $\mat{\Sigma}_k=\mat{\Sigma}_0+(k\dt)^2\mat{\Sigma}_v$, which you
+pass to the simulator as
+\code{simulate(..., cov\_growth=($\mat{\Sigma}_0$,\,$\mat{\Sigma}_v$))}, and plot the minimum
 separation and the RMS tracking error against $\delta$. Then estimate the
 empirical collision probability by sampling the intruder's true trajectory
 from the same Gaussian and compare it with $\delta$.

@@ -53,7 +53,8 @@ the intruder. An \emph{incremental} search keeps the old search results and repa
 what the change invalidated. \dstarlite, the algorithm of this chapter, does exactly
 that, and on top of it handles the fact that the drone keeps moving while it replans.
 It is the replanning algorithm of the hybrid architecture in \cref{ch:ch24}, and the
-training plan rates it \priority{Essential}; its conceptual parent \lpastar is rated
+training plan rates it \priority{Essential}; its conceptual parent Lifelong Planning
+\astar (\lpastar) is rated
 \priority{Medium}.
 
 The chapter proceeds in two halves. The first half develops \lpastar, which repairs a
@@ -77,7 +78,10 @@ scratch from the drone's cell: it expands every cell shaded grey, $26$ of them, 
 which lie far from the obstacle and whose distance to the goal did not change at all.
 In the right panel, an incremental search touches only the orange cells, four cells in
 six expansions: the ones whose stored distance became stale because the obstacle removed
-the edge they relied on, plus the few cells needed to find the detour.
+the edge they relied on, plus the few cells needed to find the detour. Those six
+expansions repair a search that the drone had already run from its original start, and
+that search cost $52$ expansions on this map; \cref{sec:ch05-experiment} weighs the
+first search against the cheap repairs it buys.
 
 \begin{figure}[tb]
   \centering
@@ -86,7 +90,9 @@ the edge they relied on, plus the few cells needed to find the detour.
   disc) on its planned route (faded blue). Left: \astar re-run from scratch from the
   drone's cell expands all grey cells. Right: \dstarlite expands only the orange cells,
   those whose goal distance was invalidated or is needed for the detour (dashed). The
-  number of expansions is printed under each panel.}
+  number of expansions is printed under each panel. Note that \dstarlite is repairing a
+  search it had already run from the drone's original start ($52$ expansions);
+  \cref{sec:ch05-experiment} accounts for that first search.}
   \label{fig:ch05-idea}
 \end{figure}
 
@@ -131,6 +137,14 @@ are the predecessors and successors of $s$. A cost of $\infty$ means that the ed
 currently unusable; we write $c(u,v)=\infty$ also for pairs that are not adjacent, which
 keeps formulas uniform. The true distance from $u$ to $v$ under the current costs is
 $\dist(u,v)$, and $\dist(u,v)=\infty$ if no path exists.
+
+This is the notation of \cref{ch:ch04} in new clothes: $s_{\mathrm{start}}$ is the start
+node $s$ of \cref{def:ch04-problem}, $s_{\mathrm{goal}}$ is the goal $\gamma$, and
+$\dist(s_{\mathrm{start}},n)$ is the true distance written $\gcost^*(n)$ there. One
+symbol changes meaning, and it is the important one: in \cref{ch:ch04}, $\gcost(n)$ is
+the cost of the best path found \emph{so far in the current search}, whereas here
+$\gcost(s)$ is a value stored from an \emph{earlier} search that may be stale until the
+repair reaches it.
 
 \begin{definition}[Incremental shortest-path problem]
 \label{def:ch05-problem}
@@ -358,9 +372,11 @@ the argument that proves \astar optimal with a consistent heuristic (\cref{ch:ch
 The second component breaks ties in favour of \emph{smaller} $\min(\gcost,\rhs)$, which
 matters more here than in \astar: among vertices with equal $k_1$, an underconsistent
 vertex $u$ with a small old $\gcost(u)$ must be processed before a successor $w$ whose
-$\rhs(w)=\gcost(u)+c(u,w)$ was derived from it. Because $c(u,w)>0$, $k_2(u) < k_2(w)$
-whenever $k_1(u)=k_1(w)$, so the stale value is withdrawn first and $w$ is recomputed
-from correct information. Without the second component, $w$ could be expanded with a
+$\rhs(w)=\gcost(u)+c(u,w)$ was derived from it. If $w$ is overconsistent, then
+$k_2(w)=\rhs(w)=\gcost(u)+c(u,w) > \gcost(u) = k_2(u)$ because $c(u,w)>0$, so $u$ comes
+first among the ties and the stale value is withdrawn before $w$ is recomputed from
+correct information; if $w$ is itself underconsistent, it is retracted in the same way
+before it can be expanded with a stale value. Without the second component, $w$ could be expanded with a
 value that is about to be retracted, and would have to be expanded a third time.
 
 \begin{pitfall}[Comparing keys as single numbers]
@@ -622,14 +638,17 @@ new keys changes no comparison among them.
   $m=\min(\gcost,\rhs)$, and the last two columns are the keys that
   \protect\DslCalculateKey returns now, without and with the modifier. Without $k_m$ the
   stale key of $u$ is an \emph{over}estimate and $v$ is wrongly popped first; with
-  $k_m=2$ the stale key is a lower bound and the order is right.}
+  $k_m=2$ the stale key is a lower bound and the order is right. The vertex $v$ is
+  inserted after the move, so it has a single stored key in any given run; the two
+  entries $[9;6]$ / $[11;6]$ in its row are the key it receives without and with the
+  modifier.}
   \label{tab:ch05-km}
   \begin{tabular}{@{}lcccccc@{}}
   \toprule
   Vertex & $m$ & $\hcost(s_{\mathrm{old}},\cdot)$ & $\hcost(s_{\mathrm{new}},\cdot)$ & stored key & now, no $k_m$ & now, $k_m=2$\\
   \midrule
   $u$ (old entry) & 4 & 6 & 4 & $[10;4]$ & $[8;4]$ & $[10;4]$\\
-  $v$ (new entry) & 6 & -- & 3 & $[9;6]$ or $[11;6]$ & $[9;6]$ & $[11;6]$\\
+  $v$ (new entry) & 6 & -- & 3 & $[9;6]$ / $[11;6]$ & $[9;6]$ & $[11;6]$\\
   \midrule
   popped first & & & & $v$ (no $k_m$) & $u$ & $u$\\
   \bottomrule
@@ -756,7 +775,8 @@ symmetric mistake, updating only $u$ and forgetting its predecessors (successors
 \end{pitfall}
 
 % ---------------------------------------------------------------------
-\section{A worked example: the robot moves and an obstacle appears}
+\section[A worked example: \dstarlite repairs a plan]{A worked example: the robot moves
+and an obstacle appears}
 \label{sec:ch05-dstarlite-example}
 
 \begin{example}[\dstarlite with a moving robot]
@@ -940,9 +960,10 @@ would, on the reversed graph.
 An overconsistent expansion of $u$ sets $\gcost(u)=\rhs(u)$ with key
 $[\gcost(u)+\hcost(s_{\mathrm{start}},u)+k_m;\,\gcost(u)]$. Any vertex $s'$ expanded
 afterwards has a key at least as large, so $\gcost(s') + \hcost(s_{\mathrm{start}},s') \ge
-\gcost(u) + \hcost(s_{\mathrm{start}},u)$. By consistency of $\hcost$,
-$\hcost(s_{\mathrm{start}},u) \le \hcost(s_{\mathrm{start}},s') + c(u,s')$ for the
-edge $(u,s')$, hence $c(u,s') + \gcost(s') \ge \gcost(u)$: no later expansion can lower
+\gcost(u) + \hcost(s_{\mathrm{start}},u)$. The consistency condition of
+\cref{sec:ch05-dstarlite}, applied to the edge $(u,s')$ with $u \in \Pred(s')$, reads
+$\hcost(s_{\mathrm{start}},s') \le \hcost(s_{\mathrm{start}},u) + c(u,s')$, hence
+$c(u,s') + \gcost(s') \ge \gcost(u)$: no later expansion can lower
 $\rhs(u)$ below $\gcost(u)$, so $u$ is never popped as overconsistent again in this
 call. An underconsistent expansion sets $\gcost(u)=\infty$; a vertex with
 $\gcost=\infty$ cannot be underconsistent, and $\gcost(u)$ only becomes finite again
@@ -953,7 +974,7 @@ role of the tentative $\gcost$, and the keys order vertices exactly as $\fcost$ 
 $\gcost$ tie-breaking does. The full proofs are in \textcite{koenig2004lpa}.
 \end{proof}
 
-Two remarks put the bound in perspective. First, ``at most twice'' is a worst case; the
+Three remarks put the bound in perspective. First, ``at most twice'' is a worst case; the
 typical repair after a local change expands a small fraction of the vertices, as the
 worked examples and \cref{fig:ch05-experiment} show. Second, the bound does not say that
 \dstarlite is always cheaper than \astar: if a change invalidates most of the stored
@@ -973,6 +994,14 @@ repair that raises the path cost re-expands the part of the band that the new co
 uncovers, as the worked examples show. This is the price of the second component, and
 it cannot be dropped: it is what guarantees that stale values are retracted before the
 vertices that depend on them are expanded (\cref{exr:ch05-secondkey}).
+
+The bound also fixes the running time of a call. At most $2|V|$ expansions take place;
+each expansion calls \DslUpdateVertex on $O(\deg u)$ vertices, and each such call
+recomputes an $\rhs$-value in $O(\deg)$ time and inserts or removes one queue entry in
+$O(\log|U|)$ time. A call therefore costs $O\bigl((|V|+|E|)\log|V|\bigr)$ in the worst
+case\index{complexity!of D* Lite}, the same bound as a search from scratch with \astar.
+The saving is not asymptotic: it is that the constant is paid only where stored values
+actually changed.
 
 \subsection{An experiment: \dstarlite versus repeated \astar}
 \label{sec:ch05-experiment}
@@ -1018,8 +1047,10 @@ expansions for the same search, so the difference is the band effect of
 \dstarlite overtakes \astar after four events; in cumulative time \astar is still
 marginally ahead at the end of the run ($61$~ms against $65$~ms), so on this instance
 and in this implementation the incremental search has not quite recovered the cost of
-its first search after $40$ events, although it is faster at every single one of them
-($0.8$~ms against $1.5$~ms on average). Second, events whose obstacle lands off the
+its first search after $40$ events, although its repairs are on average three times
+faster than a fresh \astar ($0.8$~ms against $1.5$~ms); at $7$ of the $40$ events, where
+the obstacle closed a corridor, the repair was nevertheless the slower of the two (up to
+$5.2$~ms against $1.6$~ms). Second, events whose obstacle lands off the
 path cost \dstarlite next to nothing: over all grids and events, $197$ such events
 needed $1.5$ expansions on average and none at all in $68\,\%$ of the cases, because
 \DslUpdateVertex finds every affected vertex consistent or irrelevant and
@@ -1038,7 +1069,7 @@ an \astar search, which is the ``almost everything changed'' case of
 \paragraph{The original \dstar.}
 Stentz's \dstar (``Dynamic \astar'') \cite{stentz1994optimal} was the first algorithm
 to repair a robot's path incrementally as its sensors revealed unknown terrain, and
-its Focussed variant added a heuristic. It works backward from the goal, like
+its Focussed variant \cite{stentz1995focussed} added a heuristic. It works backward from the goal, like
 \dstarlite, but propagates cost changes with \textsc{Raise} and \textsc{Lower} states
 and a set of case distinctions that are hard to get right. \dstarlite computes the same
 paths, is provably at least as efficient in expansions, and fits on half a page; this is
@@ -1054,8 +1085,9 @@ the natural choice when the replanning layer has a hard deadline and a suboptima
 now is worth more than an optimal one later.\index{Anytime D*}
 
 \paragraph{Field \dstar.}
-Paths on a 4- or 8-connected grid are restricted to a few headings and are up to
-$8\%$ longer than the true shortest path. Field \dstar \cite{ferguson2006field}
+Paths on a grid are restricted to a few headings: up to about $41\%$ longer than the
+true shortest path on a 4-connected grid and up to about $8\%$ longer on an 8-connected
+one. Field \dstar \cite{ferguson2006field}
 keeps the \dstarlite update scheme but lets a path leave a cell through any point of
 an edge, computing the cost of a cell by linear interpolation between the
 $\gcost$-values of the two corner vertices of that edge. The result is smooth, nearly
@@ -1207,7 +1239,7 @@ class PriorityQueue:
 
 \begin{lstlisting}[caption={Processing a batch of changed cells, lines~\ref{alg:ch05-dstarlite:km}--\ref{alg:ch05-dstarlite:replan} of \protect\DslMain (from \code{code/ch05\_dstar\_lite.py}).},label={lst:ch05-main}]
     def notify_changed_cells(self, cells, replan=True):
-        """Lines 28'-35': process cells whose blocked status flipped.
+        """Process cells whose blocked status flipped (D* Lite main loop).
 
         Adds h(s_last, s_start) to k_m, updates the tail of every changed
         edge (the cell and each neighbour) and, if replan, repairs the
@@ -1272,9 +1304,11 @@ over the repairs.
 
 \begin{dronebox}
 \dstarlite is the \emph{replanning layer} of the hybrid architecture in \cref{ch:ch24}.
-The global planner (\cbs or \ecbs, \cref{ch:ch09,ch:ch10}) delivers a nominal
+The global planner (conflict-based search, \cbs, or its bounded-suboptimal variant
+\ecbs, \cref{ch:ch09,ch:ch10}) delivers a nominal
 time-indexed route; the prediction layer (\cref{ch:ch18,ch:ch20}) delivers, for each
-unknown vehicle, a predicted trajectory with uncertainty; the local layer (\orca or DWA,
+unknown vehicle, a predicted trajectory with uncertainty; the local layer (optimal
+reciprocal collision avoidance, \orca, or the dynamic window approach, DWA,
 \cref{ch:ch13,ch:ch14}) executes short avoidance manoeuvres. The replanning layer is
 invoked when the local manoeuvre cannot safely return the drone to its nominal route:
 reconnection is impossible, too costly, or would violate formation or communication
@@ -1303,7 +1337,8 @@ obstacles during execution, and compare with re-running \astar
   uncertainty tube) is rasterised into blocked cells (hatched). The drone (blue) cannot
   rejoin its nominal route (dashed) with a local manoeuvre, so \dstarlite is run from
   the drone's current cell; only the cells around the tube are updated and the new
-  route (solid blue) is returned to the executive for a conflict re-check.}
+  route (solid blue) is returned to the executive for a conflict re-check. The ``?''
+  marks the non-cooperative intruder, the ``1'' the drone under our control.}
   \label{fig:ch05-drone}
 \end{figure}
 

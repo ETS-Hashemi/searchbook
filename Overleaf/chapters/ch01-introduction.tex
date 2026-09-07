@@ -15,7 +15,7 @@
   \item Describe the problem that this book solves: a swarm of controlled drones
         flying planned, time-indexed routes through a shared space in which unknown,
         non-cooperative moving objects appear.
-  \item Tell a \emph{planned conflict} between two drones of the swarm from an
+  \item Distinguish a \emph{planned conflict} between two drones of the swarm from an
         \emph{unexpected obstacle}, and say which of the two is resolved before
         take-off and which one during the flight.
   \item Use the vocabulary of the field correctly: workspace and configuration space,
@@ -299,7 +299,9 @@ the real drone. \Cref{ch:ch02} gives the definitions and the inflation operation
 vertices and moves, and integer time steps. Dijkstra's algorithm, \astar, \dstarlite
 and all multi-agent planners of the book are discrete. \textbf{Continuous
 planning}\index{planning!continuous} works with real-valued positions, velocities and
-times: \rrt, \rrtstar, MPC, MILP and the velocity-space methods of local avoidance. A
+times: \rrt (rapidly-exploring random tree), \rrtstar, model predictive control (MPC),
+mixed-integer linear programming (MILP) and the velocity-space methods of local
+avoidance. A
 grid is a sampling of the continuous workspace, and a discrete plan becomes a
 continuous trajectory when the drone flies between the cell centres.
 
@@ -318,8 +320,10 @@ occupies $v_t$ during time step $t$ and stays at $v_T$ for all $t\ge T$. A
 
 Without the index $t$ two paths can cross without a collision, because the drones
 pass the crossing at different times; with the index, a collision is a precise
-statement, $v_t^A=v_t^C$ for some $t$. \Cref{ch:ch02} turns this into the space-time
-graph and \cref{ch:ch07} lists every kind of conflict that time-indexed paths can have
+statement, $v_t^A=v_t^C$ for some $t$. \Cref{ch:ch02} turns this into the
+time-expanded graph, also called the space-time graph, and \cref{ch:ch07} lists every
+kind of conflict that time-indexed paths can have, in the standard vocabulary of
+\textbf{multi-agent path finding} (MAPF)\index{multi-agent path finding (MAPF)}
 \cite{stern2019mapf}.
 
 \paragraph{Global and local planning.}
@@ -333,31 +337,26 @@ the goal. The local methods of the book are those of
 III and V are global.
 
 \paragraph{Planning and control.}
-\textbf{Planning}\index{planning} decides \emph{where} the drone should be and
-\emph{when}; \textbf{control}\index{control} makes the vehicle follow that decision by
-turning the error between the desired and the measured state into motor commands. The
-book plans, and treats the flight controller as a black box that tracks a velocity or
-a waypoint. Model predictive control (\cref{ch:ch21}) is the exception that does both
-at once, which is why it is such a natural place to enforce constraints.
+The book \textbf{plans}\index{planning} and treats the flight
+\textbf{controller}\index{control}---which turns the error between the desired and the
+measured state into motor commands---as a black box that tracks a velocity or a
+waypoint. Model predictive control (\cref{ch:ch21}) is the exception that does both at
+once, which is why it is such a natural place to enforce constraints.
 
 \paragraph{Deliberative and reactive.}
-A \textbf{deliberative}\index{deliberative} method uses a model of the world to search
-or optimise over possible futures before it acts. A \textbf{reactive}\index{reactive}
-method maps the current situation to an action with little or no search, which makes
-it fast and robust to modelling errors, but short-sighted \cite{russell2020aima}.
-Global planners are deliberative, local avoidance is reactive, and the hybrid
-architecture layers the one on the other.
+Being \textbf{reactive}\index{reactive} instead of
+\textbf{deliberative}\index{deliberative} makes a method fast and robust to modelling
+errors, but short-sighted \cite{russell2020aima}. Global planners are deliberative,
+local avoidance is reactive, and the hybrid architecture layers the one on the other.
 
 \paragraph{Centralized and decentralized.}
-A \textbf{centralized}\index{centralized} system has one computer that knows the state
-of every drone and decides for all of them; in a
-\textbf{decentralized}\index{decentralized} system every drone decides from its own
-observations and from what it hears from its neighbours within communication range.
-The global planner of the book is centralized, because conflict-based search needs
-all routes in one place. Local avoidance is decentralized, because each drone runs
-\orca on what it sees. Consensus and formation control (\cref{ch:ch23}) are
-decentralized by design, and the communication radius that limits them is one of the
-constraints that \cref{sec:ch01-research} is about.
+The global planner of the book is \textbf{centralized}\index{centralized}, because
+conflict-based search (\cbs) needs all routes in one place; local avoidance is
+\textbf{decentralized}\index{decentralized}, because each drone runs \orca (optimal
+reciprocal collision avoidance) on what it sees and on what it hears from its
+neighbours within communication range. Consensus and formation control
+(\cref{ch:ch23}) are decentralized by design, and the communication radius that limits
+them is one of the constraints that \cref{sec:ch01-research} is about.
 
 \paragraph{Cooperative and non-cooperative agents.}
 Two agents are \textbf{cooperative}\index{cooperative agent} if both follow the same
@@ -395,12 +394,12 @@ informal meanings, so that you can read the map of the book in
   \toprule
   Property & Informal meaning & Examples in this book\\
   \midrule
-  Complete\index{completeness} & if a solution exists, the algorithm finds one, and if none exists it says so; sampling-based planners are \emph{probabilistically} complete: the probability of finding a solution tends to one as the number of samples grows & Dijkstra, \astar (\cref{ch:ch03,ch:ch04}); \cbs (\cref{ch:ch09}); \rrt, probabilistically (\cref{ch:ch16}); prioritized planning is \emph{not} complete (\cref{ch:ch08})\\
+  Complete\index{completeness} & if a solution exists, the algorithm finds one; in the \emph{strong} form it also reports failure when none exists, which needs a finite search space or a separate feasibility test. Sampling-based planners are \emph{probabilistically} complete: the probability of finding a solution tends to one as the number of samples grows & Dijkstra, \astar, in the strong form (\cref{ch:ch03,ch:ch04}); \cbs on solvable instances (\cref{ch:ch09}; see the remark there on unsolvable instances); \rrt, probabilistically (\cref{ch:ch16}); prioritized planning is \emph{not} complete (\cref{ch:ch08})\\
   Optimal\index{optimality} & the solution it returns has the least possible cost; \rrtstar is \emph{asymptotically} optimal, that is, optimal in the limit of infinitely many samples & \astar with an admissible heuristic (\cref{ch:ch04}); \cbs for the sum of costs (\cref{ch:ch09}); \rrtstar (\cref{ch:ch17})\\
-  Bounded suboptimal\index{bounded suboptimality} & the cost is at most $w$ times the optimal cost, for a factor $w\ge 1$ chosen by the user; $w=1$ recovers optimality, $w=1.5$ is often orders of magnitude faster & weighted \astar (\cref{ch:ch04}); \ecbs (\cref{ch:ch10})\\
-  Anytime\index{anytime algorithm} & returns a first, possibly poor, solution quickly and improves it while time remains; interrupt it whenever you like and take the best solution so far & \arastar, which lowers $w$ step by step (\cref{ch:ch06})\\
-  Incremental\index{incremental search}\index{replanning} & reuses the previous search when the graph changes a little, an obstacle appears or an edge cost changes, instead of starting over & \lpastar, \dstarlite (\cref{ch:ch05}): the replanning layer\\
-  Real-time\index{real-time} & the work per call is bounded, so an answer is guaranteed within a fixed, short time budget; such methods do not search for a route, which is why they can run at tens of hertz & \orca, one small linear program per cycle (\cref{ch:ch13}); DWA, a fixed number of candidate velocities (\cref{ch:ch14})\\
+  Bounded suboptimal\index{bounded suboptimality} & the cost is at most $w$ times the optimal cost, for a factor $w\ge 1$ chosen by the user; $w=1$ recovers optimality, and a larger $w$ buys speed, a trade-off measured for \ecbs in \cref{ch:ch10} & weighted \astar (\cref{ch:ch04}); \ecbs, Enhanced \cbs (\cref{ch:ch10})\\
+  Anytime\index{anytime algorithm} & returns a first, possibly poor, solution quickly and improves it while time remains; interrupt it whenever you like and take the best solution so far & \arastar, Anytime Repairing \astar, which lowers $w$ step by step (\cref{ch:ch06})\\
+  Incremental\index{incremental search}\index{replanning} & reuses the previous search when the graph changes a little, an obstacle appears or an edge cost changes, instead of starting over & \lpastar, Lifelong Planning \astar, and \dstarlite (\cref{ch:ch05}): the replanning layer\\
+  Real-time\index{real-time} & the work per call is bounded, so an answer is guaranteed within a fixed, short time budget; such methods do not search for a route, which is why they can run at tens of hertz & \orca, one small linear program per cycle (\cref{ch:ch13}); the dynamic window approach (DWA), a fixed number of candidate velocities (\cref{ch:ch14})\\
   \bottomrule
   \end{tabularx}
 \end{table}
@@ -443,7 +442,7 @@ constraints and a discussion of which guarantees survive the combination.
 Before the flight, the global planner receives the map, the start and goal of every
 controlled drone, and any constraints on formation or communication range. It returns
 a nominal, time-indexed path for each drone such that no two drones are ever in
-conflict. The book's global planners are conflict-based search (\cbs), which is
+conflict. The book's global planners are conflict-based search, which is
 optimal \cite{sharon2015cbs}, and its bounded-suboptimal variant \ecbs, which is much
 faster for a chosen factor $w$ (\cref{ch:ch09,ch:ch10}). Both build on single-agent
 search in space and time (\cref{ch:ch04}). This layer resolves the planned conflicts
@@ -454,8 +453,8 @@ During the flight, the prediction layer observes every object that is not part o
 the swarm. From noisy position measurements it estimates the object's current
 position and velocity with a Kalman filter \cite{thrun2005probabilistic}
 (\cref{ch:ch18,ch:ch19}) and then predicts a short future trajectory, either by
-extrapolating at constant velocity or with a learned model such as an LSTM
-(\cref{ch:ch20}). The output is not a single line but a line \emph{with
+extrapolating at constant velocity or with a learned model such as a long
+short-term memory (LSTM) network (\cref{ch:ch20}). The output is not a single line but a line \emph{with
 uncertainty}: a sequence of predicted positions, each with a covariance that grows
 along the horizon, exactly as the discs in \cref{fig:ch01-scenario} do.
 
@@ -644,7 +643,7 @@ Dijkstra & Baseline shortest-path search on graphs with non-negative edge weight
 Prioritized planning & Plans the agents one after another in a fixed order; fast, but incomplete and suboptimal in general & \priority{High} & \cref{ch:ch08}\\
 \cbs & High-level conflict resolution over a constraint tree plus low-level per-agent search; optimal & \priority{Essential} & \cref{ch:ch09}\\
 \ecbs & Bounded-suboptimal variant of \cbs based on focal search; much faster for a chosen factor $w$ & \priority{Essential} & \cref{ch:ch10}\\
-\mstar & Couples only the agents that are actually in conflict (subdimensional expansion) & \priority{Medium} & \cref{ch:ch11}\\
+\mstar (read \emph{M-star}) & Couples only the agents that are actually in conflict (subdimensional expansion) & \priority{Medium} & \cref{ch:ch11}\\
 Push-and-Swap, Push-and-Rotate & Constructive, rule-based methods; complete on a large class of instances but not optimal; a conceptual contrast to \cbs & \priority{Awareness} & \cref{ch:ch11}\\
 \addlinespace
 \multicolumn{4}{@{}l}{\textbf{C. Local and reactive collision avoidance} (learn deeply)}\\
@@ -752,6 +751,10 @@ algorithms, put together, leave a question open, and each is discussed at length
 You will meet these directions again as \emph{dronebox} notes at the end of many
 chapters, where each algorithm's role in the combination is spelled out. Keep a list
 of them; by the time you reach \cref{ch:ch24} you will have opinions about every one.
+The plan also fixes the metrics by which such work is judged---collision rate, minimum
+separation, path length, travel time, makespan, sum of costs, replanning count,
+computation time, formation error and communication violations---and \cref{ch:ch25}
+defines each of them and measures them on the capstone.
 
 % =====================================================================
 \section{How to read this book}
@@ -765,21 +768,18 @@ with a schedule, and the plan suggests two shorter routes, drawn in
 \begin{figure}[tb]
   \centering
   \inputfigure{ch01/reading-paths}
-  \caption{Two reading paths. The top row is the reading order of the training plan;
-    the first six chapters of it are the highest priority. The bottom row is the
-    shortest route to a working capstone prototype. Colours mark the layer of the
-    architecture that a chapter belongs to.}
+  \caption{Two reading paths. The top row is the reading order of the training plan:
+    its twelve items, with the plan's ``planning reference'' shown as the book's own
+    toolbox chapter, followed by the capstone; the first six items are the highest
+    priority. The bottom row is the shortest route to a working capstone prototype.
+    Colours mark the layer of the architecture that a chapter belongs to.}
   \label{fig:ch01-reading-paths}
 \end{figure}
 
 \paragraph{The fast path.}
-The training plan gives a reading order of twelve items, of which the first six are
-the highest priority: \astar (\cref{ch:ch04}), \dstarlite (\cref{ch:ch05}), \cbs
-(\cref{ch:ch09}), the MAPF overview (\cref{ch:ch07}), velocity obstacles
-(\cref{ch:ch12}) and \orca (\cref{ch:ch13}); then DWA (\cref{ch:ch14}), \rrt
-(\cref{ch:ch16}), \rrtstar (\cref{ch:ch17}), a planning reference, MPC
-(\cref{ch:ch21}) and trajectory prediction (\cref{ch:ch20}). Two remarks. The plan
-lists \cbs before the MAPF overview; if you have never seen a multi-agent path finding
+The top row of \cref{fig:ch01-reading-paths} is the plan's own order, of which the
+first six items are the highest priority. Two remarks. The plan lists \cbs before the
+MAPF overview; if you have never seen a multi-agent path finding
 instance, read \cref{ch:ch07} first, it is short and \cref{ch:ch09} assumes it. The
 ``planning reference'' of the plan is not a chapter but a book to keep at hand: we
 recommend \textcite{lavalle2006planning} for motion planning and
@@ -788,11 +788,7 @@ toolbox of \cref{ch:ch02} and the mathematical refresher of \cref{ch:appB}.
 
 \paragraph{The builder's path.}
 If your aim is the capstone prototype as soon as possible, follow the bottom row of
-\cref{fig:ch01-reading-paths}: the toolbox (\cref{ch:ch02}), \astar and \dstarlite
-(\cref{ch:ch04,ch:ch05}), the MAPF problem and \cbs with \ecbs
-(\cref{ch:ch07,ch:ch09,ch:ch10}), \orca (\cref{ch:ch13}), the Kalman filter and
-trajectory prediction (\cref{ch:ch18,ch:ch20}), and then the two integration chapters
-(\cref{ch:ch24,ch:ch25}). Everything else can be read when the prototype demands it.
+\cref{fig:ch01-reading-paths} and read everything else when the prototype demands it.
 
 \paragraph{The twelve-week path.}
 The plan's schedule is reproduced in full, with study notes and a traceability table,
@@ -898,8 +894,9 @@ write a generator of your own.
 \paragraph{The Python stack.}
 \index{Python stack}The training plan suggests Python, NumPy, NetworkX, Matplotlib
 and PyBullet or gym-pybullet-drones. The book's reference implementations use only
-Python 3.10 or newer and NumPy (SciPy for the QP and MILP solvers of
-\cref{ch:ch21,ch:ch22}), so that you can read every line. NetworkX
+Python 3.10 or newer and NumPy (SciPy for the quadratic program (QP) and MILP
+solvers of \cref{ch:ch21,ch:ch22}, plus an optional PyTorch version of the predictor in
+\cref{ch:ch20}, which the self-tests never run), so that you can read every line. NetworkX
 \cite{hagberg2008networkx} is useful for quick experiments with graphs and for
 checking your shortest paths against an independent implementation. Matplotlib
 draws what the exercises ask you to look at: open and closed sets, trajectories,
@@ -907,8 +904,9 @@ velocity obstacles, benchmark curves. PyBullet, through the gym-pybullet-drones
 environment \cite{panerati2021learning}, provides a physics simulation of quadrotors
 for the day when a point-mass model is no longer enough; nothing in the book requires
 it before \cref{ch:ch24}. \Cref{ch:ch02} describes the small conventions that the
-book's code shares: how a grid is stored, how a path is represented, how a scenario
-is written to a file.
+book's code shares: how a grid is stored and how a path is represented. The JSON
+layout written by \code{to\_json} and read by \code{from\_json} in
+\code{code/ch01\_scenario.py} is the one that the book's later experiment code reuses.
 
 % =====================================================================
 \section{Summary}
@@ -926,11 +924,9 @@ is written to a file.
   \item The core idea: a global planner for the routes, a local collision-avoidance
         method for the surprises, a replanner only when the local response is
         insufficient.
-  \item The vocabulary: workspace and configuration space, discrete and continuous,
-        global and local, planning and control, deliberative and reactive, centralized
-        and decentralized, cooperative and non-cooperative, tracking and prediction; and
-        the properties complete, optimal, bounded suboptimal with factor $w$, anytime,
-        incremental and real-time, which no single algorithm has all at once.
+  \item The vocabulary and the properties: \cref{tab:ch01-contrasts} holds the eight
+        contrasts that organise the book, \cref{tab:ch01-properties} the six properties
+        an algorithm may have, and no algorithm in the book has all six.
   \item The architecture: global swarm planner (\cbs/\ecbs), prediction layer
         (Kalman filter/LSTM), local safety layer (\orca/DWA), replanning layer
         (\dstarlite/\astar), with a five-step decision logic---follow, avoid,
@@ -987,8 +983,9 @@ by the flight controller, or by nobody at all). Give a one-line reason each.
 Copy the following list of algorithms and, using \cref{tab:ch01-map} and the informal
 definitions of \cref{sec:ch01-properties}, mark for each one which of the six
 properties it has: Dijkstra, weighted \astar with $w=1.5$, prioritized planning,
-\cbs, \ecbs, \arastar, \dstarlite, \orca, \rrt, \rrtstar. Then answer: which two
-properties never appear together in your table, and why is that not a coincidence?
+\cbs, \ecbs, \arastar, \dstarlite, \orca, \rrt, \rrtstar. Then name a pair of
+properties that never appear together in your table and explain why that conflict is
+structural rather than accidental.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
@@ -1047,7 +1044,8 @@ that a drone stays at its goal? Which layer should protect a parked drone?
 An intruder flies at $5$ m/s. (a)~How far does it move during one $20$ ms control
 cycle, during a $0.5$ s replan, and during a $3$ s global plan? (b)~Drone $A$ flies
 towards it at $3$ m/s, the required separation is $2$ m, and the local layer needs at
-least ten control cycles to complete an avoidance manoeuvre. What is the smallest
+least ten of the $20$ ms control cycles of part~(a) to complete an avoidance
+manoeuvre. What is the smallest
 safety horizon $\ttc_{\mathrm{safe}}$ that gives the local layer that time, and at
 what distance is the risk then detected? (c)~Why would a safety horizon of $30$ s be
 useless with a constant-velocity prediction, even though it gives the local layer
@@ -1074,6 +1072,7 @@ straight across the grid at constant velocity without touching a blocked cell. T
         independent shortest paths contain at least one planned conflict. What does the
         trend tell you about the need for a multi-agent planner as swarms grow?
   \item Extend the generator to several intruders and write the scenario to a JSON
-        file; \cref{ch:ch25} will read such files when it builds an experiment matrix.
+        file, keeping the layout of \code{to\_json}, so that the same files can drive a
+        later experiment matrix.
 \end{enumerate}
 \end{exercise}

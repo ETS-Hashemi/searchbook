@@ -169,3 +169,71 @@ joint moves, three deleted swap edges, optimal cost 7 - all verified independent
 the sober `sec:ch11-experiment` discussion of medians against means, including the survivorship
 warning added in round 1, which teaches a reader more about benchmarking than most chapters of
 this kind manage. The bibliography again needs no work.
+
+## Response to review (round 2)
+
+All three required changes were applied; the two suggestions that cost nothing and the two that
+cost a line were applied as well. Every number quoted in the chapter and in the solutions was
+re-checked against `code/ch11_mstar.py`, whose self-test still passes unchanged
+(`31/127`, `24/612`, `100/292`, `27/162`, cost 15, makespan 7; swap example 14 moves,
+makespan 14, sum of costs 27, optimum 7/14).
+
+**Required 1 (A) - the completeness claim on the opening two pages.** Applied exactly as
+prescribed. `sec:ch11-motivation` now reads "... they move the agents one at a time with a
+handful of *primitives* and run in polynomial time; Push-and-Rotate finds a plan whenever one
+exists and at least two cells are empty (\cref{sec:ch11-constructive} says what the original
+Push-and-Swap missed)", and `sec:ch11-intuition` "... their value is that they always
+terminate, and that Push-and-Rotate finds a plan whenever one exists on a graph with two empty
+vertices". The chapter now attributes the guarantee to Push-and-Rotate alone in all four places
+(motivation, intuition, `thm:ch11-par`, summary bullet, `tab:ch11-comparison`).
+
+**Required 2 (A) - the phantom third successor in the collision-set solution.** Confirmed
+against the code before editing: `mstar(inst, trace=True)` on `Graph.from_edges([("a","b"),
+("b","c"),("b","d")])` with starts `a,c,d` and goals `c,a,d` records exactly two successors at
+expansion 2, `(a,b,d)` and `(b,c,d)`, both with g = 2 and f = 5; the run's f values are
+{4, 5, 8}, so no node ever has f = 6. The sentence was replaced by the one you proposed
+(two successors enter Open; the joint wait is the start itself, whose g is already 0, so it is
+generated but never queued). The rest of that solution - expansion 5, the `b -> d` move,
+C(v_s) = {1,2,3} at expansion 6, failure after 12 expansions and 84 candidates - was re-derived
+from the same run and left as it stands.
+
+**Required 3 (G) - one page over the ceiling.** Both named duplications were removed: the
+closing "what the methods buy with this is speed ..." sentence of `sec:ch11-quality` is gone
+entirely, and *Phase 3* is reduced to the two load-bearing sentences (with "such second
+expansions" rephrased to "second expansions, of a node whose collision set grew after it had
+already been expanded", because the code shows that 5 of the 12 got their set handed up from a
+child rather than from their own policy successor - 7 of 12 own-successor, 5 of 12 via
+line `alg:ch11-mstar:bpchild`). That alone did not clear the page, so the space was bought from
+further duplication and from wording only, never from content: the "scales with" sentence above
+`tab:ch11-comparison` (a verbatim repeat of the table caption), the two pointers in *Relatives*
+that Further reading already carries (Standley 2011, BIBOX - both citations survive in Further
+reading), the drone box's independence-detection recipe (already the ID section and a summary
+bullet) and its Week-5 sentence (already in the motivation and in the coding exercise), and
+tighter wording in the coding exercise, the last exercise and Further reading. In addition, and
+with no loss of content, `fig:ch11-search-graph` was tightened vertically (y = 1cm -> 0.86cm),
+`fig:ch11-example` scaled 0.82 -> 0.77 and `fig:ch11-joint-graph` regenerated with a slightly
+smaller lattice (STEP 1.55 -> 1.44; it still prints 12 states, 18 joint moves, 3 deleted swap
+edges, optimal cost 7), and the floats were given `[!tb]`/`[!htb]` so that LaTeX may pack two
+of them on a page. Nothing on the "must be kept" list was touched: `ex:ch11-aisles` and its
+four phases, `tab:ch11-trace`, `fig:ch11-search-graph`, the "four searches compared" paragraph,
+the vertex/swap distinction and its pitfall box, `thm:ch11-terminates` and the optimality
+sketch, the ID proposition, the Luna-Bekris/de Wilde treatment, `sec:ch11-quality`'s 27-vs-14
+comparison, `tab:ch11-comparison`, `fig:ch11-joint-graph` and `sec:ch11-experiment` are all
+intact.
+
+**Suggestions.** `alg:ch11-pas` now reads "\ForEach{agent $a$ taken from a queue $Q$, initially
+all agents in a fixed order}" with "append it to $Q$" at line `alg:ch11-pas:resolve`.
+`def:ch11-joint`, `def:ch11-cost` and `thm:ch11-heuristic` are now `\cref`-ed from the preamble
+of `sec:ch11-properties`, `def:ch11-limited` from the implementation notes, and `thm:ch11-par`
+from the "Complete?" discussion above `tab:ch11-comparison`. The caption of
+`fig:ch11-push-swap`(a) now says "the two blockers shift and $a$ walks through", which no
+longer contradicts `PushSwapState.push`. The caption of `fig:ch11-expansions` names the cap of
+1.5 million successor candidates (the value of `CAP` in `gen_ch11_expansions.py`). A fifth
+solution was added for `exr:ch11-reexpansion`, with the 7/5 split of the twelve second
+expansions and the two expansions of the start (steps 1 and 4) taken from the trace.
+
+**Build note.** Confirmed. `./build.sh ch11-mstar-push-and-swap` exits 12 on the *first* run in
+a tree whose `build/` holds no other chapter's `.aux`: latexmk stops after one pdflatex pass
+because the pass returns 1 on unresolved cross-chapter references. Running it a second time
+converges and exits 0, with no `!` errors, no undefined citation and no undefined reference of
+this chapter (only `ch:chNN`/`ch:appX`, as expected under `\includeonly`).

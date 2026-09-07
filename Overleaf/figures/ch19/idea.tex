@@ -1,21 +1,21 @@
 % Concept figure of Chapter 19: three ways of pushing a Gaussian through a
 % nonlinear function.  Hand-drawn schematic (no data).  The input belief is an
-% ellipse in (u, w) coordinates; the map is u -> angle 90 + 20u degrees,
+% ellipse in (u, w) coordinates; the map is u -> angle 90 + 28u degrees,
 % w -> radius 3 + 0.7w, so the output is a banana.
 \begin{tikzpicture}[x=1cm,y=1cm,font=\footnotesize]
   % column headings
-  \node[sbannot,text=black,align=center] at (0,1.0) {input belief\\ $\Normal(\hat{\state}, \mat{P})$};
-  \node[sbannot,text=black,align=center] at (7.0,1.0) {output: true distribution of $f(\state)$\\ and each filter's approximation};
+  \node[sbannot,text=black,align=center] at (0,1.45) {input belief\\ $\Normal(\hat{\state}, \mat{P})$};
+  \node[sbannot,text=black,align=center] at (7.0,1.45) {output: true distribution of $f(\state)$\\ and each filter's approximation};
   \foreach \row/\yy/\lab in {a/0/{(a) EKF: linearise},b/-1.9/{(b) UKF: sigma points},c/-3.8/{(c) PF: samples}}{
     \begin{scope}[yshift=\yy cm]
       % input ellipse
       \draw[sbGray,thick] (0,0) ellipse (1.2 and 0.4);
       % arrow with function label
       \draw[sbflow] (1.5,0) -- node[above,sbannot,text=black] {$f$} (3.6,0);
-      % banana: arc of radius 3 about (7,-2.6), angles 60..120, thickness 0.7
-      \fill[sbRed!12] ($(7,-2.6)+(60:3.35)$) arc (60:120:3.35) -- ($(7,-2.6)+(120:2.65)$) arc (120:60:2.65) -- cycle;
-      \draw[sbRed!70] ($(7,-2.6)+(60:3.35)$) arc (60:120:3.35) -- ($(7,-2.6)+(120:2.65)$) arc (120:60:2.65) -- cycle;
-      \node[sbannot,text=black,anchor=west] at (-2.9,0) {\lab};
+      % banana: arc of radius 3 about (7,-2.6), angles 50..130, thickness 0.7
+      \fill[sbRed!12] ($(7,-2.6)+(50:3.35)$) arc (50:130:3.35) -- ($(7,-2.6)+(130:2.65)$) arc (130:50:2.65) -- cycle;
+      \draw[sbRed!70] ($(7,-2.6)+(50:3.35)$) arc (50:130:3.35) -- ($(7,-2.6)+(130:2.65)$) arc (130:50:2.65) -- cycle;
+      \node[sbannot,text=black,anchor=east] at (-1.45,0) {\lab};
     \end{scope}
   }
   % ---- row (a): EKF ----
@@ -25,19 +25,27 @@
     \fill[sbBlue] (7,0.4) circle (1.6pt);
     \draw[sbBlue,dashed] (5.45,0.4) -- (8.55,0.4);
     \node[sbannot,text=sbBlue,anchor=south] at (7,0.78) {tangent image of the mean};
-    \draw[sbRed!80!black] (6.9,0.27) -- (7.1,0.47) (6.9,0.47) -- (7.1,0.27);
-    \node[sbannot,text=sbRed!80!black,anchor=north] at (7.35,0.25) {true mean};
+    % true mean of the banana = centroid of the drawn annular sector
+    \draw[sbRed!80!black,thick] (6.88,0.06) -- (7.12,0.30) (6.88,0.30) -- (7.12,0.06);
+    \draw[sbRed!80!black,dotted] (7,0.06) -- (7,-0.24);
+    \node[sbannot,text=sbRed!80!black,anchor=north] at (7,-0.22) {true mean};
+    % the gap between the two: the EKF's outward bias
+    \draw[sbBlue,dotted] (8.55,0.40) -- (9.25,0.40);
+    \draw[sbRed!80!black,dotted] (7.12,0.18) -- (9.25,0.18);
+    \draw[<->,sbRed!80!black] (9.12,0.40) -- (9.12,0.18);
+    \node[sbannot,text=sbRed!80!black,anchor=west] at (9.28,0.29) {bias};
   \end{scope}
   % ---- row (b): UKF ----
   \begin{scope}[yshift=-1.9cm]
     \foreach \p in {(0,0),(1.2,0),(-1.2,0),(0,0.4),(0,-0.4)}{\fill[sbOrange] \p circle (1.8pt);}
-    % images of the sigma points: (u,w) -> (7 + R cos(90+20u), -2.6 + R sin(90+20u)), R = 3 + 0.7 w
+    % images of the sigma points: (u,w) -> (7 + R cos(90+28u), -2.6 + R sin(90+28u)), R = 3 + 0.7 w
     \foreach \u/\w in {0/0,1.2/0,-1.2/0,0/0.4,0/-0.4}{
-      \fill[sbOrange] ({7+(3+0.7*\w)*cos(90+20*\u)},{-2.6+(3+0.7*\w)*sin(90+20*\u)}) circle (1.8pt);
+      \fill[sbOrange] ({7+(3+0.7*\w)*cos(90+28*\u)},{-2.6+(3+0.7*\w)*sin(90+28*\u)}) circle (1.8pt);
     }
-    \draw[sbOrange,thick] (7,0.27) ellipse (1.5 and 0.38);
-    \fill[sbOrange] (7,0.27) circle (1.6pt);
-    \node[sbannot,text=sbOrange!80!black,anchor=south] at (7,0.75) {ellipse fitted to the images};
+    \draw[sbRed!80!black,dotted] (5.05,0.18) -- (8.95,0.18);
+    \draw[sbOrange,thick] (7,0.22) ellipse (1.75 and 0.40);
+    \fill[sbOrange] (7,0.22) circle (1.6pt);
+    \node[sbannot,text=sbOrange!80!black,anchor=south] at (7,0.78) {ellipse fitted to the images};
   \end{scope}
   % ---- row (c): PF ----
   \begin{scope}[yshift=-3.8cm]
@@ -46,8 +54,8 @@
       \pgfmathsetmacro{\u}{0.55*(rand+rand+rand)}
       \pgfmathsetmacro{\w}{0.18*(rand+rand+rand)}
       \fill[sbPurple] (\u,\w) circle (0.8pt);
-      \fill[sbPurple] ({7+(3+0.7*\w)*cos(90+20*\u)},{-2.6+(3+0.7*\w)*sin(90+20*\u)}) circle (0.8pt);
+      \fill[sbPurple] ({7+(3+0.7*\w)*cos(90+28*\u)},{-2.6+(3+0.7*\w)*sin(90+28*\u)}) circle (0.8pt);
     }
-    \node[sbannot,text=sbPurple,anchor=south] at (7,0.75) {the cloud is the belief};
+    \node[sbannot,text=sbPurple,anchor=south] at (7,0.78) {the cloud is the belief};
   \end{scope}
 \end{tikzpicture}

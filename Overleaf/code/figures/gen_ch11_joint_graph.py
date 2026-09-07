@@ -18,7 +18,7 @@ from ch11_mstar import Graph, MAPFInstance, collisions, joint_astar  # noqa: E40
 OUT = os.path.join(HERE, "..", "..", "figures", "ch11", "joint-graph.tex")
 VERTS = ["a", "b", "c", "d"]
 POS = {"a": (0.0, 0.0), "b": (1.2, 0.0), "c": (2.4, 0.0), "d": (1.2, 1.2)}
-STEP = 1.55          # lattice spacing of the joint graph
+STEP = 1.44          # lattice spacing of the joint graph
 
 
 def main():

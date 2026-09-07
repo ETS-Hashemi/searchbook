@@ -302,7 +302,7 @@ class DStarLite:
         return s
 
     def notify_changed_cells(self, cells, replan=True):
-        """Lines 28'-35': process cells whose blocked status flipped.
+        """Process cells whose blocked status flipped (D* Lite main loop).
 
         Adds h(s_last, s_start) to k_m, updates the tail of every changed
         edge (the cell and each neighbour) and, if replan, repairs the

@@ -676,7 +676,7 @@ def _self_test():
     assert summarise(rec_c)["min_sep"] > s_h["min_sep"] + 0.05
     assert abs(normal_quantile(0.95) - 1.6449) < 1e-3
     elapsed = time.perf_counter() - t_start
-    assert elapsed < 60.0
+    assert elapsed < 10.0
     print("self-test passed in %.1f s (hard: min sep %.3f, soft w=1: %.3f, late hard fails %d, "
           "late soft min sep %.3f, chance min sep %.3f)" % (
               elapsed, s_h["min_sep"], seps[0], s_hard_late["failures"], s_soft_late["min_sep"],

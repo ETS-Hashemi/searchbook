@@ -275,3 +275,141 @@ space-time search, reservation table, horizon and MAPF-style constraint filterin
 describe), its self-test asserts the chapter's numbers rather than merely running, and it passes.
 Finally, keep the voice - patient, second person, intuition before formalism - and the honest
 "what goes wrong without the conditions" subsection, which is exactly what a reader working alone needs.
+
+---
+
+## Response to review (round 1)
+
+All 13 required changes are applied, plus 7 of the 8 suggestions. The build is clean
+(`./build.sh ch04-astar`, status 0, no errors, no overfull box above 15 pt, no undefined
+reference or citation belonging to Chapter 4), and `python3 code/ch04_astar.py` passes.
+Every number newly quoted in the text was produced by that file.
+
+**1. Missing space-time A* section (B).** Added `\section{Space-time \astar}`
+(`sec:ch04-spacetime`), about six pages, with six subsections:
+(a) `def:ch04-spacetime` (state $(v,t)$, wait action, time-expanded graph) plus the three
+consequences: DAG in $t$, $g(v,t)=t$ so duplicate detection replaces relaxation, and the
+infinite state space that forces a horizon; (b) `def:ch04-constraints` in the
+$\langle a,v,t\rangle$ / $\langle a,u,v,t\rangle$ notation of `stern2019mapf`, and the
+reservation table of `silver2005cooperative` with its three ingredients (vertex, reversed
+edge, parked goal); (c) `def:ch04-goalstay`: $(\gamma,t)$ is a goal only for
+$t>t_\gamma$, the code's `last_blocked_time()`, illustrated by the cost-6 path
+$(0,1),(1,1),(2,1),(2,1),(2,1),(2,2),(2,1)$; (d) `thm:ch04-horizon` with a full proof that
+$T_{\max}=H+1+D$ (the `default_horizon()` formula) is sufficient, plus termination;
+(e) `thm:ch04-static`: the backward-BFS static distance table is consistent on the
+space-time graph, reused across constrained re-runs — this now closes the loop with the
+earlier remark on the exact heuristic; (f) `alg:ch04-spacetime`, an algorithm2e block that
+finally uses the declared `\SetKwFunction{AstarSpaceTime}` macro, with a line-by-line
+walkthrough; (g) `ex:ch04-spacetime` (the code's `spacetime_example()`: cost 2 / 3
+expansions unconstrained, cost 3 / 4 expansions and one forced wait constrained), a trace
+table `tab:ch04-spacetime` whose Open column comes from `record_open=True`, the
+edge-constraint variant (cost 4, five expansions) and the goal-blocked variant (cost 6),
+and `ex:ch04-corridor`, the corridor/passing-bay case of self-test 8 (cost 5 with the bay,
+provable failure in six expansions from $(4,0)$).
+
+**2. Missing implementation notes and no listing (B).** Added
+`\section{Implementation notes}` (`sec:ch04-implementation`) with two verbatim listings:
+`lst:ch04-astar` (lines 137–171 of `code/ch04_astar.py`, the main loop, 35 lines) and
+`lst:ch04-spacetime` (the space-time expansion step, 22 lines), both `\cref`-ed. Six
+paragraphs cover hashing of grid and space-time states, the priority tuple
+$(f,-g,\mathit{counter})$ and exactly why the counter stops Python from comparing
+coordinate tuples (bias, and `TypeError` on non-comparable states), parent dicts and
+reconstruction, lazy deletion versus decrease-key, memory, and the `round(f,9)` / `EPS`
+guards with the two failures they prevent.
+
+**3. No pitfall boxes (B).** Three added: "The Manhattan distance on an 8-connected grid"
+(with the 6-of-40 experiment) after `tab:ch04-heuristics`; "Forgetting that the goal must
+stay free after arrival" in the space-time section, including the too-strong variant
+$t\ge H$; and "Testing for the goal when the node is generated" in the implementation
+section.
+
+**4. No drone section (B).** Added `\section{Where this fits in the drone system}`
+(`sec:ch04-drone`) with a `dronebox` naming the three roles: low-level search called once
+per constraint-tree node in CBS/ECBS (and with a reservation table in prioritized
+planning), replanning-layer fallback when a local ORCA/DWA manoeuvre cannot rejoin the
+nominal route, and the pointer to LPA*/D* Lite for repairing rather than restarting; it
+closes with the Week 1 milestone of `ch:appA` and a pointer to `exr:ch04-coding`.
+
+**5. No summary, no further reading (B).** Added a `summary` box with seven bullets
+($f=g+h$; admissible vs consistent; the two optimality theorems with their assumptions
+spelled out; grid heuristics per connectivity; tie-breaking; the $wC^*$ bound; the
+space-time state, constraints, goal test and horizon) and a *Further reading* paragraph
+citing all ten requested keys.
+
+**6. No exercises, empty solutions file (E).** Added `\section{Exercises}` with ten
+exercises in the format of Chapter 3, graded 2 / 5 / 3 over difficulties 1 / 2 / 3:
+`exr:ch04-trace` (two more expansions of `ex:ch04-grid` with Open), `exr:ch04-fourheuristics`,
+`exr:ch04-octile` (octile consistency under the corner-cutting rule of `def:ch02-grid`),
+`exr:ch04-wbound` (the $wC^*$ bound without re-opening, consistent $h$),
+`exr:ch04-max` ($\max(h_1,h_2)$ and `thm:ch04-dominance`), `exr:ch04-lattice` (6-, 18- and
+26-connected 3D lattices), `exr:ch04-manhattan8` (build a grid where Manhattan on an
+8-connected map returns a longer path), `exr:ch04-coding` (the Week 1 coding exercise,
+`\difficulty{3} Coding`, phrased against the API of `code/ch04_astar.py`, including "add
+time as a state variable" and "visualise the open and closed sets"), `exr:ch04-spacetime`
+(add one vertex and one edge constraint by hand, predict the wait, check with
+`space_time_astar`) and `exr:ch04-horizon`. `appendices/solutions/ch04-solutions.tex` now
+contains a full solution or a set of checkpoints for each of the ten; every number in it
+was checked against the code (including the ring-map counterexample of
+`exr:ch04-horizon`(d), where the naive horizon 7 is too small for an arrival at $t=10$).
+
+**7. Three undefined references (G).** `sec:ch04-spacetime`, `sec:ch04-implementation` and
+`sec:ch04-drone` now exist and resolve; the log contains no
+``Reference `sec:ch04-...' undefined``. Note for future builds: the status-12 abort was the
+stale `build/chapters/ch11-mstar-push-and-swap.aux` (and earlier `ch10-ecbs.aux`) left by a
+concurrent build of another chapter, exactly as the reviewer suspected; deleting
+`build/chapters/*.aux` before the run gives status 0.
+
+**8. Orphan figure `figures/ch04/spacetime.tex` (D).** Now included as
+`fig:ch04-spacetime` inside the new section and `\cref`-ed from `ex:ch04-spacetime`, with a
+caption in the house style (horizontal edges are waits, diagonal edges are moves, the
+crossed-out state $((1,1),1)$ is removed by the vertex constraint, the cheapest remaining
+path costs 3 instead of 2).
+
+**9. Missing citations (H).** `stern2019mapf` is cited where MAPF and the vertex/edge
+constraints are defined, `silver2005cooperative` where the reservation table is introduced,
+and both again in *Further reading*.
+
+**10. Factual error in `fig:ch04-example` and the body (A).** Caption now reads "the three
+wasted expansions $(3,3)$, $(3,2)$, $(3,1)$ below the junction at $(3,4)$"; the body says
+the search dives "as far as $(3,1)$", names the three dead-end cells and gives the true
+expansion order $\dots,(3,4),(3,3),(3,2),(0,4),(3,1),(3,5),\dots$, keeping the clause about
+$(0,4)$.
+
+**11. Mis-attributed cross-reference at lines 584–587 (C).** Rewritten exactly as proposed:
+`thm:ch04-consistent`(i) for the expanded flag, part (ii) for the non-decreasing trace,
+`thm:ch04-surely` for the $f\le13$ bound in the figure.
+
+**12. CBS/ECBS not expanded at first use (F).** Now "conflict-based search (\cbs) or its
+bounded-suboptimal variant \ecbs"; MAPF is expanded at its first use in the new space-time
+section.
+
+**13. Wrong annotation in `figures/ch04/heuristics.tex` (D).** Replaced by "(the blue
+octile path is 3 diagonal + 2 straight moves)".
+
+**Suggestions.** Applied: the `fig:ch04-idea` caption now says the ellipse is exact in an
+obstacle-free plane and that the small obstacle deforms it; "Steps 1–4" became "Step 1
+expands the start; steps 2–4 …"; the grid-heuristics subsection now recalls the
+corner-cutting rule of `def:ch02-grid` and says that `grid_successors()` enforces it in
+every search of the chapter, including the space-time one; the proof sketch of
+`thm:ch04-dominance` now names the class (equally informed admissible algorithms searching
+the same graph, surely-expanded set) and warns that it does not make A* the fastest grid
+planner; the remark after `thm:ch04-weighted` now states the consistency assumption of the
+ARA* result; the complexity subsection gained two sentences on implicit graphs and the
+$h^*-h = O(\log h^*)$ condition of Pearl (ch. 6); `astar_grid()` now forwards
+`record_open`, which is what `exr:ch04-coding`(b) asks the reader to use; and the build was
+run after clearing the stale aux files. Not applied: nothing — the two options in
+suggestion 1 were resolved by editing the caption rather than the figure, so that the
+picture keeps its obstacle.
+
+**Kept unchanged**, as the review asked: `thm:ch04-invariant` and the three theorems built
+on it, the consistency lemma and its counterexample, `thm:ch04-metric`,
+`tab:ch04-heuristics` and its derivation, the worked example with its ten-row trace table
+and the Dijkstra / tie-breaking comparisons, the tie-breaking subsection with the 39-vs-400
+experiment, the random-grid experiment and `figures/ch04/expansions.tex`, the code (only
+additive change: the `record_open` keyword on `astar_grid`; `figures/data/ch04-expansions.dat`
+is unchanged and still matches every number in the text), and the voice.
+
+**Length.** The chapter is now 24 typeset pages (1608 lines of LaTeX), above the 16–18 page
+target of the specification. Nothing was cut to reach it, because every added element was
+required; if the book-level editor wants it shorter, the cheapest cuts are
+`lst:ch04-spacetime` and the second half of `ex:ch04-corridor`.
