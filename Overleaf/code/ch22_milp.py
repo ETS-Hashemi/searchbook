@@ -372,6 +372,34 @@ def check_solution(inst, sol):
             "bounds": bnd, "terminal": term}
 
 
+def continuous_check(inst, sol, substeps=20):
+    """Worst obstacle penetration and smallest separation BETWEEN samples.
+
+    The exact zero-order-hold motion p(t) = p_k + v_k s + a_k s^2 / 2 for
+    0 <= s <= dt is evaluated at substeps points per step.  The MILP only
+    constrains the sampled instants, so these values can be worse than
+    the sampled ones (corner cutting).
+    """
+    P, V, U = sol.positions, sol.velocities, sol.inputs
+    m, N = len(inst.vehicles), inst.horizon
+    ss = np.linspace(0.0, inst.dt, substeps + 1)
+    fine = np.zeros((m, N * substeps + 1, 2))
+    for i in range(m):
+        for k in range(N):
+            seg = P[i, k] + np.outer(ss, V[i, k]) + 0.5 * np.outer(ss ** 2, U[i, k])
+            fine[i, k * substeps:(k + 1) * substeps + 1] = seg
+    obs = 0.0
+    for (xmin, xmax, ymin, ymax) in inst.obstacles:
+        for i in range(m):
+            depth = np.min(np.stack([fine[i, :, 0] - xmin, xmax - fine[i, :, 0],
+                                     fine[i, :, 1] - ymin, ymax - fine[i, :, 1]]), axis=0)
+            obs = max(obs, depth.max())
+    sep = np.inf
+    for i, j in itertools.combinations(range(m), 2):
+        sep = min(sep, np.abs(fine[i] - fine[j]).max(axis=1).min())
+    return {"obstacle_penetration": obs, "min_separation": sep}
+
+
 def is_valid(inst, sol, tol=1e-6):
     return sol.positions is not None and all(v <= tol for v in check_solution(inst, sol).values())
 
@@ -520,6 +548,8 @@ def self_test():
           "%.3f s, %d B&B nodes" % (sol.n_var, sol.n_cons, sol.n_bin,
                                     sol.objective, sol.solve_time, sol.nodes))
     print("  max violations:", {k: round(v, 9) for k, v in viol.items()})
+    print("  between samples:", {k: round(float(v), 4)
+                                 for k, v in continuous_check(inst, sol).items()})
     print("  positions vehicle A (k, x, y):")
     for k in range(inst.horizon + 1):
         pa, pb = sol.positions[0, k], sol.positions[1, k]
@@ -533,6 +563,8 @@ def self_test():
               "%.3f s, %d B&B nodes" % (objective, sol_o.n_var, sol_o.n_cons,
                                         sol_o.n_bin, sol_o.objective,
                                         sol_o.solve_time, sol_o.nodes))
+        print("  between samples:", {k: round(float(v), 4)
+                                     for k, v in continuous_check(inst_o, sol_o).items()})
         if objective == "time":
             print("  arrival times:", arrival_times(model_o, sol_o),
                   " fuel of this solution: %.4f" % (
