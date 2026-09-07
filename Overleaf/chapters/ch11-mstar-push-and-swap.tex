@@ -1,4 +1,4 @@
-\chapter{Coupling and Constructive Methods: \mstar, Push-and-Swap, Push-and-Rotate}
+\chapter[\mstar, Push-and-Swap, Push-and-Rotate]{Coupling and Constructive Methods: \mstar, Push-and-Swap, Push-and-Rotate}
 \label{ch:ch11}
 % Function names for pseudocode are prefixed with "Mstar" or "Pas" (push-and-swap)
 % to stay unique across the book.
@@ -17,10 +17,9 @@
 \begin{objectives}
 \begin{itemize}
   \item Describe the joint state space of $k$ agents, compute its size and its branching factor, and explain why a plain joint \astar is hopeless beyond a handful of agents.
-  \item Explain operator decomposition and independence detection, and prove that independence detection with an optimal group solver returns an optimal plan.
-  \item Trace \mstar by hand on a small grid: follow the individual policies, detect a collision, build and backpropagate the collision sets, and expand only the agents that need it.
-  \item State the conditions under which \mstar is complete and optimal, and sketch why.
-  \item Describe the push, swap and rotate primitives, state what Push-and-Swap and Push-and-Rotate guarantee, and explain why their plans can be far from optimal.
+  \item Explain operator decomposition and independence detection, and show that independence detection with an optimal group solver returns an optimal plan.
+  \item Trace \mstar by hand on a small grid: follow the individual policies, detect a collision, backpropagate the collision set, and expand only the agents that need it.
+  \item State the conditions under which \mstar is complete and optimal and sketch why; describe the push, swap and rotate primitives and state what Push-and-Swap and Push-and-Rotate guarantee, and what they do not.
   \item Place every multi-agent path finding method of the book in one comparison table and choose the right one for a given swarm scenario.
 \end{itemize}
 \end{objectives}
@@ -31,52 +30,45 @@
 
 Picture twelve inspection drones leaving a hangar through a grid of aisles.
 Ten of them have routes that never come near each other. Two fly towards
-each other in the same aisle, and one of them will have to slip into a bay to
-let the other pass. Every multi-agent path finding (MAPF) solver has to
+each other in the same aisle, and one of them will have to slip into a bay
+to let the other pass. Every multi-agent path finding (MAPF) solver has to
 answer the same question for this scene: which agents must be planned
 \emph{together}? Prioritized planning (\cref{ch:ch08}) answers ``none'',
 plans the drones one after another and hopes that the fixed order works. A
-search in the \emph{joint} state space, where one node is the position of
-all twelve drones at once, answers ``all of them''; it is complete and
-optimal, but this chapter shows that its state space has more
-configurations than there are atoms in the hangar. Conflict-based search
-(\cbs, \cref{ch:ch09}) answers ``nobody, until a conflict appears, and then
-only through constraints'', which is why the global planner of the hybrid
-architecture in \cref{ch:ch24} is \cbs or its bounded-suboptimal relative
-\ecbs (\cref{ch:ch10}).
+search in the \emph{joint} state space, where one node holds the positions
+of all twelve drones, answers ``all of them''; it is complete and optimal,
+but \cref{sec:ch11-problem} shows that its state space is astronomically
+large. Conflict-based search (\cbs, \cref{ch:ch09}) answers ``nobody, until
+a conflict appears, and then only through constraints'', which is why the
+global planner of the hybrid architecture in \cref{ch:ch24} is \cbs or its
+bounded-suboptimal relative \ecbs (\cref{ch:ch10}).
 
-This chapter completes the picture with the two remaining answers. The first
-is to \textbf{couple} agents explicitly and only where needed: Standley's
-independence detection solves groups of agents separately and merges two
-groups only when their plans conflict, and Wagner and Choset's \mstar
-searches the joint space but lets every agent follow its own shortest path
-until a collision proves that a subset of agents must be coordinated. For
-the ten independent drones this costs almost nothing; for the two in the
-aisle it costs a small two-agent search. The second answer gives up
-optimality altogether. Push-and-Swap and Push-and-Rotate never search the
-joint space: they move the agents one at a time with a handful of
-\emph{primitives} and guarantee a solution whenever one exists and at least
-two cells are empty. Their plans can be several times longer than
-necessary, but they arrive in polynomial time even on dense, puzzle-like
-instances that stop every optimal solver.
+This chapter adds the two remaining answers. The first is to \textbf{couple}
+agents explicitly and only where needed: Standley's independence detection
+solves groups of agents separately and merges two groups only when their
+plans conflict, and Wagner and Choset's \mstar searches the joint space but
+lets every agent follow its own shortest path until a collision proves that
+a subset of agents must be coordinated. For the ten independent drones this
+costs almost nothing; for the pair in the aisle it costs a small two-agent
+search. The second answer gives up optimality. Push-and-Swap and
+Push-and-Rotate never search the joint space: they move the agents one at a
+time with a handful of \emph{primitives} and find a plan, in polynomial
+time, whenever one exists and at least two cells are empty. Their plans can
+be several times longer than necessary. In the training plan
+(\cref{ch:appA}) \mstar has priority \priority{Medium} and Push-and-Swap
+priority \priority{Awareness}: you should be able to trace \mstar on a small
+instance and, above all, know when coupling is worth its price and when a
+feasible plan is all a swarm needs.
 
-In the training plan (\cref{ch:appA}) \mstar has priority \priority{Medium}
-and Push-and-Swap priority \priority{Awareness}: you should be able to
-explain what they do, trace \mstar on a small instance, and above all know
-when coupling is worth its price and when a feasible plan is all a swarm
-needs. \Cref{tab:ch11-comparison} at the end of the chapter puts every MAPF
-method of \cref{ch:ch08,ch:ch09,ch:ch10} and of this chapter side by side.
-
-\paragraph{Roadmap.} \Cref{sec:ch11-intuition} gives the ideas,
+\paragraph{Roadmap.} \Cref{sec:ch11-intuition} gives the ideas and
 \cref{sec:ch11-problem} the joint state space, the individual policies and
-the collision sets. \Cref{sec:ch11-algorithm} presents joint \astar with
-operator decomposition, independence detection and \mstar;
-\cref{sec:ch11-example} traces \mstar on a three-drone instance and compares
-the effort of the four searches; \cref{sec:ch11-properties} proves
-termination and optimality. \Cref{sec:ch11-constructive} covers the push,
-swap and rotate primitives and the completeness results of the constructive
-methods, \cref{sec:ch11-variants} the variants and the comparison table,
-\cref{sec:ch11-implementation} the implementation and
+the collision sets. \Cref{sec:ch11-algorithm} presents operator
+decomposition, independence detection and \mstar; \cref{sec:ch11-example}
+traces \mstar on a three-drone instance and compares the effort of the
+searches; \cref{sec:ch11-properties} proves termination and optimality.
+\Cref{sec:ch11-constructive} covers the push, swap and rotate primitives,
+\cref{sec:ch11-variants} the variants and the comparison table of every
+MAPF method in the book, \cref{sec:ch11-implementation} the code and
 \cref{sec:ch11-drone} the place of these methods in the drone system.
 
 % ---------------------------------------------------------------------
@@ -85,9 +77,9 @@ methods, \cref{sec:ch11-variants} the variants and the comparison table,
 
 Every agent knows its own shortest path. If the agents never met, the
 optimal joint plan would be the bundle of these paths, and no search would
-be needed. Now picture the joint state space of two agents as a lattice: one
-axis measures how far agent~1 has progressed along its own shortest path,
-the other how far agent~2 has (\cref{fig:ch11-idea}). The bundle of
+be needed. Now picture the joint state space of two agents as a lattice:
+one axis measures how far agent~1 has progressed along its own shortest
+path, the other how far agent~2 has (\cref{fig:ch11-idea}). The bundle of
 individual paths is the diagonal of this lattice, a \emph{one-dimensional}
 object inside a two-dimensional space. Joint \astar ignores this structure
 and is prepared to expand any of the $|V|^2$ configurations. \mstar starts
@@ -98,11 +90,10 @@ involved as a \emph{collision set}, sends the mark back along the path it
 came from, and re-expands those configurations with all combinations of
 moves of the marked agents, while the other agents keep following their
 policies. The search widens into a small two-dimensional patch, finds a
-detour, and once the agents have passed each other it becomes
-one-dimensional again. Wagner and Choset call this \textbf{subdimensional
-expansion}\index{subdimensional expansion}: the dimension of the search
-space is raised locally, and only where a collision has proved that it must
-be.
+detour, and once the agents have passed each other it is one-dimensional
+again. Wagner and Choset call this \textbf{subdimensional
+expansion}\index{subdimensional expansion}: the dimension of the search is
+raised locally, and only where a collision has proved that it must be.
 
 \begin{figure}[tb]
   \centering
@@ -127,11 +118,11 @@ decoupled are exactly those whose individual plans already fit together.
 The constructive methods take a different stance. Push-and-Swap moves the
 agents one at a time, like pebbles on the vertices of the graph: an agent
 \emph{pushes} along its shortest path and shoves blocking agents into empty
-vertices, and when it meets an agent that has already reached its goal, the
-two \emph{swap} places at a vertex with three neighbours. Push-and-Rotate
-adds a \emph{rotate} primitive for fully occupied cycles. These rules never
-look at the cost of the plan; their value is that they always terminate and
-find a plan whenever one exists on a graph with two empty vertices.
+vertices, and when it meets an agent that already sits on its goal, the two
+\emph{swap} places at a vertex with three neighbours. Push-and-Rotate adds a
+\emph{rotate} primitive for fully occupied cycles. These rules never look at
+the cost of the plan; their value is that they always terminate and find a
+plan whenever one exists on a graph with two empty vertices.
 
 \begin{keyidea}
 Couple agents only where a collision proves that you must. Independence
@@ -167,8 +158,8 @@ A \textbf{joint configuration}\index{joint configuration} is a tuple
 $v = (v^1, \dots, v^k) \in V^k$ giving the cell $v^i$ of every agent $i$; it
 is \emph{collision-free} if $v^i \ne v^j$ for $i \ne j$. A \textbf{joint
 move} from $v$ to $v'$ moves every agent to $v'^i \in \Succ(v^i) \cup
-\set{v^i}$. It is legal if $v'$ is collision-free and no pair swaps,
-$\neg(v'^i = v^j \wedge v'^j = v^i)$ for $i \ne j$. The \textbf{joint
+\set{v^i}$. It is legal if $v'$ is collision-free and no pair swaps, that
+is, $\neg(v'^i = v^j \wedge v'^j = v^i)$ for $i \ne j$. The \textbf{joint
 graph}\index{joint state space} $G^k$ has the collision-free configurations
 as vertices and the legal joint moves as edges; the joint start is
 $v_s = (s_1, \dots, s_k)$ and the joint goal $v_f = (\gamma_1, \dots,
@@ -192,12 +183,10 @@ is free. The cost of a joint path is the sum of its move costs.
 This is the convention of Standley~\cite{standley2010finding} and of Wagner
 and Choset~\cite{wagner2011mstar}. It agrees with the sum of costs of
 \cref{ch:ch07} on every plan in which no agent leaves its goal after
-arriving, which includes every plan of this chapter; when an agent must
-step off its goal to let another one through, the sum of costs also
-charges the free waits before the departure, so \cref{eq:ch11-cost} is in
-general a lower bound on it. The reason for adopting it anyway is that it
-makes the cost of a move depend only on the two configurations, which is
-what \astar needs (\cref{sec:ch11-implementation}).
+arriving, which includes every plan of this chapter; in general it is a
+lower bound on the sum of costs, which also charges the free waits of an
+agent that later steps aside. Its advantage is that the cost of a move
+depends only on the two configurations, which is what \astar needs.
 
 \begin{figure}[tb]
   \centering
@@ -222,10 +211,10 @@ successors, where $b$ is the number of neighbours of a cell: $5^k$ on a
 4-connected grid with the wait action. \Cref{tab:ch11-sizes} evaluates these
 numbers for the $8 \times 8$ maps of the experiment in
 \cref{sec:ch11-experiment}, which have about $54$ free cells, and for a
-$20 \times 20$ map. Ten agents on the small map already have more joint
+$20 \times 20$ map. Ten agents on the small map already have more
 configurations than there are seconds since the Big Bang, and every
 expansion of joint \astar has to look at almost ten million joint moves. A
-good heuristic keeps the search away from most of this space, but each
+good heuristic keeps the search away from most of the space, but each
 expansion still pays for the full branching factor, and that is what kills
 joint \astar in practice.\index{joint state space!size}\index{branching factor!joint}
 
@@ -243,9 +232,7 @@ joint \astar in practice.\index{joint state space!size}\index{branching factor!j
    1 & $54$ & $54$ & $5$ & $400$\\
    2 & $2.9 \cdot 10^{3}$ & $2.9 \cdot 10^{3}$ & $25$ & $1.6 \cdot 10^{5}$\\
    3 & $1.6 \cdot 10^{5}$ & $1.5 \cdot 10^{5}$ & $125$ & $6.4 \cdot 10^{7}$\\
-   4 & $8.5 \cdot 10^{6}$ & $7.6 \cdot 10^{6}$ & $625$ & $2.6 \cdot 10^{10}$\\
    5 & $4.6 \cdot 10^{8}$ & $3.8 \cdot 10^{8}$ & $3\,125$ & $1.0 \cdot 10^{13}$\\
-   8 & $7.2 \cdot 10^{13}$ & $4.2 \cdot 10^{13}$ & $3.9 \cdot 10^{5}$ & $6.6 \cdot 10^{20}$\\
   10 & $2.1 \cdot 10^{17}$ & $8.7 \cdot 10^{16}$ & $9.8 \cdot 10^{6}$ & $1.0 \cdot 10^{26}$\\
   20 & $4.5 \cdot 10^{34}$ & $7.8 \cdot 10^{32}$ & $9.5 \cdot 10^{13}$ & $1.1 \cdot 10^{52}$\\
   \bottomrule
@@ -276,9 +263,8 @@ $v'$ and an agent $i$: if $v'^i$ is a neighbour of $v^i$, then $d_i(v^i) \le
 $c_i = 1$; if the agent waits away from its goal, $d_i$ is unchanged and
 $c_i = 1$; if it rests at its goal, $d_i = 0$ on both sides and $c_i = 0$.
 In every case $d_i(v^i) \le c_i(v^i, v'^i) + d_i(v'^i)$; summing over $i$
-gives $\hcost(v) \le c(v, v') + \hcost(v')$, which is
-\cref{eq:ch04-consistent} of \cref{ch:ch04} on the joint graph, and
-admissibility follows from \cref{thm:ch04-consistent-admissible}.
+gives $\hcost(v) \le c(v, v') + \hcost(v')$, the consistency condition of
+\cref{ch:ch04} on the joint graph, and a consistent heuristic is admissible.
 \end{proof}
 
 \begin{definition}[Individual policy]
@@ -336,48 +322,44 @@ $(b+1)^{|C(v)|}$ of them, and $|C(v)|$ is the local dimension of the search.
 \section{The algorithms}
 \label{sec:ch11-algorithm}
 
-\subsection{Joint \astar and operator decomposition}
-\label{sec:ch11-jointastar}
+\subsection{Operator decomposition and independence detection}
+\label{sec:ch11-id}
 
-\textbf{Joint \astar}\index{joint A*} is \cref{alg:ch04-astar} of
-\cref{ch:ch04} on the joint graph $G^k$ with the costs \cref{eq:ch11-cost}
-and the heuristic \cref{eq:ch11-heuristic}: the successors of a node are
-all legal joint moves, generated as the Cartesian product of the individual
-move lists and filtered by \cref{def:ch11-collision}. Since the heuristic is
-consistent, \cref{thm:ch04-optimal,thm:ch04-consistent} apply verbatim:
+\textbf{Joint \astar}\index{joint A*} is the \astar of \cref{ch:ch04} on the
+joint graph $G^k$ with the costs \cref{eq:ch11-cost} and the heuristic
+\cref{eq:ch11-heuristic}: the successors of a node are all legal joint
+moves, generated as the Cartesian product of the individual move lists and
+filtered by \cref{def:ch11-collision}. Since the heuristic is consistent,
 joint \astar is complete, optimal, and expands every configuration at most
 once. It is the baseline against which everything else in this chapter is
 measured, and \cref{tab:ch11-sizes} says why it is only a baseline.
 
-Standley's \textbf{operator decomposition}\index{operator decomposition}
-(OD) attacks the branching factor~\cite{standley2010finding}. Instead of
-choosing the moves of all $k$ agents at once, the search chooses them one
-agent at a time: from a full configuration it generates the $b+1$ moves of
-agent~1, which yield \emph{intermediate} states in which agent~1 has moved
-and the others have not; from an intermediate state it generates the moves
-of the next agent, checking vertex and swap conflicts only against the
-agents that have already chosen; after the move of agent~$k$ a full
-configuration is reached again. A node then has at most $b+1$ successors
-instead of $(b+1)^k$, at the price of a search tree that is $k$ times deeper
-and a heuristic evaluated on intermediate states (the sum of $d_i$ over the
-new cell of the agents that have moved and the old cell of the others).
-Because the intermediate states carry partial $\gcost$ values, \astar prunes
-an agent's bad move before the moves of the remaining agents are ever
-enumerated; in \cref{sec:ch11-experiment} OD examines about $200$ times
-fewer successor candidates than plain joint \astar with six agents. OD is
-\astar on a graph with the same paths between full configurations, so it is
-optimal too.
+Standley~\cite{standley2010finding} attacks the two sources of the blow-up
+separately. \textbf{Operator decomposition}\index{operator decomposition}
+(OD) attacks the branching factor. Instead of choosing the moves of all $k$
+agents at once, the search chooses them one agent at a time: from a full
+configuration it generates the $b+1$ moves of agent~1, which yield
+\emph{intermediate} states in which agent~1 has moved and the others have
+not; from an intermediate state it generates the moves of the next agent,
+checking vertex and swap conflicts only against the agents that have already
+chosen; after the move of agent~$k$ a full configuration is reached again. A
+node then has at most $b+1$ successors instead of $(b+1)^k$, at the price of
+a search tree that is $k$ times deeper and a heuristic evaluated on
+intermediate states (the sum of $d_i$ over the new cell of the agents that
+have moved and the old cell of the others). Because the intermediate states
+carry partial $\gcost$ values, \astar prunes an agent's bad move before the
+moves of the remaining agents are ever enumerated; in
+\cref{sec:ch11-experiment} OD examines about $200$ times fewer successor
+candidates than plain joint \astar with six agents. OD is \astar on a graph
+with the same paths between full configurations, so it is optimal too.
 
-\subsection{Independence detection}
-\label{sec:ch11-id}
-
-Independence detection\index{independence detection} (ID), also due to
-Standley~\cite{standley2010finding}, is not a search but a wrapper around
-one. \Cref{alg:ch11-id} starts with every agent in a group of its own,
-plans each group optimally and independently, and looks for a pair of
-groups whose plans conflict. Such a pair is merged and re-planned as one
-group with the joint search; the loop repeats until no two group plans
-conflict, and the final plan is the union of the group plans.
+\textbf{Independence detection}\index{independence detection} (ID) attacks
+the exponent $k$, and it is not a search but a wrapper around one.
+\Cref{alg:ch11-id} starts with every agent in a group of its own, plans each
+group optimally and independently, and looks for a pair of groups whose
+plans conflict. Such a pair is merged and re-planned as one group with the
+joint search; the loop repeats until no two group plans conflict, and the
+final plan is the union of the group plans.
 
 \begin{algorithm}[htb]
 \caption{Simple independence detection}
@@ -397,18 +379,18 @@ conflict, and the final plan is the union of the group plans.
 \end{algorithm}
 
 \paragraph{Walkthrough.} Line~\ref{alg:ch11-id:solo} runs $k$ single-agent
-searches, the \astar searches of \cref{ch:ch04}. Line~\ref{alg:ch11-id:check}
-is the conflict detection of \cref{ch:ch07} between the paths of two
-groups, with an arrived agent blocking its goal cell for ever. Merging
-(line~\ref{alg:ch11-id:merge}) is irreversible, so the loop runs at most
-$k - 1$ times, and line~\ref{alg:ch11-id:replan} is the expensive step: a
-joint search over $|M|$ agents. In the worst case all agents end up in one
-group after $k - 1$ useless searches; in the common case the largest group
-stays small (\cref{fig:ch11-expansions}, right). Standley adds two
-refinements: before merging $A$ and $B$, try to re-plan $A$ at the same cost
-while treating $\pi_B$ as an obstacle, then the other way round, and merge
-only if both fail; and break ties among equally cheap paths towards paths
-that conflict with fewer other groups, using a \emph{conflict avoidance
+searches. Line~\ref{alg:ch11-id:check} is the conflict detection of
+\cref{ch:ch07} between the paths of two groups, with an arrived agent
+blocking its goal cell for ever. Merging (line~\ref{alg:ch11-id:merge}) is
+irreversible, so the loop runs at most $k - 1$ times, and
+line~\ref{alg:ch11-id:replan} is the expensive step: a joint search over
+$|M|$ agents. In the worst case all agents end up in one group after $k - 1$
+useless searches; in the common case the largest group stays small
+(\cref{fig:ch11-expansions}, right). Standley adds two refinements: before
+merging $A$ and $B$, try to re-plan $A$ at the same cost while treating
+$\pi_B$ as an obstacle, then the other way round, and merge only if both
+fail; and break ties among equally cheap paths towards paths that conflict
+with fewer other groups, using a \emph{conflict avoidance
 table}\index{conflict avoidance table} of the current plans. The chapter
 code implements the simple version.
 
@@ -492,8 +474,8 @@ the move is illegal, the agents that share a cell in $v'$ are stored in
 $C(v')$ (line~\ref{alg:ch11-mstar:store}): that set is a property of the
 configuration $v'$, which can never be entered, whatever the parent. A swap
 conflict, by contrast, is a property of the move and is not stored on $v'$,
-which may be a perfectly legal configuration when reached by other moves;
-it is only backpropagated (line~\ref{alg:ch11-mstar:bpcol}).
+which may be a legal configuration when reached by other moves; it is only
+backpropagated (line~\ref{alg:ch11-mstar:bpcol}).
 Line~\ref{alg:ch11-mstar:bpchild} lets the parent inherit the collision set
 of a legal successor that was visited earlier, so that a node always knows
 about every collision found downstream of it. In \MstarBackprop,
@@ -506,8 +488,8 @@ goes back into \Open with its old key, and when it is popped again
 follow: $C(u) \supseteq C(v)$ whenever $u \in \mathit{back}(v)$, and along
 the policy path from any expanded node $\fcost$ is constant, so that path is
 explored to its end or to its first collision before any node with a larger
-$\fcost$ is touched. \Cref{sec:ch11-properties} builds the correctness proof
-on these two facts.
+$\fcost$ is touched. \Cref{sec:ch11-properties} builds the proof on these
+two facts.
 
 % ---------------------------------------------------------------------
 \section{A worked example}
@@ -548,9 +530,9 @@ empty collision set and a single limited neighbour, the policy successor
 $((1,1), (3,1), (1,3))$ with $\fcost = 12$. That node is expanded next, and
 its policy successor $((2,1), (2,1), (2,3))$ puts drones~1 and~2 in the same
 cell. The successor is discarded, the set $\set{1,2}$ is stored on the
-illegal configuration and backpropagated: to the node of step~2, and along
-its back set to the start. Both have already been expanded, so both go back
-into \Open with their old keys.
+illegal configuration and backpropagated to the node of step~2 and, along
+its back set, to the start. Both have already been expanded, so both go
+back into \Open with their old keys.
 
 \paragraph{Phase 2: widening (steps 3--4).} The node of step~2 is popped
 first because it has the larger $\gcost$. With $C = \set{1,2}$ it has
@@ -573,8 +555,8 @@ with $C = \set{1,2}$ (steps~5--8). Twelve of the 31 expansions are such
 second expansions. Other nodes acquire their collision set from a policy
 successor that already carries $\set{1,2}$, through
 line~\ref{alg:ch11-mstar:bpchild}. At $\fcost = 14$ the search tries the bay
-at the wrong time and lets drone~2 wander into the passage $(4,2)$ and even
-to $(4,3)$; nothing there is cheaper than 15.
+at the wrong time and lets drone~2 wander into the passage $(4,2)$; nothing
+there is cheaper than 15.
 
 \paragraph{Phase 4: one-dimensional again (steps 28--31).} At $\fcost = 15$
 the queue holds the nodes with $\gcost = 9$ generated in steps~7 and~8. In
@@ -591,11 +573,11 @@ search dive to the goal instead of widening those nodes first.
 \begin{table}[tb]
   \centering\footnotesize
   \caption{The decisive expansions of \cref{alg:ch11-mstar} on
-  \cref{ex:ch11-aisles} (the self-test prints all 31). A node is written as
-  the cells of drones~1, 2, 3; $C$ is its collision set at the moment of
-  the expansion; $\phi(v)$ is its policy successor; ``new'' counts
-  successors that enter \Open with a better $\gcost$. The $\fcost$ column
-  never decreases.}
+  \cref{ex:ch11-aisles} (\code{mstar(inst, trace=True)} prints all 31). A
+  node is written as the cells of drones~1, 2, 3; $C$ is its collision set
+  at the moment of the expansion; $\phi(v)$ is its policy successor; ``new''
+  counts successors that enter \Open with a better $\gcost$. The $\fcost$
+  column never decreases.}
   \label{tab:ch11-trace}
   \setlength{\tabcolsep}{3.5pt}
   \begin{tabular}{@{}rlllrrrll@{}}
@@ -657,22 +639,23 @@ the collision set $\set{1,2}$ and none contains drone~3.
 \Cref{fig:ch11-expansions} scales the comparison up. The script
 \code{gen\_ch11\_expansions.py} draws $30$ random $8 \times 8$ maps with
 $15\,\%$ obstacles for each $k = 2, \dots, 6$, places $k$ agents at random
-and runs the four searches with a cap of $1.5$ million successor
-candidates. Joint \astar grows from a median of $140$ candidates for two
-agents to $77\,000$ for six, roughly a factor five per agent, as the
-branching factor predicts; operator decomposition stays below $360$;
-independence detection and \mstar stay between $10$ and about $1\,000$,
-because on the median instance only two or three agents interact. The means
-tell a different story: for $k = 6$ they are $132\,000$ (joint \astar),
-$1\,100$ (OD), $14\,000$ (ID) and $42\,000$ (\mstar), dominated by the few
-instances on which almost every agent ends up coupled and ID and \mstar
-degenerate into a joint search plus overhead. The right panel shows the size
-of the largest group that ID had to merge and of the largest collision set
-that \mstar built, on average $2.8$ and $3.8$ agents out of six. \mstar
-couples more than ID: it couples agents whenever their \emph{policy} paths
-collide anywhere in the region it explores, whereas ID merges groups only
-when their optimal plans conflict. Both stay far below the diagonal $k$,
-and that gap is the whole point.
+and runs the four searches with a cap of $1.5$ million successor candidates;
+the statistics are over the instances that all four solved within the cap.
+Joint \astar grows from a median of $140$ candidates for two agents to
+$77\,000$ for six, roughly a factor five per agent, as the branching factor
+predicts; operator decomposition stays below $360$; independence detection
+and \mstar stay between about ten and about $1\,000$, because on the median
+instance only two or three agents interact. The means tell a different
+story: for $k = 6$ they are $132\,000$ (joint \astar), $1\,100$ (OD),
+$14\,000$ (ID) and $42\,000$ (\mstar), dominated by the few instances on
+which almost every agent ends up coupled and ID and \mstar degenerate into a
+joint search plus overhead. The right panel shows the size of the largest
+group that ID had to merge and of the largest collision set that \mstar
+built, on average $2.8$ and $3.8$ agents out of six. \mstar couples more
+than ID: it couples agents whenever their \emph{policy} paths collide
+anywhere in the region it explores, whereas ID merges groups only when
+their optimal plans conflict. Both stay far below the diagonal $k$, and that
+gap is the whole point.
 
 \begin{figure}[tb]
   \centering
@@ -692,8 +675,9 @@ and that gap is the whole point.
 \label{sec:ch11-properties}
 
 Throughout this section $G$ is finite, the policies $\phi_i$ are optimal in
-the sense of \cref{def:ch11-policy}, the heuristic is \cref{eq:ch11-heuristic}
-and the costs are \cref{eq:ch11-cost}. The results are those of Wagner and
+the sense of \cref{def:ch11-policy}, the heuristic is admissible (the sum
+\cref{eq:ch11-heuristic} is even consistent) and the costs are
+\cref{eq:ch11-cost}. The results are those of Wagner and
 Choset~\cite{wagner2011mstar,wagner2015subdimensional}.
 
 \begin{theorem}[Termination]
@@ -708,13 +692,14 @@ $\set{1,\dots,k}$ that only grow, so the second event happens at most $k$
 times per node. Between two such events anywhere in the search the graph
 of limited neighbours is fixed, and on a fixed finite graph with
 non-negative costs the $\gcost$ of a node can decrease only finitely often
-(the argument of \cref{thm:ch04-terminates}). There are finitely many
+(the termination argument of \cref{ch:ch04}). There are finitely many
 configurations, hence finitely many insertions, and the loop ends.
 \end{proof}
 
 \begin{theorem}[\mstar is complete and optimal]
 \label{thm:ch11-optimal}
-If a conflict-free plan exists, \cref{alg:ch11-mstar} returns one of minimum
+With optimal individual policies and an admissible heuristic, if a
+conflict-free plan exists, \cref{alg:ch11-mstar} returns one of minimum
 cost \cref{eq:ch11-cost}; otherwise it returns \emph{failure}.
 \index{M*!completeness}\index{M*!optimality}
 \end{theorem}
@@ -722,73 +707,64 @@ cost \cref{eq:ch11-cost}; otherwise it returns \emph{failure}.
 Let $C^*$ be the optimal cost.
 
 \emph{Step 1: \mstar is \astar on the final limited graph.} Let
-$G^{\mathrm{sub}}$ be the graph of the generated configurations with the
+$G^{\mathrm{sub}}$ consist of the generated configurations with the
 limited-neighbour edges \cref{eq:ch11-limited} for the collision sets at
 termination. Whenever a collision set grew, the node was re-inserted, so
 every expanded node was expanded at least once with its final collision
-set, and \cref{alg:ch11-mstar} behaves like \cref{alg:ch04-astar} on
-$G^{\mathrm{sub}}$ with a consistent heuristic and with re-opening. By
-\cref{thm:ch04-optimal} it returns a cheapest path of $G^{\mathrm{sub}}$
-from $v_s$ to $v_f$ if there is one. It remains to show that
-$G^{\mathrm{sub}}$ contains a path of cost $C^*$ whenever a plan exists.
+set, and the run is \astar with re-opening on $G^{\mathrm{sub}}$ with an
+admissible heuristic: by the optimality theorem of \cref{ch:ch04} it
+returns a cheapest path of $G^{\mathrm{sub}}$ from $v_s$ to $v_f$ if one
+exists, and by \cref{thm:ch11-terminates} it reports failure otherwise. It
+remains to show that $G^{\mathrm{sub}}$ contains a path of cost $C^*$
+whenever a plan exists.
 
-\emph{Step 2: policy paths are always explored.} Let $v$ be expanded with
-$\fcost(v) \le C^*$. Its policy successor $\phi(v)$ is a limited neighbour
-whatever $C(v)$ is, and $\fcost(\phi(v)) = \fcost(v)$. So either $\phi(v)$
-is a collision, or it is generated with $\fcost \le C^*$ and expanded
-before the run ends, since the goal is popped only with $\fcost$ equal to
-the returned cost and nodes with smaller keys come first. By induction the
-policy path from $v$ is explored up to $v_f$ or up to its first collision,
-whose agents are then backpropagated into $C(v)$. The same holds for any
-path of limited-neighbour edges from $v$, and $C(u) \supseteq C(w)$ whenever
-$w$ was generated from $u$.
+\emph{Step 2: everything cheap is expanded.} A node generated with
+$\fcost \le C^*$ is expanded before the run ends, because the goal is popped
+only with $\fcost$ equal to the returned cost, and if that cost were larger
+than $C^*$, or the run ended in failure, every such node would have been
+popped first. In particular, the policy successor $\phi(v)$ of an expanded
+node $v$ is a limited neighbour whatever $C(v)$ is, and $\fcost(\phi(v)) =
+\fcost(v)$; so the policy path from every expanded node with $\fcost \le
+C^*$ is explored to $v_f$ or to its first collision, whose agents are then
+backpropagated into $C(v)$. Moreover $C(u) \supseteq C(w)$ whenever $w$ was
+generated from $u$ (line~\ref{alg:ch11-mstar:bpchild} and \MstarBackprop).
 
-\emph{Step 3: no optimal plan is cut off.} Suppose a plan exists but \mstar
-returns \emph{failure} or a cost above $C^*$. Among all optimal plans
+\emph{Step 3: no optimal plan is cut off.} Suppose a plan exists but
+$G^{\mathrm{sub}}$ contains none of cost $C^*$. Among all optimal plans
 $\pi^* = (u_0 = v_s, \dots, u_m = v_f)$ choose one that maximises the number
-$j$ of leading nodes $u_0, \dots, u_j$ that were expanded with $\gcost$
-equal to the cost of the prefix of $\pi^*$. Then $0 \le j < m$, because the
-goal was not expanded with $\gcost = C^*$. Let $A = C(u_j)$ at termination.
-The move $u_j \to u_{j+1}$ is not a limited neighbour of $u_j$, otherwise
-$u_{j+1}$ would have been generated with optimal $\gcost$, hence expanded,
-contradicting the maximality of $j$; so some agent outside $A$ deviates from
-its policy in this move. Let $\sigma$ be the path from $u_j$ in which the
-agents in $A$ move as in $\pi^*$ and the agents outside $A$ follow their
-policies; since a policy path is a shortest path, $\cost(\sigma)$ is at
-most the cost of the suffix of $\pi^*$. If $\sigma$ is conflict-free, the
-prefix of $\pi^*$ followed by $\sigma$ is an optimal plan whose first step
-after $u_j$ \emph{is} a limited neighbour of $u_j$; that node is generated
-with optimal $\gcost$ and expanded, which contradicts the choice of $\pi^*$.
-Otherwise the first conflict of $\sigma$ involves an agent outside $A$,
-because the agents in $A$ move as in the conflict-free $\pi^*$. If it
-occurs in the first move, it is detected when $u_j$ is expanded with
-$C(u_j) = A$ and backpropagation puts that agent into $A$: a contradiction.
-Otherwise the first node $w_1$ of $\sigma$ is a legal limited neighbour of
-$u_j$, generated and expanded with $\fcost \le C^*$ by Step~2, with
-$C(w_1) \subseteq A$. If $C(w_1) = A$, the next move of $\sigma$ is a
-limited neighbour of $w_1$ and the argument repeats one node further along
-$\sigma$, with the conflict one step closer; if $C(w_1) \subsetneq A$, the
-construction is repeated from $w_1$ with $C(w_1)$ in place of $A$, the
-agents that left the collision set switching to their policies. Collision
-sets can shrink at most $k$ times along this process and otherwise the
-first conflict comes one step closer at every repetition, so after finitely
-many repetitions either a conflict-free optimal continuation with a longer
-expanded prefix is found, or a conflict involving an agent outside the
-current collision set is detected at a generated successor of an expanded
-node. In the second case backpropagation adds that agent to the collision
-set of every ancestor on the constructed path, including $u_j$,
-contradicting the assumption that $A$ was final. Hence $G^{\mathrm{sub}}$
-contains an optimal plan and by Step~1 \mstar returns one. If no plan
-exists, none exists in $G^{\mathrm{sub}} \subseteq G^k$ either, and by
-\cref{thm:ch11-terminates} the algorithm stops with \emph{failure}.
+$j$ of leading nodes $u_0, \dots, u_j$ expanded with $\gcost$ equal to the
+cost of the prefix of $\pi^*$; then $j < m$. Let $A = C(u_j)$ at
+termination. The move $u_j \to u_{j+1}$ is not a limited neighbour of
+$u_j$, otherwise $u_{j+1}$ would be generated with optimal $\gcost$ and
+expanded by Step~2, contradicting the choice of $j$; so some agent outside
+$A$ deviates from its policy in this move. Let $\sigma$ be the continuation
+from $u_j$ in which the agents in $A$ move as in $\pi^*$ and the agents
+outside $A$ follow their policies. Because policy paths are shortest paths,
+$\cost(\sigma)$ is at most the cost of the suffix of $\pi^*$. If $\sigma$ is
+conflict-free, the prefix of $\pi^*$ followed by $\sigma$ is an optimal plan
+whose first step after $u_j$ \emph{is} a limited neighbour of $u_j$, which
+contradicts the choice of $\pi^*$. Otherwise the first conflict of $\sigma$
+involves an agent outside $A$, because the agents in $A$ move as in the
+conflict-free $\pi^*$. As long as the nodes of $\sigma$ carry the collision
+set $A$, they are successive limited neighbours, generated and expanded
+with $\fcost \le C^*$ by Step~2, the conflict is detected when the last of
+them is expanded, and backpropagation along $\sigma$ adds the offending
+agent to $C(u_j)$: a contradiction with the finality of $A$. If instead a
+node $w$ of $\sigma$ has $C(w) \subsetneq A$, the construction restarts from
+$w$ with $C(w)$ in place of $A$, the agents that dropped out of the set
+switching to their policies. Collision sets can shrink at most $k$ times
+along this process, and otherwise the first conflict comes one step closer
+at every repetition, so after finitely many repetitions one of the two
+contradictions is reached. Hence $G^{\mathrm{sub}}$ contains an optimal plan,
+and by Step~1 \mstar returns one.
 \end{proof}
 
 The proof uses the optimality of the policies in one place only, when the
 conflict-free $\sigma$ is shown to be optimal; with suboptimal policies
 \mstar stays complete but loses optimality. It uses the heuristic only in
 Step~1, so an inflated heuristic $w\hcost$ gives a plan of cost at most
-$wC^*$ by \cref{thm:ch04-weighted}: that is \emph{inflated} \mstar
-(\cref{sec:ch11-variants}).
+$wC^*$ by the weighted-\astar bound of \cref{ch:ch04}: that is
+\emph{inflated} \mstar (\cref{sec:ch11-variants}).
 
 \begin{corollary}[No collisions, no search]
 \label{thm:ch11-linear}
@@ -997,24 +973,23 @@ keeps the collision set as a collection of disjoint subsets,
 $\set{\set{1,2}, \set{3,4}}$, computes the ``policy'' of each subset by a
 recursive \mstar call over its agents only, and branches over the product
 of the subsets' policies; the cost becomes exponential in the size of the
-largest coupled subset rather than of their union. ODr\mstar~\cite{ferner2013odrmstar}
-adds operator decomposition inside the sub-searches and was, at its
-publication, among the strongest optimal MAPF solvers on the standard
-benchmarks; \textcite{wagner2015subdimensional} give the full treatment and
-the proofs. \textbf{Inflated \mstar}\index{M*!inflated} replaces $\hcost$ by
-$w\hcost$ with $w > 1$ and returns a plan of cost at most $wC^*$ with far
-fewer expansions inside the coupled patches; it is to \mstar what \ecbs is
-to \cbs.
+largest coupled subset rather than of their union.
+ODr\mstar~\cite{ferner2013odrmstar} adds operator decomposition inside the
+sub-searches and was, at its publication, among the strongest optimal MAPF
+solvers on the standard benchmarks; \textcite{wagner2015subdimensional}
+give the full treatment and the proofs. \textbf{Inflated
+\mstar}\index{M*!inflated} replaces $\hcost$ by $w\hcost$ with $w > 1$ and
+returns a plan of cost at most $wC^*$ with far fewer expansions inside the
+coupled patches; it is to \mstar what \ecbs is to \cbs.
 
 \paragraph{Relatives.} Meta-agent \cbs~\cite{sharon2015cbs} merges two
 agents into a meta-agent, planned by a joint search, once they have
 conflicted more than a threshold number of times in the constraint tree; it
 is the bridge between \cbs and independence detection, and ODr\mstar has
-served as its meta-agent solver. The increasing cost tree search and
-enhanced partial expansion \astar attack the joint space in yet other ways;
-\textcite{felner2017search} survey them all. \textcite{standley2011complete}
-turn independence detection and operator decomposition into a complete
-anytime algorithm. Among the constructive methods, Surynek's
+served as its meta-agent solver. \textcite{standley2011complete} turn
+independence detection and operator decomposition into a complete anytime
+algorithm, and \textcite{felner2017search} survey the other search-based
+optimal solvers. Among the constructive methods, Surynek's
 BIBOX~\cite{surynek2009novel} solves instances on biconnected graphs with
 two empty vertices by a different set of macros; none of them bounds the
 cost of the plan, and when a bound matters, \ecbs or inflated \mstar is the
@@ -1067,17 +1042,16 @@ faster for $k > 16$), back set and an \code{in\_open} flag. The heap holds
 tuples $(\fcost, -\gcost, \text{counter}, \text{configuration})$ as in
 \cref{ch:ch04}; a node is pushed when its $\gcost$ improves and when its
 collision set grows while it is not in the queue, and an entry popped with a
-stale $\gcost$, or for a node whose flag says that it has been expanded
-since the push, is skipped. One breadth-first search per goal gives the
-distance tables, and the next policy step is cached. \Cref{lst:ch11-core}
-shows the three pieces that make \mstar differ from joint \astar: the
-limited neighbours as a Cartesian product of per-agent move lists (wait
-first, so that ties are broken deterministically), the backpropagation with
-an explicit stack instead of recursion, and the successor loop. The
-collision check finds vertex collisions with a dictionary from cells to
-agents and swap collisions by looking up which agent arrives at the cell an
-agent is leaving; the two \code{rec} lines record the trace behind
-\cref{tab:ch11-trace}.
+stale $\gcost$, or for a node that has been expanded since the push, is
+skipped. One breadth-first search per goal gives the distance tables, and
+the next policy step is cached. \Cref{lst:ch11-core} shows the three pieces
+that make \mstar differ from joint \astar: the limited neighbours as a
+Cartesian product of per-agent move lists (wait first, so that ties are
+broken deterministically), the backpropagation with an explicit stack
+instead of recursion, and the successor loop. The collision check finds
+vertex collisions with a dictionary from cells to agents and swap collisions
+by looking up which agent arrives at the cell an agent is leaving; the two
+\code{rec} lines record the trace behind \cref{tab:ch11-trace}.
 
 \begin{lstlisting}[caption={The core of \mstar (from \code{code/ch11\_mstar.py}): the limited neighbours, the backpropagation (a local function of \code{mstar}) and the successor loop of the main loop.},label={lst:ch11-core}]
 def limited_neighbours(node, inst, pol):
@@ -1135,9 +1109,8 @@ later by other moves, and it then dragged a stale collision set into every
 node that generated it; on \cref{ex:ch11-aisles} this coupled drones~1
 and~2 in nodes where they had long passed each other. The search stayed
 correct, because larger collision sets never remove an optimal path, but it
-did more work than necessary, and the extra coupling grows with the
-instance. Store vertex collisions on the configuration and swap collisions
-on the parent only.
+did more work than necessary. Store vertex collisions on the configuration
+and swap collisions on the parent only.
 \end{pitfall}
 
 \begin{pitfall}[All parents, and always re-open]
@@ -1148,21 +1121,12 @@ already been expanded. Dropping either shortcut makes \mstar incomplete: a
 collision found downstream never reaches the node that needs to branch,
 its limited neighbours never include the detour, and the search reports
 failure on solvable instances. The self-test guards against this by
-comparing the cost of \mstar with joint \astar on random instances.
-\end{pitfall}
-
-\begin{pitfall}[Free waits at the goal are not the sum of costs]
-The convention \cref{eq:ch11-cost} lets an agent rest at its goal for free,
-which keeps the cost of a move a function of the two configurations. The
-sum of costs of \cref{ch:ch07} charges every step until the agent's
-\emph{final} arrival, so an agent that reaches its goal, waits, and later
-steps aside is charged for the wait as well. The two objectives agree on
-every plan in which nobody leaves a goal, and the chapter code checks that
-they agree on all its examples, but a plan that is optimal for one need not
-be optimal for the other. Standley's implementation charges the free waits
-retroactively when the agent moves again, which makes the state depend on
-history; \cbs sidesteps the problem because its low-level search plans one
-agent at a time in space-time and knows the arrival time.
+comparing the cost of \mstar with joint \astar on random instances. A
+related trap is the cost convention: \cref{eq:ch11-cost} lets an agent rest
+at its goal for free, whereas the sum of costs of \cref{ch:ch07} charges
+every step until the \emph{final} arrival; the two agree only on plans in
+which nobody leaves its goal, and the code checks that they agree on all
+its examples.
 \end{pitfall}
 
 For the constructive methods, the class \code{PushSwapState} holds the
@@ -1224,7 +1188,7 @@ reading that completes the practical MAPF picture next to \ecbs.
         Collisions found downstream are backpropagated along the back sets,
         and a node whose collision set grew is expanded again. Vertex
         collisions belong to the configuration, swap collisions to the move.
-  \item With optimal policies and the consistent sum heuristic, \mstar
+  \item With optimal policies and an admissible heuristic, \mstar
         terminates and is complete and optimal (\cref{thm:ch11-optimal});
         without collisions it expands only the policy path
         (\cref{thm:ch11-linear}); in the worst case it is joint \astar plus
@@ -1291,13 +1255,12 @@ it returns at all?
 \label{exr:ch11-heuristic}
 (a) Prove that $\hcost_{\max}(v) = \max_i d_i(v^i)$ is admissible for the
 cost \cref{eq:ch11-cost} and dominated by \cref{eq:ch11-heuristic} in the
-sense of \cref{def:ch04-dominance}. (b) Suppose waiting were free
-everywhere, not only at the goal. Is \cref{eq:ch11-heuristic} still
-consistent, and is the joint search still finite? (c) The makespan
-objective of \cref{ch:ch07} charges one per time step regardless of how
-many agents move. Give a joint move cost and an admissible heuristic for
-it, and explain why the policy path is still an optimal continuation when
-it is conflict-free.
+sense of \cref{ch:ch04}. (b) Suppose waiting were free everywhere, not only
+at the goal. Is \cref{eq:ch11-heuristic} still consistent, and is the joint
+search still finite? (c) The makespan objective of \cref{ch:ch07} charges
+one per time step regardless of how many agents move. Give a joint move
+cost and an admissible heuristic for it, and explain why the policy path is
+still an optimal continuation when it is conflict-free.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
