@@ -12,6 +12,10 @@ numbers quoted in the chapter, the table and the figures agree.  Files:
     ch20-training-nll.dat     epoch, train loss and validation ADE of the
                               free-running LSTM-NLL; ch20-training-tf.dat the
                               same for the teacher-forced LSTM-TF
+    ch20-training-cv.dat      the ADE of the tuned CV baseline on the *same
+                              validation split*, as two points spanning the
+                              epoch axis, so that the reference line of
+                              fig:ch20-training uses no test-set number
     ch20-baselines-obs.dat    the observed points of the turning example
     ch20-baselines-pred.dat   its ground truth and the CV / CA / KF
                               predictions (row t=0 is the last observation)
@@ -33,8 +37,8 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from ch20_prediction import (DT, SUBSETS, T_OBS, T_PRED, TOY_AGENTS_POS,  # noqa: E402
-                             TOY_AGENTS_VEL, agent_frame, covariance_ellipse,
-                             displacement_errors, lstm_cell_example,
+                             TOY_AGENTS_VEL, ade, agent_frame, covariance_ellipse,
+                             displacement_errors, lstm_cell_example, predict_cv,
                              print_results, run_experiment, subset_mask,
                              to_frame, toy_agent_attention)
 
@@ -108,6 +112,12 @@ def main():
         write_table(fname, ["epoch", "train_loss", "val_ade"],
                     np.stack([np.arange(1, n + 1), hist["train_loss"], hist["val_ade"]], axis=1))
         print("%s: best epoch %d, %d epochs run" % (name, hist["best_epoch"], n))
+    n_max = max(len(res["histories"][m]["train_loss"]) for m in ("LSTM-NLL", "LSTM-TF"))
+    val, k_cv = res["val"], res["settings"]["k_cv"]
+    cv_val_ade = float(ade(predict_cv(val["obs"], k=k_cv), val["future"]))
+    write_table("ch20-training-cv.dat", ["epoch", "ade"],
+                [(0, cv_val_ade), (n_max + 1, cv_val_ade)])
+    print("tuned CV (k=%d) ADE on the validation split: %.4f m" % (k_cv, cv_val_ade))
 
     # -- 3. the turning example for the baseline figure --------------------------
     #    (the turn with the median final error of LSTM-NLL: a typical case)

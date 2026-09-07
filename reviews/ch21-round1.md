@@ -150,3 +150,102 @@ the OSQP iteration and of the shipped solver, including row scaling, polishing a
 certificate. The chance-constraint section, the four pitfalls, the tuning table with its units paragraph, the drone box
 and the ten well-graded exercises (including the Week-11 leader-follower coding exercise, which the code's `Follower`
 actually supports) all stay as they are.
+
+## Response to review (round 1)
+
+All nine required changes are applied. The chapter builds with status 0 and no
+errors (`./build.sh ch21-mpc`), the code self-test passes, and the five
+`figures/data/ch21-*.dat` files regenerate byte-identically (the code changes
+below do not touch any number).
+
+**Required changes**
+
+1. *(A) Section 21.6.1, `thm:ch21-stability` / `eq:ch21-lyapunov`.* Applied the
+   reviewer's first option verbatim in substance: after "Write $V_N(\state)$ for
+   the optimal cost of \cref{eq:ch21-ocp} ..." the text now says that for this
+   section the stage sum starts at $k=0$, that $\state_0\T\mat{Q}\state_0$ is a
+   constant because $\state_0$ is fixed data, so the minimiser of
+   \cref{eq:ch21-ocp} is unchanged while the bookkeeping of the proof becomes the
+   familiar one. Theorem, equation and proof sketch are untouched and now match
+   the cost they use.
+2. *(A) Solve time (Section 21.8) and the size sentence (Section 21.4.2).* The
+   size sentence now reads: the hard program has 30 variables and
+   $30+30+15=75$ rows (input box, velocity box, one avoidance half-plane per
+   step), and softening the avoidance rows adds 15 slacks and 15 non-negativity
+   rows, i.e. 45 variables and 90 rows. The "Solve time" paragraph quotes the
+   same sizes, names the timed program (the hard program of Example 21.1), and
+   marks the timings as hardware dependent: "a few milliseconds ... about 1.3 ms
+   on average and under 10 ms at worst on the machine that produced the numbers
+   of this chapter". Note that on the machine used for this revision
+   `ch21_mpc.py` prints `mean 1.28-1.31 ms, max 9.28-9.37 ms (30 vars, 75 rows)`
+   across runs, not the 1.41/11.03 of the reviewer's machine, which is why the
+   sentence is now hedged rather than pinned to two decimals.
+3. *(A) `eq:ch21-qp-constraints` versus Table 21.1.* Added after the block-by-block
+   reading: "Written this way the keep-in rows are hard, which is what the book's
+   code does; softening them is the same construction as for avoidance (append a
+   $-\mat{I}$ slack column and a non-negativity block, and add $w_1s+w_2s^2$ to
+   the cost), and \cref{exr:ch21-coding} asks you to do it." The caption of
+   Table 21.1 now says the hard/soft column is the recommendation of
+   Section 21.3.3 and that `ch21_mpc.py` attaches slacks to the avoidance rows
+   only and keeps the keep-in rows hard.
+4. *(A) Section 21.3.1, inscribed box.* Now "use the largest box inside it, of
+   half-width $a_{\max}/\sqrt{n}$ (and $v_{\max}/\sqrt{n}$ for the velocity)",
+   correct for both $n=2$ and $n=3$.
+5. *(A) Solution to `exr:ch21-slack`.* "about 16" replaced by "about 19 (the
+   largest over the whole run is 18.7; the sampled trace of Table 21.3 shows
+   16.2)". `worked_example()` now prints `largest multiplier over the run: 18.70`,
+   so the number is machine-produced.
+6. *(D) Table 21.3 caption.* Rewritten as suggested: "every half second from
+   $t=2$ s to $t=5$ s, then every second (the first two seconds are identical to
+   the row $t=2.0$, all inputs zero)".
+7. *(C) Undefined symbols in Algorithm 21.1.* The walkthrough now defines
+   $\Pi_{[\vect{l},\vect{u}]}(\vect{a})=\min(\max(\vect{a},\vect{l}),\vect{u})$
+   as the componentwise projection onto the box, and the certificate sentence
+   defines $\delta\vect{y}^{+}=\max(\delta\vect{y},\vect{0})$ and
+   $\delta\vect{y}^{-}=\min(\delta\vect{y},\vect{0})$ as the positive and
+   negative parts.
+8. *(E) Exercise 21.1.* `simulate` gained a `wind` argument (a constant
+   acceleration added to the plant but not to the model; default `None`, so no
+   number changes), and the exercise now says
+   `simulate(..., wind=(0.0,0.3))` and spells out the two-line change for the
+   open-loop run (keep the first `info["U"]` and index it with the step counter
+   instead of calling `mpc.step` again).
+9. *(F) Acronyms.* First uses are now expanded: "Optimal reciprocal collision
+   avoidance (ORCA, Chapter 13)" in Section 21.1, "the conflict-based search
+   (CBS) path of Chapter 9" in the same section, and "CBS (Chapter 9) or its
+   bounded-suboptimal variant enhanced CBS (ECBS, Chapter 10)" in the drone box.
+
+**Suggestions**
+
+* S1 done: `worked_example()` now prints `guess point sep=0.908` next to the
+  solved `plan point sep=1.000`, so the 0.91 m of Section 21.5 is machine-produced.
+* S2 done: "RMS error 0.227 m against 0.207 to 0.209 m for $N\ge10$".
+* S3 partly done: the two repetitions the review named for cutting are gone --- the
+  $w_1=50$ story at the end of Section 21.5 is now a cross-reference to
+  `thm:ch21-exact` and Section 21.7.1, and Pitfall 2 points at the late-detection
+  experiment instead of restating its numbers. The full accounts in
+  Sections 21.6.2 and 21.7.3 and Table 21.4 are untouched. Net length is 23 pages:
+  the required additions cost roughly what the cuts saved.
+* S4 done: the pseudocode says "unit infinity norm", and the walkthrough adds
+  that the code tests the residuals every ten iterations against
+  $\eps_{\mathrm{abs}}+\eps_{\mathrm{rel}}\sigma$.
+* S5 done: "its iteration is twenty lines that you can read in full (the solver
+  around it, with scaling, restart and polishing, is some seventy-five)".
+* S6 done as the half-sentence warning: after the prediction matrices, "$\mat{X}$
+  and $\mat{U}$ are stacked vectors printed in the same bold as the matrices,
+  whereas the calligraphic $\mathcal{X}$ ... is the geofence, a set."
+* S7 done: solutions added for `exr:ch21-weights` (units and which multipliers
+  scale), `exr:ch21-feasibility` (invariance of the Riccati sublevel set and the
+  condition $c\le b^2/(\vect{h}\T\mat{P}\inv\vect{h})$ per row, plus the
+  side-changing counterexample) and `exr:ch21-chance` (the derivation, the four
+  $\kappa_\delta$ values from `normal_quantile`, and the 1.143 m).
+* S8 done: the polygon cells of Table 21.1 now read "polygon, $M=8$,
+  Proposition 21.3".
+
+**Untouched, as requested:** the headlight metaphor and `fig:ch21-idea`, the
+derivation of the condensed QP and the block-by-block reading of $\mat{G}$,
+$\vect{l}$, $\vect{u}$, both propositions with their proofs, the exact-penalty
+result, the worked example and every number in Table 21.3, the late-detection
+experiment with Table 21.4 and `fig:ch21-experiment`, the ADMM pseudocode and
+listings, the chance-constraint section, the four pitfalls, the tuning table, the
+drone box and the ten exercises.

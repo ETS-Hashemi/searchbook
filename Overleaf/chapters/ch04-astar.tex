@@ -32,7 +32,8 @@ solves the same instances with about $750$ expansions, ten times fewer, and it
 still guarantees the shortest route.
 
 For a single query this is a convenience. For a swarm it is a necessity. The
-global planner of the hybrid architecture in \cref{ch:ch24} is \cbs or \ecbs
+global planner of the hybrid architecture in \cref{ch:ch24} is
+conflict-based search (\cbs) or its bounded-suboptimal variant \ecbs
 (\cref{ch:ch09,ch:ch10}), and every node of their constraint tree calls a
 single-agent search for one drone under a set of constraints. A run on a few
 dozen drones can easily make thousands of such calls, and each of them is an
@@ -89,8 +90,10 @@ elongated region pointing at the goal (\cref{fig:ch04-idea}, right).
   is a disc around the start $s$ that reaches the goal $\gamma$ only when it has
   covered every cheaper node. Right: \astar expands nodes in order of
   $\fcost = \gcost + \hcost$. With the straight-line distance as $\hcost$, the
-  nodes with $\fcost \le C^*$ lie inside an ellipse with foci $s$ and $\gamma$;
-  the search never leaves it. For the node $n$, the solid segment is the known
+  nodes with $\fcost \le C^*$ lie inside an ellipse with foci $s$ and $\gamma$
+  when the space is obstacle-free, so that $\gcost^*$ is the straight-line
+  distance; the small obstacle drawn here deforms the region but does not
+  change the picture. The search never leaves it. For the node $n$, the solid segment is the known
   cost $\gcost(n)$ and the dashed segment the estimate $\hcost(n)$.}
   \label{fig:ch04-idea}
 \end{figure}
@@ -212,7 +215,14 @@ The Manhattan distance is the length of a cheapest path on an empty
 of a cheapest path on an empty 8-connected grid, where a straight move costs~1
 and a diagonal move $\sqrt{2}$: use $\min(d_x, d_y)$ diagonal moves and then
 $\max(d_x, d_y) - \min(d_x, d_y)$ straight moves. The Chebyshev distance is the
-same count when diagonal moves also cost~1. Each of the four is the norm of the
+same count when diagonal moves also cost~1. On an 8-connected grid we use the
+successor rule of \cref{def:ch02-grid} throughout: a diagonal move is allowed
+only when both orthogonal neighbours it passes are free, so a drone of positive
+size never clips an obstacle corner. Forbidding those moves only lengthens
+paths, so it does not endanger the admissibility of any heuristic below, and
+\code{grid\_successors()} in \code{ch04\_astar.py} enforces it in every search
+of this chapter, including the space-time search of
+\cref{sec:ch04-spacetime}. Each of the four is the norm of the
 displacement vector ($\ell_1$, octagonal, $\ell_2$ and $\ell_\infty$ norm), so
 each satisfies the triangle inequality.
 
@@ -371,24 +381,26 @@ is popped first. The instance is \code{worked\_example\_grid()} in
   time of expansion (for Dijkstra $\fcost = \gcost$) and the small grey number
   in the corner is the expansion order. The blue line is the returned path of
   cost~13. (a) \astar with the Manhattan heuristic expands 21 cells; note the
-  four wasted expansions in the column $x = 3$, where the heuristic cannot see
-  the wall at $x = 4$. (b) Dijkstra's algorithm ($\hcost = 0$) expands 26 cells,
+  three wasted expansions $(3, 3)$, $(3, 2)$, $(3, 1)$ below the junction at
+  $(3, 4)$, where the heuristic cannot see the wall at $x = 4$. (b) Dijkstra's algorithm ($\hcost = 0$) expands 26 cells,
   including the whole south-west corner.}
   \label{fig:ch04-example}
 \end{figure}
 
-\Cref{tab:ch04-trace} lists the first ten expansions. Steps~1--4 walk up the
-column $x = 1$: every cell there has $\fcost = 7$, because moving towards the
+\Cref{tab:ch04-trace} lists the first ten expansions. Step~1 expands the start
+$(0, 0)$; steps~2--4 then walk up the column $x = 1$: every cell there has $\fcost = 7$, because moving towards the
 goal decreases $\hcost$ by exactly the move cost. At $(1, 2)$ the search would
 like to continue east, but $(2, 2)$ is blocked; going north to $(1, 3)$ moves
 away from the goal row, and $\fcost$ rises to $9$. \astar therefore turns to the
 remaining cells with $\fcost = 7$, the column $x = 0$ (steps~5 and~6), before it
 accepts any cell with $\fcost = 9$ (steps~7 and~8). From step~9 on the
 frontier has $\fcost = 11$. The search passes the first wall at $(2, 4)$ and,
-led by the decreasing $\hcost$, dives down the column $x = 3$ to $(3, 2)$, where
-the second wall stops it: the four cells $(3, 4), (3, 3), (3, 2), (3, 1)$ are a
-dead end that the Manhattan distance cannot foresee. Only after these and
-$(0, 4)$ are exhausted does the frontier reach $\fcost = 13$, and the search
+led by the decreasing $\hcost$, dives down the column $x = 3$ as far as
+$(3, 1)$, where the second wall stops it: the three cells $(3, 3), (3, 2),
+(3, 1)$ below the junction at $(3, 4)$ are a dead end that the Manhattan
+distance cannot foresee. The cell $(3, 1)$ is reached one pop after $(0, 4)$,
+because both carry $\fcost = 13$ and $11$ respectively; the expansion order is
+$\dots, (3, 4), (3, 3), (3, 2), (0, 4), (3, 1), (3, 5), \dots$. Only after these does the frontier reach $\fcost = 13$, and the search
 crosses the top row $(3, 5), (4, 5), (5, 5)$ and descends to the goal, which is
 popped at step~21 with $\gcost = 13$. At that moment three cells with
 $\fcost = 13$ but smaller $\gcost$ are still in \Open together with $(3, 0)$ at
@@ -581,10 +593,11 @@ its optimal $\gcost$ by the expansion of its predecessor and, having
 $\fcost < C^* = \fcost(\gamma)$, is popped before the goal.
 \end{proof}
 
-\Cref{thm:ch04-surely} is the reason why the closed set can be a plain
-``expanded'' flag when $\hcost$ is consistent, why the trace in
-\cref{tab:ch04-trace} shows non-decreasing $\fcost$, and why the $\fcost$
-values in \cref{fig:ch04-example} never exceed $13$.
+\Cref{thm:ch04-consistent}(i) is the reason why the closed set can be a plain
+``expanded'' flag when $\hcost$ is consistent, and part~(ii) why the trace in
+\cref{tab:ch04-trace} shows non-decreasing $\fcost$;
+\cref{thm:ch04-surely} is why the $\fcost$ values in \cref{fig:ch04-example}
+never exceed $13$.
 
 \subsection{What goes wrong without the conditions}
 
@@ -638,6 +651,16 @@ with larger-$\gcost$-first tie-breaking \astar then expands only the nodes of
 one optimal path. Between these extremes the effort grows with the error
 $\hcost^* - \hcost$: on a grid with obstacles every detour that the heuristic
 does not foresee adds a band of cells with $\fcost < C^*$.
+On an \emph{implicit} graph, one whose nodes are generated on demand and whose
+size is exponential in the solution depth, the $\abs{V}$ in the bound is that
+exponential number, and the heuristic is what decides whether the search is
+practical. Pearl~\cite[ch.~6]{pearl1984heuristics} makes this precise: \astar
+still expands exponentially many nodes unless the error of the heuristic grows
+more slowly than the true cost, roughly $\hcost^*(n) - \hcost(n) =
+\bigO{\log \hcost^*(n)}$; a constant \emph{relative} error is not enough.
+The grids of this book are explicit and small enough that this does not bite,
+but the space-time graphs of \cref{sec:ch04-spacetime} and the constraint
+trees of \cref{ch:ch09} are where it starts to.
 \index{A*!complexity}
 
 \subsection{Heuristic dominance}
@@ -666,8 +689,13 @@ too. Nodes with $\fcost = C^*$ escape the argument: whether they are expanded
 depends on tie-breaking, and $\hcost_2$ may expand a few of them that
 $\hcost_1$ skips. Pearl~\cite{pearl1984heuristics} and Dechter and
 Pearl~\cite{dechter1985generalized} extend the statement to admissible
-heuristics and show that in this sense no admissible algorithm can do better
-than \astar with a consistent heuristic.
+heuristics. Their optimality result is a statement about a specific class:
+among the admissible algorithms that search the same graph and are
+\emph{equally informed}, that is, given the same heuristic and no other
+information about the instance, no algorithm expands a strict subset of the
+nodes that \astar with a consistent heuristic surely expands. It does not say
+that \astar is the fastest possible planner for grids, which it is not
+(\cref{sec:ch04-relatives}).
 \end{proof}
 
 On grids the theorem orders the heuristics of \cref{tab:ch04-heuristics}: on
@@ -758,8 +786,10 @@ popped before $n_i$, so $\gcost(\gamma') = \fcost_w(\gamma') \le \fcost_w(n_i)
 Note that $w\,\hcost$ is in general not admissible and not consistent, even
 when $\hcost$ is, so weighted \astar may re-open nodes and \cref{thm:ch04-consistent}
 does not apply. Likhachev, Gordon and Thrun~\cite{likhachev2003ara} showed
-that the bound $w\,C^*$ survives even when re-opening is switched off, and
-that observation is the basis of \arastar in \cref{ch:ch06}, which decreases
+that, \emph{when $\hcost$ is consistent}, the bound $w\,C^*$ survives even
+when re-opening is switched off and each node is expanded at most once per
+iteration; the assumption matters, because with a merely admissible $\hcost$
+the argument breaks. That observation is the basis of \arastar in \cref{ch:ch06}, which decreases
 $w$ step by step while reusing the search. The focal search of \ecbs in
 \cref{ch:ch10} obtains the same guarantee by a different mechanism.
 
@@ -796,6 +826,7 @@ so much faster than \cbs.
 \end{figure}
 
 \subsection{Other relatives}
+\label{sec:ch04-relatives}
 
 \astar has a large family. \lpastar and \dstarlite (\cref{ch:ch05}) reuse the
 search when edge costs change; \arastar (\cref{ch:ch06}) is weighted \astar

@@ -194,3 +194,113 @@ table, all four pitfall boxes (the moving-obstacle one with its step-7 collision
 its space), the relative-velocity repair for moving obstacles, the U-trap figure with the
 global path drawn around it, and the coding exercise, whose four failure cases and paired
 remedies are exactly the Week-7 milestone.
+
+## Response to review (round 1)
+
+All eight required changes are applied. The spine the review asked to keep is untouched:
+`eq:ch14-braking-discrete`/`eq:ch14-vadm` with the 1 m wall counter-example,
+`thm:ch14-braking-lemma`/`thm:ch14-safety`, `thm:ch14-incomplete` with its 1.65 m pocket,
+the 25-candidate worked example with its 13 score rows and 13-step trace, the generated
+corridor/U-trap experiment and `tab:ch14-weights`, the DWA/ORCA/APF table, all four
+pitfall boxes, the relative-velocity repair, the U-trap figure and the coding exercise.
+
+### Required changes
+
+1. **`sec:ch14-tuning`, "Clearance dominates" (was line 902).** Done. The
+   "clearance of at most $0.33$" sentence is gone; the paragraph now carries the step-1
+   numbers printed by `evaluate()` at `corridor_scene()` with $(0.2,0.6,0.2)$: the
+   straight command $(0.5,0)$ with $\dist = 2.65$ m, clearance $0.885$ and score
+   $0.2+0.531+0.05 = 0.781$, against $(0.25,\pm 0.5)$ with clearance $1$, heading $0.641$
+   and score $0.784$; $\beta$ gains $0.6\cdot 0.115 = 0.069$ and $\gamma$ $0.006$ against
+   the $0.2\cdot 0.359 = 0.072$ that $\alpha$ loses, a margin of three thousandths. I
+   re-ran `evaluate()` and confirmed every digit (0.7807 vs 0.7841). The rest of the
+   paragraph (21 steps, 8.7 m, 47 % longer, goal reached from below) is unchanged and
+   still matches `gen_ch14_traj.py` (`corridor & clearance & reached & 21 & 8.7`).
+
+2. **`sec:ch14-properties`, "DWA is a local method" (was lines 799-801).** Done, with the
+   reviewer's wording: "braking to within $4$~cm of the back wall and turning $9$~cm short
+   of the arms". Recomputed from the 300-step default run:
+   $x_{\max} = 4.7649$, $y \in [-1.3125, 1.2639]$, so $5.0-4.7649-0.2 = 0.035$ m to the
+   back wall and $1.6-1.3125-0.2 = 0.088$ m to the arms; path length 80.5 m.
+
+3. **`def:ch14-admissible` / `eq:ch14-Va`.** Done. The rotational condition is now
+   $\abs{\omega} \le \sqrt{2\,\dist(v,\omega)\,\dot\omega_b}$, and the "Where the square
+   root comes from" paragraph says that the sign of $\omega$ does not matter, that this is
+   why the bars are needed, and that Fox et al. omit them (so that without them every
+   $\omega < 0$ passes whatever the free distance). Nothing else changed.
+
+4. **`alg:ch14-command` line `alg:ch14-command:admissible`, walkthrough, `tab:ch14-trace`.**
+   Done. `\DwaCommand` now takes $\pos_g$ in `\KwIn` and in its signature (and the call in
+   `alg:ch14-loop` passes it), and the admissibility test reads
+   $\norm{\vel}\dt + \norm{\vel}^2/(2a_b) > \min(d, \norm{\pos_g - \pos})$ with the
+   end-of-line comment "brake for the goal as for a wall". This is exactly the code, since
+   `admissible_speed` is increasing in its distance argument, so
+   $\min(\text{limit}(d), \text{limit}(d_g)) = \text{limit}(\min(d, d_g))$; the clearance
+   term still uses $d$. The walkthrough is now one sentence pointing at that line.
+   Algorithm 4.1 read literally now reproduces steps 11-13 of `tab:ch14-trace` and the
+   braking command $(0.51,-0.13)$.
+
+5. **Proof of `thm:ch14-safety` (was line 734).** Done, verbatim as asked: "because the
+   obstacles have not moved and the new ray is a sub-ray of the old one, the free distance
+   along it satisfies $d' \ge d - \norm{\vel}\dt \ge \norm{\vel}^2/(2a_b)$ (the cap
+   $d_{\max}$ can only raise it)". The rest of the proof is unchanged.
+
+6. **Caption of `fig:ch14-experiment`.** Rewritten as asked: panel (a) now says the
+   heading- and velocity-dominant runs thread the corridor and pass the pillar while the
+   clearance-dominant run refuses the corridor mouth; the fourth (dash-dotted green) curve
+   is named as the default weights with the heading term on a global-path lookahead point
+   and as the only run that reaches the goal; and the caption states that panel (a) uses
+   the colours and line styles of the legend of (b). ("three weight settings" is gone.)
+
+7. **Acronyms (lines 31, 933, 1199).** Done: "optimal reciprocal collision avoidance
+   (\orca)" at first use; "the nominal multi-agent path finding (MAPF) path"; and in the
+   drone box "from the global layer---conflict-based search (\cbs) or its
+   bounded-suboptimal variant \ecbs---".
+
+8. **"trivially" in the proof of `thm:ch14-safety`.** Replaced by "(or $0$; the zero
+   command has $\dist(\vect{0}) = d_{\max}$ and is admissible)". A grep for
+   *obviously / clearly / trivial / easy to see* now finds only one hit, inside the
+   verbatim Python listing (`# hysteresis: keep v_a unless clearly beaten`), which is a
+   source comment copied from `ch14_dwa.py`; I left it so the listing stays verbatim.
+
+### Suggestions
+
+Applied: the `fig:ch14-example` caption now says "the 14 blue dots are the start and the
+13 step end-points" and names the dots in panel (b) as "the 16 admissible grid points, the
+crosses the 9 inadmissible ones" (25 candidates, 16 admissible, verified by
+`evaluate()`); `figures/ch14/space-admissible.tex` keeps the label outside but now draws a
+leader line from it into the hatched bite; `thm:ch14-incomplete` says "meets an obstacle
+strictly within"; `def:ch14-search-set` defines $\dim$ and says $(2n+1)^{\dim}$ is an
+upper bound because the ball $V_s$ clips the corners; the unused
+`\SetKwFunction{DwaCandidates}{WindowCandidates}` is deleted; `def:ch14-window` gains a
+sentence that the per-axis box is optimistic by $\sqrt{\dim}$ under an isotropic limit,
+pointing at `exr:ch14-safety`; `exr:ch14-safety` is promoted to `\difficulty{3}` and a
+solution for it is added to `appendices/solutions/ch14-solutions.tex` (5 of 8 exercises
+now have solutions), including the concrete moving-obstacle counter-example for part (b)
+(free distance $0.175 < 0.1875$ m at $u = 0.3$ m/s).
+
+Not applied, with reasons: the length trims were left alone. Collapsing steps 5-10 of
+`tab:ch14-trace` conflicts with the "what must be kept" paragraph ("13 rows of scores and
+a 13-step trace whose every digit the code reproduces"), and the brief forbids removing
+required content to save space; the two remaining mentions of the 1 m wall outside
+`sec:ch14-restrictions` (lines ~1117 and ~1170) are one-clause pointers, not retellings;
+and required change 1 lengthens the tuning section rather than shortening it. The chapter
+is still 20 PDF pages. The Fox et al. weights $(2.0, 0.2, 0.2)$ are left as printed
+pending a copy of the 1997 magazine article; `references.bib` and
+`frontmatter/notation.tex` are outside this chapter's file set.
+
+### Verification
+
+`cd Overleaf && ./build.sh ch14-dwa`: status 0, no `!` errors, no overfull boxes above
+15 pt, no undefined references or citations belonging to this chapter (the remaining
+`??` are `ch:chNN`/`ch:appX` from the single-chapter build). `python3 code/ch14_dwa.py`
+exits 0 with its asserts passing; `python3 code/figures/gen_ch14_traj.py` regenerates
+`figures/ch14/experiment.tex`, the example figures and the `figures/data/ch14-*.dat`
+files unchanged (the Python was not modified). Every number quoted in the revised text
+was re-read from that output.
+
+(Note for the next round: `Overleaf/build/` is shared by all chapter builds, so a
+concurrent build of another chapter can truncate its `.aux` while this chapter's run reads
+it, which shows up as `build/only-ch14-dwa.aux:NN: File ended while scanning use of
+\@newl@bel` and exit status 12. Re-running `./build.sh ch14-dwa`, or building into a
+private `-outdir`, gives status 0; the failure never involves a ch14 file.)

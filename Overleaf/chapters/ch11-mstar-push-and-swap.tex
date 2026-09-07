@@ -52,9 +52,10 @@ a subset of agents must be coordinated. For the ten independent drones this
 costs almost nothing; for the pair in the aisle it costs a small two-agent
 search. The second answer gives up optimality. Push-and-Swap and
 Push-and-Rotate never search the joint space: they move the agents one at a
-time with a handful of \emph{primitives} and find a plan, in polynomial
-time, whenever one exists and at least two cells are empty. Their plans can
-be several times longer than necessary. In the training plan
+time with a handful of \emph{primitives} and run in polynomial time;
+Push-and-Rotate finds a plan whenever one exists and at least two cells are
+empty (\cref{sec:ch11-constructive} says what the original Push-and-Swap
+missed). Their plans can be several times longer than necessary. In the training plan
 (\cref{ch:appA}) \mstar has priority \priority{Medium} and Push-and-Swap
 priority \priority{Awareness}: you should be able to trace \mstar on a small
 instance and, above all, know when coupling is worth its price and when a
@@ -121,8 +122,9 @@ agents one at a time, like pebbles on the vertices of the graph: an agent
 vertices, and when it meets an agent that already sits on its goal, the two
 \emph{swap} places at a vertex with three neighbours. Push-and-Rotate adds a
 \emph{rotate} primitive for fully occupied cycles. These rules never look at
-the cost of the plan; their value is that they always terminate and find a
-plan whenever one exists on a graph with two empty vertices.
+the cost of the plan; their value is that they always terminate, and that
+Push-and-Rotate finds a plan whenever one exists on a graph with two empty
+vertices.
 
 \begin{keyidea}
 Couple agents only where a collision proves that you must. Independence
@@ -552,14 +554,10 @@ away.
 
 \paragraph{Phase 3: the patch (steps 5--27).} A node with $\fcost = 13$ is
 one in which drones~1 and~2 have together lost one step against the
-heuristic, for instance because one of them waited. Each is expanded with
-an empty collision set first; its policy successor is a swap or a vertex
-collision, so the node is re-opened and expanded again with $C = \set{1,2}$
-(steps~5--8). Twelve of the 31 expansions are such second expansions; other
-nodes inherit $\set{1,2}$ from a policy successor that already carries it
-(line~\ref{alg:ch11-mstar:bpchild}). At $\fcost = 14$ the search tries the
-bay at the wrong time and lets drone~2 wander into the passage $(4,2)$;
-nothing there is cheaper than 15.
+heuristic, for instance because one of them waited. Twelve of the 31
+expansions are second expansions of a node whose policy successor turned out
+to collide; other nodes inherit $\set{1,2}$ from a policy successor that
+already carries it (line~\ref{alg:ch11-mstar:bpchild}).
 
 \paragraph{Phase 4: one-dimensional again (steps 28--31).} In the node of
 step~28 ($\gcost = 9$, $\fcost = 15$) drone~1 sits in the bay and drone~2
@@ -670,8 +668,8 @@ the diagonal $k$, and that gap is the whole point.
   \centering
   \inputfigure{ch11/expansions}
   \caption{Random $8 \times 8$ maps, $30$ instances per $k$, of which the
-  statistics use the instances solved by all four methods within the cap:
-  $30, 30, 30, 29, 27$ for $k = 2, \dots, 6$. Left: median
+  statistics use the instances solved by all four methods within the cap of
+  $1.5$ million successor candidates: $30, 30, 30, 29, 27$ for $k = 2, \dots, 6$. Left: median
   number of successor candidates examined (log scale), with the number of
   collision-free joint configurations $54^{\underline{k}}$ as a reference.
   Right: mean size of the largest group merged by independence detection
@@ -685,10 +683,11 @@ the diagonal $k$, and that gap is the whole point.
 \section{Properties: termination, completeness, optimality}
 \label{sec:ch11-properties}
 
-Throughout this section $G$ is finite, the policies $\phi_i$ are optimal in
-the sense of \cref{def:ch11-policy}, the heuristic is admissible (the sum
-\cref{eq:ch11-heuristic} is even consistent) and the costs are
-\cref{eq:ch11-cost}. The results are those of Wagner and
+Throughout this section $G$ is finite, the search runs on the joint graph of
+\cref{def:ch11-joint}, the policies $\phi_i$ are optimal in the sense of
+\cref{def:ch11-policy}, the heuristic is admissible (the sum
+\cref{eq:ch11-heuristic} is even consistent, \cref{thm:ch11-heuristic}) and
+the costs are those of \cref{def:ch11-cost}. The results are those of Wagner and
 Choset~\cite{wagner2011mstar,wagner2015subdimensional}.
 
 \begin{theorem}[Termination]
@@ -839,7 +838,8 @@ both cases a swap is needed.\index{push (primitive)}
   \centering
   \inputfigure{ch11/push-swap}
   \caption{The primitives. (a) A push with a chain shift: $c$ moves first,
-  then $b$, then $a$ walks through. (b) The exchange at the heart of a swap:
+  then $b$, then $a$ walks through; the chapter code lets $a$ take its free
+  steps before the shift. (b) The exchange at the heart of a swap:
   with $a$ at a vertex $v$ of degree three, $b$ behind it and two empty
   neighbours $n_1, n_2$, six moves exchange the two agents and leave the
   rest of the graph untouched. (c) A rotation: with one cleared vertex next
@@ -898,14 +898,14 @@ al.~\cite{dewilde2014push}.
 \KwOut{a sequence of single-agent moves, or \emph{failure}}
 \Fn{\PasPlan{$G$, $s_{1..k}$, $\gamma_{1..k}$}}{
   $U \gets \emptyset$\tcp*{locked agents, already at their goals}
-  \ForEach{agent $a$ in a fixed order\label{alg:ch11-pas:agent}}{
+  \ForEach{agent $a$ taken from a queue $Q$, initially all agents in a fixed order\label{alg:ch11-pas:agent}}{
     \While{$a$ is not at $\gamma_a$}{
       $p \gets$ shortest path from the position of $a$ to $\gamma_a$\;
       \PasPush{$a$, $p$, $U$}\label{alg:ch11-pas:push}\tcp*{as far as possible; clears unlocked blockers}
       \If{$a$ is not at $\gamma_a$\label{alg:ch11-pas:blocked}}{
         $b \gets$ the agent occupying the next vertex of $p$\;
         \lIf{\PasSwap{$a$, $b$} fails}{\KwRet \emph{failure}\label{alg:ch11-pas:swap}}
-        \lIf{$b \in U$}{remove it from $U$ and schedule it to be solved again\label{alg:ch11-pas:resolve}}
+        \lIf{$b \in U$}{remove it from $U$ and append it to $Q$\label{alg:ch11-pas:resolve}}
       }
     }
     add $a$ to $U$\label{alg:ch11-pas:lock}\;
@@ -967,11 +967,7 @@ distance $d$ to the nearest junction, and a swap is repeated for every
 locked agent in the way. Both papers therefore post-process their plans,
 running non-interfering moves of different agents in the same time step
 and removing redundant moves; even so the plans are typically several times
-longer than optimal on crowded instances, and no bound is available. What
-the methods buy with this is speed on instances that are hopeless for
-optimal solvers: hundreds of agents on a graph with only a few free
-vertices, where \cbs would face an astronomical constraint tree and \mstar
-a collision set containing everyone.
+longer than optimal on crowded instances, and no bound is available.
 \FloatBarrier
 
 % ---------------------------------------------------------------------
@@ -1012,8 +1008,8 @@ plan; when a bound matters, \ecbs or inflated \mstar is the right tool.
 and of this chapter side by side. Completeness is the promise to find a
 plan whenever one exists; only prioritized planning breaks it. The searches
 of a finite joint space (joint \astar, independence detection, \mstar) and
-Push-and-Rotate also terminate on unsolvable instances and report failure,
-which \cbs and \ecbs do not promise. Optimality is paid for in the size of
+Push-and-Rotate also terminate on unsolvable instances and report failure
+(\cref{thm:ch11-par}), which \cbs and \ecbs do not promise. Optimality is paid for in the size of
 a constraint tree or of the collision sets, and a bound is the middle
 ground that two methods offer. The ``scales with'' column names the
 quantity that actually decides the running time, which is never simply $k$.
@@ -1056,7 +1052,8 @@ collision set grows while it is not in the queue, and a stale entry is
 skipped when popped. One breadth-first search per goal gives the distance
 tables, and the next policy step is cached. \Cref{lst:ch11-core} shows the
 three pieces that make \mstar differ from joint \astar: the limited
-neighbours as a Cartesian product of per-agent move lists (wait first, so
+neighbours of \cref{def:ch11-limited} as a Cartesian product of per-agent
+move lists (wait first, so
 that ties are broken deterministically), the backpropagation with an
 explicit stack instead of recursion, and the successor loop; the two
 \code{rec} lines record the trace behind \cref{tab:ch11-trace}.
