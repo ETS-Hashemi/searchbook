@@ -172,3 +172,71 @@ line is the difference between a correct and a silently broken implementation. K
 section, its `.dat`-driven figure with the dashed proven-bound curves, and `tab:ch10-benchmark`:
 together they are the Week-5 milestone made visible. And keep the code as it stands - fast, honest,
 verbatim in the listings, and the source of every number in the chapter.
+
+## Response to review (round 2)
+
+All changes were made in the chapter's own file set
+(`chapters/ch10-ecbs.tex`, `figures/ch10/focal-lowlevel.tex`); nothing else was touched.
+Build: `./build.sh ch10-ecbs` exits **0**, no `!` errors, the only overfull boxes are the same
+two of 3.54 pt and 1.48 pt in the "The root" paragraph, and the only undefined references are
+`ch:chNN` of other chapters. `python3 code/ch10_ecbs.py` still prints
+"self-test passed in 0.4 s (45 random instances checked against CBS)"; the code was not modified,
+so `figures/data/ch10-benchmark.dat` is unchanged and every number in the text still matches it.
+
+### Required changes
+
+1. **`sec:ch10-properties`, the horizon assumption before `thm:ch10-consistent` (category A) - fixed
+   as prescribed.** The reviewer is right: $\pi_i^*$ is a path of a fixed optimal *joint* solution
+   and can be longer than $T_{\max} = \lfloor w\,(H+1+D)\rfloor$ (at the root $H = -1$, so
+   $T_{\max} = \lfloor wD \rfloor$, while $\pi_i^*$ may wait for other agents), and
+   `thm:ch04-horizon` only asserts that *some* constraint-respecting path arrives by $H+1+D$.
+   The false sentence was replaced by the "two horizon facts" paragraph: `thm:ch04-horizon` gives
+   $H + 1 + D \le \lfloor w\,(H+1+D)\rfloor = T_{\max}$, hence (i) the low-level call of a
+   consistent node never fails and (ii) the constrained optimum $C_i^*(\mathcal{C}_i)$ is attained
+   inside the horizon, so `thm:ch10-lowlevel-lb` applies; and the paragraph now says explicitly
+   that $\pi_i^*$ itself may exceed $T_{\max}$ and that only
+   $C_i^*(\mathcal{C}) \le \cost(\pi_i^*)$ is ever needed. In the proof of `thm:ch10-consistent`,
+   "$\pi_a^*$ respects $N'.\mathcal{C}_a$ and lies within the horizon, so a path exists" is now
+   "$\pi_a^*$ respects $N'.\mathcal{C}_a$, so a path exists, and by~(i) one exists within the
+   horizon". I checked the statement of `thm:ch04-horizon` in `ch04-astar.tex` (line 1005) against
+   the new wording; the cross-reference resolves in the build. No other proof text changed, so the
+   chain `thm:ch10-invariant` -> `thm:ch10-lowlevel-lb` -> `thm:ch10-consistent` ->
+   `thm:ch10-ecbs` and the bookkeeping paragraph after it are untouched.
+2. **`figures/ch10/focal-lowlevel.tex` time labels and caption (category D) - fixed.** Both `tB`
+   labels moved from the grid lines onto the cells: `(1.78,2.0)` -> `(1.86,1.5)` (B at $(1,1)$ at
+   $t=1$) and `(1.78,1.0)` -> `(1.86,0.5)` (B parked at $(2,1)$ from $t=2$). I used $x = 1.86$
+   rather than the suggested $1.78$: at $1.78$ the "2" is printed on the dashed goal circle of B,
+   whose radius is 8 pt about $(1.5,0.5)$; $1.86$ clears the circle and the cross marker while
+   staying inside column 1 and keeping the offset perpendicular to B's travel, as in
+   `example-instance.tex`. Verified on the rendered page. The caption now states the convention
+   after the first sentence: "Small numbers give the time at which a cell is reached; B is at
+   $(1,1)$ at $t = 1$ and parks at $(2,1)$ from $t = 2$."
+
+### Suggestions
+
+* LB monotonicity: rewritten as suggested - "With the maximum of line~\ref{alg:ch10-ecbs:lb},
+  $\mathrm{LB}(N')$ can be larger than $\cost$ of the parent and, unlike the cost, it never
+  decreases along a branch." The claim is now attached to the `max`, not to Barer's variant.
+* Duplicate test: both places now read "the duplicate test at
+  line~\ref{alg:ch10-lowlevel:dup}" (`sec:ch10-lowlevel` walkthrough and `sec:ch10-implementation`).
+* `\SetKwFunction{EcbsFocalSearch}{FocalSearch}` deleted from the chapter preamble (unused).
+* `exr:ch10-focal-by-hand`(d): "the other nodes being unchanged" -> "the nodes of (a) and (b)
+  otherwise unchanged", which is the reading the solution assumes.
+* `tab:ch10-variants`, GCBS row: "--" -> "single queue" in the "High level: \Open by" column.
+* `frontmatter/notation.tex`: **not done, out of the chapter's file set** (the finisher brief
+  forbids editing front matter). Reported again for the editor: rows are still needed for \Focal,
+  $\hcost_{\Focal}$, $\mathrm{LB}$, $\mathrm{LB}_i(N)$ and $w$.
+* Length: no cuts, as the reviewer explicitly did not request them. The chapter is now 23 pages
+  (PDF pp. 15-37 of the single-chapter build; it grew by the one added paragraph), still inside
+  the 24-page budget.
+* Solutions appendix left at 4 of 8 exercises, as the reviewer said no change is required.
+
+### What was kept
+
+Untouched: the four-step proof chain and the bookkeeping paragraph after `thm:ch10-ecbs`, the "two
+rulers" paragraph, the whole worked example (one instance, five values of $w$, both trees, and the
+sentence about the cost-13 plan returned while a cost-12 plan was in the band), the root
+paragraph's duplicate-rule explanation, the low-level example with the $w = 4/3$ threshold and its
+floating-point exercise and solution, all three pitfall boxes, the two-heaps subsection with the
+sentence about reading $\fcost_{\min}$ before popping from \Focal, the benchmark section with its
+`.dat`-driven figure and `tab:ch10-benchmark`, and `code/ch10_ecbs.py` exactly as it stands.

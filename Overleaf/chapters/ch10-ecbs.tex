@@ -2,7 +2,6 @@
 \label{ch:ch10}
 % Function names for pseudocode are prefixed with "Ecbs" to stay unique
 % across the book.
-\SetKwFunction{EcbsFocalSearch}{FocalSearch}
 \SetKwFunction{EcbsLowLevel}{FocalSpaceTimeAStar}
 \SetKwFunction{EcbsHighLevel}{ECBS}
 
@@ -335,7 +334,7 @@ with the path. At that moment the goal state itself is still counted in
 \Open, so $\fcost_{\min} \le \fcost(\gamma_i, t) = t$; \cref{sec:ch10-properties}
 shows that $\fcost_{\min}$ is also a lower bound on the optimal constrained
 cost, and that $t \le w\,\fcost_{\min}$ because the goal was taken from the
-band. The duplicate test that ends in line~\ref{alg:ch10-lowlevel:dup} is the second addition. In space-time
+band. The duplicate test at line~\ref{alg:ch10-lowlevel:dup} is the second addition. In space-time
 with unit costs, every path to $(v', t+1)$ costs exactly $t+1$, so a second
 visit can never be cheaper and re-opening is never needed; the first path to
 a state wins, even if a later path to the same state would have fewer
@@ -356,7 +355,9 @@ pushes the successor into \Open; whether it also belongs to \Focal follows from
   \centering
   \inputfigure{ch10/focal-lowlevel}
   \caption{The low level on a $3 \times 4$ grid. Agent B walks down column~1
-  and parks at $(2,1)$; agent A must get from $(1,0)$ to $(1,3)$. The
+  and parks at $(2,1)$; agent A must get from $(1,0)$ to $(1,3)$. Small
+  numbers give the time at which a cell is reached; B is at $(1,1)$ at
+  $t = 1$ and parks at $(2,1)$ from $t = 2$. The
   shortest path (dashed) costs~3 but meets B at $(1,1)$ at $t = 1$. With
   $w = 1$ the band contains only states with $\fcost = 3$ and the dashed path
   is returned with one conflict. With $w = 1.5$ the band admits
@@ -447,8 +448,9 @@ stays valid because adding a constraint cannot make the constrained optimum
 cheaper, and the $\fcost_{\min}$ that the new low-level search returned. Barer
 et al.\ use the returned value alone; taking the maximum is a safe tightening
 (\cref{sec:ch10-properties}) and often lifts the global $\mathrm{LB}$ a little
-earlier. Either way, $\mathrm{LB}(N')$ can be larger than $\cost$ of the
-parent and, unlike the cost, it never decreases along a branch. The cost of a
+earlier. With the maximum of line~\ref{alg:ch10-ecbs:lb}, $\mathrm{LB}(N')$ can be
+larger than $\cost$ of the parent and, unlike the cost, it never decreases
+along a branch. The cost of a
 child, on the other hand, may go down: the replanned path is only within
 $w$ of the agent's optimum, and the parent's path may have been a poor one.
 This is why \Open must be ordered by $\mathrm{LB}(N)$ and not by cost.
@@ -763,11 +765,17 @@ w\,\fcost_{\min}$.
 Fix, for the rest of the section, one optimal solution $\Pi^* = (\pi_1^*,
 \dots, \pi_k^*)$ of cost $C^*$. Call a CT node $N$ \textbf{consistent with
 $\Pi^*$}\index{constraint tree!node consistent with an optimal solution} if
-$\pi_i^*$ respects $N.\mathcal{C}_i$ for every agent $a_i$. We assume that
-the low-level horizon $T_{\max}$ is large enough to contain $\pi_i^*$ under
-the constraints of every consistent node; the horizon $T_{\max} = \lfloor
-w\,(H + 1 + D)\rfloor \ge H + 1 + D$ of \cref{alg:ch10-lowlevel} guarantees
-this, by the argument of \cref{ch:ch04}.
+$\pi_i^*$ respects $N.\mathcal{C}_i$ for every agent $a_i$.
+
+Two horizon facts are used below. By \cref{thm:ch04-horizon}, if any path
+respecting $\mathcal{C}_i$ exists at all then one exists that arrives no later
+than $H + 1 + D \le \lfloor w\,(H + 1 + D)\rfloor = T_{\max}$, the horizon of
+\cref{alg:ch10-lowlevel}. Hence (i) the low-level call of a consistent node
+never fails, and (ii) the constrained optimum $C_i^*(\mathcal{C}_i)$ is
+attained within the horizon, so \cref{thm:ch10-lowlevel-lb} applies. Note that
+$\pi_i^*$ itself may be \emph{longer} than $T_{\max}$, because it may wait for
+other agents to pass; we never need the low level to find $\pi_i^*$, only to
+bound $C_i^*(\mathcal{C}_i) \le \cost(\pi_i^*)$.
 
 \begin{lemma}[A consistent node is always open]
 \label{thm:ch10-consistent}
@@ -785,8 +793,8 @@ $\langle i, v, t\rangle$, $\langle j, v, t\rangle$ is respected by $\Pi^*$;
 for a swapping conflict the same holds for the two edge constraints. The
 child $N'$ carrying that constraint is consistent with $\Pi^*$. Its low-level
 call at line~\ref{alg:ch10-ecbs:replan} cannot fail: $\pi_a^*$ respects
-$N'.\mathcal{C}_a$ and lies within the horizon, so a path exists and
-\cref{alg:ch10-lowlevel} finds one (it only stops with failure when \Open is
+$N'.\mathcal{C}_a$, so a path exists, and by~(i) one exists within the
+horizon, so \cref{alg:ch10-lowlevel} finds one (it only stops with failure when \Open is
 empty, which by \cref{thm:ch10-invariant} cannot happen before a goal state
 is expanded). Hence $N'$ is inserted into \Open at
 line~\ref{alg:ch10-ecbs:insert}.
@@ -937,7 +945,7 @@ guarantee of $w$, not $w^2$.
   Algorithm & Low level & High level: \Open by & High level: choice & Guarantee\\
   \midrule
   \cbs & \astar & cost & smallest cost & optimal\\
-  GCBS & greedy on $h_c$ & -- & fewest conflicts & none\\
+  GCBS & greedy on $h_c$ & single queue & fewest conflicts & none\\
   $\mathrm{BCBS}(w_H, w_L)$ & focal, $w_L$ & cost & focal, $w_H$ & $w_H w_L\,C^*$\\
   $\ecbs(w)$ & focal, $w$, returns $\mathrm{lb}$ & $\mathrm{LB}(N)$ & focal, $w$ & $w\,C^*$\\
   $\mathrm{EECBS}(w)$ & focal, $w$, returns $\mathrm{lb}$ & $\mathrm{LB}(N)$ and $\hat{\fcost}(N)$ & explicit estimation & $w\,C^*$\\
@@ -1229,7 +1237,7 @@ def _child(inst: Instance, parent: CTNode, con: Constraint, w: float,
         \cref{alg:ch10-lowlevel} cost $\bigO{1}$ or a binary search; the table
         is rebuilt per child in $\bigO{kT}$ time. The distance table of a goal
         is computed once per instance.
-  \item \emph{Duplicates.} The test before line~\ref{alg:ch10-lowlevel:dup} keeps the first path to a state. Some implementations, among them the public EECBS
+  \item \emph{Duplicates.} The duplicate test at line~\ref{alg:ch10-lowlevel:dup} keeps the first path to a state. Some implementations, among them the public EECBS
         code, re-insert a state when a path with the same cost but fewer
         conflicts reaches it; this finds better paths at the price of some
         re-expansions and does not affect the bound (\cref{exr:ch10-variants}).
@@ -1392,7 +1400,8 @@ $(12, 2)$ and $(16, 0)$. Which node is expanded next?
 (c) For which values of $w$ does the node $(15, 0)$ belong to \Focal, and is
 it then expanded before $(12, 0)$?
 (d) Suppose that later every node with $\fcost \le 12$ has been expanded and
-the smallest remaining $\fcost$ is $13$, the other nodes being unchanged.
+the smallest remaining $\fcost$ is $13$, the nodes of (a) and (b) otherwise
+unchanged.
 What is the band, which nodes are in \Focal, and which one is expanded?
 \end{exercise}
 
