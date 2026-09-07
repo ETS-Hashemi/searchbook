@@ -48,11 +48,11 @@ out. The \textbf{particle filter}\index{particle filter} (PF) drops the
 Gaussian assumption and represents the belief by thousands of weighted
 samples, which lets it keep ``went left around the building'' and ``went
 right'' alive at once. All three live in the prediction layer of
-\cref{ch:ch24}: they consume raw measurements and deliver a state estimate
-with its uncertainty to the local avoidance layer (\cref{ch:ch13,ch:ch14}),
-to the trajectory predictor of \cref{ch:ch20} and to the prediction-aware
-constraints of the planner; in the study plan (\cref{ch:appA}) they complete
-Week~9. \Cref{sec:ch19-intuition,sec:ch19-problem} give the idea and the
+\cref{ch:ch24}, turning raw measurements into a state estimate with its
+uncertainty for the avoidance layer (\cref{ch:ch13,ch:ch14}), the trajectory
+predictor (\cref{ch:ch20}) and the planner's prediction-aware constraints;
+in the study plan (\cref{ch:appA}) they complete Week~9.
+\Cref{sec:ch19-intuition,sec:ch19-problem} give the idea and the
 models, \cref{sec:ch19-ekf,sec:ch19-ukf,sec:ch19-pf} develop the three
 filters and compare them on a turning target, and the remaining sections
 cover properties, variants, implementation and the place in the drone system.
@@ -77,9 +77,9 @@ the images; no derivative is needed, and the mean is correct up to the
 second-order Taylor term, precisely the term the EKF drops. The particle
 filter represents the belief by many weighted random samples, moves each
 through the true function with its own noise and re-weights it by how well
-it explains the measurement; nothing forces the result to be an ellipse, so
-the belief can be curved, skewed or split in two, and the price is the
-number of samples.\index{linearisation error}\index{banana distribution}
+it explains the measurement; the belief can be curved, skewed or split in
+two, and the price is the number of samples.\index{linearisation
+error}\index{banana distribution}
 
 \begin{figure}[tb]
   \centering
@@ -398,12 +398,6 @@ wherever $r > 0$, on every branch of the arctangent. The last three columns
 vanish because $h$ ignores $v$, $\psi$, $\omega$.
 \end{proof}
 
-The first row of $\mat{H}$ is the unit vector from the sensor to the
-intruder: a range constrains the position along the line of sight. The
-second row is the perpendicular unit vector divided by $r$: a bearing
-constrains the position across the line of sight, and the further the
-intruder, the less a radian of bearing is worth.
-
 \subsection{A worked example: one EKF step by hand}
 \label{sec:ch19-ekf-example}
 
@@ -433,9 +427,7 @@ $x^- = -100 + 33.33\sin\psi' = -109.85$ and $y^- = -4 - 33.33\,(\cos\psi' + 1)
 $\pi + 0.3$ wraps to $-2.8416$; speed and turn rate are unchanged. The
 Jacobian \cref{eq:ch19-ct-jacobian} at $\hat{\state}_{k-1}$ has $F_{13} =
 -0.985$, $F_{14} = 1.489$, $F_{15} = 0.991$, $F_{23} = -0.149$, $F_{24} =
--9.851$ and $F_{25} = -4.888$: a heading error of $0.1\,\mathrm{rad}$ moves
-the predicted position by $1\,\mathrm{m}$ across the direction of flight
-($F_{24}$). The predicted covariance $\mat{F}_k\mat{P}_{k-1}\mat{F}_k\T +
+-9.851$ and $F_{25} = -4.888$. The predicted covariance $\mat{F}_k\mat{P}_{k-1}\mat{F}_k\T +
 \mat{Q}_k$ has the position block $\begin{psmallmatrix} 5.319 & -0.488\\
 -0.488 & 8.143\end{psmallmatrix}$ (standard deviations $2.31$ and
 $2.85\,\mathrm{m}$, larger across the westward flight) and now correlates
@@ -535,8 +527,8 @@ $91.6\,\%$ of the samples.
 \paragraph{A poor initial estimate.}
 If the estimate is far from the truth, $\mat{F}_k$ and $\mat{H}_k$ describe
 the wrong tangent, the gain is computed for a fictitious geometry, and an
-update can push the estimate further away while the covariance, which knows
-nothing about the error, keeps shrinking: the filter has
+update can push the estimate further away while the covariance keeps
+shrinking: the filter has
 \textbf{diverged}\index{divergence (EKF)}. A range--bearing sensor measures
 the position directly, and in the experiment of \cref{sec:ch19-ukf-compare}
 the EKF recovers from a $90^\circ$ heading error in every run; divergence is
@@ -632,13 +624,11 @@ mean lands inside the banana; \cref{sec:ch19-properties} proves why.
 
 The UKF replaces the two linearisations of the EKF by two unscented
 transforms and the product $\mat{P}_k^-\mat{H}_k\T$ by the cross-covariance
-$\mat{C}_k = \mat{P}_{xz}$ between the state and the predicted measurement:
-in the linear case $\mat{P}_{xz} = \mat{P}_k^-\mat{H}_k\T$ exactly, so the
-gain becomes $\Kgain_k = \mat{C}_k\mat{S}_k\inv$ and the covariance update
-$(\mat{I} - \Kgain_k\mat{H}_k)\mat{P}_k^- = \mat{P}_k^- -
-\Kgain_k\mat{S}_k\Kgain_k\T$ needs no $\mat{H}_k$ at all. \Cref{alg:ch19-ukf}
-gives the version for additive noise, which is the one that fits
-\cref{eq:ch19-model}.
+$\mat{C}_k = \mat{P}_{xz}$ between state and predicted measurement (equal
+to $\mat{P}_k^-\mat{H}_k\T$ in the linear case), so that $\Kgain_k =
+\mat{C}_k\mat{S}_k\inv$ and $\mat{P}_k = \mat{P}_k^- -
+\Kgain_k\mat{S}_k\Kgain_k\T$ need no $\mat{H}_k$ at all. \Cref{alg:ch19-ukf}
+gives the version for additive noise, the one that fits \cref{eq:ch19-model}.
 
 \begin{algorithm}[htb]
 \caption{One step of the unscented Kalman filter (additive noise)}
@@ -722,9 +712,9 @@ and flies $4\,\mathrm{s}$ straight, $7\,\mathrm{s}$ at $\omega =
 and $\sigma_\varphi = 2^\circ$; the filters use the coordinated-turn model
 with $\sigma_a = 1.5\,\mathrm{m/s^2}$ and $\sigma_\gamma =
 0.3\,\mathrm{rad/s^2}$ and are initialised from the first two measurements
-(position from the second, speed and heading from the displacement, $\omega
-= 0$, a covariance that follows from the measurement noise at that range).
-The particle filter uses $N = 2\,000$ particles and resamples below $N/2$.
+(position, speed and heading from the displacement, $\omega = 0$, a
+covariance that follows from the measurement noise at that range). The
+particle filter uses $N = 2\,000$ particles and resamples below $N/2$.
 The error measure is the root mean square (RMSE) of the position error
 after a settling period of ten steps; the raw measurement, converted to
 Cartesian coordinates, is the baseline any filter must beat.
@@ -771,8 +761,8 @@ Cartesian coordinates, is the baseline any filter must beat.
 Four things to notice. First, in the baseline scenario the EKF and the UKF
 are indistinguishable ($2.74$ against $2.76\,\mathrm{m}$): at ranges of
 $45$--$160\,\mathrm{m}$ with $2^\circ$ of bearing noise the belief is narrow
-compared with the curvature of both models, and the tangent is as good as
-the sigma points. Second, when the belief widens the UKF pulls ahead: with
+compared with the curvature, and the tangent is as good as the sigma
+points. Second, when the belief widens the UKF pulls ahead: with
 $8^\circ$ of bearing noise its RMSE is $10\,\%$ below the EKF's ($6.21$
 against $6.88\,\mathrm{m}$), and on the close pass, where $\mat{H}$ changes
 fastest, $12\,\%$ below ($2.71$ against $3.09\,\mathrm{m}$), with the
@@ -848,9 +838,9 @@ a building.
 \subsection{Degeneracy, effective sample size and resampling}
 \label{sec:ch19-resampling}
 
-Multiplying weights step after step has an unavoidable consequence: their
-variance grows, and after a few steps one particle carries almost all the
-weight while the others contribute nothing, a state called
+Multiplying weights step after step makes their variance grow until one
+particle carries almost all the weight and the others contribute nothing,
+a state called
 \textbf{degeneracy}\index{degeneracy}\index{particle filter!degeneracy}. The
 standard diagnostic is the \textbf{effective sample size}\index{effective
 sample size}
@@ -983,9 +973,8 @@ the map removes those whose noise draws point them into the building, and
 the survivors flow round both sides: at $k = 15$, $68.3\,\%$ of the
 particles are west of the building and $27.8\,\%$ east of it. The UKF,
 whose belief must be one ellipse, carries its mean straight through the
-building, $(-3.0, 61.4)$ at $k = 15$; its covariance grows, but around a
-point where the intruder cannot be, and the map cannot be told to a
-Gaussian. At $k = 20$ the intruder reappears on the west side. The
+building, $(-3.0, 61.4)$ at $k = 15$, a point where the intruder cannot be.
+At $k = 20$ the intruder reappears on the west side. The
 likelihood of that first measurement is tiny for every eastern particle and
 for most western ones: $N_{\mathrm{eff}}$ collapses to $17$, the filter
 resamples, the eastern lobe vanishes and $99.9\,\%$ of the new particles lie
@@ -1104,9 +1093,9 @@ With $n$ states and $m$ measurements, the EKF evaluates one Jacobian pair and
 does $\bigO{n^3 + n^2 m}$ matrix work; the UKF adds two Cholesky
 factorisations and $2(2n+1)$ model evaluations; the particle filter costs
 $\bigO{Nn}$ for propagation and likelihoods and $\bigO{N}$ for resampling,
-with $N$ in the thousands. For $n = 5$ the measured times are $0.27$, $0.47$
-and $1.2\,\mathrm{ms}$ per step (\cref{sec:ch19-ukf-compare}).
-\Cref{tab:ch19-comparison} summarises.\index{particle filter!cost}
+with $N$ in the thousands: $0.27$, $0.47$ and $1.2\,\mathrm{ms}$ per step
+for $n = 5$ (\cref{sec:ch19-ukf-compare}). \Cref{tab:ch19-comparison}
+summarises.\index{particle filter!cost}
 
 \begin{table}[tb]
   \centering\small
@@ -1329,18 +1318,16 @@ chapter completes Week~9; its coding exercise is \cref{exr:ch19-coding}.
   fails by degeneracy, impoverishment and too few particles.
   \item Wrap every angle difference, evaluate Jacobians and $\mat{Q}$ at the
   right point, keep $\mat{P}$ symmetric positive definite, keep log-weights,
-  vectorise.
-  \item Choose the cheapest filter whose assumptions hold: KF for linear
-  models, EKF for mild nonlinearity, UKF for strong nonlinearity, particle
-  filter for multimodality, IMM for switching manoeuvres.
+  vectorise; and choose the cheapest filter whose assumptions hold: KF for
+  linear models, EKF for mild nonlinearity, UKF for strong nonlinearity,
+  particle filter for multimodality, IMM for switching manoeuvres.
 \end{itemize}
 \end{summary}
 
 \paragraph{Further reading.}
-Thrun, Burgard and Fox~\cite{thrun2005probabilistic} develop the Bayes
-filter, the EKF, the UKF and the particle filter in the notation of this
-chapter; S\"arkk\"a~\cite{sarkka2013bayesian} is the concise mathematical
-treatment, with smoothing. The unscented transform is due to Julier and
+Thrun, Burgard and Fox~\cite{thrun2005probabilistic} develop all three
+filters in the notation of this chapter; S\"arkk\"a~\cite{sarkka2013bayesian}
+is the concise mathematical treatment. The unscented transform is due to Julier and
 Uhlmann~\cite{julier1997new,julier2004unscented}, the parameters $\alpha$,
 $\beta$, $\kappa$ and the square-root form to Wan and van der
 Merwe~\cite{wan2000unscented}. The bootstrap filter is Gordon, Salmond and
@@ -1380,10 +1367,9 @@ $10^{-5}$ at $\state = (10, 20, 12, 0.7, \omega)$ for $\omega =
 \begin{exercise}[\difficulty{1}]
 \label{exr:ch19-wrapping}
 In \cref{ex:ch19-ekf} the unwrapped bearing innovation is $6.2117\,\mathrm{rad}$.
-Using the gain printed by \code{worked\_example()} ($K_{12} = 3.21$,
-$K_{22} = -47.05$, $K_{42} = 2.56$), compute where the updated position and
-heading would have landed, and explain in one sentence why the sign of
-$K_{22}$ is negative in this geometry.
+With the gain printed by \code{worked\_example()} ($K_{12} = 3.21$, $K_{22}
+= -47.05$, $K_{42} = 2.56$), compute where the updated position and heading
+would have landed, and explain in one sentence why $K_{22}$ is negative.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
