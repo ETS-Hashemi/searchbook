@@ -11,8 +11,10 @@ Scenarios (all use the coordinated-turn model with sigma_a = 1.5 m/s^2 and
 sigma_gamma = 0.3 rad/s^2, dt = 0.5 s, sensor at the origin, sigma_r = 3 m):
   baseline        sigma_phi = 2 deg
   wide bearing    sigma_phi = 8 deg
+  close pass      sigma_phi = 2 deg, sensor at (35, -20): minimum range about 10 m
   poor start      sigma_phi = 2 deg, initial heading wrong by 90 deg with an
                   initial heading standard deviation of only 0.3 rad
+The RMSE is computed after a settling period of 10 steps (5 s).
 Fixed seeds.  Run from anywhere:   python3 code/figures/gen_ch19_compare.py
 """
 import math
@@ -33,6 +35,7 @@ LOST_THRESHOLD = 30.0        # metres of final position error
 SCENARIOS = [
     ("baseline ($\\sigma_\\varphi = 2^\\circ$)", dict(sigma_phi=math.radians(2.0))),
     ("wide bearing noise ($\\sigma_\\varphi = 8^\\circ$)", dict(sigma_phi=math.radians(8.0))),
+    ("close pass (sensor at $(35, -20)$)", dict(sigma_phi=math.radians(2.0), pos=(35.0, -20.0))),
     ("poor initialisation ($90^\\circ$ heading error)",
      dict(sigma_phi=math.radians(2.0), init_error=(0.0, 0.0, 0.0, math.pi / 2, 0.0), init_heading_std=0.3)),
 ]
@@ -46,7 +49,8 @@ def main():
     rows = []
     times = {"ekf": [], "ukf": [], "pf": []}
     for s_index, (name, opts) in enumerate(SCENARIOS):
-        sensor = RangeBearingSensor(pos=(0.0, 0.0), sigma_r=3.0, sigma_phi=opts["sigma_phi"])
+        sensor = RangeBearingSensor(pos=opts.get("pos", (0.0, 0.0)), sigma_r=3.0, sigma_phi=opts["sigma_phi"])
+        min_range = float(np.min(np.linalg.norm(truth[:, :2] - sensor.pos, axis=1)))
         sums = {k: [] for k in ("meas", "ekf", "ukf", "pf")}
         lost = {k: 0 for k in ("ekf", "ukf", "pf")}
         for run in range(RUNS):
@@ -63,8 +67,10 @@ def main():
                 write_run(t, truth, res)
         means = {k: float(np.mean(v)) for k, v in sums.items()}
         rows.append((name, means, lost))
-        print(f"{name:45s} meas {means['meas']:6.2f}  EKF {means['ekf']:6.2f}  UKF {means['ukf']:6.2f}  "
-              f"PF {means['pf']:6.2f}   lost EKF {lost['ekf']:3d} UKF {lost['ukf']:3d} PF {lost['pf']:3d}")
+        print(f"{name:45s} min range {min_range:5.1f} m  meas {means['meas']:6.2f}  EKF {means['ekf']:6.2f}  "
+              f"UKF {means['ukf']:6.2f}  PF {means['pf']:6.2f}   lost EKF {lost['ekf']:3d} UKF {lost['ukf']:3d} "
+              f"PF {lost['pf']:3d}   median EKF {np.median(sums['ekf']):5.2f} UKF {np.median(sums['ukf']):5.2f} "
+              f"PF {np.median(sums['pf']):5.2f}")
     print("\nLaTeX rows for tab:ch19-rmse:")
     for name, means, lost in rows:
         print(f"  {name} & {means['meas']:.2f} & {means['ekf']:.2f} & {means['ukf']:.2f} & {means['pf']:.2f}"
