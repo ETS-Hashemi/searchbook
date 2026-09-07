@@ -378,7 +378,8 @@ def continuous_check(inst, sol, substeps=20):
     The exact zero-order-hold motion p(t) = p_k + v_k s + a_k s^2 / 2 for
     0 <= s <= dt is evaluated at substeps points per step.  The MILP only
     constrains the sampled instants, so these values can be worse than
-    the sampled ones (corner cutting).
+    the sampled ones (corner cutting).  The result also names the vehicle
+    (or pair) and the time at which each worst case occurs.
     """
     P, V, U = sol.positions, sol.velocities, sol.inputs
     m, N = len(inst.vehicles), inst.horizon
@@ -388,16 +389,23 @@ def continuous_check(inst, sol, substeps=20):
         for k in range(N):
             seg = P[i, k] + np.outer(ss, V[i, k]) + 0.5 * np.outer(ss ** 2, U[i, k])
             fine[i, k * substeps:(k + 1) * substeps + 1] = seg
-    obs = 0.0
+    times = np.arange(N * substeps + 1) * inst.dt / substeps
+    obs, obs_at = 0.0, None
     for (xmin, xmax, ymin, ymax) in inst.obstacles:
         for i in range(m):
             depth = np.min(np.stack([fine[i, :, 0] - xmin, xmax - fine[i, :, 0],
                                      fine[i, :, 1] - ymin, ymax - fine[i, :, 1]]), axis=0)
-            obs = max(obs, depth.max())
-    sep = np.inf
+            q = int(np.argmax(depth))
+            if depth[q] > obs:
+                obs, obs_at = float(depth[q]), (i, float(times[q]))
+    sep, sep_at = np.inf, None
     for i, j in itertools.combinations(range(m), 2):
-        sep = min(sep, np.abs(fine[i] - fine[j]).max(axis=1).min())
-    return {"obstacle_penetration": obs, "min_separation": sep}
+        d = np.abs(fine[i] - fine[j]).max(axis=1)
+        q = int(np.argmin(d))
+        if d[q] < sep:
+            sep, sep_at = float(d[q]), (i, j, float(times[q]))
+    return {"obstacle_penetration": obs, "min_separation": sep,
+            "penetration_at": obs_at, "separation_at": sep_at}
 
 
 def is_valid(inst, sol, tol=1e-6):
@@ -487,11 +495,15 @@ def tiny_instance(objective="fuel"):
                     objective=objective)
 
 
-def example_instance(objective="fuel", d_min=1.0):
-    """The two-vehicle instance of the worked example (metres, seconds)."""
+def example_instance(objective="fuel", d_min=1.0, horizon=12, dt=0.5, inflate=0.0):
+    """The two-vehicle instance of the worked example (metres, seconds).
+
+    inflate grows the block by that margin on every side (inter-sample safety).
+    """
     return Instance(vehicles=[Vehicle((1.0, 4.0), (9.0, 4.0)),
                               Vehicle((9.0, 4.5), (1.0, 4.5))],
-                    obstacles=[(4.0, 6.0, 1.5, 5.5)], horizon=12, dt=0.5,
+                    obstacles=[(4.0 - inflate, 6.0 + inflate, 1.5 - inflate, 5.5 + inflate)],
+                    horizon=horizon, dt=dt,
                     a_max=2.0, v_max=3.0, d_min=d_min, workspace=(0.0, 10.0, 0.0, 8.0),
                     objective=objective)
 
@@ -536,6 +548,17 @@ def _print_trace(trace):
               % (e["node"], e["parent"], e["decision"], lp, e["action"]))
 
 
+def _cc_text(cc):
+    """One line describing a continuous_check result."""
+    text = "penetration %.4f m" % cc["obstacle_penetration"]
+    if cc["penetration_at"] is not None:
+        text += " (vehicle %d, t=%.2f s)" % cc["penetration_at"]
+    if cc["separation_at"] is not None:
+        text += ", min separation %.4f m (vehicles %d-%d, t=%.2f s)" % (
+            (cc["min_separation"],) + cc["separation_at"])
+    return text
+
+
 def self_test():
     t_all = time.perf_counter()
     # 1. the worked example is solved, feasible and consistent at every step
@@ -547,10 +570,9 @@ def self_test():
     print("example (fuel): vars %d, cons %d, binaries %d, objective %.4f, "
           "%.3f s, %d B&B nodes" % (sol.n_var, sol.n_cons, sol.n_bin,
                                     sol.objective, sol.solve_time, sol.nodes))
-    print("  max violations:", {k: round(v, 9) for k, v in viol.items()})
-    print("  between samples:", {k: round(float(v), 4)
-                                 for k, v in continuous_check(inst, sol).items()})
-    print("  positions vehicle A (k, x, y):")
+    print("  max violations:", {k: round(float(v), 9) for k, v in viol.items()})
+    print("  between samples:", _cc_text(continuous_check(inst, sol)))
+    print("  positions (k, A, B, |A-B|_inf):")
     for k in range(inst.horizon + 1):
         pa, pb = sol.positions[0, k], sol.positions[1, k]
         print("    k=%2d  A=(%.3f, %.3f)  B=(%.3f, %.3f)  |A-B|_inf=%.3f"
@@ -563,12 +585,16 @@ def self_test():
               "%.3f s, %d B&B nodes" % (objective, sol_o.n_var, sol_o.n_cons,
                                         sol_o.n_bin, sol_o.objective,
                                         sol_o.solve_time, sol_o.nodes))
-        print("  between samples:", {k: round(float(v), 4)
-                                     for k, v in continuous_check(inst_o, sol_o).items()})
+        print("  between samples:", _cc_text(continuous_check(inst_o, sol_o)))
         if objective == "time":
             print("  arrival times:", arrival_times(model_o, sol_o),
                   " fuel of this solution: %.4f" % (
                       inst_o.dt * np.abs(sol_o.inputs).sum()))
+            for k in (4, 5):
+                pa, pb = sol_o.positions[0, k], sol_o.positions[1, k]
+                print("    k=%d t=%.1f  A=(%.3f, %.3f)  B=(%.3f, %.3f)  |A-B|_inf=%.3f"
+                      % (k, k * inst_o.dt, pa[0], pa[1], pb[0], pb[1],
+                         np.abs(pa - pb).max()))
         else:
             print("  peak |u|_inf per vehicle:",
                   np.round(np.abs(sol_o.inputs).max(axis=(1, 2)), 4).tolist())
@@ -607,6 +633,40 @@ def self_test():
                   sol_m.objective, sol_m.solve_time, sol_m.nodes,
                   v["obstacle"] if v else float("nan"),
                   v["separation"] if v else float("nan")))
+    # 5. inter-sample safety: the margins of the proposition (obstacle
+    #    inflated by v_max dt / 2, separation raised by v_max dt) make the
+    #    continuous motion safe with respect to the ORIGINAL block and d_min
+    delta = inst.v_max * inst.dt / 2
+    safe = example_instance("fuel", d_min=inst.d_min + inst.v_max * inst.dt,
+                            inflate=delta)
+    _, sol_s = solve_instance(safe)
+    assert sol_s.status == 0 and is_valid(safe, sol_s)
+    cc = continuous_check(inst, sol_s)
+    print("safe margins (block +%.2f m, d_min %.2f m): objective %.4f, %.2f s, "
+          "%d nodes" % (delta, safe.d_min, sol_s.objective, sol_s.solve_time,
+                        sol_s.nodes))
+    print("  between samples vs the original block:", _cc_text(cc))
+    assert cc["obstacle_penetration"] <= 1e-9
+    assert cc["min_separation"] >= inst.d_min - 1e-9
+    half = example_instance("fuel", inflate=delta)      # obstacle margin only
+    _, sol_h = solve_instance(half)
+    assert sol_h.status == 0 and is_valid(half, sol_h)
+    print("block margin only: objective %.4f;" % sol_h.objective,
+          _cc_text(continuous_check(inst, sol_h)))
+    # 6. a finer time step reduces corner cutting but costs solve time
+    fine = example_instance("fuel", horizon=24, dt=0.25)
+    _, sol_f = solve_instance(fine, time_limit=30.0)
+    assert sol_f.x is not None and is_valid(fine, sol_f)
+    print("dt=0.25, N=24: status %d, objective %.4f, %.1f s, %d nodes, %d binaries"
+          % (sol_f.status, sol_f.objective, sol_f.solve_time, sol_f.nodes,
+             sol_f.n_bin))
+    print("  between samples:", _cc_text(continuous_check(fine, sol_f)))
+    # 7. an infeasible instance returns a status and nothing else
+    short = example_instance("fuel", horizon=8)
+    _, sol_i = solve_instance(short)
+    assert sol_i.status == 2 and sol_i.x is None
+    print("N=8 (too short): status %d, message '%s', %.3f s"
+          % (sol_i.status, sol_i.message, sol_i.solve_time))
     print("self-test passed in %.1f s" % (time.perf_counter() - t_all))
 
 

@@ -1,0 +1,36 @@
+% Worked example: four drones converge into a square (left) and the
+% formation error decays like exp(-lambda_2 t) (right).
+% Data: figures/data/ch23-square.dat (gen_ch23_formation.py)
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=2 by 1,horizontal sep=1.6cm},font=\footnotesize,grid=major]
+\nextgroupplot[width=0.5\textwidth,height=6.2cm,axis equal image,xmin=-0.6,xmax=4.2,ymin=-0.6,ymax=3.6,
+  xlabel={$x$ [m]},ylabel={$y$ [m]},title={(a) trajectories},
+  every axis title/.style={at={(0.5,1.02)},anchor=south,font=\footnotesize}]
+% communication graph at t = 0
+\addplot[black!35,thin] coordinates {(0,0) (2,0) (1,1.5) (0,0)};
+\addplot[black!35,thin] coordinates {(1,1.5) (3.5,3)};
+% final square (theory: offsets plus the centroid shift (0.625, 0.125))
+\addplot[sbGray,dashed] coordinates {(0.625,0.125) (2.625,0.125) (2.625,2.125) (0.625,2.125) (0.625,0.125)};
+\addplot[sbBlue,thick] table[x=x1,y=y1]{figures/data/ch23-square.dat};
+\addplot[sbOrange,thick] table[x=x2,y=y2]{figures/data/ch23-square.dat};
+\addplot[sbGreen,thick] table[x=x3,y=y3]{figures/data/ch23-square.dat};
+\addplot[sbPurple,thick] table[x=x4,y=y4]{figures/data/ch23-square.dat};
+\addplot[only marks,mark=*,mark size=2pt,sbBlue] coordinates {(0,0)};
+\addplot[only marks,mark=*,mark size=2pt,sbOrange] coordinates {(2,0)};
+\addplot[only marks,mark=*,mark size=2pt,sbGreen] coordinates {(1,1.5)};
+\addplot[only marks,mark=*,mark size=2pt,sbPurple] coordinates {(3.5,3)};
+\addplot[only marks,mark=o,mark size=2.2pt,black] coordinates {(0.625,0.125) (2.625,0.125) (2.625,2.125) (0.625,2.125)};
+\node[sbannot] at (axis cs:-0.3,0.25) {1};
+\node[sbannot] at (axis cs:2.3,-0.3) {2};
+\node[sbannot] at (axis cs:0.65,1.55) {3};
+\node[sbannot] at (axis cs:3.8,3.15) {4};
+\nextgroupplot[width=0.44\textwidth,height=6.2cm,ymode=log,xmin=0,xmax=6,ymin=0.003,ymax=4,
+  xlabel={$t$ [s]},ylabel={error [m]},title={(b) formation error},
+  every axis title/.style={at={(0.5,1.02)},anchor=south,font=\footnotesize},
+  legend style={at={(0.97,0.97)},anchor=north east,font=\scriptsize},legend cell align=left]
+\addplot[sbBlue,thick] table[x=t,y=err]{figures/data/ch23-square.dat};
+\addplot[sbOrange,thick,dashed] table[x=t,y=errc]{figures/data/ch23-square.dat};
+\addplot[black,dotted,thick,domain=0:6,samples=2] {1.7941*exp(-x)};
+\legend{$e_F(t)$ (edge RMS),$e_c(t)$ (centred),$e_c(0)\,e^{-\lambda_2 t}$}
+\end{groupplot}
+\end{tikzpicture}

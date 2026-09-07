@@ -476,7 +476,7 @@ def worked_example(verbose=True):
     out["eps_exact"] = spectral_step_bound(L)
     out["discrete_ok"] = consensus_discrete(L, z0, 0.25, 4)
     out["discrete_bad"] = consensus_discrete(L, z0, 0.6, 4)
-    sim = simulate_formation(P0, O, 6.0, dt=0.02, gain=1.0, A_fixed=A,
+    sim = simulate_formation(P0, O, 10.0, dt=0.02, gain=1.0, A_fixed=A,
                              A_form=A)
     out["formation"] = sim
     out["centroid_shift"] = (P0 - O).mean(axis=0)
@@ -555,7 +555,7 @@ def _self_test():
     L4 = laplacian(A4)
     assert abs(safe_step_size(A4) - 0.5) < 1e-12
     assert abs(spectral_step_bound(L4) - 0.5) < 1e-12
-    x0 = np.array([4.0, 0.0, 2.0, 6.0])
+    x0 = np.array([4.0, 0.0, 2.0, 5.0])
     good = consensus_discrete(L4, x0, 0.45, 200)
     bad = consensus_discrete(L4, x0, 0.55, 60)
     assert disagreement(good[-1]) < 1e-6
@@ -572,17 +572,22 @@ def _self_test():
         X = consensus_discrete(L, rng.standard_normal(6), eps, 400)
         assert disagreement(X[-1]) < 1e-6
 
-    # 5. Leader-follower: everyone converges to the reference
-    A = radius_graph(rng.uniform(0.0, 3.0, size=(5, 1)), 1.5)
-    assert is_connected(A)
+    # 5. Leader-follower: everyone converges to the reference (pinning
+    #    drone 1 of the example graph makes L + B positive definite)
+    A = ex["A"]
     M = pinned_matrix(A, pinned=(0,))
-    assert np.linalg.eigvalsh(M)[0] > 1e-6
-    O = np.zeros((5, 1))
-    Pp = rng.uniform(0.0, 3.0, size=(5, 1))
+    mu = np.linalg.eigvalsh(M)[0]
+    assert mu > 0.1
+    O = np.zeros((4, 1))
+    Pp = EXAMPLE_ALTITUDES.reshape(4, 1).copy()
     ref = np.array([7.0])
-    for _ in range(3000):
-        Pp = Pp + 0.01 * formation_velocity(Pp, O, A, 1.0, ref, None, (0,))
+    for _ in range(5000):
+        Pp = Pp + 0.02 * formation_velocity(Pp, O, A, 1.0, ref, None, (0,))
     assert np.allclose(Pp, 7.0, atol=1e-6)
+    # not pinned and disconnected from the pinned part: no convergence
+    A_cut = A.copy()
+    A_cut[2, 3] = A_cut[3, 2] = 0.0
+    assert np.linalg.eigvalsh(pinned_matrix(A_cut, (0,)))[0] < 1e-9
 
     # 6. Formation error: zero exactly on the (translated) formation,
     #    translation invariant, complete-graph identity with the centred
@@ -599,7 +604,7 @@ def _self_test():
     assert abs(e1 - np.sqrt(2.0 * 4 / 3.0) * ec) < 1e-12
     assert abs(ex["formation"]["err"][0] - 2.5) < 1e-12
     assert ex["formation"]["err"][-1] < 1e-2
-    assert np.allclose(ex["final"], O + ex["centroid_shift"], atol=2e-3)
+    assert np.allclose(ex["final"], O + ex["centroid_shift"], atol=1e-3)
     sim = simulate_formation(P, O, 8.0, dt=0.02, gain=1.0, r_comm=3.5)
     assert sim["err"][-1] < 1e-3 and sim["lam2"].min() > 0.0
     sim2 = simulate_formation_second_order(P, np.zeros((4, 2)), O, 25.0,

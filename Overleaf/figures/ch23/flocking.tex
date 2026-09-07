@@ -1,0 +1,43 @@
+% The three terms of Olfati-Saber's flocking controller acting on one
+% agent (left) and the action function of the gradient term (right).
+\begin{tikzpicture}
+\begin{scope}
+  \coordinate (I) at (0,0);
+  \draw[sbGray,dashed,thin] (I) circle (2.0);
+  \node[sbannot] at (-1.6,1.6) {range $r$};
+  % neighbours with velocities
+  \coordinate (J1) at (1.6,0.9);
+  \coordinate (J2) at (-0.5,1.5);
+  \coordinate (J3) at (0.55,-0.45);
+  \coordinate (J4) at (-1.5,-0.9);
+  \foreach \p in {J1,J2,J3,J4}{\draw[sbvec,draw=black!45] (\p) -- ++(0.75,0.3);}
+  \node[sbagentA] at (J1) {};
+  \node[sbagentA] at (J2) {};
+  \node[sbagentA] at (J3) {};
+  \node[sbagentA] at (J4) {};
+  % the three terms on agent i
+  \draw[sbvec,draw=sbOrange,line width=1.4pt] (I) -- (-0.35,-0.1);
+  \node[sbannot,text=sbOrange,anchor=north] at (-0.1,-0.6) {gradient: separation / cohesion};
+  \draw[sbvec,draw=sbGreen,line width=1.4pt] (I) -- (0.75,0.3);
+  \node[sbannot,text=sbGreen,anchor=south west] at (0.6,0.35) {alignment};
+  \draw[sbvec,draw=sbPurple,line width=1.4pt] (I) -- (1.1,-1.0);
+  \node[sbannot,text=sbPurple,anchor=north west] at (1.0,-0.95) {navigation};
+  \node[sbagentB] at (I) {$i$};
+  \node[sbgoal] at (3.2,-2.4) {};
+  \node[sbannot,anchor=west] at (3.35,-2.4) {target $\vect{p}_\gamma$};
+  \draw[sbPurple,dotted] (1.1,-1.0) -- (3.05,-2.3);
+  \node[sbannot] at (0.55,-0.95) {};
+  \node[sbannot,align=left,anchor=north west] at (-2.3,-2.4) {too close $\Rightarrow$ repel, too far $\Rightarrow$ attract;\\ match the neighbours' mean velocity;\\ steer towards the target};
+\end{scope}
+\begin{axis}[at={(7.6cm,-2.5cm)},anchor=south west,width=6.4cm,height=4.6cm,font=\footnotesize,grid=major,
+  xmin=0,xmax=3,ymin=-1.6,ymax=0.7,xlabel={distance $\ell$ [m]},ylabel={action $\phi(\ell)$},
+  xtick={0,1.5,2.5},xticklabels={0,$d$,$r$},title={gradient term},
+  every axis title/.style={at={(0.5,1.02)},anchor=south,font=\footnotesize}]
+\addplot[sbOrange,thick,domain=0.02:0.5,samples=20] {x-1.5};
+\addplot[sbOrange,thick,domain=0.5:2.5,samples=120] {(x-1.5)*0.5*(1+cos(deg(pi*(x/2.5-0.2)/0.8)))};
+\addplot[sbOrange,thick,domain=2.5:3,samples=2] {0};
+\addplot[black,dotted] coordinates {(0,0) (3,0)};
+\node[sbannot] at (axis cs:0.75,-1.25) {repel};
+\node[sbannot] at (axis cs:2.0,0.45) {attract};
+\end{axis}
+\end{tikzpicture}

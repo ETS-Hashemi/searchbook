@@ -230,7 +230,7 @@ no path exists.
   $R \gets (\emptyset, \emptyset)$\tcp*{empty reservation table}
   \For{$j \gets 1$ \KwTo $k$}{
     $i \gets \sigma(j)$\label{alg:ch08-pp:pick}\;
-    \lIf{revised}{$B \gets \set{s_{\sigma(m)} : m > j}$ \KwElse $B \gets \emptyset$\label{alg:ch08-pp:avoid}}
+    $B \gets \set{s_{\sigma(m)} : m > j}$ if \emph{revised}, otherwise $B \gets \emptyset$\label{alg:ch08-pp:avoid}\;
     $\pi_i \gets$ \PpStar{$G$, $s_i$, $g_i$, $R$, $B$, $T_{\max}$}\label{alg:ch08-pp:search}\;
     \If{$\pi_i = $ failure}{\KwRet{failure}\label{alg:ch08-pp:fail}\;}
     \PpReserve{$R$, $\pi_i$}\label{alg:ch08-pp:reserve}\tcp*{vertices, reverse edges, parked goal}
@@ -446,3 +446,737 @@ are optimal, and nothing in the instance tells you in advance which is which.
   $(3,2,1)$ & -- & 6 & 2 & failure & both corridors closed for agent~1 \\
   \bottomrule
   \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{Properties: soundness, incompleteness, suboptimality, complexity}
+\label{sec:ch08-properties}
+
+The worked example already displayed the whole character of the method: it is sound,
+it is fast, and it is greedy. This section states the four properties precisely, gives
+the two counterexamples that every user of prioritized planning should know by heart,
+and then proves the one positive result.
+
+\begin{proposition}[Soundness and per-agent optimality]
+\label{thm:ch08-sound}
+If \cref{alg:ch08-pp} returns a plan, the plan is valid: no two paths have a vertex or
+swapping conflict. Moreover, if $\hcost$ is admissible, the path of every agent is a
+shortest path among all paths that avoid the agents planned before it and arrive no
+later than $T_{\max}$.
+\end{proposition}
+\begin{proof}
+Let $\pi_i$ be planned after $\pi_j$. Every state $(\pi_i(t), t)$ was generated as an
+unblocked successor in \cref{alg:ch08-ca}, and the goal state satisfies $t > t_g$, so
+$\pi_i(t) \ne \pi_j(t)$ for all $t$, including the times at which $\pi_j$ is parked:
+no vertex conflict. If $\pi_i(t) = \pi_j(t+1) = v$ and $\pi_i(t+1) = \pi_j(t) = u$ with
+$u \ne v$, then agent $j$ moved $u \to v$ at time $t$ and $((u, v), t) \in R_E$, so
+line~\ref{alg:ch08-ca:edge} would have discarded the move $v \to u$ of agent $i$ at
+time $t$: no swapping conflict. For the second claim note that the unblocked
+space-time states with $t \le T_{\max}$ form a finite graph with unit edge costs;
+\cref{alg:ch08-ca} is \astar on this graph with a heuristic that is admissible on the
+static map and hence on the restricted graph, so the optimality theorem of
+\cref{ch:ch04} applies. Because the cost of a state $(v, t)$ is $t$ whatever its parent,
+the first path found to a state is already the cheapest, and no re-opening is needed.
+\end{proof}
+
+\subsection{The order matters, and no order may work}
+
+\Cref{tab:ch08-orders} showed that the order decides between $16$, $21$ and failure.
+The next two instances, drawn in \cref{fig:ch08-counterexamples}, show that this is
+not an artefact of a badly chosen order: sometimes there is no good order at all.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch08/counterexamples}
+  \caption{Two corridors that defeat prioritized planning. (a) Two agents must exchange
+  the ends of a corridor with a single pocket. Whichever agent is planned first takes
+  the straight path, and the other one can never get past it; the solution shown
+  (agent~1 ducks into the pocket, agent~2 waits one step) has cost $11$ but is found by
+  no order. (b) The same corridor with a long bypass. The best order sends agent~1
+  straight ($6$) and agent~2 around ($10$). (c) The optimal plan lets agent~1 use the
+  pocket and agent~2 wait two steps: cost $15$.}
+  \label{fig:ch08-counterexamples}
+\end{figure}
+
+\begin{proposition}[Incompleteness]
+\label{thm:ch08-incomplete}
+Prioritized planning is not complete: there are solvable instances on which the plan
+fails for every priority order.
+\end{proposition}
+\begin{proof}
+Consider \cref{fig:ch08-counterexamples}(a): a corridor of five cells $(1,0), \dots,
+(1,4)$ with a single pocket $(0,2)$ above the middle cell. Agent~1 must go from
+$(1,0)$ to $(1,4)$ and agent~2 from $(1,4)$ to $(1,0)$. Suppose agent~1 is planned
+first. Against an empty table its shortest path is the straight one, $\pi_1(t) = (1,t)$
+for $t \le 4$, and it parks on $(1,4)$ for ever. Agent~2 must leave $(1,4)$ before
+$t = 4$ and reach $(1,0)$; to pass agent~1 it would have to be inside the pocket at
+the moment agent~1 passes $(1,2)$, that is at $t = 2$. But $(0,2)$ can only be entered
+from $(1,2)$, and agent~2, which starts two cells away, could reach $(1,2)$ at the
+earliest at $t = 2$, where agent~1 already is. Every other path of agent~2 stays in the
+corridor and collides head-on with agent~1. So agent~2 has no unblocked path and the
+order $(1,2)$ fails. The instance is symmetric under reflection, so the order $(2,1)$
+fails for the same reason. The plan in which agent~1 steps into the pocket at $t = 3$
+and agent~2 waits one step before setting off is valid, with costs $6$ and $5$; the
+brute-force search in \code{code/ch08\_prioritized.py} confirms that $11$ is the
+optimal sum of costs. \qedhere
+\end{proof}
+
+The pattern behind the failure is worth naming: a higher-priority agent has no reason
+to make room, and the shortest path it takes for itself destroys the only room there
+was. The same pattern with a bypass produces suboptimality instead of failure.
+
+\begin{proposition}[Suboptimality]
+\label{thm:ch08-suboptimal}
+Even the best priority order can return a plan that is more expensive than the optimal
+plan.
+\end{proposition}
+\begin{proof}
+\Cref{fig:ch08-counterexamples}(b) adds a bypass through row~$0$ to the corridor
+of~(a): the corridor is now row~$2$, the pocket is $(3,3)$, and the two agents exchange
+the corridor ends $(2,0)$ and $(2,6)$. Whichever agent goes first takes the straight
+path of cost $6$ and parks on the other agent's start. The second agent cannot pass it
+in the corridor, by the argument of \cref{thm:ch08-incomplete}, so it takes the
+bypass: one step up, seven along row~$0$ and one down, cost $10$ (or $10$ by the mirror
+image), for a sum of costs of $16$ in both orders. The plan of
+\cref{fig:ch08-counterexamples}(c) instead sends agent~1 into the pocket at $t = 4$ and
+lets agent~2 wait at $(2,4)$ during $t = 2, 3$; agent~2 then passes and arrives at
+$t = 7$ while agent~1 leaves the pocket at $t = 5$ and arrives at $t = 8$, sum of costs
+$15$. The code verifies the plan and confirms by brute force that $15$ is optimal.
+\qedhere
+\end{proof}
+
+Both counterexamples have two agents and fewer than thirty cells. They are not exotic:
+narrow aisles with a single passing bay are the everyday geometry of a warehouse, and
+a drone that is asked to park in the middle of a corridor produces exactly the goal
+blocking of \cref{ex:ch08-three}. The lesson is not to avoid prioritized planning but
+to know the two conditions under which it is safe, which we turn to next.
+
+\subsection{Complexity}
+
+\begin{proposition}[Complexity]
+\label{thm:ch08-complexity}
+Let $b$ be the maximum degree of $G$ plus one (five on a 4-connected grid) and
+$T_{\max}$ the horizon. With hash sets for $R_V$ and $R_E$, \cref{alg:ch08-ca}
+runs in time $\bigO{b \abs{V} T_{\max} \log(\abs{V} T_{\max})}$ and space
+$\bigO{\abs{V} T_{\max}}$, and \cref{alg:ch08-pp} runs in $k$ times that. The
+reservation table holds $\bigO{\sum_i T_i}$ entries.
+\end{proposition}
+\begin{proof}
+There are at most $\abs{V}(T_{\max} + 1)$ space-time states, each is expanded at most
+once (\Closed), each expansion generates at most $b$ successors with $\bigO{1}$
+blocking tests, and every insertion into a binary-heap \Open costs a logarithm of the
+heap size. Reserving a path of arrival time $T_i$ adds $T_i + 1$ vertex entries, at
+most $T_i$ move entries and one parked entry.
+\end{proof}
+
+In practice the searches are far from this bound because the heuristic keeps them
+close to a corridor of width $\bigO{1}$ around the shortest path, and because
+$T_{\max}$ is replaced by the time at which the table stops changing
+(\cref{sec:ch08-implementation}). Forty agents on a $100 \times 100$ grid take well
+under a second in plain \python; the joint search over all agents would not finish in
+the lifetime of the reader.
+
+\subsection{The positive result: well-formed instances}
+
+\begin{theorem}[Completeness on well-formed instances~\cite{cap2015prioritized}]
+\label{thm:ch08-wellformed}
+Let the instance be well-formed (\cref{def:ch08-wellformed}), and for each agent $i$
+let $L_i$ be the length of a path from $s_i$ to $g_i$ that avoids all other endpoints.
+Then \cref{alg:ch08-pp} with the revised rule and a horizon $T_{\max} \ge \sum_i L_i$
+returns a valid plan for \emph{every} priority order $\sigma$. The arrival time of the
+$j$-th planned agent is at most $\sum_{m \le j} L_{\sigma(m)}$.
+\end{theorem}
+\begin{proof}
+We show by induction on $j$ that agent $i = \sigma(j)$ has an unblocked path of arrival
+time at most $T^*_j + L_i$, where $T^*_j$ is the largest arrival time among agents
+$\sigma(1), \dots, \sigma(j-1)$ (with $T^*_1 = 0$). Since \cref{alg:ch08-ca} is
+complete on the finite space-time graph up to $T_{\max}$ (\cref{thm:ch08-sound}), it
+then returns some unblocked path, and the induction can continue. The candidate path is
+the \emph{wait-then-go} path: wait at $s_i$ for $T^*_j$ steps, then follow the
+endpoint-free path $P_i$ of length $L_i$ that well-formedness guarantees.
+
+\emph{Waiting is unblocked.} Every earlier agent $\sigma(m)$, $m < j$, planned with
+$s_i$ in its static obstacle set $B$ (revised rule, line~\ref{alg:ch08-pp:avoid}), so
+no entry $(s_i, t)$ was ever added to $R_V$, and $s_i$ is not parked on because goals
+are distinct from starts. Hence $(s_i, t)$ is free for all $t$, and staying there
+creates no swap either.
+
+\emph{Going is unblocked.} After time $T^*_j$ every earlier agent is parked on its own
+goal, so $R$ contains no timed vertex entry and no move entry with $t \ge T^*_j$; the
+only blocked cells are the goals $g_{\sigma(m)}$, $m < j$, which $P_i$ avoids by
+construction. $P_i$ also avoids the starts of the lower-priority agents, which are the
+static obstacles $B$ of agent $i$. So each step of $P_i$, taken at a time $\ge T^*_j$,
+is an unblocked successor.
+
+\emph{The goal test passes.} The last time at which some earlier agent visits $g_i$ is
+at most $T^*_j$, because after $T^*_j$ nobody moves and nobody is parked on $g_i$. Thus
+$t_g \le T^*_j < T^*_j + L_i$, and the wait-then-go path is accepted at its arrival.
+Its arrival time is at most $T^*_j + L_i \le \sum_{m \le j} L_{\sigma(m)} \le T_{\max}$,
+which completes the induction; \cref{alg:ch08-ca} may of course return a shorter path.
+Validity of the plan follows from \cref{thm:ch08-sound}. \qedhere
+\end{proof}
+
+\begin{corollary}
+\label{thm:ch08-makespan}
+On a well-formed instance the makespan of the plan of the revised algorithm is at most
+$\sum_i L_i$ for every order, and the sum of costs is at most $k \sum_i L_i$.
+\end{corollary}
+
+\begin{remark}
+The theorem says nothing about quality, and the bound of the corollary is loose: the
+wait-then-go path is only a witness that \emph{some} unblocked path exists, and in
+practice agents rarely wait at all. It also relies on the revised rule in exactly one
+place, the claim that waiting at $s_i$ is unblocked: without it a higher-priority agent
+may reserve $s_i$ before agent $i$ has moved, and whether agent $i$ can get out of the
+way in time then depends on the map. \v{C}\'ap et al.~\cite{cap2015prioritized}
+introduced the rule for this reason. Finally, the two counterexamples above are not
+well-formed: in both, every path of one agent passes through the start of the other.
+\end{remark}
+
+% ---------------------------------------------------------------------
+\section{Variants and extensions}
+\label{sec:ch08-variants}
+
+\subsection{Hierarchical Cooperative \astar: a true-distance heuristic}
+\label{sec:ch08-hca}
+
+The Manhattan distance ignores obstacles. In an open map that costs little, but in a
+cluttered one it pulls the search into dead ends and makes it explore the whole
+neighbourhood of every wall before it turns back. In space-time this is worse than on
+a plain grid, because every cell that is explored at time $t$ is explored again at
+$t + 1$, $t + 2$, \dots while the agent waits in front of an obstacle. Silver's
+\textbf{Hierarchical Cooperative \astar}\index{HCA*} (HCA\textsuperscript{*})
+replaces $\hcost$ by the exact static distance to the goal, $\hcost^*(v) =
+\dist_G(v, g)$, computed on the map without agents. This is the backward search of
+\cref{ch:ch03}: one breadth-first search (Dijkstra with unit costs) from the goal gives
+$\hcost^*$ for every cell at once, and the table is reused at every time step of the
+space-time search. Silver computes it lazily with a \emph{reverse resumable}
+\astar\index{reverse resumable A*} that is paused as soon as the current query is
+answered and resumed when a new cell is needed; for the maps of this book the full
+breadth-first search is simpler and costs one pass over the grid per agent.
+
+The true distance is consistent and dominates the Manhattan distance, so by the
+dominance result of \cref{ch:ch04} the space-time search with $\hcost^*$ expands no
+more states than with the Manhattan distance, and usually far fewer. On twenty random
+$20 \times 20$ grids with $30\,\%$ obstacles and eight agents each, the self-test of
+\code{code/ch08\_prioritized.py} counts $32\,509$ expansions with the Manhattan
+heuristic and $11\,034$ with the true distance, a factor of three, for the same plans.
+Note what the true distance does \emph{not} know: the other agents. A corridor that is
+closed by a parked drone still looks open to $\hcost^*$, and the search only discovers
+the closure by running into the reservation, as agent~1 does in the order $(3,1,2)$ of
+\cref{ex:ch08-three}. \Cref{exr:ch08-hca} explores a heuristic that accounts for parked
+agents.
+
+\subsection{Windowed Cooperative \astar: lifelong and online use}
+\label{sec:ch08-whca}
+
+A warehouse never stops: when a drone arrives it receives a new goal, and a plan that
+reserves cells until the end of time is pointless. Silver's \textbf{Windowed
+Hierarchical Cooperative \astar}\index{WHCA*} (WHCA\textsuperscript{*}) keeps the
+cooperative search only for the next $w$ time steps, the \textbf{window}\index{window
+(WHCA*)}. Within the window an agent respects the reservation table as before; beyond
+it, the agents are ignored and the search follows the true-distance heuristic alone,
+which means it computes the rest of the path as if the map were empty. Every agent is
+planned in this way, its first $\delta$ steps ($\delta = w/2$ is typical) are executed,
+and then all agents replan from their new positions with a fresh table.
+\Cref{alg:ch08-whca} gives the loop and \cref{fig:ch08-window} the picture.
+
+\begin{algorithm}[htb]
+\caption{Windowed Cooperative \astar (WHCA\textsuperscript{*})}
+\label{alg:ch08-whca}
+\KwIn{graph $G$, starts $s_i$, goals $g_i$, window $w$, execution length $\delta \le w$}
+\KwOut{the executed paths $(\pi_1, \dots, \pi_k)$}
+\Fn{\PpWindowed{$G$, $s$, $g$, $w$, $\delta$}}{
+  $p_i \gets s_i$ and $\pi_i \gets (s_i)$ for every agent $i$; $\hcost_i^* \gets$ static distances to $g_i$\;
+  \While{some agent is not at its goal}{
+    $R \gets$ an empty table in which entries with $t \ge w$ are ignored\label{alg:ch08-whca:table}\;
+    \ForEach{agent $i$ in the current order}{
+      $\rho_i \gets$ \PpStar{$G$, $p_i$, $g_i$, $R$, $\emptyset$, $\infty$} with heuristic $\hcost_i^*$\label{alg:ch08-whca:search}\;
+      \lIf{$\rho_i = $ failure}{$\rho_i \gets (p_i)$\tcp*{stay put; no guarantee}}
+      \PpReserve{$R$, $\rho_i$}\;
+    }
+    execute the first $\delta$ steps of every $\rho_i$, append them to $\pi_i$, set $p_i$ to the new cell\label{alg:ch08-whca:execute}\;
+    rotate the order so that a different agent goes first\label{alg:ch08-whca:rotate}\;
+  }
+  \KwRet{$(\pi_1, \dots, \pi_k)$}\;
+}
+\end{algorithm}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch08/window}
+  \caption{WHCA\textsuperscript{*} with window $w = 8$ and execution length
+  $\delta = 4$. In every round each agent plans against the reservation table for the
+  next $w$ steps only (bar), executes the first $\delta$ of them (dark), and then all
+  agents replan from where they are. Beyond the window the other agents are invisible
+  and only the static heuristic guides the search.}
+  \label{fig:ch08-window}
+\end{figure}
+
+Three details of \cref{alg:ch08-whca} matter. First, the table of
+line~\ref{alg:ch08-whca:table} is relative to the current round: time $0$ is now, and
+the goal-stay check of \cref{alg:ch08-ca} only looks at entries inside the window, so
+an agent that is parked on somebody's goal blocks it only for the next $w$ steps.
+Second, line~\ref{alg:ch08-whca:rotate} rotates the priority order between rounds so
+that no agent is always the last to be planned; without it the lowest-priority agent
+can be pushed around indefinitely. Third, the loop has no termination guarantee. Two
+agents that approach each other in a corridor with $w$ smaller than the distance to
+the nearest pocket only see each other when it is too late, back off, and try again;
+\cref{exr:ch08-whca} asks you to build this case. In return, WHCA\textsuperscript{*}
+handles goals that change, agents that appear and disappear, and execution errors,
+because nothing is planned further ahead than $w$ steps. On \cref{ex:ch08-three} with
+$w = 6$ and $\delta = 3$ it produces, after rotation, the same costs $6, 6, 4$ as the
+best fixed order. The lifelong MAPF setting in which every arriving agent receives a
+new task is studied by Ma et al.~\cite{ma2017lifelong}; windowed prioritized planning
+is its most common baseline.
+
+\subsection{Choosing the priority order}
+\label{sec:ch08-ordering}
+
+Nothing in \cref{alg:ch08-pp} says where $\sigma$ comes from, and
+\cref{tab:ch08-orders} showed how much depends on it. Three families of rules are in
+use.
+\begin{itemize}
+  \item \textbf{Longest path first}\index{priority order!longest path first} plans the
+        agents in decreasing order of the length of their independent shortest paths.
+        The intuition: an agent with a long way to go crosses many other paths and is
+        the one most likely to be trapped if it is planned late; a short-haul agent can
+        usually wait a few steps.
+  \item \textbf{Most constrained first}\index{priority order!most constrained first}
+        computes the independent shortest paths, counts for every agent how many other
+        independent paths it conflicts with, and plans the agents with the most
+        conflicts first, ties broken by path length. This is the discrete cousin of
+        the roadmap heuristic of van den Berg and
+        Overmars~\cite{vandenberg2005prioritized}.
+  \item \textbf{Random restarts}\index{priority order!random restarts} run
+        \cref{alg:ch08-pp} with several random orders and keep the cheapest plan that
+        succeeds; Bennewitz, Burgard and Thrun~\cite{bennewitz2002finding} go further
+        and hill-climb in the space of orders by swapping two agents at a time. Since
+        each run is cheap, this is often the most effective use of a time budget, and
+        it is embarrassingly parallel.
+\end{itemize}
+
+\Cref{fig:ch08-orders} compares the three rules, and a single random order, on random
+$20 \times 20$ grids with $20\,\%$ obstacles and $k = 4, 8, \dots, 32$ agents, thirty
+instances per $k$, all with the true-distance heuristic of HCA\textsuperscript{*}
+(script \code{code/figures/gen\_ch08\_orders.py}). The left plot shows how often each
+rule returns a plan at all. A single random order fails in $13\,\%$ of the instances
+with $32$ agents and in $23\,\%$ of those with $28$; longest path first fails in one of
+the $240$ instances, and five random restarts fail in one. The right plot shows the
+sum of costs divided by the sum of the independent shortest paths, the lower bound of
+\cref{ch:ch07}, over the instances that all four rules solve. Here the picture reverses:
+at $k = 32$ longest path first is $20\,\%$ above the bound, a single random order
+$16\,\%$, and the best of five random orders $12\,\%$. The rule that protects the
+long-haul agents makes everybody else detour around them. Which rule is right therefore
+depends on what you need: if a plan must be found in one attempt, use longest path
+first; if you have time for a few attempts, use random restarts, or restarts seeded
+with the longest-path-first order.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch08/orders}
+  \caption{Priority ordering rules on random $20 \times 20$ grids with $20\,\%$
+  obstacles (thirty instances per $k$, HCA\textsuperscript{*}). Left: fraction of
+  instances solved. Right: sum of costs relative to the sum of the independent
+  shortest paths, over the instances solved by all four rules. Longest path first
+  almost never fails but produces the most expensive plans; five random restarts give
+  the cheapest plans and fail once in $240$ instances.}
+  \label{fig:ch08-orders}
+\end{figure}
+
+\subsection{Priority-based search}
+\label{sec:ch08-pbs}
+
+Random restarts explore the $k!$ orders blindly. \textbf{Priority-based
+search}\index{priority-based search} (PBS) of Ma et al.~\cite{ma2019searching}
+explores them systematically, and it does so with \emph{partial} orders. A partial
+priority order is a set of pairs $i \prec j$, read ``$i$ has priority over $j$'', that
+contains no cycle. PBS runs a two-level search, in the same spirit as the
+conflict-based search of \cref{ch:ch09}, but with priorities instead of space-time
+constraints as the branching decision:
+\begin{itemize}
+  \item The \textbf{high level} builds a binary tree. The root carries the empty order
+        and a plan in which every agent has its independent shortest path. At every
+        node, the plan is checked for conflicts. If there is none, the plan is a
+        solution and the search stops. Otherwise one conflict, between agents $i$ and
+        $j$, is picked, and two children are created: one adds $i \prec j$ to the
+        order, the other adds $j \prec i$. Only pairs without an existing relation are
+        ever split, so the orders stay acyclic.
+  \item The \textbf{low level} repairs the plan of a child. The agent that just lost
+        priority, and every agent that ranks below it in the partial order, are
+        replanned in a topological order of the partial order, each with
+        \cref{alg:ch08-ca} against the reservation table of all agents that rank above
+        it. Agents unrelated to the new pair keep their paths. If some agent finds no
+        path, the child is discarded.
+  \item The tree is searched \textbf{depth-first}, trying the child with the smaller sum
+        of costs first and backtracking when a subtree contains no solution.
+\end{itemize}
+The depth of the tree is at most $k(k-1)/2$, one relation per pair, and a leaf is
+exactly a prioritized plan for some total order that extends the partial one. In this
+sense PBS is prioritized planning that chooses its order lazily, one pair at a time,
+and only where a conflict forces a choice; a fixed order $\sigma$ corresponds to one
+root-to-leaf path of the tree. Compared with \cbs, which branches on one constraint
+$\langle a, v, t \rangle$ at a time and can need a deep tree for two agents that
+squeeze through a corridor, PBS resolves all present and future conflicts of a pair in
+one decision. The price is that it inherits the weaknesses of this chapter: PBS is
+neither complete nor optimal in general, because a solution may require agent $i$ to
+yield to agent $j$ in one place and $j$ to yield to $i$ in another, which no priority
+relation can express. In the experiments of Ma et al.\ it solves far more instances
+than prioritized planning with a fixed order, in a fraction of the time of \cbs, with
+costs close to the optimum on the instances that both solve. When you need
+guarantees, \cref{ch:ch09,ch:ch10} provide them; when you need a plan for two hundred
+agents in a second, PBS is the state of the art among priority-based methods.
+
+\subsection{Beyond grids}
+\label{sec:ch08-beyond}
+
+The idea of planning in priority order does not depend on grids. Erdmann and
+Lozano-P\'erez~\cite{erdmann1987multiple} formulated it for polygonal robots in
+configuration space-time; van den Berg and Overmars~\cite{vandenberg2005prioritized}
+plan on roadmaps with time as an extra dimension; \v{C}\'ap et
+al.~\cite{cap2015prioritized} prove the well-formedness result for trajectories of
+robots of arbitrary shape. On grids, safe interval path planning~\cite{phillips2011sipp}
+replaces the time axis of \cref{alg:ch08-ca} by the maximal intervals during which a
+cell is free according to the table, which shrinks the state space drastically when
+reservations are sparse, and prioritized planning with kinematic
+constraints~\cite{honig2016mapf} post-processes the plan into velocity profiles that
+real drones can follow. In every one of these settings the reservation table is the
+same object as in \cref{def:ch08-reservation}, only the notion of ``blocked'' changes.
+
+% ---------------------------------------------------------------------
+\section{Implementation notes}
+\label{sec:ch08-implementation}
+
+The file \code{code/ch08\_prioritized.py} implements everything in this chapter on
+4-connected grids: the reservation table, Cooperative \astar with either heuristic, the
+priority loop with the revised rule, a validator, the well-formedness test, the three
+ordering rules, the windowed variant and a brute-force optimal solver for tiny
+instances. Its self-test reproduces every number quoted above. The notes below cover
+the decisions that are easy to get wrong.
+
+\paragraph{The table is three hash sets.} \Cref{lst:ch08-table} stores $R_V$ as a set
+of \code{(cell, t)} tuples, $R_E$ as a set of \code{(u, v, t)} tuples recording each
+move as it was made, and the parked goals as a dictionary from cell to arrival time.
+The three blocking tests of \cref{alg:ch08-ca} are then single lookups. The swap test
+for a move \code{u -> v} at time \code{t} asks whether \code{(v, u, t)} is in the set,
+that is, whether somebody moves the other way along the same edge in the same step.
+The dictionary of parked cells keeps the \emph{earliest} arrival if a cell is parked on
+twice, which cannot happen with distinct goals but costs nothing to guard against. The
+goal-stay time is found by a scan over $R_V$; for hundreds of agents this is fine, for
+thousands keep one sorted list of times per cell.
+
+\paragraph{Collapsing time instead of a horizon.} \Cref{alg:ch08-ca} needs a horizon
+$T_{\max}$ to terminate when no path exists. \Cref{ch:ch04} recommends
+$T_{\max} = H + 1 + D$, where $H$ is the last time of any timed entry and $D$ the largest
+static distance to the goal. \Cref{lst:ch08-search} uses a trick that needs no horizon
+at all. After time $t_{\mathrm{static}} = H + 1$ the table never changes again: the
+only remaining entries are parked cells, and they stay parked. Two states $(v, t)$ and
+$(v, t')$ with $t < t'$, both at or beyond $t_{\mathrm{static}}$, therefore have
+exactly the same future, shifted in time, and the earlier one dominates. The closed set
+is keyed by $(v, \min(t, t_{\mathrm{static}}))$, so every cell is expanded at most
+$t_{\mathrm{static}} + 1$ times, the search is finite, and it never reports a false
+failure because a horizon was chosen too small. With a window (\cref{sec:ch08-whca})
+the same code uses $t_{\mathrm{static}} = w$.
+
+\paragraph{Order of successors and ties.} Wait first, then the four moves in a fixed
+order; ties in $\fcost$ are broken towards the larger $t$ and then by insertion order.
+This makes traces reproducible and, together with the true-distance heuristic, makes
+the search follow one shortest path instead of sweeping the whole $\fcost = C^*$ band.
+
+\paragraph{Validate everything.} A plan that leaves the planner is checked by
+\code{validate}, an independent function that walks all pairs of paths through time
+under the stay-at-target convention and reports vertex and swapping conflicts, illegal
+moves and wrong endpoints. The self-test runs it on every plan of every order of the
+examples and on eighty random instances; a planner without such a check will
+eventually ship a swap.
+
+\begin{lstlisting}[caption={The reservation table (from \code{code/ch08\_prioritized.py}): vertex entries, move entries and parked goals, with the three blocking tests of \cref{alg:ch08-ca}.},label={lst:ch08-table}]
+class ReservationTable:
+    """Space-time entries of the agents planned so far.
+
+    vertices : set of (cell, t)            -- cell occupied at time t
+    edges    : set of (u, v, t)            -- move u -> v during step t -> t+1
+    parked   : dict cell -> time T         -- cell occupied for all t >= T
+    window   : if not None, entries at t >= window are ignored (WHCA*)
+    """
+
+    def __init__(self, window: Optional[int] = None) -> None:
+        self.vertices: Set[Tuple[Cell, int]] = set()
+        self.edges: Set[Tuple[Cell, Cell, int]] = set()
+        self.parked: Dict[Cell, int] = {}
+        self.window = window
+        self.last_timed = -1        # largest t of any timed entry
+
+    def reserve(self, path: Path) -> None:
+        """Add a path: its cells, its moves and its parked goal."""
+        for t, cell in enumerate(path):
+            self.vertices.add((cell, t))
+            if t + 1 < len(path) and path[t + 1] != cell:
+                self.edges.add((cell, path[t + 1], t))
+        self.last_timed = max(self.last_timed, len(path) - 1)
+        goal, arrival = path[-1], len(path) - 1
+        self.parked[goal] = min(arrival, self.parked.get(goal, INF))
+
+    def in_window(self, t: int) -> bool:
+        return self.window is None or t < self.window
+
+    def is_blocked(self, cell: Cell, t: int) -> bool:
+        """May an agent NOT be at `cell` at time t?"""
+        if not self.in_window(t):
+            return False
+        return (cell, t) in self.vertices or t >= self.parked.get(cell, INF)
+
+    def is_swap(self, u: Cell, v: Cell, t: int) -> bool:
+        """Would moving u -> v during step t swap with a reserved move?"""
+        return self.in_window(t) and (v, u, t) in self.edges
+
+    def last_reserved(self, cell: Cell) -> float:
+        """Last time at which `cell` is taken: -1 never, inf if parked on."""
+        if cell in self.parked and self.in_window(self.parked[cell]):
+            return INF
+        times = [t for (c, t) in self.vertices if c == cell and self.in_window(t)]
+        return max(times) if times else -1
+\end{lstlisting}
+
+\begin{lstlisting}[caption={The search loop of Cooperative \astar (from \code{code/ch08\_prioritized.py}). The closed set collapses the time index beyond \code{t\_static}, so no horizon is needed.},label={lst:ch08-search}]
+    t_goal = table.last_reserved(goal)      # arrival must be later than this
+    if t_goal == INF or table.is_blocked(start, 0):
+        return None
+    t_static = table.static_time()
+    counter = itertools.count()
+    open_heap = [(h(start), 0, next(counter), start, 0)]
+    parent: Dict[Tuple[Cell, int], Tuple[Cell, int]] = {}
+    closed: Set[Tuple[Cell, int]] = set()
+    expansions = 0
+    while open_heap:
+        f, neg_g, _, v, t = heapq.heappop(open_heap)
+        key = (v, min(t, t_static))
+        if key in closed:
+            continue
+        closed.add(key)
+        expansions += 1
+        if v == goal and t > t_goal:
+            if stats is not None:
+                stats["expansions"] = stats.get("expansions", 0) + expansions
+            if trace is not None:
+                trace.append((v, t, t, h(v), f, ["goal"], []))
+            path = [(v, t)]
+            while path[-1] in parent:
+                path.append(parent[path[-1]])
+            return [cell for cell, _ in reversed(path)]
+        generated, blocked = [], []
+        for v2 in [v] + inst.neighbors(v):        # wait first, then moves
+            if v2 in avoid:
+                continue
+            if table.is_blocked(v2, t + 1):
+                blocked.append((v2, "V"))
+                continue
+            if v2 != v and table.is_swap(v, v2, t):
+                blocked.append((v2, "E"))
+                continue
+            if (v2, min(t + 1, t_static)) in closed:
+                continue
+            parent.setdefault((v2, t + 1), (v, t))
+            generated.append(v2)
+            heapq.heappush(open_heap, (t + 1 + h(v2), -(t + 1), next(counter), v2, t + 1))
+        if trace is not None:
+            trace.append((v, t, t, h(v), f, generated, blocked))
+    if stats is not None:
+        stats["expansions"] = stats.get("expansions", 0) + expansions
+    return None
+\end{lstlisting}
+
+\Cref{lst:ch08-table} is the whole reservation table; \cref{lst:ch08-search} is the
+body of \code{space\_time\_astar} after the heuristic has been chosen. The optional
+\code{avoid} set implements the revised rule, the \code{trace} list produced
+\cref{tab:ch08-trace}, and \code{stats} counts expansions for the comparison of
+\cref{sec:ch08-hca}.
+
+\begin{pitfall}[Forgetting that agents stay at their goals]
+The most common bug in a first implementation reserves the goal cell only at the
+arrival time. A later agent then plans straight through a parked drone, the validator
+reports a vertex conflict at every time step after the arrival, and the author blames
+the validator. Reserve the goal for all $t \ge T$ (the \code{parked} dictionary), and
+make the goal test of the later agent wait until its own goal is free for ever
+(\code{t > t\_goal}). The second half is as important as the first: without it an agent
+may ``arrive'' at a cell that a higher-priority agent will cross two steps later.
+\end{pitfall}
+
+\begin{pitfall}[Checking the edge in the wrong direction]
+A swap between $u$ and $v$ at time $t$ is caught only if the table stores the move
+$u \to v$ of the earlier agent \emph{and} the later agent's move $v \to u$ is tested
+against it in the reversed orientation. Storing $(u, v, t)$ and testing $(u, v, t)$
+again catches only the impossible case of two agents making the same move, which is
+already a vertex conflict at $t + 1$. Test the reversed tuple, and write a unit test
+with two agents that exchange the ends of a two-cell corridor: without edge
+reservations the plan is accepted, with them the second agent fails, which is the
+correct answer.
+\end{pitfall}
+
+\begin{pitfall}[A horizon that is too short, or no horizon at all]
+Without a horizon a blocked agent waits at its start for ever and the search never
+returns. With a horizon smaller than the time at which the higher-priority agents have
+cleared the way, the search reports a failure for an agent that only needed to wait
+longer, and the user concludes that prioritized planning is even less complete than it
+is. Use $T_{\max} = H + 1 + D$ or collapse the time index beyond $H + 1$ as in
+\cref{lst:ch08-search}.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{Where this fits in the drone system}
+\label{sec:ch08-drone}
+
+\begin{dronebox}
+Prioritized planning is the fast global planner of a swarm. Forty drones on a
+$100 \times 100$ grid are forty space-time searches, and with the true-distance
+heuristic and a good order they finish in a fraction of a second, where the optimal
+solvers of \cref{ch:ch09,ch:ch10} may need minutes. In the hybrid architecture of
+\cref{ch:ch24} the global layer is \cbs or \ecbs because they come with guarantees:
+\cbs is complete and optimal, \ecbs is complete and bounded-suboptimal, whereas the
+plan of this chapter can be arbitrarily worse than optimal and may not exist for the
+chosen order although the instance is solvable. Prioritized planning is what you fall
+back on when those solvers time out, what you use for swarms of hundreds, and what you
+run when a plan must be repaired in place: a drone that has been pushed off its route
+by the local avoidance layer can be replanned alone against the reservation table of
+all the others, which is exactly one call of \cref{alg:ch08-ca}. Its failure modes are
+the ones of this chapter: corridors with a single passing bay, goals in the middle of
+somebody else's route, and orders that trap a long-haul drone; the well-formedness
+test of \cref{def:ch08-wellformed} tells you in advance whether the layout is safe, and
+the ordering rules of \cref{sec:ch08-ordering} with a few restarts remove most of the
+remaining risk. This chapter is Week~3 of the study plan (\cref{ch:appA}): implement
+prioritized planning for two to five agents and create deliberate conflict cases.
+\end{dronebox}
+
+% ---------------------------------------------------------------------
+\section{Summary}
+\begin{summary}
+\begin{itemize}
+  \item Prioritized planning plans the agents one after another in a priority order;
+        each agent runs space-time \astar against a reservation table that holds the
+        (cell, time) and (move, time) entries of the earlier agents and their parked
+        goals. This is Cooperative \astar; $k$ agents cost $k$ single-agent searches.
+  \item The goal test must wait until the agent's goal is free for all later times,
+        and the reverse of every reserved move must be forbidden; otherwise parked
+        agents are run over and swaps slip through.
+  \item The plan is always valid and each agent's path is optimal given the earlier
+        ones, but the method is greedy: the order changes the cost, there are solvable
+        instances on which every order fails, and the best order can be worse than the
+        optimum. Two small corridors with one pocket show both defects.
+  \item On well-formed instances, where every agent can reach its goal without
+        touching another agent's start or goal, the revised algorithm (lower-priority
+        starts are static obstacles) succeeds for every order; the proof is the
+        wait-then-go path.
+  \item HCA\textsuperscript{*} replaces the Manhattan heuristic by exact static
+        distances from a backward search, cutting expansions by a factor of about three
+        in clutter; WHCA\textsuperscript{*} plans only $w$ steps ahead and replans,
+        which makes it suitable for lifelong and online use at the price of all
+        guarantees.
+  \item Longest path first is the safest single order, random restarts give the
+        cheapest plans, and priority-based search explores partial orders in a
+        depth-first tree, resolving one conflicting pair per branch.
+\end{itemize}
+\end{summary}
+
+\paragraph{Further reading.} The idea of planning moving objects one at a time in
+configuration space-time is due to Erdmann and Lozano-P\'erez~\cite{erdmann1987multiple};
+LaValle's textbook~\cite{lavalle2006planning} presents it as decoupled planning next to
+the centralized alternative. Silver~\cite{silver2005cooperative} introduced Cooperative
+\astar, HCA\textsuperscript{*} and WHCA\textsuperscript{*} for grids; van den Berg and
+Overmars~\cite{vandenberg2005prioritized} and Bennewitz et
+al.~\cite{bennewitz2002finding} study the choice of the order; \v{C}\'ap et
+al.~\cite{cap2015prioritized} prove the completeness result for well-formed
+infrastructures; Ma et al.~\cite{ma2019searching} introduce priority-based search. The
+MAPF conventions used here follow Stern et al.~\cite{stern2019mapf}; safe interval path
+planning~\cite{phillips2011sipp} and planning with kinematic
+constraints~\cite{honig2016mapf} extend the low-level search.
+
+% ---------------------------------------------------------------------
+\section{Exercises}
+\label{sec:ch08-exercises}
+
+\begin{exercise}[\difficulty{1} Reservation table by hand]
+\label{exr:ch08-table}
+Take \cref{ex:ch08-three} in the order $(2,3,1)$. (a) Write down all entries of $R_V$,
+$R_E$ and the parked cells after agents~2 and~3 have been planned. (b) What is the
+goal-stay time $t_g$ of agent~1? (c) Without running the search, explain why agent~1
+has no unblocked path, and how the implementation of \cref{lst:ch08-search} terminates
+with a failure although it uses no horizon.
+\end{exercise}
+
+\begin{exercise}[\difficulty{1} Conventions]
+\label{exr:ch08-following}
+(a) Following conflicts are allowed in this book. Which entries would you add to the
+reservation table to enforce a one-cell safety gap, so that no agent may enter a cell
+at $t + 1$ that another agent leaves at $t$, and does the swap test remain necessary?
+(b) Under the disappear-at-target convention of \cref{ch:ch07} there are no parked
+entries. Determine, for every order of \cref{tab:ch08-orders}, whether the plan then
+succeeds and what it costs.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2} Trace the expensive order]
+\label{exr:ch08-trace}
+In the order $(3,1,2)$ of \cref{ex:ch08-three}, list the entries of the reservation
+table that lie in the top corridor and in $(1,3)$ after agents~3 and~1 have been
+planned, then run \cref{alg:ch08-ca} for agent~2 by hand with the Manhattan heuristic
+in the style of \cref{tab:ch08-trace}. Verify the path of \cref{fig:ch08-example}(b) and
+its cost $9$, and explain why the wait at $(0,3)$ at $t = 4$ and the dodge into
+$(1,3)$ at $t = 5$ are forced.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2} The pocket corridor]
+\label{exr:ch08-pocket}
+(a) Turn the proof of \cref{thm:ch08-incomplete} into a table: for the order $(1,2)$,
+list the cells agent~2 can occupy at $t = 1, 2, 3, 4$ given the straight path of
+agent~1, and show that the set is empty at $t = 4$. (b) Add a second pocket $(0,3)$
+above the fourth corridor cell. Which orders succeed now, with which paths and costs?
+(c) Is the cheapest of these plans optimal for the new instance? Give a lower-bound
+argument or check with \code{optimal\_soc}.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2} Well-formed instances]
+\label{exr:ch08-wellformed}
+(a) Show that well-formedness can be tested in $\bigO{k(\abs{V} + \abs{E})}$ time.
+(b) Name the single step of the proof of \cref{thm:ch08-wellformed} that uses the
+revised rule, and give a two-agent instance in which, without the rule, the first
+agent's shortest path reserves the start cell of the second agent. (c) Give a
+well-formed instance in which the independent shortest path of some agent passes
+through another agent's goal, and explain what \cref{alg:ch08-ca} returns for that
+agent in each of the two orders.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2} Heuristics that know about parked agents]
+\label{exr:ch08-hca}
+(a) Compute the true distance $\hcost^*(v)$ to $g_1 = (2,6)$ for every free cell of
+\cref{ex:ch08-three} and compare it with the Manhattan distance. (b) Use the code to
+count the expansions of \cref{alg:ch08-ca} for agent~1 in the order $(3,1,2)$ with both
+heuristics, and explain why both first explore the bottom corridor. (c) Modify the
+heuristic so that cells on which a higher-priority agent is parked count as obstacles.
+Is this heuristic still admissible? Give an instance in which it overestimates, and
+state a condition under which it is exact.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2} Oscillation in WHCA\textsuperscript{*}]
+\label{exr:ch08-whca}
+Two agents exchange the ends of a corridor of nine cells $(1,0), \dots, (1,8)$ whose
+only pocket is $(0,1)$. (a) Simulate \cref{alg:ch08-whca} by hand with $w = 2$ and
+$\delta = 1$ from the moment the agents are adjacent, and show that they back off and
+advance for ever. (b) Use \code{whca\_star} to find the smallest window that solves the
+instance, and explain what the search sees inside that window that it did not see with
+$w = 2$. (c) Why does the rotation of line~\ref{alg:ch08-whca:rotate} not help here?
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding: prioritized planning for two to five agents]
+\label{exr:ch08-coding}
+This is the Week~3 exercise of the study plan (\cref{ch:appA}). Starting from your
+space-time \astar of \cref{ch:ch04}, implement a reservation table with vertex, move
+and parked entries, Cooperative \astar with the goal-stay test, the priority loop with
+an optional revised rule, and an independent validator. Then create deliberate conflict
+cases with two to five agents on grids of about $10 \times 10$: a head-on meeting in a
+corridor with one pocket, a crossing at a junction, a goal that lies on another agent's
+shortest path, and a parked agent that cuts a corridor. For each case run every
+priority order, report which orders succeed and their sums of costs, and check every
+plan with the validator. Finally add the well-formedness test and random restarts, and
+reproduce the left panel of \cref{fig:ch08-orders} for $k \le 16$. Optional: implement
+priority-based search (\cref{sec:ch08-pbs}) on top of your code and compare it with the
+best of ten random orders.
+\end{exercise}
