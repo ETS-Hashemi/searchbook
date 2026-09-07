@@ -561,19 +561,19 @@ collects Steps 1--4 with a general share $\alpha$.
 }
 \Fn{\OrcaClosest{$\pos$, $\vel$, $r$, $\ttc$, $\dt$}}{
   \If{$\norm{\pos} \le r$}{
-    $\vect{c} \gets \pos/\dt$; $\rho \gets r/\dt$; $\vect{w} \gets \vel - \vect{c}$; $\vect{n} \gets \vect{w}/\norm{\vect{w}}$\tcp*{already overlapping: separate within one step}\label{alg:ch13-halfplane:overlap}
+    $\vect{c} \gets \pos/\dt$; $\rho \gets r/\dt$; $\vect{w} \gets \vel - \vect{c}$; $\vect{n} \gets \vect{w}/\norm{\vect{w}}$\label{alg:ch13-halfplane:overlap}\tcp*{already overlapping: separate within one step}
     \KwRet{$((\rho - \norm{\vect{w}})\,\vect{n},\ \vect{n})$}\;
   }
-  $\vect{c} \gets \pos/\ttc$; $\rho \gets r/\ttc$; $\vect{w} \gets \vel - \vect{c}$\tcp*{the disc that truncates the cone}\label{alg:ch13-halfplane:disc}
+  $\vect{c} \gets \pos/\ttc$; $\rho \gets r/\ttc$; $\vect{w} \gets \vel - \vect{c}$\label{alg:ch13-halfplane:disc}\tcp*{the disc that truncates the cone}
   \If{$\vect{w}\cdot\pos < 0$ \KwAnd $(\vect{w}\cdot\pos)^2 > r^2\,\norm{\vect{w}}^2$}{
-    $\vect{n} \gets \vect{w}/\norm{\vect{w}}$\tcp*{front sector: closest point on the arc}\label{alg:ch13-halfplane:arc}
+    $\vect{n} \gets \vect{w}/\norm{\vect{w}}$\label{alg:ch13-halfplane:arc}\tcp*{front sector: closest point on the arc}
     \KwRet{$((\rho - \norm{\vect{w}})\,\vect{n},\ \vect{n})$}\;
   }
   $\ell \gets \sqrt{\norm{\pos}^2 - r^2}$\tcp*{length of a tangent from the apex}
   \eIf{$\pos \times \vect{w} > 0$}{
-    $\vect{d} \gets \bigl(p_x\ell - p_y r,\ p_x r + p_y\ell\bigr)/\norm{\pos}^2$; $\vect{n} \gets (-d_y, d_x)$\tcp*{left leg}\label{alg:ch13-halfplane:left}
+    $\vect{d} \gets \bigl(p_x\ell - p_y r,\ p_x r + p_y\ell\bigr)/\norm{\pos}^2$; $\vect{n} \gets (-d_y, d_x)$\label{alg:ch13-halfplane:left}\tcp*{left leg}
   }{
-    $\vect{d} \gets \bigl(p_x\ell + p_y r,\ -p_x r + p_y\ell\bigr)/\norm{\pos}^2$; $\vect{n} \gets (d_y, -d_x)$\tcp*{right leg}\label{alg:ch13-halfplane:right}
+    $\vect{d} \gets \bigl(p_x\ell + p_y r,\ -p_x r + p_y\ell\bigr)/\norm{\pos}^2$; $\vect{n} \gets (d_y, -d_x)$\label{alg:ch13-halfplane:right}\tcp*{right leg}
   }
   $\vect{q} \gets (\vel\cdot\vect{d})\,\vect{d}$\tcp*{foot of the perpendicular on the leg}
   \KwRet{$(\vect{q} - \vel,\ \vect{n})$}\label{alg:ch13-halfplane:leg}\;
@@ -716,11 +716,11 @@ specialised to two dimensions as in the RVO2 library.
   $\vect{d} \gets (n_{i,y}, -n_{i,x})$\tcp*{along the boundary line, with $H_i$ on its left}
   $b \gets \vect{q}_i\cdot\vect{d}$; $\Delta \gets b^2 + v_{\max}^2 - \norm{\vect{q}_i}^2$\;
   \lIf{$\Delta < 0$}{\KwRet{\KwNil} (the line misses the disc)}
-  $t_- \gets -b - \sqrt{\Delta}$; $t_+ \gets -b + \sqrt{\Delta}$\tcp*{chord of the line inside the disc}\label{alg:ch13-lp:chord}
+  $t_- \gets -b - \sqrt{\Delta}$; $t_+ \gets -b + \sqrt{\Delta}$\label{alg:ch13-lp:chord}\tcp*{chord of the line inside the disc}
   \For{$j \gets 1$ \KwTo $i-1$}{
     $\vect{d}_j \gets (n_{j,y}, -n_{j,x})$; $\mathit{den} \gets \vect{d} \times \vect{d}_j$; $\mathit{num} \gets \vect{d}_j \times (\vect{q}_i - \vect{q}_j)$\;
     \If{$\abs{\mathit{den}} \le \eps$}{\lIf{$\mathit{num} < 0$}{\KwRet{\KwNil} (parallel, $H_j$ excludes the whole line)} \lElse{\KwContinue}}
-    \lIf{$\mathit{den} > 0$}{$t_+ \gets \min(t_+, \mathit{num}/\mathit{den})$} \lElse{$t_- \gets \max(t_-, \mathit{num}/\mathit{den})$}\label{alg:ch13-lp:clip}
+    \lIf{$\mathit{den} > 0$}{$t_+ \gets \min(t_+, \mathit{num}/\mathit{den})$} \lElse{$t_- \gets \max(t_-, \mathit{num}/\mathit{den})$\label{alg:ch13-lp:clip}}
     \lIf{$t_- > t_+$}{\KwRet{\KwNil}}
   }
   $t \gets \min\bigl(\max(\vect{d}\cdot(\vel^{\mathrm{pref}} - \vect{q}_i),\ t_-),\ t_+\bigr)$\label{alg:ch13-lp:clamp}\;
@@ -837,7 +837,7 @@ the agent half-planes a random order gives the expected linear running time.
 \Fn{\OrcaStep{agents, obstacles, $\ttc$, $\ttc_{\mathrm{obst}}$, $\dt$}}{
   \ForEach{agent $A$}{
     $\mathcal{H} \gets$ empty list\;
-    \ForEach{obstacle $O$ within sensing range}{append \OrcaHalfPlane{$A$, $O$, $\ttc_{\mathrm{obst}}$, $\dt$, $1$} to $\mathcal{H}$\tcp*{full responsibility, hard}\label{alg:ch13-step:obst}}
+    \ForEach{obstacle $O$ within sensing range}{append \OrcaHalfPlane{$A$, $O$, $\ttc_{\mathrm{obst}}$, $\dt$, $1$} to $\mathcal{H}$\label{alg:ch13-step:obst}\tcp*{full responsibility, hard}}
     \ForEach{neighbour $B$ within sensing range}{\label{alg:ch13-step:neigh}
       $\alpha \gets \tfrac12$ if $B$ runs \orca, else $1$\label{alg:ch13-step:share}\;
       append \OrcaHalfPlane{$A$, $B$, $\ttc$, $\dt$, $\alpha$} to $\mathcal{H}$\;
@@ -977,9 +977,10 @@ instance is not perfectly symmetric, as no real instance is.
   velocity change of agent~0 turned against the previous change, and
   ``velocity variation'' is the sum of its velocity changes over the run.}
   \label{tab:ch13-circle}
+  \setlength{\tabcolsep}{4.5pt}
   \begin{tabular}{@{}lrrrrrrr@{}}
   \toprule
-  Method & \makecell[r]{colliding\\steps} & \makecell[r]{colliding\\pairs} & \makecell[r]{min.\ separation\\(m), at $t$ (s)} & \makecell[r]{last\\arrival (s)} & \makecell[r]{mean path\\length (m)} & \makecell[r]{reversals\\agent 0} & \makecell[r]{velocity\\variation (m/s)}\\
+  Method & \makecell[r]{colliding\\steps} & \makecell[r]{colliding\\pairs} & \makecell[r]{min.\ sep.\\(m), at $t$ (s)} & \makecell[r]{last\\arrival (s)} & \makecell[r]{mean path\\length (m)} & \makecell[r]{reversals\\agent 0} & \makecell[r]{velocity\\var.\ (m/s)}\\
   \midrule
   no avoidance & 33 & 28 & $0.010$, $9.9$ & $20.3$ & $20.00$ & 1 & $2.05$\\
   sampled VO   & 25 &  4 & $0.393$, $11.0$ & $23.6$ & $20.45$ & 62 & $37.82$\\
@@ -1007,3 +1008,660 @@ past $v_{\max}$ and the projections of the preferred velocities point
 partly backwards while the cluster passes. That slowing-down is the
 behaviour the local safety layer of \cref{ch:ch24} wants: it buys time for
 the global planner instead of inventing a detour.
+
+% ---------------------------------------------------------------------
+\section{Properties: what \orca guarantees and what it does not}
+\label{sec:ch13-properties}
+
+\subsection{The pairwise guarantee}
+
+\begin{lemma}[The truncated velocity obstacle is convex]
+\label{thm:ch13-convex}
+For $\norm{\pos_{\mathrm{rel}}} > r$ the set $\VO^{\ttc}_{A|B}$ is open and
+convex, and at every boundary point $\vect{q}$ with outward unit normal
+$\vect{n}$ it lies entirely on the inner side of the tangent line:
+$\VO^{\ttc}_{A|B} \subseteq \set{\vel : (\vel - \vect{q})\cdot\vect{n} < 0}$.
+\end{lemma}
+\begin{proof}
+Openness follows from \cref{eq:ch13-vo-tau}, a union of open discs. For
+convexity let $\vel_1, \vel_2 \in \VO^{\ttc}_{A|B}$ with times
+$t_1, t_2 \in (0, \ttc]$ such that $t_i\vel_i \in \disc{\pos_{\mathrm{rel}}}{r}$,
+let $\lambda \in [0, 1]$ and $\vel = \lambda\vel_1 + (1-\lambda)\vel_2$.
+Define $t$ by $1/t = \lambda/t_1 + (1-\lambda)/t_2$; then
+$t \le \max(t_1, t_2) \le \ttc$ and
+\[
+  t\,\vel = \frac{t\lambda}{t_1}\,(t_1\vel_1) + \frac{t(1-\lambda)}{t_2}\,(t_2\vel_2)
+\]
+is a convex combination of two points of the disc, because the two
+coefficients are non-negative and sum to one. Hence $t\vel$ lies in the
+disc and $\vel \in \VO^{\ttc}_{A|B}$. The boundary of a convex set with a
+tangent line at $\vect{q}$ is supported by that line, and the boundary of
+$\VO^{\ttc}_{A|B}$ has a tangent line everywhere: on the arc and on the legs
+it is smooth, and at the two points where they meet the leg is tangent to
+the circle. Openness turns the weak inequality of the supporting line into a
+strict one.
+\end{proof}
+
+\begin{theorem}[Pairwise collision avoidance]
+\label{thm:ch13-pairwise}
+Let agents $A$ and $B$ with $\norm{\pos_{\mathrm{rel}}} > r$ know each
+other's positions, radii and current velocities exactly, and let both
+build their half-planes with the same horizon $\ttc$ from the same current
+velocities. If $\vel_A^{\mathrm{new}} \in \ORCA^{\ttc}_{A|B}$ and
+$\vel_B^{\mathrm{new}} \in \ORCA^{\ttc}_{B|A}$, then
+$\vel_A^{\mathrm{new}} - \vel_B^{\mathrm{new}} \notin \VO^{\ttc}_{A|B}$:
+flying these velocities, the discs of $A$ and $B$ do not overlap during the
+next $\ttc$ seconds.
+\end{theorem}
+\begin{proof}
+By \cref{eq:ch13-orca,eq:ch13-orca-mirror},
+$(\vel_A^{\mathrm{new}} - \vel_A - \tfrac12\vect{u})\cdot\vect{n} \ge 0$ and
+$(\vel_B^{\mathrm{new}} - \vel_B + \tfrac12\vect{u})\cdot(-\vect{n}) \ge 0$.
+Adding the two inequalities gives
+\[
+  \bigl(\vel_A^{\mathrm{new}} - \vel_B^{\mathrm{new}} - (\vel_A - \vel_B) - \vect{u}\bigr)\cdot\vect{n}
+  = \bigl(\vel_{\mathrm{rel}}^{\mathrm{new}} - \vect{q}\bigr)\cdot\vect{n} \ge 0,
+\]
+where $\vect{q} = \vel_{\mathrm{rel}} + \vect{u}$ is the boundary point of
+Step~3 and $\vect{n}$ its outward normal. By \cref{thm:ch13-convex} every
+point of $\VO^{\ttc}_{A|B}$ satisfies the opposite strict inequality, so
+$\vel_{\mathrm{rel}}^{\mathrm{new}} \notin \VO^{\ttc}_{A|B}$, and by
+\cref{def:ch13-vo} the discs do not overlap for $t \in (0, \ttc]$.
+\end{proof}
+
+The proof uses nothing about how the two agents chose their velocities
+inside their half-planes, which is what makes the guarantee compose. The
+same computation with shares $\alpha_A$, $\alpha_B$ produces
+$(\alpha_A + \alpha_B)\,\vect{u}$ in place of $\vect{u}$, and the conclusion
+holds exactly when $\alpha_A + \alpha_B = 1$ (\cref{exr:ch13-shares}); with
+$\alpha_B = 0$ the agent $B$ contributes nothing and must therefore keep the
+velocity $\vel_B$ that $A$ used, which is the non-cooperative case of
+\cref{sec:ch13-noncooperative}.
+
+\begin{corollary}[Collision-free motion of $n$ agents]
+\label{thm:ch13-nbody}
+Let $n$ agents run \cref{alg:ch13-step} with the same horizon $\ttc$ from
+the same snapshot, with share $\tfrac12$ towards each other and share $1$
+towards obstacles and intruders that keep their assumed velocities. If every
+agent's program \cref{eq:ch13-program} is feasible, then no two agents and
+no agent and obstacle overlap during the next $\ttc$ seconds. If the step is
+repeated every $\dt \le \ttc$ and the programs stay feasible, the motion is
+collision-free for as long as this holds.
+\end{corollary}
+\begin{proof}
+A feasible program returns a velocity in every half-plane of the agent
+(\cref{thm:ch13-lp}), so \cref{thm:ch13-pairwise} applies to every pair
+of agents and its non-cooperative variant to every agent--obstacle pair.
+Each guarantee covers $\ttc \ge \dt$ seconds, hence the whole step, and
+the next step starts from the new snapshot.\index{ORCA!guarantee}
+\end{proof}
+
+\subsection{The program}
+
+\begin{proposition}[The per-agent program]
+\label{thm:ch13-lp}
+If the feasible set of \cref{eq:ch13-program} is non-empty, the program has
+a unique solution and \cref{alg:ch13-lp} returns it after $\bigO{m^2}$
+operations in the worst case; if the half-planes are processed in uniformly
+random order, the expected number of operations is $\bigO{m}$. If the
+feasible set is empty, the algorithm reports the smallest index $i$ such
+that $H_1 \cap \dots \cap H_i \cap \disc{\vect{0}}{v_{\max}} = \emptyset$.
+\end{proposition}
+\begin{proof}[Proof sketch]
+The feasible set is closed and convex and the objective is strictly convex,
+which gives existence and uniqueness. Correctness is the invariant of the
+walkthrough: the optimum for $H_1, \dots, H_i$ equals the optimum for
+$H_1, \dots, H_{i-1}$ if the latter satisfies $H_i$, and lies on the
+boundary line of $H_i$ otherwise, where \OrcaLPLine finds it exactly by a
+one-dimensional minimisation over an interval. For the running time,
+iteration $i$ costs $\bigO{1}$ if $H_i$ is satisfied and $\bigO{i}$
+otherwise. Backwards analysis~\cite{seidel1991small,deberg2008computational}:
+the optimum for $H_1, \dots, H_i$ is determined by at most two of the
+half-planes (its boundary point lies on at most two boundary lines, or on one
+line and the circle), so if the order is random the probability that $H_i$
+is one of the half-planes that determine it, which is the only case in
+which $H_i$ can be violated by the optimum for the first $i-1$, is at most
+$2/i$. The expected cost of iteration $i$ is $\bigO{1} + \bigO{i}\cdot 2/i =
+\bigO{1}$, and the total is $\bigO{m}$.
+\end{proof}
+
+With $k$ neighbours per agent, one step of \cref{alg:ch13-step} costs
+$\bigO{k}$ per agent for the half-planes and the program, plus the
+neighbour query, $\bigO{\log n + k}$ with a kd-tree, so $\bigO{n(\log n + k)}$
+per step for the whole swarm. The RVO2 library simulates thousands of agents
+in real time on one processor core.\index{ORCA!complexity}
+
+\subsection{What \orca does not guarantee}
+\label{sec:ch13-limits}
+
+The guarantee of \cref{thm:ch13-nbody} is conditional, and every condition
+fails somewhere in a real swarm; the honest summary is that \orca is a
+\emph{safety filter} for the next $\ttc$ seconds and nothing more.
+\begin{itemize}
+  \item \emph{Feasibility.} The half-planes may not intersect. The fallback
+  of \cref{alg:ch13-dense} then minimises the largest violation, which
+  postpones the first collision but does not exclude it.
+  \item \emph{Exact, shared information.} Both agents must use the same
+  $\pos_{\mathrm{rel}}$, $r$, $\ttc$ and current velocities. Sensing noise,
+  latency and different horizons make the two half-planes slightly
+  inconsistent; the radius margin of \cref{sec:ch13-implementation} absorbs
+  small inconsistencies, and the intruder case absorbs the large ones by
+  taking full responsibility.
+  \item \emph{Instantaneous velocity changes.} The agents are assumed to fly
+  the new velocity immediately. A drone tracks it with a delay and an error
+  (\cref{ch:ch02,ch:ch14}); again the radius margin pays for it.
+  \item \emph{No goal-reaching, no completeness.} \orca chooses the closest
+  permitted velocity to the preferred one, step by step, with no memory and
+  no lookahead beyond $\ttc$. It can stop an agent forever.
+\end{itemize}
+
+\begin{proposition}[\orca is not a global planner]
+\label{thm:ch13-incomplete}
+There are instances with a collision-free solution in which agents running
+\cref{alg:ch13-step} never reach their goals.
+\end{proposition}
+\begin{proof}[Proof by example]
+Two agents of radius $r_0$ face each other in a corridor of width $3r_0$
+with a side bay near one end, so that they can pass only if one agent
+enters the bay and waits. Both preferred velocities point along the
+corridor. The wall half-planes forbid any lateral velocity that would reach
+a wall within $\ttc_{\mathrm{obst}}$, so the only permitted velocities lie
+along the corridor. As the agents approach, the cone half-angle $\theta$
+grows towards $90^\circ$ and the half-planes of the pair forbid every
+relative velocity that closes the gap, so the programs return velocities of
+decreasing speed and finally $\vect{0}$ for both: the closest velocity to
+$\vel^{\mathrm{pref}}$ among the permitted ones is to stand still, because
+backing up into the bay is further from $\vel^{\mathrm{pref}}$ than stopping,
+and no half-plane ever asks for it. The state repeats forever
+(\cref{exr:ch13-corridor}).
+\end{proof}
+
+Perfectly symmetric configurations produce a milder version of the same
+effect, agents that slow down and hover instead of passing, which is why
+implementations break symmetry by a small random perturbation of the
+preferred velocities, as \cref{sec:ch13-simulation} did. The remedy for
+deadlocks is not inside \orca: it is the global planner of the hybrid
+architecture, which sequences the corridor in the nominal paths, and the
+replanning layer, which detects that an agent has been stopped for too long
+and plans around (\cref{ch:ch24}).\index{ORCA!deadlock}\index{completeness!ORCA}
+
+% ---------------------------------------------------------------------
+\section{Variants and extensions}
+\label{sec:ch13-variants}
+
+\paragraph{HRVO.}
+The hybrid reciprocal velocity obstacle~\cite{snape2011hrvo} attacks the
+side-choice problem of RVO directly: for the side on which the agent is
+already passing it uses the RVO leg, for the other side the VO leg, so that
+crossing over to the wrong side requires the full change instead of half.
+It reduces the reciprocal dance markedly on real differential-drive robots,
+but it keeps the non-convex cone and therefore the sampled velocity choice
+and the lack of an $n$-agent guarantee.
+
+\paragraph{Static obstacles.}
+A static disc is an agent with $\vel_B = \vect{0}$ and share $1$. For
+polygonal obstacles the velocity obstacle of a line segment is the union of
+the velocity obstacles of its points, whose boundary consists of two legs
+tangent to the discs around the endpoints and, after truncation, of a
+stadium-shaped front; RVO2 builds one half-plane per visible segment with
+full responsibility and a separate, shorter horizon $\ttc_{\mathrm{obst}}$,
+and places these half-planes first so that they stay hard in the dense
+fallback.
+
+\paragraph{Non-holonomic robots.}
+A differential-drive robot cannot fly an arbitrary velocity instantly.
+Alonso-Mora et al.\ keep the \orca half-planes and restrict the velocity
+choice to the set of holonomic velocities that the robot can track within a
+bounded error $\eps$ over the next interval, a non-convex set that they
+approximate by convex polygons, while inflating the radius by
+$\eps$~\cite{alonsomora2013optimal}. The same recipe applies to a
+multirotor with a velocity controller: measure the tracking error, inflate
+the radius by it, and clip the velocity change per step to what the
+controller delivers (\cref{ch:ch14} treats the acceleration limits
+explicitly).
+
+\paragraph{Uncertainty.}
+An intruder's future velocity is a prediction with a covariance
+(\cref{ch:ch18,ch:ch20}). Inflating $r_B$ by a multiple of the predicted
+position standard deviation at the horizon turns \cref{eq:ch13-orca-full}
+into a conservative constraint, which is what the drone system of this book
+does. Zhu and Alonso-Mora formulate the same idea as a chance constraint,
+a collision probability below a chosen level, inside a model predictive
+controller for multirotors~\cite{zhu2019chance}; \cref{ch:ch21} introduces
+that controller, and the linearised chance constraint has exactly the shape
+of a half-plane with an uncertainty-dependent margin.
+
+\paragraph{Responsibility shares and priorities.}
+Any split $\alpha_A + \alpha_B = 1$ keeps the guarantee. A share of
+$(1, 0)$ gives $B$ the right of way, which a swarm can use to let a drone
+with a critical battery through, or to let a formation leader keep its
+course while the followers avoid; the shares must be agreed on both sides,
+otherwise \cref{thm:ch13-pairwise} fails (see the first pitfall below).
+
+% ---------------------------------------------------------------------
+\section{Implementation notes}
+\label{sec:ch13-implementation}
+
+The file \code{ch13\_orca.py} implements everything in this chapter with
+plain tuples and a few NumPy calls; \cref{lst:ch13-cases,lst:ch13-lp,lst:ch13-line}
+show the three functions that carry the mathematics. The geometry helpers
+(\code{dot}, \code{cross}, \code{ray\_circle\_intersection}, \dots) are
+copied from \code{ch02\_toolbox.py} so that the file stands alone.
+
+\begin{lstlisting}[caption={The case analysis of \cref{thm:ch13-cases} (from \code{code/ch13\_orca.py}, docstring omitted). The function returns $\vect{u}$, $\vect{n}$ and the name of the case.},label={lst:ch13-cases}]
+def vo_closest_boundary_point(p, v_rel, r, tau, dt):
+    dist2 = dot(p, p)
+    r2 = r * r
+    if dist2 > r2:
+        c = scale(p, 1.0 / tau)              # centre of the truncating disc
+        rho = r / tau                        # its radius
+        w = sub(v_rel, c)                    # from that centre to v_rel
+        w2 = dot(w, w)
+        wp = dot(w, p)
+        if wp < 0.0 and wp * wp > r2 * w2:
+            # angle(w, -p) < arccos(r / |p|): the closest point is on the arc
+            w_len = math.sqrt(w2)
+            n = scale(w, 1.0 / w_len)
+            return scale(n, rho - w_len), n, "disc"
+        leg = math.sqrt(dist2 - r2)          # length of a tangent from 0
+        if cross(p, w) > 0.0:
+            d = ((p[0] * leg - p[1] * r) / dist2,
+                 (p[0] * r + p[1] * leg) / dist2)   # unit vector, left leg
+            n = (-d[1], d[0])                        # outward: d rotated +90
+            case = "left leg"
+        else:
+            d = ((p[0] * leg + p[1] * r) / dist2,
+                 (-p[0] * r + p[1] * leg) / dist2)  # unit vector, right leg
+            n = (d[1], -d[0])                        # outward: d rotated -90
+            case = "right leg"
+        q = scale(d, dot(v_rel, d))              # projection onto the leg
+        return sub(q, v_rel), n, case
+    # the discs already overlap: leave the disc of centre p/dt, radius r/dt
+    c = scale(p, 1.0 / dt)
+    rho = r / dt
+    w = sub(v_rel, c)
+    w_len = norm(w)
+    if w_len > EPS:
+        n = scale(w, 1.0 / w_len)
+    elif dist2 > 0.0:
+        n = unit(scale(p, -1.0))
+    else:
+        n = (1.0, 0.0)
+    return scale(n, rho - w_len), n, "overlap"
+\end{lstlisting}
+
+\begin{lstlisting}[caption={The half-plane (\cref{alg:ch13-halfplane}) and the incremental program (\cref{alg:ch13-lp}); \code{HalfPlane.violation(v)} is $-(\vel - \vect{q})\cdot\vect{n}$ and \code{direction} is $\vect{n}$ rotated by $-90^\circ$.},label={lst:ch13-lp}]
+def orca_half_plane(agent, other, tau, dt=0.1, reciprocal=True):
+    p = sub(other.position, agent.position)
+    v_rel = sub(agent.velocity, other.velocity)
+    r = agent.radius + other.radius
+    u, n, case = vo_closest_boundary_point(p, v_rel, r, tau, dt)
+    share = 0.5 if reciprocal else 1.0
+    return OrcaLine(n, add(agent.velocity, scale(u, share)), u, case)
+
+
+def lp_incremental(lines, v_max, v_opt, direction_opt=False):
+    if direction_opt:
+        v = scale(v_opt, v_max)
+    elif dot(v_opt, v_opt) > v_max * v_max:
+        v = scale(v_opt, v_max / norm(v_opt))
+    else:
+        v = v_opt
+    for i, line in enumerate(lines):
+        if line.violation(v) > 0.0:
+            new_v = _lp_on_line(lines, i, v_max, v_opt, direction_opt)
+            if new_v is None:
+                return v, i
+            v = new_v
+    return v, len(lines)
+\end{lstlisting}
+
+\begin{lstlisting}[caption={The one-dimensional program on the boundary line of \code{lines[i]} (the line program of \cref{alg:ch13-lp}); with \code{direction\_opt} it maximises along \code{v\_opt} instead, as the dense fallback needs.},label={lst:ch13-line}]
+def _lp_on_line(lines, i, v_max, v_opt, direction_opt):
+    line = lines[i]
+    d = line.direction
+    q = line.point
+    b = dot(q, d)
+    disc = b * b + v_max * v_max - dot(q, q)
+    if disc < 0.0:
+        return None                          # the line misses the disc
+    root = math.sqrt(disc)
+    t_left, t_right = -b - root, -b + root   # the chord inside the disc
+    for j in range(i):
+        dj = lines[j].direction
+        den = cross(d, dj)
+        num = cross(dj, sub(q, lines[j].point))
+        if abs(den) <= EPS:                  # parallel boundaries
+            if num < 0.0:
+                return None                  # line j excludes all of line i
+            continue
+        t = num / den
+        if den >= 0.0:
+            t_right = min(t_right, t)        # line j cuts the chord on the right
+        else:
+            t_left = max(t_left, t)          # ... on the left
+        if t_left > t_right:
+            return None
+    if direction_opt:                        # go as far as possible along v_opt
+        t = t_right if dot(v_opt, d) > 0.0 else t_left
+    else:                                    # closest point to v_opt
+        t = min(max(dot(d, sub(v_opt, q)), t_left), t_right)
+    return add(q, scale(d, t))
+\end{lstlisting}
+
+\paragraph{Libraries.}
+The reference implementation is the RVO2 library of the \orca authors
+(C++, with ports to several languages, and RVO2-3D for half-spaces). Its
+per-agent parameters map directly onto this chapter: \code{radius},
+\code{maxSpeed}, \code{timeHorizon} ($\ttc$), \code{timeHorizonObst}
+($\ttc_{\mathrm{obst}}$), \code{neighborDist} and \code{maxNeighbors} (the
+sensing range and the cap on the number of half-planes), and the global
+\code{timeStep} ($\dt$). Reading its \code{Agent.cpp} after this chapter is
+a good exercise: \cref{alg:ch13-halfplane,alg:ch13-lp,alg:ch13-dense} are
+its \code{computeNewVelocity}, \code{linearProgram2} with
+\code{linearProgram1}, and \code{linearProgram3}.
+
+\paragraph{Neighbour queries.}
+Every agent needs its neighbours within the sensing range, and a linear
+scan costs $\bigO{n}$ per agent. RVO2 rebuilds a kd-tree over the agent
+positions at every step and queries it; the same structure serves the
+nearest-neighbour searches of \cref{ch:ch16}. Cap the number of neighbours
+by distance: the closest $10$ to $20$ agents determine the program, the
+rest add half-planes that are never active.
+
+\paragraph{Horizon and time step.}
+The guarantee covers $\ttc$ seconds and the velocity is recomputed every
+$\dt$, so $\ttc$ must exceed $\dt$ by a comfortable factor, typically
+$\ttc = 10$ to $50\,\dt$. A larger $\ttc$ makes agents react earlier and more
+gently, but it also makes the half-planes more restrictive, since a
+half-plane forbids velocities that lead to a collision anywhere within
+$\ttc$, and it makes infeasibility and hovering more likely in crowds.
+Obstacles get a shorter $\ttc_{\mathrm{obst}}$, because a wall is not going
+to move out of the way and an agent that fears it from far away hugs the
+middle of every corridor.
+
+\paragraph{The preferred velocity.}
+$\vel^{\mathrm{pref}}$ is the interface to the global planner: the vector
+towards the next waypoint of the nominal path at cruise speed, scaled down
+near the goal so that the agent does not overshoot in the last step
+(\code{preferred\_velocity} in the code). It is never the raw direction to
+the final goal in a cluttered map, which would make \orca a potential-field
+method with all its local minima (\cref{ch:ch15}).
+
+\paragraph{Radius inflation.}
+The radius that goes into \cref{alg:ch13-halfplane} is not the physical
+radius. Add the velocity tracking error of the controller over one step,
+the localisation error, half of the position uncertainty of the neighbour
+and, for an intruder, the predicted position uncertainty at the horizon.
+The margin also converts the grazing contact that the guarantee permits into
+a real clearance, and it absorbs the asynchrony between agents that do not
+update at exactly the same instant.
+
+\begin{pitfall}[Mixing reciprocal and full responsibility]
+The shares must sum to one \emph{per pair}, and both sides must agree. Two
+common bugs: treating an intruder that does not react as a reciprocal
+neighbour ($\alpha = \tfrac12$ on one side, $0$ on the other), after which the
+relative velocity moves only halfway out of the cone and the collision
+course remains, as in the last lines of \cref{tab:ch13-example}; and
+treating cooperative neighbours with full responsibility on both sides
+($\alpha = 1$ and $1$), which is safe but is exactly the velocity obstacle
+rule of \cref{thm:ch13-dance}, and the dance returns. Decide the share from
+the \emph{type} of the neighbour (swarm mate, intruder, obstacle), never
+from its current behaviour.
+\end{pitfall}
+
+\begin{pitfall}[The normal points the wrong way, or the disc is forgotten]
+$\vect{n}$ must be the \emph{outward} normal of $\VO^{\ttc}$ at the closest
+point in every case: away from the truncating disc's centre on the arc,
+and the leg direction rotated by $+90^\circ$ on the left leg and by
+$-90^\circ$ on the right leg. A sign error in one case gives a half-plane
+on the wrong side, and the program cheerfully returns a velocity that leads
+into the cone; the symptom is agents that avoid correctly in most
+encounters and collide in a few. Test every case against
+\cref{thm:ch13-cases} the way the self-test does: the point
+$\vel_{\mathrm{rel}} + \vect{u}$ must lie on the boundary, and
+$\vel_{\mathrm{rel}} + \vect{u} \pm \eps\vect{n}$ must lie outside and
+inside. The second bug is to solve the program without the disc: the line
+program then has an unbounded interval, the returned velocity can exceed
+$v_{\max}$, and the agent cannot fly it, so the relative velocity that the
+guarantee is about is never realised.
+\end{pitfall}
+
+\begin{pitfall}[Horizon, time step and agents that must hold a formation]
+With $\ttc < \dt$ the guarantee expires before the next update and agents
+can overlap within one step; with $\ttc$ far larger than the time an agent
+needs to cross the sensing range, every visible neighbour produces an
+active half-plane and the swarm hovers or the program turns infeasible.
+Choose $\ttc$ from the closing speed and the sensing range, and keep
+$\ttc_{\mathrm{obst}}$ shorter. Finally, do not run \orca between the
+members of a tight formation with the formation spacing as their separation:
+the half-planes are permanently active, they fight the formation controller
+of \cref{ch:ch23}, and the formation dissolves into hovering. Keep formation
+mates apart by the controller, use \orca between formations and against
+intruders, or give the leader the right of way with shares $(1, 0)$.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{Where this fits in the drone system}
+\label{sec:ch13-drone}
+
+\begin{dronebox}
+\orca is the local safety layer of the four-layer architecture of
+\cref{ch:ch24}, the Week~6 topic of the study plan (\cref{ch:appA}). It
+receives from the global planner (\cbs or \ecbs, \cref{ch:ch09,ch:ch10}) the
+nominal time-indexed path of each drone and turns it into the preferred
+velocity: towards the next waypoint at cruise speed. While no predicted
+conflict is inside the safety horizon, the half-planes are inactive and the
+drone flies its nominal path exactly. When the prediction layer
+(\cref{ch:ch18,ch:ch20}) reports an intruder whose predicted trajectory
+enters the safety horizon, the trigger of \cref{ch:ch24} switches the local
+layer on: the swarm mates within sensing range become reciprocal
+half-planes with share $\tfrac12$, and the intruder becomes a half-plane
+with \emph{full} responsibility, built from its predicted velocity and a
+radius inflated by the predicted position uncertainty at the horizon, so
+that the drone alone does all the avoiding and the constraint stays
+conservative when the prediction is poor. The layer delivers one velocity
+command per step to the flight controller and reports two things upwards:
+whether its program was feasible, and how far the drone has drifted from
+the nominal path. When the conflict clears, the preferred velocity points at
+a waypoint further along the nominal path and \orca reconnects to it by
+itself. When the drift is too large, the program has been infeasible or the
+drone has been stopped for longer than a threshold, the replanning layer
+(\dstarlite or \astar, \cref{ch:ch05}) takes over, because \orca cannot get
+out of a deadlock on its own (\cref{thm:ch13-incomplete}). The guarantee that
+survives the integration is the pairwise one of \cref{thm:ch13-pairwise},
+per step and per horizon; everything beyond it, reaching the goal, keeping
+the formation, staying within communication range, is the job of the other
+layers.
+\end{dronebox}
+
+% ---------------------------------------------------------------------
+\section{Summary}
+\begin{summary}
+\begin{itemize}
+  \item Two agents that avoid each other with plain velocity obstacles
+        react to each other's stale velocities and oscillate with period two:
+        both swerve, both return, both swerve.
+  \item RVO makes each agent take half of the velocity change,
+        $\RVO_{A|B}(\vel_B, \vel_A) = \set{\vel : 2\vel - \vel_A \in \vel_B + \VO_{A|B}}$,
+        the cone with its apex moved to $\tfrac12(\vel_A + \vel_B)$. For two
+        agents that pass on the same side this removes the oscillation; with
+        several agents or disagreeing sides the reciprocal dance returns, and
+        there is no guarantee.
+  \item \orca builds, for each pair and horizon $\ttc$, the truncated cone
+        $\VO^{\ttc}_{A|B}$, takes the current relative velocity, computes the
+        smallest change $\vect{u}$ to the boundary (arc, left leg, right leg,
+        or the one-step disc when already overlapping) with the outward normal
+        $\vect{n}$, and permits $A$ the half-plane
+        $\set{\vel : (\vel - (\vel_A + \tfrac12\vect{u}))\cdot\vect{n} \ge 0}$;
+        $B$ gets the mirror half-plane with $-\vect{u}$ and $-\vect{n}$.
+  \item Each agent chooses the velocity closest to its preferred one inside
+        all its half-planes and the disc $\norm{\vel} \le v_{\max}$: a
+        two-dimensional convex program solved exactly by the incremental
+        linear program in expected linear time. If the intersection is empty,
+        the dense fallback minimises the largest violation.
+  \item Against an obstacle or an intruder that does not react, the agent
+        takes full responsibility: the half-plane through $\vel_A + \vect{u}$.
+        Shares must sum to one per pair. In three dimensions the same
+        construction in the plane of $\pos_{\mathrm{rel}}$ and
+        $\vel_{\mathrm{rel}}$ gives a half-space.
+  \item If all agents use the same horizon from the same snapshot and every
+        program is feasible, no pair overlaps within $\ttc$. \orca is not a
+        global planner: it has no lookahead, no memory and no completeness,
+        and it deadlocks in corridors and symmetric configurations.
+  \item In the circle scenario, no avoidance collides for all $28$ pairs,
+        the velocity obstacle rule still collides for four and reverses its
+        velocity change $62$ times, RVO is collision-free but jittery, and
+        \orca is collision-free with two reversals and paths $1.5\,\%$ longer
+        than straight lines.
+\end{itemize}
+\end{summary}
+
+\paragraph{Further reading.}
+Velocity obstacles are due to Fiorini and Shiller~\cite{fiorini1998motion};
+the reciprocal velocity obstacle to van den Berg, Lin and
+Manocha~\cite{vandenberg2008rvo}, and \orca, with the optimality proof, the
+dense fallback and the RVO2 library, to van den Berg, Guy, Lin and
+Manocha~\cite{vandenberg2011orca}. The hybrid reciprocal velocity obstacle
+is by Snape, van den Berg, Guy and Manocha~\cite{snape2011hrvo}, the
+non-holonomic extension by Alonso-Mora et al.~\cite{alonsomora2013optimal},
+and the chance-constrained formulation for multirotors by Zhu and
+Alonso-Mora~\cite{zhu2019chance}. The randomised incremental linear program
+is Seidel's algorithm~\cite{seidel1991small}; the textbook treatment,
+including the three-dimensional version and the backwards analysis, is
+Chapter~4 of de Berg, Cheong, van Kreveld and
+Overmars~\cite{deberg2008computational}. LaValle's
+book~\cite{lavalle2006planning} places velocity-space planning among
+moving obstacles in the wider context of planning in time-varying
+environments.
+
+% ---------------------------------------------------------------------
+\section{Exercises}
+\label{sec:ch13-exercises}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch13-mirror}
+Starting from \cref{def:ch13-orca}, show in detail that the half-plane of $B$
+with respect to $A$ has the point $\vel_B - \tfrac12\vect{u}$ and the normal
+$-\vect{n}$: write down $\VO^{\ttc}_{B|A}$, its closest boundary point to
+$\vel_B - \vel_A$, and the corresponding change and normal. Then add the two
+half-plane inequalities and show that the sum says that the new relative
+velocity lies on the outer side of the tangent line at $\vect{q}$.
+\end{exercise}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch13-by-hand}
+Repeat the worked example of \cref{sec:ch13-example} with B at
+$\pos_B = (4, -0.5)$ instead of $(4, 0.5)$, everything else unchanged. Which
+leg is closest? Give $\vect{u}$, $\vect{n}$, the point and normal of A's
+half-plane and $\vel_A^{\mathrm{new}}$, and explain why the numbers are the
+mirror images of \cref{tab:ch13-example}. Check with
+\code{orca\_half\_plane}.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch13-arc-case}
+With $\pos_{\mathrm{rel}} = (4, 0.5)$, $r = 1$ and $\ttc = 4$ as in the
+worked example, take $\vel_{\mathrm{rel}} = (0.4, 0.05)$. (a) Show that this
+relative velocity is outside $\VO^{\ttc}_{A|B}$ and compute the time at which
+the discs would touch. (b) Apply \cref{thm:ch13-cases}: which case applies,
+and what are $\vect{q}$, $\vect{u}$ and $\vect{n}$? What does the sign of
+$\vect{u}\cdot\vect{n}$ tell you? (c) Prove the claim in the proof sketch of
+\cref{thm:ch13-cases} that in the leg case the foot of the perpendicular
+lies beyond the tangent point, that is, on the boundary of
+$\VO^{\ttc}_{A|B}$ and not on the extension of the leg towards the apex.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch13-shares}
+Let $A$ use the share $\alpha_A$ and $B$ the share $\alpha_B$ in
+\cref{alg:ch13-halfplane}. (a) Redo the proof of \cref{thm:ch13-pairwise} and
+show that the new relative velocity is guaranteed to lie outside
+$\VO^{\ttc}_{A|B}$ exactly when $\alpha_A + \alpha_B = 1$; explain why both
+$\alpha_A + \alpha_B > 1$ and $< 1$ can fail, using the sign of
+$\vect{u}\cdot\vect{n}$. (b) In the worked example, let B be an intruder that
+keeps $\vel_B = (-1, 0)$ while A uses $\alpha_A = \tfrac12$. Compute the new
+relative velocity and its angle from $\pos_{\mathrm{rel}}$ and conclude that
+the pair is still on a collision course. (c) What happens if two cooperative
+agents both use $\alpha = 1$? Relate the answer to \cref{thm:ch13-dance}.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch13-rvo-truncated}
+Prove \cref{thm:ch13-rvo-apex} for the truncated cone: show that
+$\set{\vel : 2\vel - \vel_A \in \vel_B + \VO^{\ttc}_{A|B}} =
+\tfrac12(\vel_A + \vel_B) + \VO^{2\ttc}_{A|B}$. Why does the horizon double,
+and what does this mean for an implementation that wants RVO agents to react
+to collisions within $\ttc$ seconds?
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch13-lp-by-hand}
+Take the three half-planes of \cref{fig:ch13-lp}, $H_1$ through
+$(0.9, -0.1)$ with normal $(-0.2, -0.98)$, $H_2$ through $(-0.4, 0.2)$ with
+normal $(0.94, 0.34)$, $H_3$ through $(0.5, -0.9)$ with normal
+$(-0.5, 0.866)$, with $v_{\max} = 1.5$ and $\vel^{\mathrm{pref}} = (1.2, 0.3)$.
+(a) Run \cref{alg:ch13-lp} by hand in the order $H_1, H_2, H_3$ and in the
+order $H_3, H_2, H_1$; report the calls to \OrcaLPLine and the result.
+(b) Prove the claim of the walkthrough: if the optimum for the first $i-1$
+half-planes violates $H_i$, the optimum for the first $i$ half-planes lies
+on the boundary line of $H_i$. (c) Now let $\vel^{\mathrm{pref}} = (1.6, 0.4)$
+and show where the disc enters the computation.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch13-infeasible}
+Construct three half-planes whose intersection with the disc
+$\norm{\vel} \le 1.5$ is empty, for instance three lines forming a triangle
+that lies outside the disc with the permitted sides facing away from it.
+(a) Solve \cref{eq:ch13-dense} for your instance geometrically: the solution
+equalises the violations of the active half-planes. (b) Walk through
+\cref{alg:ch13-dense} and identify the bisector half-planes it constructs.
+(c) Explain why the result does not depend on $\vel^{\mathrm{pref}}$ and
+whether that is desirable for a drone.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch13-corridor}
+Two agents of radius $0.5$ face each other in a corridor of width $1.5$
+along the $x$-axis, walls at $y = \pm 0.75$ represented by discs of radius
+$0.5$ spaced $0.2$ apart with their centres at $y = \pm 1.25$. (a) Write down
+the half-planes that the two nearest wall discs induce on an agent flying
+$(1, 0)$ at $y = 0$ with $\ttc_{\mathrm{obst}} = 2$ and show that they
+forbid every velocity with $\abs{v_y}$ above a threshold that you compute.
+(b) Argue that as the agents approach, the program of each returns
+velocities of decreasing speed and finally $\vect{0}$, and that the state is
+then a fixed point of \cref{alg:ch13-step}. (c) Propose two remedies, one
+inside the local layer (a share or priority rule) and one in the
+architecture of \cref{ch:ch24}, and discuss what each guarantees. Simulate
+the instance with \code{ch13\_orca.py} if you want to see the stall.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch13-coding}
+This is the coding exercise of Week~6. Build a 2D simulation with two
+groups of four agents whose straight paths cross at right angles
+(\code{crossing\_scenario} in \code{ch13\_orca.py} gives the instance) and
+compare no avoidance, the velocity obstacle rule and \orca. Report for each
+the number of colliding pairs, the smallest separation, the last arrival
+time, the mean path length and the number of velocity reversals, as in
+\cref{tab:ch13-circle}; plot the traces and the smallest separation over time
+as in \cref{fig:ch13-circle}. Then vary $\ttc \in \set{2, 5, 10}$ and the
+group spacing, and describe when the \orca program becomes infeasible and
+what the dense fallback does then. Finally add an intruder that flies
+straight through the crossing without avoiding, treat it with full
+responsibility, and check that no swarm agent collides with it.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch13-3d}
+Use \code{orca\_half\_space\_3d} to build the half-spaces of six drones that
+start on a sphere of radius $10$ and fly to their antipodal points. Solve
+the three-dimensional program either by implementing the recursive
+incremental algorithm (when a half-space is violated, solve the
+two-dimensional program of \cref{alg:ch13-lp} on its boundary plane) or,
+to start with, by sampling velocities in the ball $\norm{\vel} \le v_{\max}$
+and choosing the closest feasible sample to $\vel^{\mathrm{pref}}$. Verify
+that the smallest centre distance never drops below $r_A + r_B$ and compare
+the running times of the two solvers.
+\end{exercise}
