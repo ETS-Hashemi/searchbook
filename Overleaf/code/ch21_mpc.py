@@ -153,7 +153,7 @@ def _polish(H, f, G, l, u, z, y):
 
 def solve_qp(H, f, G, l, u, z0=None, y0=None, rho=0.1, sigma=1e-6, alpha=1.6,
              eps_abs=1e-4, eps_rel=1e-4, max_iter=5000, polish=True,
-             restart_at=800, eps_inaccurate=1e-3) -> QPResult:
+             restart_at=2500, eps_inaccurate=1e-3) -> QPResult:
     """Solve  min 1/2 z'Hz + f'z  s.t.  l <= Gz <= u  by ADMM (OSQP iteration).
 
     H must be positive definite (add a small multiple of I otherwise).  Use

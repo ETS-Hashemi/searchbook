@@ -1,4 +1,684 @@
 \chapter{The Dynamic Window Approach}
 \label{ch:ch14}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode are prefixed with "Dwa" to stay unique
+% across the book.
+\SetKwFunction{DwaCommand}{DwaCommand}
+\SetKwFunction{DwaCandidates}{WindowCandidates}
+\SetKwFunction{DwaFreeDistance}{FreeDistance}
+\SetKwFunction{DwaLoop}{DwaControlLoop}
+\SetKwFunction{DwaLookahead}{LookaheadPoint}
+
+\begin{objectives}
+\begin{itemize}
+  \item Explain what the dynamic window approach (DWA) computes: the best velocity command among those the robot can actually reach in the next control interval, judged by short simulated rollouts.
+  \item Construct the three velocity sets of DWA (possible, admissible, dynamic window) for a differential-drive robot and for a velocity-controlled drone, and derive the braking condition $v \le \sqrt{2\,\dist\,a_b}$ together with its discrete-time refinement.
+  \item Evaluate the heading, clearance and velocity terms of the objective by hand, explain why they must be normalised, and predict what happens when each weight dominates.
+  \item Prove that an admissible command can always be followed by a safe one, and show by example that DWA is a local method that can get stuck in a U-shaped trap and can oscillate.
+  \item Implement DWA in \python for a drone in a continuous 2D or 3D world, connect its heading term to a global path, and create and repair its failure cases.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch14-motivation}
+
+The local layer of the hybrid architecture in \cref{ch:ch24} has one job: when
+something unexpected enters the safety horizon of a drone, produce a velocity
+for the next fraction of a second that is safe \emph{and} keeps the drone
+roughly on its nominal route. \Cref{ch:ch12,ch:ch13} solved this with velocity
+obstacles and \orca. Both treat the drone as a point that can change its
+velocity instantly: \orca picks any velocity outside a set of forbidden
+half-planes, and the drone is assumed to adopt it at once. For a light
+quadrotor at moderate speed this is a fair approximation. For a heavy
+delivery drone, a fixed-wing aircraft or any vehicle whose acceleration is
+limited to a fraction of what \orca asks for, it is not: the drone is told to
+fly at a velocity it cannot reach within the control interval, and the
+guarantee of \cref{ch:ch13} evaporates.
+
+The dynamic window approach\index{dynamic window approach|see{DWA}}
+(\textbf{DWA})\index{DWA} of Fox, Burgard and Thrun~\cite{fox1997dwa} starts
+from the opposite end. It asks first which velocities the robot can reach in
+the next $\dt$ seconds given its acceleration limits, then throws away those
+from which it could no longer stop before the nearest obstacle, simulates the
+short trajectory that each remaining candidate would produce, scores the
+candidates by how well they head towards the goal, how much clearance they
+keep and how fast they are, and executes the winner for one interval. Then it
+starts over. DWA was developed for the wheeled robot RHINO, which had to drive
+at up to about a metre per second through crowded rooms with a laser scanner
+and sonar as its only knowledge of the world, and it has been the default local
+planner of many mobile-robot navigation stacks ever since.
+
+For the drone system this gives a second local layer, an alternative to \orca
+when the drone's dynamics matter more than reciprocity with the other agent:
+DWA never asks for a velocity the drone cannot produce, it works against any
+obstacle that can be sensed or predicted, and it does not assume that the
+other party shares the effort. The price is that it is a greedy, memoryless
+method. It can drive into a dead end and stay there, and it can oscillate
+between two equally attractive commands. The Week~7 milestone of the study
+plan (\cref{ch:appA}) is precisely to know when such local methods work and
+when they fail, and this chapter and the next (\cref{ch:ch15}) are built
+around that question.
+
+The chapter proceeds as follows. \Cref{sec:ch14-intuition} gives the idea.
+\Cref{sec:ch14-problem} defines the velocity space, the rollouts, the three
+restrictions and the objective, in the differential-drive form of the original
+paper and in the drone form used in the rest of the chapter.
+\Cref{sec:ch14-algorithm} gives the pseudocode and \cref{sec:ch14-example}
+runs it by hand on a drone approaching an obstacle, with every number taken
+from \code{ch14\_dwa.py}. \Cref{sec:ch14-properties} proves what DWA
+guarantees (safety with respect to static obstacles, dynamic feasibility) and
+what it does not (completeness), \cref{sec:ch14-tuning} studies the weights
+in a generated experiment, \cref{sec:ch14-variants} collects the remedies and
+compares DWA with \orca and potential fields, and
+\cref{sec:ch14-implementation,sec:ch14-drone} cover the implementation and
+the place of DWA in the drone system.
+
+% ---------------------------------------------------------------------
+\section{The idea in plain words}
+\label{sec:ch14-intuition}
+
+Think of the problem from the point of view of the flight controller rather
+than the map. Every $\dt = 0.25$ seconds it must hand a velocity command to the
+motors. Whatever the global planner says, the drone is right now flying at
+some velocity $\vel_a$, and in a quarter of a second it can change that
+velocity only by $a_{\max}\dt$ along each axis. The set of commands it can
+actually execute is therefore a small box around $\vel_a$ in velocity space,
+the \textbf{dynamic window}.\index{dynamic window} Everything outside the
+window is wishful thinking.
+
+Inside the window DWA reasons like a careful driver. For each candidate
+velocity it imagines flying with that velocity for a short while, a
+\textbf{rollout},\index{rollout} and measures how far it could go before
+hitting something. If that distance is shorter than the distance needed to
+brake to a standstill, the candidate is thrown away: choosing it would commit
+the drone to a collision even if the very next command were full braking.
+This is the \textbf{admissibility} test.\index{admissible velocity} The
+remaining candidates are all safe for at least one more step, and among them
+DWA simply picks the one with the best score, a weighted sum of three
+ingredients: does the rollout head towards the goal, how much free space does
+it have ahead, and how fast is it. The winner is sent to the motors, the
+drone moves, the sensors deliver a new picture of the obstacles, and the whole
+computation is repeated from the new velocity. \Cref{fig:ch14-pipeline}
+shows the loop.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch14/pipeline}
+  \caption{One control step of DWA. The current velocity $\vel_a$ spans the
+  dynamic window; the candidates in it are rolled out against the obstacles;
+  those that cannot brake in time are discarded; the rest are scored by
+  heading, clearance and velocity; the best one is executed for $\dt$ and the
+  loop repeats. Nothing is remembered between steps except the velocity
+  itself.}
+  \label{fig:ch14-pipeline}
+\end{figure}
+
+Two things distinguish this from the velocity-obstacle methods of
+\cref{ch:ch12,ch:ch13}. First, DWA searches the space of \emph{achievable}
+commands over one control interval, so every command it returns respects the
+robot's dynamics by construction; \orca searches all velocities and hopes the
+robot can follow. Second, DWA judges a command by simulating it: the rollout
+is an explicit prediction of where the robot will be, along a circular arc for
+a wheeled robot and along a straight segment for a velocity-controlled drone,
+and any obstacle representation that supports a ``how far is it free in this
+direction'' query can be plugged in. The velocity obstacle, in contrast, is an
+analytic construction for discs moving at constant velocity.
+
+\begin{keyidea}
+Search only the velocities you can reach in the next control interval, keep
+only those from which you can still stop before the nearest obstacle, simulate
+each for a short horizon, and execute the one whose rollout best combines
+heading towards the goal, clearance and speed. Safety comes from the braking
+test; progress comes from the score; memory comes from nowhere, which is why
+DWA is fast, respects dynamics, and can still get stuck.
+\end{keyidea}
+
+% ---------------------------------------------------------------------
+\section{Problem statement and notation}
+\label{sec:ch14-problem}
+
+\subsection{The velocity space}
+\label{sec:ch14-velocity-space}
+
+DWA plans in \textbf{velocity space}:\index{velocity space} the coordinates of
+the search are not positions but the components of the velocity command that
+is held constant during the next control interval $\dt$. Two robot models are
+used in this chapter.
+
+\begin{definition}[Velocity space of a differential-drive robot]
+\label{def:ch14-diffdrive}
+A \textbf{differential-drive robot}\index{differential drive} has the pose
+$(x, y, \theta)$ and is commanded by a translational velocity $v$ and a
+rotational velocity $\omega$. Its velocity space is the set of pairs
+$(v, \omega)$. During an interval in which $(v, \omega)$ is constant the robot
+moves on a circular arc of radius $v/\omega$ (a straight line if
+$\omega = 0$), so that after time $t$
+\begin{equation}
+  x(t) = x + \frac{v}{\omega}\bigl(\sin(\theta + \omega t) - \sin\theta\bigr),\quad
+  y(t) = y - \frac{v}{\omega}\bigl(\cos(\theta + \omega t) - \cos\theta\bigr),\quad
+  \theta(t) = \theta + \omega t.
+  \label{eq:ch14-arc}
+\end{equation}
+\end{definition}
+
+\begin{definition}[Velocity space of a velocity-controlled drone]
+\label{def:ch14-drone}
+A \textbf{velocity-controlled drone}\index{drone!velocity-controlled} is the
+point-mass model of \cref{ch:ch02}: its state is the position $\pos \in \R^3$
+and its command is the velocity $\vel = (v_x, v_y, v_z)$, held constant for
+$\dt$, so that $\pos(t) = \pos + \vel\,t$ for $0 \le t \le \dt$. The velocity
+space is $\R^3$ (or $\R^2$ for flight at constant altitude). The drone has a
+speed limit $v_{\max}$ and a per-axis acceleration limit $a_{\max}$: two
+consecutive commands $\vel_a$ and $\vel$ must satisfy
+$\abs{v_k - v_{a,k}} \le a_{\max}\dt$ for every axis $k$.
+\end{definition}
+
+The drone is \textbf{holonomic}:\index{holonomic} it can move in any direction
+regardless of its orientation, so a rollout is a straight segment
+(\cref{fig:ch14-rollouts}, right). The wheeled robot is not: it can only move
+along its heading, and a rollout is an arc (\cref{fig:ch14-rollouts}, left).
+Everything else in DWA is the same for both models. We use the drone form from
+\cref{sec:ch14-algorithm} on and write $\vel_a$ for the velocity the drone is
+currently flying with, exactly as Fox et al.\ write $(v_a, \omega_a)$ for the
+actual velocity of their robot.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch14/rollouts}
+  \caption{Rollouts are the trajectories the robot would follow if it kept a
+  candidate command for a while. Left: a differential-drive robot heading
+  along $x$ at $v = 1$~m/s; the arcs are $\omega = 0, \pm 0.5, \pm 1$~rad/s,
+  with radius $v/\omega$. The free distance $\dist(v, \omega)$ is measured
+  along the arc up to the first contact with the inflated obstacle. Right: a
+  velocity-controlled drone; every rollout is a straight segment
+  $\pos + \vel\,t$, and $\dist(\vel)$ is a ray cast in the direction of
+  $\vel$. Dotted rollouts hit the obstacle within the sensing range
+  $d_{\max}$.}
+  \label{fig:ch14-rollouts}
+\end{figure}
+
+Obstacles are handled in the inflated configuration space of \cref{ch:ch02}:
+every obstacle is grown by the drone's radius $r$ and the drone becomes a
+point. For a candidate $\vel \ne \vect{0}$ the \textbf{free distance}
+\begin{equation}
+  \dist(\vel) = \min\Bigl(d_{\max},\ \text{distance from $\pos$ along the ray in direction $\vel/\norm{\vel}$ to the first inflated obstacle}\Bigr)
+  \label{eq:ch14-dist}
+\end{equation}
+is what the rollout measures.\index{free distance} The cap $d_{\max}$ is the
+sensing range, or simply the distance beyond which we stop caring. For
+$\vel = \vect{0}$ we set $\dist(\vect{0}) = d_{\max}$: standing still never
+runs into a static obstacle. For discs the ray cast is the ray--circle
+intersection of \cref{ch:ch02}; for axis-aligned boxes it is a slab test; for
+a point cloud or an occupancy grid it is a march along the ray.
+
+\subsection{The three restrictions}
+\label{sec:ch14-restrictions}
+
+The search set of DWA is the intersection of three sets in velocity space
+(\cref{fig:ch14-spaces}). We state each for the differential drive, as in
+\cite{fox1997dwa}, and for the drone.
+
+\begin{figure}[tb]
+  \centering
+  \begin{subfigure}[b]{0.32\textwidth}\centering
+    \inputfigure{ch14/space-possible}
+    \caption{possible velocities $V_s$}
+  \end{subfigure}\hfill
+  \begin{subfigure}[b]{0.32\textwidth}\centering
+    \inputfigure{ch14/space-admissible}
+    \caption{admissible velocities $V_a$}
+  \end{subfigure}\hfill
+  \begin{subfigure}[b]{0.32\textwidth}\centering
+    \inputfigure{ch14/space-window}
+    \caption{dynamic window $V_d$}
+  \end{subfigure}
+  \caption{The three restrictions in the $(\omega, v)$ space of a
+  differential-drive robot. (a) The velocity limits give a rectangle.
+  (b) Velocities from which the robot could not stop before the obstacle on
+  its arc are cut away (hatched); the bite is deepest for the curvatures that
+  lead straight into the obstacle. (c) The dynamic window is the rectangle of
+  velocities reachable from $(v_a, \omega_a)$ within one interval; the search
+  set $V_r$ (dark) is its intersection with the first two sets. Only the grid
+  points inside $V_r$ are evaluated.}
+  \label{fig:ch14-spaces}
+\end{figure}
+
+\begin{definition}[Possible velocities]
+\label{def:ch14-possible}
+The set of \textbf{possible velocities}\index{DWA!possible velocities} $V_s$
+contains the commands the actuators can produce at all. For the differential
+drive, $V_s = [0, v_{\max}] \times [-\omega_{\max}, \omega_{\max}]$ (or
+$[v_{\min}, v_{\max}]$ if driving backwards is allowed). For the drone,
+$V_s = \set{\vel : \norm{\vel} \le v_{\max}}$, a ball, or a box if the axes
+have separate limits.
+\end{definition}
+
+\begin{definition}[Admissible velocities]
+\label{def:ch14-admissible}
+A velocity is \textbf{admissible}\index{admissible velocity}\index{DWA!admissible velocities}
+if the robot can still come to a standstill before it reaches the nearest
+obstacle on its rollout. With the braking decelerations $\dot v_b$ and
+$\dot\omega_b$ of the differential drive,
+\begin{equation}
+  V_a = \set{(v, \omega) \given v \le \sqrt{2\,\dist(v,\omega)\,\dot v_b}
+  \ \text{ and }\ \omega \le \sqrt{2\,\dist(v,\omega)\,\dot\omega_b}}.
+  \label{eq:ch14-Va}
+\end{equation}
+For the drone with braking deceleration $a_b$,
+$V_a = \set{\vel \given \norm{\vel} \le \sqrt{2\,\dist(\vel)\,a_b}}$.
+\end{definition}
+
+\paragraph{Where the square root comes from.}
+A robot that moves at speed $v$ and decelerates at the constant rate $a_b$ has
+speed $v - a_b t$ after $t$ seconds and stops at $t_s = v/a_b$. The distance it
+covers meanwhile is
+\begin{equation}
+  s_b(v) = \int_0^{t_s} (v - a_b t)\,dt = v\,t_s - \tfrac{1}{2} a_b t_s^2
+         = \frac{v^2}{2 a_b},
+  \label{eq:ch14-braking}
+\end{equation}
+the \textbf{braking distance}.\index{braking distance} The robot is safe if the
+braking distance fits into the free distance, $v^2/(2a_b) \le \dist$, and
+solving for $v$ gives $v \le \sqrt{2\,\dist\,a_b}$. The condition on
+$\omega$ in \cref{eq:ch14-Va} is the same argument applied to the rotation, so
+that the robot can also stop turning; Fox et al.\ measure $\dist$ along the
+arc of the curvature $\omega/v$, which is why it is written $\dist(v,\omega)$.
+
+\paragraph{The discrete-time refinement.}
+\Cref{eq:ch14-braking} assumes that braking starts immediately. In a
+digital control loop the chosen command is held for the whole interval $\dt$
+before the next command, at best full braking, can begin. The distance to
+standstill is then at most
+\begin{equation}
+  s_b^{\dt}(v) = v\,\dt + \frac{v^2}{2 a_b},
+  \label{eq:ch14-braking-discrete}
+\end{equation}
+and the admissibility test becomes $s_b^{\dt}(\norm{\vel}) \le \dist(\vel)$,
+or, solving the quadratic for the speed,
+\begin{equation}
+  \norm{\vel} \le v_{\mathrm{adm}}(\dist) = -a_b\dt + \sqrt{a_b^2\dt^2 + 2\,a_b\,\dist}.
+  \label{eq:ch14-vadm}
+\end{equation}
+For $\dt \to 0$ this is the condition of \cref{eq:ch14-Va}. For the drone of
+\cref{sec:ch14-example}, with $a_b = 2$~m/s$^2$ and $\dt = 0.25$~s at
+$0.608$~m from an obstacle, \cref{eq:ch14-Va} allows $1.56$~m/s while
+\cref{eq:ch14-vadm} allows $1.14$~m/s. The difference is not academic: the
+first version of \code{ch14\_dwa.py} used \cref{eq:ch14-Va} and drove the
+drone into the obstacle within a few steps. \Cref{sec:ch14-properties}
+proves that \cref{eq:ch14-vadm} is enough, and all code and numbers in this
+chapter use it. (The extra term is exactly the pitfall ``a dynamic window so
+small that the robot cannot react'' seen from the braking side: a command is
+only as safe as the reaction it still allows.)
+
+\begin{definition}[Dynamic window]
+\label{def:ch14-window}
+The \textbf{dynamic window}\index{dynamic window}\index{DWA!dynamic window}
+$V_d$ contains the velocities reachable from the current velocity within one
+control interval under the acceleration limits. For the differential drive
+with the maximal accelerations $\dot v_{\max}$ and $\dot\omega_{\max}$,
+\begin{equation}
+  V_d = \set{(v, \omega) \given
+    v \in [v_a - \dot v_{\max}\dt,\ v_a + \dot v_{\max}\dt]
+    \ \text{ and }\
+    \omega \in [\omega_a - \dot\omega_{\max}\dt,\ \omega_a + \dot\omega_{\max}\dt]}.
+  \label{eq:ch14-Vd}
+\end{equation}
+For the drone with the per-axis limit $a_{\max}$,
+$V_d = \set{\vel \given \abs{v_k - v_{a,k}} \le a_{\max}\dt \text{ for all } k}$,
+a cube of side $2 a_{\max}\dt$ centred on $\vel_a$.
+\end{definition}
+
+\begin{definition}[Search set]
+\label{def:ch14-search-set}
+The \textbf{search set}\index{DWA!search set} of one DWA step is
+$V_r = V_s \cap V_a \cap V_d$. In practice it is discretised: the window is
+covered by a grid of resolution $\Delta v$ centred on $\vel_a$, and only the
+grid points in $V_r$ are evaluated. With $n = a_{\max}\dt/\Delta v$ the grid
+has $(2n+1)^{\!\dim}$ points before the admissibility test.
+\end{definition}
+
+The three sets play different roles. $V_s$ is fixed. $V_d$ moves with the
+robot's own velocity and is small: with $a_{\max} = 2$~m/s$^2$ and
+$\dt = 0.25$~s it spans only $\pm 0.5$~m/s around $\vel_a$, so the robot can
+change course only gradually and the dynamics are respected without any
+further modelling. $V_a$ moves with the obstacles and is where all the
+geometry enters. Note that the window is a constraint on the \emph{change} of
+velocity, not on the velocity, which is why a fast robot approaching a wall
+needs several steps to slow down and why the braking test must look further
+ahead than one step.
+
+\subsection{The objective}
+\label{sec:ch14-objective}
+
+Among the velocities in $V_r$, DWA maximises
+\begin{equation}
+  G(\vel) = \sigma\bigl(\alpha \cdot \mathrm{heading}(\vel)
+             + \beta \cdot \mathrm{clearance}(\vel)
+             + \gamma \cdot \mathrm{velocity}(\vel)\bigr),
+  \label{eq:ch14-G}
+\end{equation}
+where $\alpha, \beta, \gamma \ge 0$ are weights and $\sigma$ is a smoothing
+discussed below.\index{DWA!objective function} Fox et al.\ call the three
+terms \emph{target heading}, \emph{clearance} (written $\mathrm{dist}$) and
+\emph{velocity}. In the normalised form used in this chapter all three lie
+in $[0, 1]$.
+
+\begin{definition}[Heading term]
+\label{def:ch14-heading}
+Let $\pos' = \pos + \vel\,\dt$ be the position predicted after the next
+interval and $\theta(\vel) \in [0, \pi]$ the angle between $\vel$ and the
+direction $\vect{t} - \pos'$ from $\pos'$ to the target point $\vect{t}$
+(the goal, or a point on the global path, \cref{sec:ch14-variants}). The
+\textbf{heading term}\index{heading term}\index{DWA!heading term} is
+\begin{equation}
+  \mathrm{heading}(\vel) = 1 - \frac{\theta(\vel)}{\pi},
+  \label{eq:ch14-heading}
+\end{equation}
+with $\mathrm{heading}(\vect{0}) = 0$. It is $1$ when the rollout points
+straight at the target and $0$ when it points away. Fox et al.\ use
+$180^\circ - \theta$ with $\theta$ measured at the position and orientation
+the robot is predicted to reach after the next interval; for the
+differential drive the orientation changes along the arc, so this predicted
+pose matters more than for the drone.
+\end{definition}
+
+\begin{definition}[Clearance term]
+\label{def:ch14-clearance}
+The \textbf{clearance term}\index{clearance term}\index{DWA!clearance term} is
+the normalised free distance of the rollout,
+\begin{equation}
+  \mathrm{clearance}(\vel) = \frac{\min(\dist(\vel), d_{\max})}{d_{\max}} \in [0, 1].
+  \label{eq:ch14-clearance}
+\end{equation}
+Fox et al.\ use the unnormalised $\dist(v, \omega)$ and set it to a large
+constant when no obstacle lies on the curvature.
+\end{definition}
+
+\begin{definition}[Velocity term]
+\label{def:ch14-velocity}
+The \textbf{velocity term}\index{velocity term}\index{DWA!velocity term}
+rewards speed,
+\begin{equation}
+  \mathrm{velocity}(\vel) = \frac{\norm{\vel}}{v_{\max}} \in [0, 1].
+  \label{eq:ch14-velocity}
+\end{equation}
+For the differential drive it is the translational speed $v$; the rotation
+$\omega$ is not rewarded.
+\end{definition}
+
+\paragraph{Why the terms are normalised.}
+The three terms measure different things: an angle, a distance and a speed. In
+their raw units a weighted sum has no meaning: the same weights that balance
+heading against clearance in a room measured in metres would let clearance
+dominate everything if the map were in centimetres, and would have to be
+retuned for a drone that flies ten times faster. Dividing each term by its
+maximal value ($\pi$, $d_{\max}$, $v_{\max}$) makes the weights dimensionless
+fractions that say how much each concern counts, and lets the same
+$(\alpha, \beta, \gamma)$ be reused across scenes and vehicles.\index{normalisation}
+Many implementations go one step further and normalise each term over the
+current candidate set, so that the best candidate of each term scores $1$;
+this makes the weights even more portable but also makes $G$ depend on which
+candidates happen to be admissible.
+
+\paragraph{The smoothing $\sigma$.}
+The original objective is smoothed: $\sigma$ averages the weighted sum over
+the neighbouring cells of the velocity grid. Its purpose is to prefer
+commands whose neighbours are also good, which pushes the robot away from
+narrow ``good'' spots at the edge of the admissible region and gives more
+side clearance to obstacles.\index{smoothing} A candidate whose neighbours are
+inadmissible (score $0$) is pulled down. \Cref{sec:ch14-variants} relates
+$\sigma$ to hysteresis; the code offers it as an option, and the worked
+example and the experiments use $\sigma = \mathrm{id}$, that is, no
+smoothing, to keep the numbers transparent.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Symbols of this chapter and the values used in \code{ch14\_dwa.py}
+  (class \code{DwaParams}). The drone flies at constant altitude in the
+  examples, so velocities have two components.}
+  \label{tab:ch14-parameters}
+  \begin{tabular}{@{}llr@{}}
+  \toprule
+  Symbol & Meaning & Value\\
+  \midrule
+  $v_{\max}$ & speed limit; $V_s$ is the ball of this radius & $2$~m/s\\
+  $a_{\max}$ & acceleration limit per axis (spans the window) & $2$~m/s$^2$\\
+  $a_b$ & braking deceleration (admissibility), $a_b \le a_{\max}$ & $2$~m/s$^2$\\
+  $\dt$ & control interval & $0.25$~s\\
+  $\Delta v$ & resolution of the velocity grid & $0.25$~m/s\\
+  $d_{\max}$ & cap on free distances (sensing range) & $3$~m\\
+  $r$ & drone radius (obstacle inflation) & $0.2$~m\\
+  $T$ & rollout horizon used for drawing predicted trajectories & $1$~s\\
+  $(\alpha, \beta, \gamma)$ & weights of heading, clearance, velocity & $(0.6, 0.2, 0.2)$\\
+  $\rho_{\mathrm{goal}}$ & goal tolerance & $0.2$~m\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{The algorithm}
+\label{sec:ch14-algorithm}
+
+\Cref{alg:ch14-command} is one DWA step for the drone; \cref{alg:ch14-loop}
+wraps it into the control loop. \Cref{tab:ch14-parameters} lists the
+parameters.
+
+\begin{algorithm}[htb]
+\caption{One step of the dynamic window approach (drone form)}
+\label{alg:ch14-command}
+\KwIn{position $\pos$, current velocity $\vel_a$, target point $\vect{t}$, obstacles, parameters of \cref{tab:ch14-parameters}}
+\KwOut{the velocity command for the next interval}
+\Fn{\DwaCommand{$\pos$, $\vel_a$, $\vect{t}$, obstacles}}{
+  $\vect{lo} \gets \max(\vel_a - a_{\max}\dt,\ -v_{\max})$; $\vect{hi} \gets \min(\vel_a + a_{\max}\dt,\ v_{\max})$\tcp*{window $V_d$, per axis}\label{alg:ch14-command:window}
+  $C \gets$ grid points $\vel_a + \Delta v\,(i_1, \dots, i_{\dim})$, $\abs{i_k} \le a_{\max}\dt/\Delta v$, inside $[\vect{lo}, \vect{hi}]$ and with $\norm{\vel} \le v_{\max}$\label{alg:ch14-command:grid}\;
+  $\vel_b \gets \vel_a \cdot \max\bigl(0,\ 1 - a_b\dt/\norm{\vel_a}\bigr)$; add $\vel_b$ to $C$\tcp*{braking candidate, always in $V_d$}\label{alg:ch14-command:brake}
+  $G^* \gets -\infty$; $\vel^* \gets \vel_b$\;
+  \ForEach{$\vel \in C$}{
+    $d \gets$ \DwaFreeDistance{$\pos$, $\vel$, obstacles, $d_{\max}$}\tcp*{rollout: ray cast in direction $\vel$}\label{alg:ch14-command:rollout}
+    \If{$\norm{\vel}\,\dt + \norm{\vel}^2/(2a_b) > d$}{\KwContinue\tcp*{not admissible, \cref{eq:ch14-vadm}}\label{alg:ch14-command:admissible}}
+    $G \gets \alpha\,(1 - \theta(\vel)/\pi) + \beta\,\min(d, d_{\max})/d_{\max} + \gamma\,\norm{\vel}/v_{\max}$\label{alg:ch14-command:score}\;
+    \If{$G > G^*$}{$G^* \gets G$; $\vel^* \gets \vel$\label{alg:ch14-command:argmax}\;}
+  }
+  \KwRet $\vel^*$\;
+}
+\end{algorithm}
+
+\begin{algorithm}[htb]
+\caption{The DWA control loop with a global path and hysteresis}
+\label{alg:ch14-loop}
+\KwIn{start $\pos_0$, goal $\pos_g$, obstacles, optional global path $P$ (a polyline), lookahead $L$, hysteresis margin $\eta \ge 0$}
+\Fn{\DwaLoop{$\pos_0$, $\pos_g$, obstacles, $P$}}{
+  $\pos \gets \pos_0$; $\vel_a \gets \vect{0}$\;
+  \While{$\norm{\pos - \pos_g} > \rho_{\mathrm{goal}}$}{
+    update the obstacle set from the sensors and the prediction layer\label{alg:ch14-loop:sense}\;
+    $\vect{t} \gets \pos_g$ \textbf{if} $P = \emptyset$ \textbf{else} \DwaLookahead{$\pos$, $P$, $L$}\tcp*{heading reference}\label{alg:ch14-loop:target}
+    $\vel \gets$ \DwaCommand{$\pos$, $\vel_a$, $\vect{t}$, obstacles}\;
+    \If{$\eta > 0$ \KwAnd $\vel_a$ is admissible \KwAnd $G(\vel_a) \ge G(\vel) - \eta$}{$\vel \gets \vel_a$\tcp*{hysteresis: keep the old command}\label{alg:ch14-loop:hysteresis}}
+    execute $\vel$ for $\dt$; $\pos \gets \pos + \vel\,\dt$; $\vel_a \gets \vel$\label{alg:ch14-loop:execute}\;
+  }
+}
+\end{algorithm}
+
+\paragraph{Walkthrough of \cref{alg:ch14-command}.}
+Line~\ref{alg:ch14-command:window} builds the window of
+\cref{def:ch14-window}, clipped to the speed limits so that the grid does
+not leave $V_s$ along an axis; line~\ref{alg:ch14-command:grid} lays the
+grid over it and drops the points outside the ball $V_s$. The grid is
+centred on $\vel_a$, so ``keep the current velocity'' is always a candidate.
+Line~\ref{alg:ch14-command:brake} adds the \textbf{braking
+candidate}\index{braking candidate}\index{DWA!braking candidate}: same
+direction as $\vel_a$, speed reduced by $a_b\dt$ (or zero). It lies in the
+window because $a_b \le a_{\max}$, and \cref{thm:ch14-safety} shows that it
+is always admissible when the previous command was; it is the reason why the
+loop never runs out of safe options and it is also the command returned when
+nothing else is admissible, which with static obstacles cannot happen.
+Line~\ref{alg:ch14-command:rollout} is the rollout: for the drone a single
+ray cast, for the differential drive a march along the arc of
+\cref{eq:ch14-arc}. Line~\ref{alg:ch14-command:admissible} is the discrete
+admissibility test \cref{eq:ch14-braking-discrete}; the code also applies it
+to the distance to the goal, so that the drone brakes for the goal as it
+would for a wall and does not orbit it. Line~\ref{alg:ch14-command:score}
+evaluates \cref{eq:ch14-G} without smoothing, and
+line~\ref{alg:ch14-command:argmax} keeps the best. Ties are broken by grid
+order, which is deterministic but arbitrary; \cref{sec:ch14-properties}
+returns to this.
+
+\paragraph{Walkthrough of \cref{alg:ch14-loop}.}
+Line~\ref{alg:ch14-loop:sense} is where DWA meets the rest of the system:
+the obstacle set can be a map, a range scan, or the predicted positions of
+other drones from \cref{ch:ch18,ch:ch20}. Line~\ref{alg:ch14-loop:target}
+selects the target of the heading term. With $P = \emptyset$ it is the goal
+itself, the pure ``greedy'' DWA of the original paper. With a global path it
+is a \textbf{lookahead point}\index{lookahead point}: the point at arc length
+$L$ beyond the point of $P$ closest to $\pos$, a carrot that the drone
+chases along the path. Line~\ref{alg:ch14-loop:hysteresis} is the optional
+hysteresis of \cref{sec:ch14-variants}. Line~\ref{alg:ch14-loop:execute}
+moves the drone; in the simulator the command is executed exactly, on a real
+drone a velocity controller tracks it and the window should be sized for
+what that controller can actually deliver.
+
+% ---------------------------------------------------------------------
+\section{A worked example}
+\label{sec:ch14-example}
+
+\begin{example}[A drone approaching an obstacle]
+\label{ex:ch14-approach}
+A drone of radius $r = 0.2$~m is at $\pos = (0, 0)$, flying at
+$\vel_a = (1.0, 0)$~m/s towards the goal $\pos_g = (5, 0)$. A disc obstacle
+of radius $0.4$~m is centred at $(1.2, -0.1)$, almost on the line to the
+goal and slightly below it. The parameters are those of
+\cref{tab:ch14-parameters}. The instance is \code{worked\_example()} in
+\code{ch14\_dwa.py}; every number in this section is printed by its self-test
+and by \code{gen\_ch14\_traj.py}.
+\end{example}
+
+\paragraph{The window and the grid.}
+With $a_{\max}\dt = 0.5$~m/s the window is
+$V_d = [0.5, 1.5] \times [-0.5, 0.5]$, and with $\Delta v = 0.25$~m/s the
+grid has $5 \times 5 = 25$ points, all inside the ball $\norm{\vel} \le 2$.
+The braking candidate $(0.5, 0)$ is a grid point, so $C$ has $25$
+elements (\cref{fig:ch14-example}b).
+
+\paragraph{The admissibility test.}
+The inflated obstacle has radius $0.6$~m. Straight ahead, the ray from the
+origin along $x$ passes at distance $0.1$ from the centre and meets the disc
+at $1.2 - \sqrt{0.6^2 - 0.1^2} = 0.608$~m. By \cref{eq:ch14-vadm} the
+largest admissible speed in that direction is
+$-0.5 + \sqrt{0.25 + 4 \cdot 0.608} = 1.138$~m/s: keeping $(1.0, 0)$ is
+admissible (braking distance $0.25 + 0.25 = 0.5 \le 0.608$), but
+$(1.25, 0)$ is not ($0.3125 + 0.39 = 0.70 > 0.608$). All ten candidates with
+$v_x \ge 1.25$ except $(1.25, 0.5)$ are inadmissible: their rays hit the
+disc within $0.6$ to $0.8$~m. Sixteen candidates survive; six of them, those
+that steer clear of the disc at moderate speed, see no obstacle at all
+within $d_{\max}$ and have $\dist = 3$.
+
+\begin{figure}[tb]
+  \centering
+  \begin{subfigure}[b]{0.5\textwidth}\centering
+    \inputfigure{ch14/example-scene}
+    \caption{workspace}
+  \end{subfigure}\hfill
+  \begin{subfigure}[b]{0.48\textwidth}\centering
+    \inputfigure{ch14/example-window}
+    \caption{velocity space}
+  \end{subfigure}
+  \caption{\Cref{ex:ch14-approach}. (a) The drone (green circle) with the
+  25 rollouts of one second: dotted red ones are inadmissible, blue ones
+  admissible, the orange arrow is the chosen command $(1.0, 0.5)$; the dashed
+  circle is the obstacle inflated by the drone radius, and the blue dots are
+  the 13 positions of the closed-loop run to the goal. (b) The same step in
+  velocity space: the dashed circle is $V_s$, the blue box the window $V_d$,
+  the green region the admissible set $V_a$ of \cref{eq:ch14-vadm} (its bite
+  points at the obstacle), the crosses the inadmissible grid points, the
+  square the current velocity $\vel_a$ and the star the chosen command.}
+  \label{fig:ch14-example}
+\end{figure}
+
+\paragraph{The scores.}
+\Cref{tab:ch14-candidates} lists the three terms for 13 of the 25
+candidates. Keeping $(1.0, 0)$ heads perfectly at the goal
+($\mathrm{heading} = 1$) but has only $0.608/3 = 0.203$ of clearance, for
+$G = 0.6 + 0.041 + 0.1 = 0.741$. The winner is $(1.0, 0.5)$: the ray misses
+the inflated disc, so clearance is $1$, and although the heading drops to
+$0.844$ (the rollout points $28^\circ$ away from the goal seen from the
+predicted position $(0.25, 0.125)$) the total is $0.818$. The swerve is
+towards $+y$, the side on which the obstacle leaves more room; the mirror
+image $(1.0, -0.5)$ still hits the disc at $0.718$~m and scores only
+$0.666$. Slower candidates with full clearance, $(0.75, 0.5)$ and
+$(0.5, 0.25)$, lose on the velocity term. Note what decided the step: the
+braking test removed every fast candidate that pointed at the obstacle, and
+among the survivors the clearance term, not the heading term, chose the
+side.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Thirteen of the 25 candidates of \cref{ex:ch14-approach} with
+  their free distance, admissibility and the three normalised terms;
+  $G = 0.6\,\mathrm{heading} + 0.2\,\mathrm{clearance} + 0.2\,\mathrm{velocity}$.
+  The chosen command is in bold.}
+  \label{tab:ch14-candidates}
+  \begin{tabular}{@{}rrrcrrrr@{}}
+  \toprule
+  $v_x$ & $v_y$ & $\dist$ [m] & admissible & heading & clearance & velocity & $G$\\
+  \midrule
+  1.50 & 0.00 & 0.608 & no & 1.000 & 0.203 & 0.750 & --\\
+  1.25 & 0.00 & 0.608 & no & 1.000 & 0.203 & 0.625 & --\\
+  1.00 & 0.00 & 0.608 & yes & 1.000 & 0.203 & 0.500 & 0.741\\
+  0.50 & 0.00 & 0.608 & yes & 1.000 & 0.203 & 0.250 & 0.691\\
+  1.50 & 0.50 & 0.739 & no & 0.889 & 0.246 & 0.791 & --\\
+  1.25 & 0.50 & 0.812 & yes & 0.870 & 0.271 & 0.673 & 0.711\\
+  \textbf{1.00} & \textbf{0.50} & 3.000 & yes & 0.844 & 1.000 & 0.559 & \textbf{0.818}\\
+  0.75 & 0.50 & 3.000 & yes & 0.805 & 1.000 & 0.451 & 0.773\\
+  0.50 & 0.50 & 3.000 & yes & 0.742 & 1.000 & 0.354 & 0.716\\
+  0.50 & 0.25 & 3.000 & yes & 0.848 & 1.000 & 0.280 & 0.765\\
+  1.00 & 0.25 & 0.682 & yes & 0.918 & 0.227 & 0.515 & 0.699\\
+  1.00 & $-$0.50 & 0.718 & yes & 0.844 & 0.239 & 0.559 & 0.666\\
+  0.50 & $-$0.50 & 3.000 & yes & 0.742 & 1.000 & 0.354 & 0.716\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{The closed loop.}
+\Cref{tab:ch14-trace} continues the run. In step~2 the window has moved to
+$[0.5, 1.5] \times [0, 1]$ and the drone accelerates to $(1.5, 0.75)$, in
+step~3 to $(1.75, 0.75)$: with the obstacle no longer in the way, the
+velocity term takes over. From step~4 the heading term bends the flight back
+towards the goal line, $(1.75, 0.25)$ and then $(1.75, -0.25)$ for six
+steps, during which the heading rises to $0.99$. Steps~11--13 are the
+approach to the goal: the goal-braking rule of
+\cref{sec:ch14-algorithm} makes the fast candidates inadmissible and the
+drone slows to $(1.25, -0.25)$, $(1.0, -0.25)$ and finally the braking
+candidate $(0.51, -0.13)$, which is not a grid point. After 13 steps
+($3.25$~s) the drone is at $(4.82, 0.03)$, inside the goal tolerance. The
+path is $4.98$~m long, and the smallest gap between the drone's hull and
+the obstacle along the way was $1.6$~cm: DWA with a dominant heading term
+shaves obstacles, because the clearance term only counts what lies ahead on
+the rollout, not what lies beside it. Raising $\beta$, inflating the obstacles
+by a safety margin, or the smoothing $\sigma$ all widen the berth.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Trace of the closed-loop run of \cref{ex:ch14-approach}: position
+  and velocity at the start of each step, the chosen command and its terms.
+  Every chosen command has $\dist = 3$~m (no obstacle on its ray within
+  $d_{\max}$), so clearance is $1$ throughout.}
+  \label{tab:ch14-trace}
+  \begin{tabular}{@{}rlllrrr@{}}
+  \toprule
+  Step & $\pos$ & $\vel_a$ & chosen $\vel$ & heading & velocity & $G$\\
+  \midrule
+  1 & $(0.00, 0.00)$ & $(1.00, 0.00)$ & $(1.00, 0.50)$ & 0.844 & 0.559 & 0.818\\
+  2 & $(0.25, 0.12)$ & $(1.00, 0.50)$ & $(1.50, 0.75)$ & 0.830 & 0.839 & 0.866\\
+  3 & $(0.62, 0.31)$ & $(1.50, 0.75)$ & $(1.75, 0.75)$ & 0.831 & 0.952 & 0.889\\
+  4 & $(1.06, 0.50)$ & $(1.75, 0.75)$ & $(1.75, 0.25)$ & 0.904 & 0.884 & 0.919\\
+  5 & $(1.50, 0.56)$ & $(1.75, 0.25)$ & $(1.75, -0.25)$ & 0.994 & 0.884 & 0.973\\
+  6 & $(1.94, 0.50)$ & $(1.75, -0.25)$ & $(1.75, -0.25)$ & 0.993 & 0.884 & 0.972\\
+  7 & $(2.38, 0.44)$ & $(1.75, -0.25)$ & $(1.75, -0.25)$ & 0.991 & 0.884 & 0.971\\
+  8 & $(2.81, 0.38)$ & $(1.75, -0.25)$ & $(1.75, -0.25)$ & 0.989 & 0.884 & 0.970\\
+  9 & $(3.25, 0.31)$ & $(1.75, -0.25)$ & $(1.75, -0.25)$ & 0.985 & 0.884 & 0.968\\
+  10 & $(3.69, 0.25)$ & $(1.75, -0.25)$ & $(1.75, -0.25)$ & 0.978 & 0.884 & 0.964\\
+  11 & $(4.12, 0.19)$ & $(1.75, -0.25)$ & $(1.25, -0.25)$ & 0.993 & 0.637 & 0.923\\
+  12 & $(4.44, 0.12)$ & $(1.25, -0.25)$ & $(1.00, -0.25)$ & 0.985 & 0.515 & 0.894\\
+  13 & $(4.69, 0.06)$ & $(1.00, -0.25)$ & $(0.51, -0.13)$ & 0.974 & 0.265 & 0.838\\
+  \bottomrule
+  \end{tabular}

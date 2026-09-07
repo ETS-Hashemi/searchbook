@@ -561,7 +561,7 @@ collects Steps 1--4 with a general share $\alpha$.
 }
 \Fn{\OrcaClosest{$\pos$, $\vel$, $r$, $\ttc$, $\dt$}}{
   \If{$\norm{\pos} \le r$}{
-    $\vect{c} \gets \pos/\dt$; $\rho \gets r/\dt$; $\vect{w} \gets \vel - \vect{c}$; $\vect{n} \gets \vect{w}/\norm{\vect{w}}$\label{alg:ch13-halfplane:overlap}\tcp*{already overlapping: separate within one step}
+    $\vect{c} \gets \pos/\dt$; $\rho \gets r/\dt$; $\vect{w} \gets \vel - \vect{c}$; $\vect{n} \gets \vect{w}/\norm{\vect{w}}$\label{alg:ch13-halfplane:overlap}\tcp*{overlapping: separate in one step}
     \KwRet{$((\rho - \norm{\vect{w}})\,\vect{n},\ \vect{n})$}\;
   }
   $\vect{c} \gets \pos/\ttc$; $\rho \gets r/\ttc$; $\vect{w} \gets \vel - \vect{c}$\label{alg:ch13-halfplane:disc}\tcp*{the disc that truncates the cone}
@@ -821,34 +821,21 @@ simulations of this chapter the fallback is never needed
 agents at close spacing, which is the setting the method was designed for.
 
 \subsection{The simulation step}
+\label{sec:ch13-step}
 
-\Cref{alg:ch13-step} puts the pieces together for $n$ agents. All agents
-build their half-planes from the same snapshot of positions and velocities,
-solve their programs independently, and only then move. The order of the
-half-planes matters in two places: the hard half-planes of static obstacles
-come first, so that \cref{alg:ch13-dense} can keep them hard, and within
-the agent half-planes a random order gives the expected linear running time.
-
-\begin{algorithm}[htb]
-\caption{One \orca time step for $n$ agents}
-\label{alg:ch13-step}
-\KwIn{agents with positions, velocities, radii, preferred velocities and speed limits; static obstacles; horizons $\ttc$ (agents) and $\ttc_{\mathrm{obst}}$ (obstacles); time step $\dt$}
-\KwOut{new velocities and positions of all agents}
-\Fn{\OrcaStep{agents, obstacles, $\ttc$, $\ttc_{\mathrm{obst}}$, $\dt$}}{
-  \ForEach{agent $A$}{
-    $\mathcal{H} \gets$ empty list\;
-    \ForEach{obstacle $O$ within sensing range}{append \OrcaHalfPlane{$A$, $O$, $\ttc_{\mathrm{obst}}$, $\dt$, $1$} to $\mathcal{H}$\label{alg:ch13-step:obst}\tcp*{full responsibility, hard}}
-    \ForEach{neighbour $B$ within sensing range}{\label{alg:ch13-step:neigh}
-      $\alpha \gets \tfrac12$ if $B$ runs \orca, else $1$\label{alg:ch13-step:share}\;
-      append \OrcaHalfPlane{$A$, $B$, $\ttc$, $\dt$, $\alpha$} to $\mathcal{H}$\;
-    }
-    $(\vel, f) \gets$ \OrcaLP{$\mathcal{H}$, $v_{\max}$, $\vel_A^{\mathrm{pref}}$}\label{alg:ch13-step:lp}\;
-    \lIf{$f \le \abs{\mathcal{H}}$}{$\vel \gets$ \OrcaDense{$\mathcal{H}$, number of obstacles, $f$, $\vel$, $v_{\max}$}\label{alg:ch13-step:dense}}
-    $\vel_A^{\mathrm{new}} \gets \vel$\;
-  }
-  \ForEach{agent $A$}{$\vel_A \gets \vel_A^{\mathrm{new}}$; $\pos_A \gets \pos_A + \dt\,\vel_A$\label{alg:ch13-step:move}\;}
-}
-\end{algorithm}
+One time step for $n$ agents puts the pieces together. Every agent builds
+its half-planes from the same snapshot of positions and velocities: first
+the hard half-planes of the static obstacles within sensing range, with
+share $1$ and a shorter horizon $\ttc_{\mathrm{obst}}$, then one half-plane
+per neighbour, with share $\tfrac12$ if the neighbour runs \orca and share
+$1$ if it is an intruder. It then solves \cref{alg:ch13-lp} for the velocity
+closest to $\vel^{\mathrm{pref}}$ and falls back to \cref{alg:ch13-dense}
+when the program is infeasible. Only when every agent has chosen does the
+simulation move all of them by $\dt$ times their new velocities
+(\code{simulate} in \code{ch13\_orca.py}). The order of the half-planes
+matters in two places: the obstacle half-planes come first so that
+\cref{alg:ch13-dense} can keep them hard, and a random order of the agent
+half-planes gives the expected linear running time.
 
 % ---------------------------------------------------------------------
 \section{A worked example}
@@ -1080,7 +1067,7 @@ velocity $\vel_B$ that $A$ used, which is the non-cooperative case of
 
 \begin{corollary}[Collision-free motion of $n$ agents]
 \label{thm:ch13-nbody}
-Let $n$ agents run \cref{alg:ch13-step} with the same horizon $\ttc$ from
+Let $n$ agents run the step of \cref{sec:ch13-step} with the same horizon $\ttc$ from
 the same snapshot, with share $\tfrac12$ towards each other and share $1$
 towards obstacles and intruders that keep their assumed velocities. If every
 agent's program \cref{eq:ch13-program} is feasible, then no two agents and
@@ -1125,7 +1112,7 @@ $2/i$. The expected cost of iteration $i$ is $\bigO{1} + \bigO{i}\cdot 2/i =
 \bigO{1}$, and the total is $\bigO{m}$.
 \end{proof}
 
-With $k$ neighbours per agent, one step of \cref{alg:ch13-step} costs
+With $k$ neighbours per agent, one step of \cref{sec:ch13-step} costs
 $\bigO{k}$ per agent for the half-planes and the program, plus the
 neighbour query, $\bigO{\log n + k}$ with a kd-tree, so $\bigO{n(\log n + k)}$
 per step for the whole swarm. The RVO2 library simulates thousands of agents
@@ -1136,29 +1123,23 @@ in real time on one processor core.\index{ORCA!complexity}
 
 The guarantee of \cref{thm:ch13-nbody} is conditional, and every condition
 fails somewhere in a real swarm; the honest summary is that \orca is a
-\emph{safety filter} for the next $\ttc$ seconds and nothing more.
-\begin{itemize}
-  \item \emph{Feasibility.} The half-planes may not intersect. The fallback
-  of \cref{alg:ch13-dense} then minimises the largest violation, which
-  postpones the first collision but does not exclude it.
-  \item \emph{Exact, shared information.} Both agents must use the same
-  $\pos_{\mathrm{rel}}$, $r$, $\ttc$ and current velocities. Sensing noise,
-  latency and different horizons make the two half-planes slightly
-  inconsistent; the radius margin of \cref{sec:ch13-implementation} absorbs
-  small inconsistencies, and the intruder case absorbs the large ones by
-  taking full responsibility.
-  \item \emph{Instantaneous velocity changes.} The agents are assumed to fly
-  the new velocity immediately. A drone tracks it with a delay and an error
-  (\cref{ch:ch02,ch:ch14}); again the radius margin pays for it.
-  \item \emph{No goal-reaching, no completeness.} \orca chooses the closest
-  permitted velocity to the preferred one, step by step, with no memory and
-  no lookahead beyond $\ttc$. It can stop an agent forever.
-\end{itemize}
+\emph{safety filter} for the next $\ttc$ seconds and nothing more. The
+half-planes may not intersect, and the fallback of \cref{alg:ch13-dense}
+then postpones the first collision without excluding it. Both agents must
+use the same $\pos_{\mathrm{rel}}$, $r$, $\ttc$ and current velocities;
+sensing noise, latency and different horizons make the two half-planes
+slightly inconsistent, which the radius margin of
+\cref{sec:ch13-implementation} absorbs, while the intruder case absorbs the
+large inconsistencies by taking full responsibility. The agents are assumed
+to fly the new velocity immediately, whereas a drone tracks it with a delay
+and an error (\cref{ch:ch02,ch:ch14}); again the margin pays for it.
+Finally, \orca chooses the closest permitted velocity to the preferred one,
+step by step, with no memory and no lookahead beyond $\ttc$, so it can stop
+an agent forever.
 
 \begin{proposition}[\orca is not a global planner]
 \label{thm:ch13-incomplete}
-There are instances with a collision-free solution in which agents running
-\cref{alg:ch13-step} never reach their goals.
+There are instances with a collision-free solution in which agents running the step of \cref{sec:ch13-step} never reach their goals.
 \end{proposition}
 \begin{proof}[Proof by example]
 Two agents of radius $r_0$ face each other in a corridor of width $3r_0$
@@ -1231,20 +1212,14 @@ controller for multirotors~\cite{zhu2019chance}; \cref{ch:ch21} introduces
 that controller, and the linearised chance constraint has exactly the shape
 of a half-plane with an uncertainty-dependent margin.
 
-\paragraph{Responsibility shares and priorities.}
-Any split $\alpha_A + \alpha_B = 1$ keeps the guarantee. A share of
-$(1, 0)$ gives $B$ the right of way, which a swarm can use to let a drone
-with a critical battery through, or to let a formation leader keep its
-course while the followers avoid; the shares must be agreed on both sides,
-otherwise \cref{thm:ch13-pairwise} fails (see the first pitfall below).
-
 % ---------------------------------------------------------------------
 \section{Implementation notes}
 \label{sec:ch13-implementation}
 
 The file \code{ch13\_orca.py} implements everything in this chapter with
-plain tuples and a few NumPy calls; \cref{lst:ch13-cases,lst:ch13-lp,lst:ch13-line}
-show the three functions that carry the mathematics. The geometry helpers
+plain tuples and a few NumPy calls; \cref{lst:ch13-cases,lst:ch13-lp}
+show the functions that carry the mathematics, and the line program of
+\cref{alg:ch13-lp} is \code{\_lp\_on\_line} in the same file. The geometry helpers
 (\code{dot}, \code{cross}, \code{ray\_circle\_intersection}, \dots) are
 copied from \code{ch02\_toolbox.py} so that the file stands alone.
 
@@ -1316,39 +1291,6 @@ def lp_incremental(lines, v_max, v_opt, direction_opt=False):
     return v, len(lines)
 \end{lstlisting}
 
-\begin{lstlisting}[caption={The one-dimensional program on the boundary line of \code{lines[i]} (the line program of \cref{alg:ch13-lp}); with \code{direction\_opt} it maximises along \code{v\_opt} instead, as the dense fallback needs.},label={lst:ch13-line}]
-def _lp_on_line(lines, i, v_max, v_opt, direction_opt):
-    line = lines[i]
-    d = line.direction
-    q = line.point
-    b = dot(q, d)
-    disc = b * b + v_max * v_max - dot(q, q)
-    if disc < 0.0:
-        return None                          # the line misses the disc
-    root = math.sqrt(disc)
-    t_left, t_right = -b - root, -b + root   # the chord inside the disc
-    for j in range(i):
-        dj = lines[j].direction
-        den = cross(d, dj)
-        num = cross(dj, sub(q, lines[j].point))
-        if abs(den) <= EPS:                  # parallel boundaries
-            if num < 0.0:
-                return None                  # line j excludes all of line i
-            continue
-        t = num / den
-        if den >= 0.0:
-            t_right = min(t_right, t)        # line j cuts the chord on the right
-        else:
-            t_left = max(t_left, t)          # ... on the left
-        if t_left > t_right:
-            return None
-    if direction_opt:                        # go as far as possible along v_opt
-        t = t_right if dot(v_opt, d) > 0.0 else t_left
-    else:                                    # closest point to v_opt
-        t = min(max(dot(d, sub(v_opt, q)), t_left), t_right)
-    return add(q, scale(d, t))
-\end{lstlisting}
-
 \paragraph{Libraries.}
 The reference implementation is the RVO2 library of the \orca authors
 (C++, with ports to several languages, and RVO2-3D for half-spaces). Its
@@ -1416,8 +1358,7 @@ point in every case: away from the truncating disc's centre on the arc,
 and the leg direction rotated by $+90^\circ$ on the left leg and by
 $-90^\circ$ on the right leg. A sign error in one case gives a half-plane
 on the wrong side, and the program cheerfully returns a velocity that leads
-into the cone; the symptom is agents that avoid correctly in most
-encounters and collide in a few. Test every case against
+into the cone. Test every case against
 \cref{thm:ch13-cases} the way the self-test does: the point
 $\vel_{\mathrm{rel}} + \vect{u}$ must lie on the boundary, and
 $\vel_{\mathrm{rel}} + \vect{u} \pm \eps\vect{n}$ must lie outside and
@@ -1458,9 +1399,7 @@ enters the safety horizon, the trigger of \cref{ch:ch24} switches the local
 layer on: the swarm mates within sensing range become reciprocal
 half-planes with share $\tfrac12$, and the intruder becomes a half-plane
 with \emph{full} responsibility, built from its predicted velocity and a
-radius inflated by the predicted position uncertainty at the horizon, so
-that the drone alone does all the avoiding and the constraint stays
-conservative when the prediction is poor. The layer delivers one velocity
+radius inflated by the predicted position uncertainty at the horizon. The layer delivers one velocity
 command per step to the flight controller and reports two things upwards:
 whether its program was feasible, and how far the drone has drifted from
 the nominal path. When the conflict clears, the preferred velocity points at
@@ -1631,7 +1570,7 @@ $(1, 0)$ at $y = 0$ with $\ttc_{\mathrm{obst}} = 2$ and show that they
 forbid every velocity with $\abs{v_y}$ above a threshold that you compute.
 (b) Argue that as the agents approach, the program of each returns
 velocities of decreasing speed and finally $\vect{0}$, and that the state is
-then a fixed point of \cref{alg:ch13-step}. (c) Propose two remedies, one
+then a fixed point of the step of \cref{sec:ch13-step}. (c) Propose two remedies, one
 inside the local layer (a share or priority rule) and one in the
 architecture of \cref{ch:ch24}, and discuss what each guarantees. Simulate
 the instance with \code{ch13\_orca.py} if you want to see the stall.
@@ -1656,12 +1595,8 @@ responsibility, and check that no swarm agent collides with it.
 \begin{exercise}[\difficulty{3} Coding]
 \label{exr:ch13-3d}
 Use \code{orca\_half\_space\_3d} to build the half-spaces of six drones that
-start on a sphere of radius $10$ and fly to their antipodal points. Solve
-the three-dimensional program either by implementing the recursive
-incremental algorithm (when a half-space is violated, solve the
-two-dimensional program of \cref{alg:ch13-lp} on its boundary plane) or,
-to start with, by sampling velocities in the ball $\norm{\vel} \le v_{\max}$
-and choosing the closest feasible sample to $\vel^{\mathrm{pref}}$. Verify
-that the smallest centre distance never drops below $r_A + r_B$ and compare
-the running times of the two solvers.
+start on a sphere of radius $10$ and fly to their antipodal points, solve
+the three-dimensional program by sampling velocities in the ball
+$\norm{\vel} \le v_{\max}$ (or by the recursive incremental algorithm), and
+verify that the smallest centre distance never drops below $r_A + r_B$.
 \end{exercise}
