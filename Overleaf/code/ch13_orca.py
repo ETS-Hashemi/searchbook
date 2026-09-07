@@ -642,8 +642,12 @@ def _self_test():
     assert abs(ex["angle_new_rel"] - ex["theta"]) < 1e-6   # on the boundary
     assert abs(ex["angle_full_rel"] - ex["theta"]) < 1e-6
     assert half.half_plane().contains(ex["v_new_a"])
-    assert time_to_collision(a.position, ex["v_new_a"], a.radius,
-                             b.position, ex["v_new_b"], b.radius) is None
+    # the new relative velocity lies on the boundary of VO^tau: the discs
+    # graze at most, so the centre distance never drops below r
+    d_min = min(norm(sub(add(b.position, scale(ex["v_new_b"], t)),
+                         add(a.position, scale(ex["v_new_a"], t))))
+                for t in np.linspace(0.0, 2.0 * tau, 4001))
+    assert d_min >= a.radius + b.radius - 1e-6, d_min
     # -- 4. the linear program on random feasible instances ----------------
     rng = np.random.default_rng(13)
     grid = velocity_samples(1.5, rings=60, directions=360)
