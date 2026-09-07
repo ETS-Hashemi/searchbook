@@ -318,7 +318,7 @@ def effective_sample_size(weights):
 
 
 def systematic_resample(weights, rng):
-    """Indices of the particles to keep: one uniform draw, N evenly spaced points."""
+    """Indices to keep: one uniform draw, N evenly spaced points."""
     n = len(weights)
     positions = (rng.random() + np.arange(n)) / n
     cumulative = np.cumsum(weights)
@@ -359,16 +359,16 @@ class ParticleFilter:
         return self.X
 
     def update(self, z=None):
-        """Weight by the likelihood (if any), normalise, estimate, resample if needed."""
+        """Weight by the likelihood, normalise, estimate, resample."""
         if z is not None:
             self.logw += self.sensor.log_likelihood(z, self.X)
         if self.constraint is not None:
             self.logw[~self.constraint(self.X)] = -np.inf
         top = np.max(self.logw)
-        if not np.isfinite(top):                     # every particle died: restart flat
+        if not np.isfinite(top):            # every particle died: flat
             self.logw[:] = -math.log(self.n)
             top = self.logw[0]
-        w = np.exp(self.logw - top)                  # log-sum-exp normalisation
+        w = np.exp(self.logw - top)         # log-sum-exp normalisation
         w /= np.sum(w)
         with np.errstate(divide="ignore"):
             self.logw = np.log(w)
@@ -377,8 +377,10 @@ class ParticleFilter:
         if self.n_eff < self.threshold:
             idx = systematic_resample(w, self.rng)
             self.X = self.X[idx]
-            if self.roughening is not None:              # optional jitter of the copies
-                self.X = self.X + self.rng.normal(size=self.X.shape) * self.roughening
+            # optional jitter of the copies
+            if self.roughening is not None:
+                jitter = self.rng.normal(size=self.X.shape)
+                self.X = self.X + jitter * self.roughening
             self.logw = np.full(self.n, -math.log(self.n))
             self.resample_count += 1
         return self.x, self.P

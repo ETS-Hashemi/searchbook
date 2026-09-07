@@ -201,3 +201,96 @@ Wilde et al.'s counterexamples, the "feasibility is not optimality" section with
 number, and `tab:ch11-comparison`, which is the single most useful page in the MAPF part of
 the book. All 16 citations resolve to real, correctly described entries in `references.bib`,
 `bib/ch07-extra.bib` and `bib/ch11-extra.bib`; the bibliography needs no work.
+
+## Response to review (round 1)
+
+All eight required changes are applied, together with six of the seven suggestions.
+Build status 0, no errors; `python3 Overleaf/code/ch11_mstar.py` self-test passes unchanged
+(31/127, 24/612, 100/292, 27/162, cost 15; swap example 14 moves, makespan 14, sum of costs 27).
+The code was not modified, so `figures/data/ch11-expansions.dat` needs no regeneration.
+Nothing on the reviewer's "must keep" list was touched: the three-drone aisle instance, the
+four-phase narrative, `tab:ch11-trace`, `fig:ch11-search-graph`, the vertex/swap-collision
+distinction and its pitfall box, `thm:ch11-terminates`, the three-step optimality sketch, the ID
+proposition, the honest Luna-Bekris / de Wilde treatment, `sec:ch11-quality` and
+`tab:ch11-comparison` all survive in substance.
+
+### Required changes
+
+1. **Four searches compared (612 candidates).** Applied verbatim. The sentence now reads
+   "because every expansion enumerates the whole Cartesian product of the agents' move
+   lists---up to $5^3 = 125$ joint moves, and $612/24 \approx 26$ on average on this narrow map,
+   where most cells have only one or two neighbours".
+2. **Corollary `thm:ch11-linear` off by one.** Applied. The statement is now "\mstar expands
+   exactly the $T$ non-goal nodes of that path, one successor each, and then pops $v_f$ and
+   returns: $T$ expansions, where $T$ is the makespan of the individual paths, whatever $k$ is",
+   and the proof ends "the goal is popped with $\gcost = \hcost(v_s)$ after $T$ expansions and
+   returned at once (line~\ref{alg:ch11-mstar:goal}), so $v_f$ is never expanded". Re-verified
+   with the chapter code: two agents on an obstacle-free $6 \times 2$ corridor with
+   collision-free policy paths of makespan 5 give `expansions == 5`.
+3. **Cost convention after `def:ch11-cost`.** Applied. The claim is now restricted to "every plan
+   returned by joint \astar and \mstar in this chapter", followed by the counterexample: the
+   push-and-swap plan of `sec:ch11-quality` "costs $26$ under (11.1) against a sum of costs of
+   $27$". Confirmed with the code (`active_cost` 26, `sum_of_costs` 27).
+4. **Step 2 of the optimality proof.** Applied. Step 2 now opens "Assume, for the contradiction
+   of Step~3, that the run either fails or returns a cost larger than $C^*$. Then every node
+   generated with $\fcost \le C^*$ is expanded before the run ends, because the goal is popped
+   only with $\fcost$ equal to the returned cost, so every such node is popped first." Nothing
+   else in the proof changed.
+5. **`alg:ch11-pas`, the blocker binding.** Applied. Line 8 is now "$b \gets$ the agent occupying
+   the next vertex of $p$", and the resolve line is "\lIf{$b \in U$}{remove it from $U$ and
+   schedule it to be solved again}", so the pseudocode matches the two failure cases described in
+   Section 11.7.2 and Luna and Bekris's formulation.
+6. **Exercise `exr:ch11-collision-sets` and its solution.** Applied. The question now asks "At
+   which expansion does agent~3 first enter a collision set, and which move puts it there? What is
+   the collision set of the start when the search stops?" The last third of the solution is
+   rewritten: agent 3 enters at expansion 5 (the second expansion of $(a,b,d)$, where the coupled
+   agent 2 tries $b \to d$ into the vertex agent 3 rests on -- a vertex collision of agents 2 and
+   3); backpropagation gives the start $C = \{1,2,3\}$ at expansion 6; \mstar returns failure after
+   12 expansions and 84 generated candidates, with `thm:ch11-terminates` guaranteeing that it
+   returns. All numbers re-derived from the chapter code's trace on
+   `Graph.from_edges([("a","b"),("b","c"),("b","d")])`, starts `a,c,d`, goals `c,a,d`. The first
+   two thirds of the solution (policies, first three expansions, the four limited neighbours, the
+   unsolvability argument) are kept unchanged.
+7. **Exercise `exr:ch11-swap-count`(c) and its solution.** Applied. The exercise now asks to show
+   the exchange parallelises into "exactly three time steps and no fewer, under the convention of
+   Section 11.3 that an agent may follow another into the cell it is leaving", and to give the
+   pairing. The solution names the six moves, gives the pairing $\{1,2\}, \{3,4\}, \{5,6\}$,
+   observes that each pair is a following move on a different edge, and derives the lower bound of
+   three from "each of the two agents has to make three moves and an agent moves at most once per
+   step". The multipush claim ($d$ time steps) is unchanged.
+8. **Exercise `exr:ch11-coding`, first sentence (category F).** Applied verbatim: "This is the
+   coding exercise of this chapter. The study plan (Appendix A, Week 5) asks only for awareness of
+   M* and Push-and-Swap, so treat it as the optional extension of the Week-5 work." The exercise
+   content is unchanged. (The drone box's "in the study plan this chapter belongs to Week 5, as the
+   reading that completes the practical MAPF picture" was already consistent with Appendix A and
+   was left alone.)
+
+### Suggestions
+
+- **"median" for the OD ratio.** Applied: "OD examines, in the median, about $200$ times fewer
+  successor candidates than plain joint \astar with six agents (the ratio of the means is about
+  $120$)" -- $76928/356 \approx 216$, $132155/1114 \approx 119$ in
+  `figures/data/ch11-expansions.dat`.
+- **`fig:ch11-expansions` caption and survivorship.** Applied. The caption now says the statistics
+  use "the instances solved by all four methods within the cap: $30, 30, 30, 29, 27$ for
+  $k = 2, \dots, 6$", and Section 11.5.1 adds the warning that joint \astar's mean expansions fall
+  from 63.7 at $k=5$ to 29.6 at $k=6$ only because the hardest $k=6$ instances drop out of the
+  common set.
+- **"Collision sets can shrink at most $k$ times".** Applied: reworded to "The set $A$ used in the
+  argument is replaced by a strictly smaller one at most $k$ times along this process".
+- **`tab:ch11-trace` caption.** Applied: "`mstar(inst, trace=True)` records all 31 in
+  `result.info`".
+- **ECBS at first use.** Applied: Section 11.1 now reads "its bounded-suboptimal relative, enhanced
+  CBS (ECBS, Chapter 10)".
+- **Push-and-Swap termination.** Applied: the paragraph now distinguishes the inner loop from the
+  outer one -- "The outer loop is the delicate part, because the resolve step
+  (line~\ref{alg:ch11-pas:resolve}) puts a displaced agent back into the queue; that it still
+  terminates is the argument of Luna and Bekris, corrected by de Wilde et al."
+- **Length (category G, optional): not applied**, with one reservation about the suggested cut.
+  Cuts (i) and (iii) trade prose the reader needs for caption density, and cut (ii) is not free:
+  the successor loop shown in `lst:ch11-core` calls `limited_neighbours`, so deleting its
+  definition would leave the listing calling a function it does not show. The chapter is still
+  about 20-21 pages; if the book editor needs the space, folding Section 11.5.1 into the figure
+  caption is the one cut that can be made without touching the material the review asked to keep,
+  and it should be taken at book level rather than inside this revision, which only added about
+  twenty lines of required corrections.

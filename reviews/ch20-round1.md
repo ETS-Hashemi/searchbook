@@ -324,3 +324,98 @@ $1.33$ line-fit factor, $NT>192$ and $16\pi(1-\pi)$ are all correct); and the ci
 all 18 keys resolve, the LSTM/forget-gate/BPTT attributions are split correctly between
 Hochreiter & Schmidhuber 1997, Gers et al. 2000 and Werbos 1990, and I could vouch for the
 authors, venue and year of every entry.
+
+## Response to review (round 1)
+
+All twelve required changes are applied. The build is clean
+(`./build.sh ch20-trajectory-prediction`, status 0, no errors, no overfull boxes
+above 15 pt); the self-test passes in 1.4 s and the full experiment reruns in
+27 s with every quoted number unchanged (no code was edited, so no `.dat` file
+needed regenerating).
+
+**Required changes**
+
+1. *CV noise growth (sec:ch20-baselines).* Replaced with the reviewer's wording:
+   the velocity error `sigma*sqrt(2)/(k dt)` times the look-ahead `h dt` gives a
+   position error growing like `h sigma/k`, with the explicit remark that `dt`
+   cancels, pointing at `thm:ch20-cv-noise`.
+2. *"triples the noise amplification" (CA).* Replaced by the precise statement:
+   the stencil `(1,-2,1)` has squared norm 6 against the first difference's 2, so
+   the acceleration estimate is three times as noisy *in variance*; extrapolated
+   to h = 12 with k = 3 this is an RMS position error 4.7 times the CV one, which
+   is why CA loses on straight flight (0.830 against 0.335 m).
+3. *Circular recurrence in eq:ch20-pooling.* The equation now reads
+   `S_{i,t}[m,n,:] = sum_{j != i} 1[p_{j,t-1} - p_{i,t-1} in cell(m,n)] h_{j,t-1}`,
+   followed by the sentence that the previous step's states are pooled so every
+   agent's cell can be stepped once per time step in any order. The surrounding
+   prose (`h_{i,t}`, `h_{j,t-1}`), the figure caption and the middle panel of
+   `figures/ch20/social-pooling.tex` were updated to match.
+4. *RMS versus mean FDE (straight flight).* Now: "predicts a root-mean-square
+   final error of 1.25 m and hence, for an isotropic two-dimensional Gaussian
+   error, a mean error of sqrt(pi)/2 * 1.25 = 1.11 m, against the measured
+   1.125 m."
+5. *Collision metric with an exact formula.* Added the displayed
+   `eq:ch20-collision-rate` exactly as proposed, with one sentence saying that
+   the predicted-versus-true variant measures the predictor while the
+   predicted-versus-predicted variant measures a joint sampler's
+   self-consistency.
+6. *The letter H with three meanings.* (a) `H` and `R` are gone from the `\KwIn`
+   list and the `\PredKF` signature (now `KalmanExtrapolate(z, H, F, Q)`); line 11
+   names the constant-velocity filter of ch:ch18 with `F, Q` of eq:ch20-q,
+   `H = (I 0)` and `R = sigma^2 I`, and the initialisation line no longer refers
+   to an undeclared `R`. (b) The pooling tensor is `S_{i,t}` everywhere
+   (equation, prose, figure).
+7. *The letter M with three meanings.* `M` stays the LSTM input size; the number
+   of heads is `n_h` in eq:ch20-multihead, thm:ch20-complexity(ii) and its proof,
+   and exr:ch20-attention-complexity; the Ensembles paragraph now says "several
+   copies ... five copies is a common choice"; `appendices/solutions/ch20-solutions.tex`
+   uses `n_h` for heads and plain `M` in place of `M_in`.
+8. *Self-contradicting fig:ch20-results caption.* Reworded to the proposed text
+   ("LSTM-NLL and LSTM-MSE are below every baseline from the first step on ...
+   while the same network trained on absolute coordinates is above every baseline
+   at every horizon").
+9. *The two never-compiled figures.* Both are now included and compile:
+   `ch20/integration` as `fig:ch20-integration` in sec:ch20-drone right after
+   eq:ch20-inflated, captioned "One prediction, three consumers" with the
+   what-to-notice sentence (one ellipse sequence read as a radius, a set of cells
+   and a per-step margin); `ch20/training` as `fig:ch20-training` in the
+   "Horizons, pitfalls and calibration" paragraph, captioned "Exposure bias,
+   measured", naming epoch 3 as the point where the teacher-forced training loss
+   keeps falling while the free-running validation ADE rises. Nothing in
+   `gen_ch20_results.py` was deleted; both `.dat` files now have a consumer.
+10. *One seed, unstated.* Added where the learned predictors are introduced: all
+    numbers come from the one fixed seed of ex:ch20-dataset, with the pointer to
+    exr:ch20-coding and rule 5. exr:ch20-coding(a) was extended to ask for three
+    seeds and a spread, so the cross-reference is true.
+11. *Misattributed constant-velocity finding.* Rewritten as proposed: the result
+    is Schoeller et al. alone, and Rudenko et al. places it in the context of the
+    field.
+12. *Survey cited for later work.* Rewarded without a citation: "and joint
+    attention over agents and time steps, the natural generalisation of both, are
+    the current state of the art". (The reword was chosen over adding AgentFormer
+    so that no new bib entry enters unverified.)
+
+**Suggestions taken:** pointers to `def:ch02-covariance-ellipse`,
+`def:ch02-minkowski-sum` and `def:ch02-double-integrator` in place of whole-chapter
+references; "up to modification on a set of measure zero" in thm:ch20-conditional-mean;
+the half-sentence closing the gap from the Kalman mean to the conditional mean
+(with a forward pointer to ch:ch18); a caption note that the four predictors are
+within noise of each other on the 60 hidden-manoeuvre trajectories, so the bold
+entry in that column singles out no winner; the flat `\index{Kalman extrapolation}`
+dropped in favour of the subentry; a four-line solution added for
+exr:ch20-metrics-hand; and the four length cuts (the "What Transformers buy"
+paragraph compressed to the data/compute/engineering triad, the duplicated
+Week-10 closing paragraph of sec:ch20-example deleted, the poorly-tuned-baseline
+pitfall compressed, and the LSTM-TF discussion now points back to the exposure-bias
+paragraph instead of re-explaining it).
+
+**Nothing in the experiment was touched:** both result tables, all subsets and
+rows (including the untuned CV, LSTM-abs and LSTM-TF), the calibration column,
+the worked example, the hand-set attention map and all proofs stand as written.
+
+**Open point.** The body is 25 printed pages, one more than the 24 measured in
+the review: the two required figures cost about one and a half pages and the four
+suggested cuts recovered about half a page. I did not buy the page back by
+deleting protected content; if the book-level pass needs it, the cheapest further
+cut is the intuition section's three-point opening (about a third of a page),
+which duplicates material developed later.
