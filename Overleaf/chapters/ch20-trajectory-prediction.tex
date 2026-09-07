@@ -189,17 +189,15 @@ The ADE rewards a prediction that is close on average; the FDE isolates the
 end of the horizon, where errors are largest and the planner's safety margin
 is decided. $\mathrm{minADE}_K$ is generous by construction: it scores a
 sampler by its \emph{best} of $K$ guesses, which measures whether the samples
-cover the true future but says nothing about how a planner should choose
-among them. A paper that reports $\mathrm{minADE}_{20}$ next to the ADE of a
-deterministic baseline compares two different things. Displacement errors
-also ignore physics: a prediction that passes through a wall or through
-another drone has a small ADE if it ends near the truth.
+cover the true future but not how a planner should choose among them, so a
+$\mathrm{minADE}_{20}$ next to the ADE of a deterministic baseline compares
+two different things. Displacement errors also ignore physics: a prediction
+that passes through a wall has a small ADE if it ends near the truth.
 \textbf{Collision-based metrics}\index{collision rate!of predictions} count
-such predictions, the fraction of predicted trajectories that come closer
-than $d_{\min}$ to a static obstacle or to the true trajectory of another
-agent at the same time step. \Cref{ch:ch25} measures the collision rate of
-the \emph{planner} that consumes the predictions, the metric that finally
-matters.
+the fraction of predicted trajectories that come closer than $d_{\min}$ to a
+static obstacle or to the true trajectory of another agent at the same time
+step; \cref{ch:ch25} measures the collision rate of the \emph{planner} that
+consumes the predictions, the metric that finally matters.
 
 \paragraph{An honest evaluation protocol.}
 \label{sec:ch20-protocol}
@@ -525,15 +523,14 @@ training, it is the \emph{true} displacement $\vect{y}_{k-1}$: the decoder is
 told the correct answer for the previous step and only has to predict the
 next one, which makes early training fast and stable because errors do not
 accumulate along the rollout. Its weakness is \textbf{exposure
-bias}\index{exposure bias}: the decoder is trained on perfect inputs and
-evaluated on its own imperfect ones, and it can learn to copy its input, a
-shortcut that works under teacher forcing and fails in free-running mode
+bias}\index{exposure bias}: trained on perfect inputs and evaluated on its
+own imperfect ones, the decoder can learn to copy its input, a shortcut that
+works under teacher forcing and fails in free-running mode
 (\cref{sec:ch20-example} shows it with numbers). The remedies are to train
 in free-running mode with the gradient flowing through the feedback, or to
 move from teacher forcing to free running with a
 schedule~\cite{bengio2015scheduled}. In \textbf{sampling} mode the input is
-a sample from the predicted Gaussian, which produces one plausible future per
-rollout.
+a sample from the predicted Gaussian: one plausible future per rollout.
 
 \paragraph{The loss: squared error or Gaussian likelihood.}
 \index{loss function!mean squared error}\index{loss function!Gaussian negative log-likelihood}%
@@ -738,16 +735,16 @@ art for interaction-aware prediction. \Cref{fig:ch20-attention} illustrates
 the mechanism on four drones. To keep the numbers reproducible without
 training, the query and key maps are set by hand in
 \code{toy\_agent\_attention}: with $\vect{x} = \pos + \tau\vel$ the position
-extrapolated $\tau = 2$~s ahead, the augmented features $\vect{k}_j =
-(\vect{x}_j, \norm{\vect{x}_j}^2, 1)$ and $\vect{q}_i = (\vect{x}_i, -\tfrac12,
+extrapolated $\tau = 2$~s ahead, the features $\vect{k}_j = (\vect{x}_j,
+\norm{\vect{x}_j}^2, 1)$ and $\vect{q}_i = (\vect{x}_i, -\tfrac12,
 -\tfrac12\norm{\vect{x}_i}^2)\,\sqrt{d_k}/\ell^2$ make the scaled dot product
-equal to $-\norm{\vect{x}_i - \vect{x}_j}^2 / (2\ell^2)$, so the weights are
-large for agents whose extrapolated positions are close. Drone~A splits its
+equal to $-\norm{\vect{x}_i - \vect{x}_j}^2 / (2\ell^2)$: the weight is large
+for agents whose extrapolated positions are close. Drone~A splits its
 attention almost equally between itself and drone~B, which is on a
-collision course ($\alpha_{AB} = 0.48$), and gives drone~C, near but
-diverging, $0.003$ and the distant drone~D nothing. A trained model learns
-such maps from data, one per head: one head may score closeness, another
-whether the neighbour is ahead or behind, a third its speed.
+collision course ($\alpha_{AB} = 0.48$), gives drone~C, near but diverging,
+$0.003$ and the distant drone~D nothing. A trained model learns such maps
+from data, one per head: closeness, whether the neighbour is ahead or
+behind, its speed.
 
 \begin{figure}[tb]
   \centering
@@ -892,9 +889,9 @@ read-out of \cref{eq:ch20-nll} and \textbf{LSTM-MSE} the loss of
 \cref{eq:ch20-mse}; both use the agent frame, the residual over constant
 velocity and free-running training. \textbf{LSTM-abs} is LSTM-NLL trained on
 absolute world positions and \textbf{LSTM-TF} is LSTM-NLL trained with
-teacher forcing in every epoch; the two exist to show two pitfalls with
-numbers. \Cref{tab:ch20-results,tab:ch20-horizon} and \cref{fig:ch20-results}
-contain the results; read them subset by subset.
+teacher forcing in every epoch: two pitfalls with numbers.
+\Cref{tab:ch20-results,tab:ch20-horizon} and \cref{fig:ch20-results} contain
+the results; read them subset by subset.
 
 \begin{table}[tb]
   \centering\small
@@ -993,24 +990,24 @@ anything there.
 \Cref{tab:ch20-horizon} shows the advantage growing with the horizon: at
 $0.8$~s the LSTM's $\mathrm{ADE}_4$ of $0.227$~m is $25\,\%$ below the tuned
 CV, at $2.4$~s it is $28\,\%$ below and $0.32$~m in absolute terms; the
-$0.82$~m over ``all'' hides a $0.43$~m and a $1.60$~m. LSTM-abs, the same
-network trained on absolute positions, is worse than the tuned CV on every
-subset ($1.315$ against $1.141$~m overall): it has to learn translation and
-rotation invariance from $1600$ examples, and it does not. LSTM-TF reaches a
-training loss far below the free-running model's, but its free-running
-validation ADE is best at epoch~$3$ and then drifts upwards, so early
-stopping ends the run after $13$ epochs; on the test set it is barely better
-than CV, because the decoder learned to copy the displacement it was fed.
-LSTM-MSE is slightly more accurate than LSTM-NLL ($0.789$ against $0.821$~m)
-but knows nothing about its own uncertainty. LSTM-NLL's $20$ sampled rollouts
-reach $\mathrm{minADE}_{20} = 0.695$~m and $\mathrm{minFDE}_{20} = 1.415$~m,
-better than its own ADE and FDE, as $\mathrm{minADE}_K$ always is. Its
-calibration is poor: the $95\,\%$ ellipse contains $76\,\%$ of the true
-positions at $h = 4$ and only $54\,\%$ at $h = 12$, while the Kalman ellipse
-contains $79$--$85\,\%$. The learned $\vect{\sigma}_h$ has the right shape,
-growing with $h$ and larger during manoeuvres, but the step errors of a
-free-running rollout are strongly correlated and summing per-step variances
-as if they were independent underestimates the spread.
+$0.82$~m over ``all'' hides a $0.43$~m and a $1.60$~m. LSTM-abs is worse
+than the tuned CV on every subset ($1.315$ against $1.141$~m overall): it has
+to learn translation and rotation invariance from $1600$ examples, and it
+does not. LSTM-TF reaches a training loss far below the free-running
+model's, but its free-running validation ADE is best at epoch~$3$ and then
+drifts upwards, so early stopping ends the run after $13$ epochs; on the
+test set it is barely better than CV, because the decoder learned to copy
+the displacement it was fed. LSTM-MSE is slightly more accurate than
+LSTM-NLL ($0.789$ against $0.821$~m) but knows nothing about its own
+uncertainty. LSTM-NLL's $20$ sampled rollouts reach $\mathrm{minADE}_{20} =
+0.695$~m and $\mathrm{minFDE}_{20} = 1.415$~m, below its own ADE and FDE, as
+$\mathrm{minADE}_K$ always is. Its calibration is poor: the $95\,\%$ ellipse
+contains $76\,\%$ of the true positions at $h = 4$ and only $54\,\%$ at
+$h = 12$, while the Kalman ellipse contains $79$--$85\,\%$. The learned
+$\vect{\sigma}_h$ has the right shape, growing with $h$ and larger during
+manoeuvres, but the step errors of a free-running rollout are strongly
+correlated, and summing per-step variances as if they were independent
+underestimates the spread.
 
 \Cref{fig:ch20-example} shows one test trajectory, chosen so that the LSTM's
 final error is the median of the visible-manoeuvre subset. The drone flies
@@ -1096,11 +1093,9 @@ independent Gaussian vectors; its expected squared norm is the sum of the
 variances of its two coordinates.
 \end{proof}
 
-The proposition explains the first two rows of \cref{tab:ch20-results} and
-the trade-off behind the window: the noise term falls with $k$, but on a turn
-a large $k$ averages a rotating velocity and lags, so the best $k$ depends on
-the mixture of manoeuvres. The Kalman filter resolves the trade-off by
-weighting the whole window according to its noise model.
+The proposition explains the first two rows of \cref{tab:ch20-results}: the
+noise term falls with $k$, but on a turn a large $k$ averages a rotating
+velocity and lags, so the best $k$ depends on the mixture of manoeuvres.
 
 \begin{theorem}[The conditional mean minimises the expected squared error]
 \label{thm:ch20-conditional-mean}
@@ -1140,8 +1135,8 @@ prediction is $\pi\vect{y}^{(1)} + (1 - \pi)\vect{y}^{(2)}$, which for $\pi =
 two-sample predictor that outputs both has $\mathrm{minADE}_2 = 0$.
 \end{corollary}
 
-This is the whole case for multimodal outputs, and it is also why the
-learned model of \cref{sec:ch20-example} hedges on straight flight: some
+This is the whole case for multimodal outputs, and it is why the learned
+model of \cref{sec:ch20-example} hedges on straight flight: some
 straight-looking histories are followed by a manoeuvre, and the conditional
 mean shortens the predicted progress accordingly.
 
@@ -1162,17 +1157,17 @@ $\vect{c}_{t-1}$ enters \cref{eq:ch20-cell} only through the product
 $\vect{f}_t \odot \vect{c}_{t-1}$, so with the gates held fixed
 $\partial\vect{c}_t/\partial\vect{c}_{t-1} = \diag(\vect{f}_t)$, and the chain
 rule multiplies these diagonal matrices along the path. For the simple
-recurrence the chain rule gives the product of $\diag(\tanh'(\cdot))\mat{W}_h$
+recurrence the chain rule gives a product of $\diag(\tanh'(\cdot))\mat{W}_h$
 factors, whose norm is bounded by $\norm{\mat{W}_h}^\tau$ and, since
 $\tanh' \le 1$ with equality only at $0$, is typically much smaller.
 \end{proof}
 
 The full Jacobian also contains the indirect paths through $\vect{h}_{t-1}$,
 which behave like the simple recurrence, so the LSTM does not
-\emph{guarantee} stable gradients. What it guarantees is a path along which
-the error signal survives when the network sets its forget gates near $1$;
-the initialisation $\vect{b}_f = \vect{1}$ makes that the starting point, and
-gradient clipping handles the explosions the indirect paths can still cause.
+\emph{guarantee} stable gradients; it guarantees a path along which the
+error signal survives when the forget gates are near $1$. The initialisation
+$\vect{b}_f = \vect{1}$ makes that the starting point, and gradient clipping
+handles the explosions the indirect paths can still cause.
 
 \begin{proposition}[Cost of the sequence models]
 \label{thm:ch20-complexity}
@@ -1192,13 +1187,12 @@ LSTM per agent.
 \begin{proof}
 (i) One step multiplies a $4D \times (M + D)$ matrix by a vector; the rest is
 element-wise on vectors of length $D$, and each step needs the states of the
-previous one. (ii) Each of $\mat{Q}, \mat{K}, \mat{V}$ is an $n \times d$ times
-$d \times d$ product; $\mat{Q}\mat{K}\T$ is $n \times d$ times $d \times n$;
-the softmax is $\Theta(n^2)$ and the product with $\mat{V}$ is $n \times n$
-times $n \times d$. With $M$ heads each projection is $n \times d$ times
-$d \times d/M$ and each score matrix costs $n^2 d/M$; summing over heads
-restores $n d^2$ and $n^2 d$. (iii) Substitute $n = NT$ in (ii); for (i) run
-$N$ independent encoders and decoders.
+previous one. (ii) Each of $\mat{Q}, \mat{K}, \mat{V}$ is an $(n \times d)(d
+\times d)$ product; $\mat{Q}\mat{K}\T$ is $(n \times d)(d \times n)$, the
+softmax is $\Theta(n^2)$ and the product with $\mat{V}$ is $(n \times n)(n
+\times d)$. With $M$ heads each projection costs $n d^2/M$ and each score
+matrix $n^2 d/M$; summing over heads restores the totals. (iii) Substitute
+$n = NT$ in (ii); for (i) run $N$ independent encoders and decoders.
 \end{proof}
 
 % ---------------------------------------------------------------------
@@ -1243,21 +1237,18 @@ al.~\cite{rudenko2020human} survey the field along these axes.
 \section{Implementation notes}
 \label{sec:ch20-implementation}
 
-The reference implementation \code{ch20\_prediction.py} is about $900$ lines
-of NumPy: the generator of \cref{ex:ch20-dataset}, the baselines, the
+The reference implementation \code{ch20\_prediction.py} is about $1000$
+lines of NumPy: the generator of \cref{ex:ch20-dataset}, the baselines, the
 metrics, the LSTM cell with its backward pass (\cref{lst:ch20-cell} is the
 forward step), the sequence-to-sequence model with BPTT, Adam, the training
 loop, attention, the ellipse helpers of \cref{sec:ch20-drone} and the
 experiment. Its self-test checks that the metrics vanish for a perfect
 predictor, that CV is exact on straight flight and CA on a parabola, that
-the Kalman extrapolation is exact on noise-free straight flight with a
-covariance that grows with the horizon, that all gate outputs lie in
+the Kalman covariance grows with the horizon, that all gate outputs lie in
 $(0, 1)$, that the BPTT gradients agree with finite differences to $10^{-6}$
 in all three decoder modes, that training lowers the loss and beats the
-constant-velocity displacement it starts from, that attention weights are
-probability vectors and that the ellipse helpers agree with the $\chi^2$
-radius; it then runs the experiment and asserts the claims of
-\cref{sec:ch20-example}.
+constant-velocity start, and that attention weights are probability vectors;
+it then runs the experiment and asserts the claims of \cref{sec:ch20-example}.
 
 \begin{lstlisting}[caption={One step of the LSTM cell (from \code{code/ch20\_prediction.py}); the backward pass follows it in the file.},label={lst:ch20-cell}]
 def forward(self, x, h_prev, c_prev):
@@ -1288,11 +1279,11 @@ not change the data. Evaluate on held-out manoeuvre types at least once: if
 the test set contains only manoeuvres that also occur in training, you have
 measured interpolation, not prediction. Initialise the forget-gate biases to
 $1$ and the read-out to small values, so that the untrained network starts
-as the constant-velocity model, and keep the log standard deviations in a
-sane range: a network that drives $\sigma \to 0$ on a few easy examples
-produces huge gradients on the next hard one. Writing the backward pass by
-hand, as the reference code does, is worth doing once; the finite-difference
-check in the self-test is the only way to be sure it is right.
+as the constant-velocity model, and clamp the log standard deviations: a
+network that drives $\sigma \to 0$ on a few easy examples produces huge
+gradients on the next hard one. Writing the backward pass by hand is worth
+doing once; the finite-difference check in the self-test is the only way to
+be sure it is right.
 
 \paragraph{The PyTorch version.}
 For real data and for a Transformer, use a framework. \Cref{lst:ch20-torch}
@@ -1436,11 +1427,11 @@ alone are one of the open research directions of \cref{ch:ch24}.
 \begin{summary}
 \begin{itemize}
   \item Trajectory prediction maps the last $T_{\mathrm{obs}}$ positions to the next $T_{\mathrm{pred}}$; ADE averages the displacement error over the horizon, FDE takes the last one, $\mathrm{minADE}_K$ scores the best of $K$ samples and is not comparable to a deterministic ADE. Report curves per horizon and per subset, split by scene, and tune the baselines.
-  \item Constant velocity is exact on straight flight and its only error is amplified noise, $\E[e_h^2] = 2\sigma^2[(1 + h/k)^2 + (h/k)^2]$; the Kalman extrapolation is the optimal linear version and comes with a growing ellipse; constant acceleration overshoots on turns.
+  \item Constant velocity is exact on straight flight and its only error is amplified noise, $\E[e_h^2] = 2\sigma^2[(1 + h/k)^2 + (h/k)^2]$; the Kalman extrapolation is its optimal linear version with a growing ellipse; constant acceleration overshoots on turns.
   \item The LSTM cell keeps a gated memory $\vect{c}_t = \vect{f}_t \odot \vect{c}_{t-1} + \vect{i}_t \odot \tilde{\vect{c}}_t$ whose direct gradient path is $\diag(\vect{f}_t)$; an encoder-decoder pair of cells predicts displacements in the agent frame one step at a time, with a Gaussian read-out trained by the negative log-likelihood, Adam and early stopping, in the mode in which it is used.
   \item Social pooling sums the neighbours' hidden states per grid cell; attention $\operatorname{softmax}(\mat{Q}\mat{K}\T/\sqrt{d_k})\mat{V}$ generalises it to learned relevance over time steps and over agents at $\Theta(n^2 d)$ per layer.
   \item Squared-error training converges to the conditional mean, which averages the modes; mixtures, samplers and ensembles predict several futures, and a calibrated ellipse per step turns any of them into the inflated radius, cost region or chance constraint that the planners consume.
-  \item In the experiment the LSTM beats the tuned baselines by $28\,\%$ overall and by half on turns and visible manoeuvres, loses on straight flight, ties on hidden manoeuvres, fails on absolute coordinates and under teacher forcing only, and its ellipses cover $54\,\%$ instead of $95\,\%$ at $2.4$~s.
+  \item In the experiment the LSTM beats the tuned baselines by $28\,\%$ overall and by half on turns and visible manoeuvres, loses on straight flight, ties on hidden manoeuvres, fails on absolute coordinates or under teacher forcing alone, and its ellipses cover $54\,\%$ instead of $95\,\%$ at $2.4$~s.
 \end{itemize}
 \end{summary}
 

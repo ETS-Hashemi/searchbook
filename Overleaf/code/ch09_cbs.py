@@ -330,11 +330,14 @@ def cbs(grid: Grid, starts: Sequence[Cell], goals: Sequence[Cell],
         _, _, _, node = heapq.heappop(open_heap)
         stats.expanded += 1
         conflict, kids = _choose_conflict(node, split, grid, starts, goals, dists, stats)
+        entry = {"id": node.id, "parent": node.parent, "added": node.added,
+                 "costs": [len(p) - 1 for p in node.paths], "cost": node.cost,
+                 "n_conflicts": node.n_conflicts,
+                 "conflict": str(conflict) if conflict else "none",
+                 "paths": [list(p) for p in node.paths], "children": [],
+                 "bypass": False}
         if keep_trace:
-            trace.append({"id": node.id, "parent": node.parent, "added": node.added,
-                          "costs": [len(p) - 1 for p in node.paths], "cost": node.cost,
-                          "conflict": str(conflict) if conflict else "none",
-                          "paths": [list(p) for p in node.paths]})
+            trace.append(entry)
         if conflict is None:
             stats.seconds = time.perf_counter() - t0
             return Result(node.paths, node.cost, stats, trace)
@@ -352,12 +355,17 @@ def cbs(grid: Grid, starts: Sequence[Cell], goals: Sequence[Cell],
                       if c.cost == node.cost and c.n_conflicts < node.n_conflicts]
             if better:                    # adopt the child's paths, do not split
                 node.paths, node.n_conflicts = better[0].paths, better[0].n_conflicts
+                node.added += " bypass: " + better[0].added
+                entry["bypass"] = True
                 stats.bypasses += 1
                 heapq.heappush(open_heap, (node.cost, node.n_conflicts, node.id, node))
                 continue
         for kid in children:
             kid.id = next(counter)
             stats.generated += 1
+            entry["children"].append({"id": kid.id, "added": kid.added, "cost": kid.cost,
+                                      "costs": [len(p) - 1 for p in kid.paths],
+                                      "n_conflicts": kid.n_conflicts})
             heapq.heappush(open_heap, (kid.cost, kid.n_conflicts, kid.id, kid))
     stats.seconds = time.perf_counter() - t0
     return Result(None, None, stats, trace)
@@ -455,6 +463,11 @@ def print_trace(result: Result) -> None:
                  e["added"] or "none", e["costs"], e["cost"], e["conflict"]))
         for i, p in enumerate(e["paths"]):
             print("   a%d: %s" % (i + 1, " ".join("(%d,%d)" % c for c in p)))
+        for c in e["children"]:
+            print("   -> N%d added %s: costs %s, total %d, %d conflict(s)"
+                  % (c["id"], c["added"], c["costs"], c["cost"], c["n_conflicts"]))
+        if e["bypass"]:
+            print("   bypass: paths replaced, node re-inserted")
 
 
 # ----------------------------------------------------------------------
