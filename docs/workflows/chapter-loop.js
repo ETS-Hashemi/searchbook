@@ -1,6 +1,6 @@
 export const meta = {
   name: 'searchbook-chapter-loop',
-  description: 'Write or complete textbook chapters, peer-review each against the rubric, revise, re-review until accepted (all agents on the configured model)',
+  description: 'Write or complete textbook chapters (session model), peer-review and revise on the review model until accepted',
   phases: [
     { title: 'Write', detail: 'author writes or completes the chapter; compile-checked; code self-test passing; 12-16 pages' },
     { title: 'Review', detail: 'independent reviewer applies the STYLE_GUIDE.md rubric; report saved to reviews/' },
@@ -10,7 +10,11 @@ export const meta = {
 
 const ROOT = '/home/user/searchbook'
 const ITEMS = args.items
-const MODEL = args.model || 'opus'
+// Authors keep the session model (Fable) unless args.writeModel says otherwise; reviewers and
+// revisers run on args.reviewModel (default Opus) so the accuracy-critical writing stays on the
+// strongest model while the review loop spends the cheaper quota.
+const WRITE_OPTS = args.writeModel ? { model: args.writeModel } : {}
+const REVIEW_MODEL = args.reviewModel || 'opus'
 const MAX_ROUNDS = args.maxRounds || 3   // round 3 only if round 2 is still "Major revision"
 
 const REPORT = {
@@ -95,7 +99,7 @@ async function reviewLoop(it) {
   let verdict = 'unknown'
   for (let round = 1; round <= MAX_ROUNDS; round++) {
     const review = await tryAgent(reviewPrompt(it, round),
-      { label: 'review:' + it.id + ':r' + round, phase: 'Review', agentType: 'general-purpose', schema: REVIEW, model: MODEL })
+      { label: 'review:' + it.id + ':r' + round, phase: 'Review', agentType: 'general-purpose', schema: REVIEW, model: REVIEW_MODEL })
     if (!review) { verdict = 'review-failed'; break }
     verdict = review.verdict
     history.push({ round, verdict: review.verdict, required: review.required_changes.length })
@@ -105,13 +109,13 @@ async function reviewLoop(it) {
     if (round === MAX_ROUNDS || (round === 2 && review.verdict !== 'Major revision')) {
       log(it.id + ': stopping after round ' + round + ' with verdict "' + review.verdict + '"; applying the remaining changes without a further review')
       const rev = await tryAgent(revisePrompt(it, review, round),
-        { label: 'revise:' + it.id + ':r' + round, phase: 'Revise', agentType: 'general-purpose', schema: REPORT, model: MODEL })
+        { label: 'revise:' + it.id + ':r' + round, phase: 'Revise', agentType: 'general-purpose', schema: REPORT, model: REVIEW_MODEL })
       history.push({ round, revised: rev ? rev.status : 'failed', final: true })
       if (rev) verdict = review.verdict + ' (changes applied, unreviewed)'
       break
     }
     const rev = await tryAgent(revisePrompt(it, review, round),
-      { label: 'revise:' + it.id + ':r' + round, phase: 'Revise', agentType: 'general-purpose', schema: REPORT, model: MODEL })
+      { label: 'revise:' + it.id + ':r' + round, phase: 'Revise', agentType: 'general-purpose', schema: REPORT, model: REVIEW_MODEL })
     if (!rev) { verdict = 'revise-failed'; break }
     history.push({ round, revised: rev.status, notes: (rev.notes || '').slice(0, 300) })
   }
@@ -122,7 +126,7 @@ const results = await pipeline(ITEMS,
   async (it) => {
     if (it.mode === 'review-only') return { status: 'done', pages: 0, notes: 'pre-existing draft; review only' }
     return await tryAgent(writePrompt(it),
-      { label: 'write:' + it.id, phase: 'Write', agentType: 'general-purpose', schema: REPORT, model: MODEL })
+      { label: 'write:' + it.id, phase: 'Write', agentType: 'general-purpose', schema: REPORT, ...WRITE_OPTS })
   },
   async (report, it) => {
     if (!report || report.status === 'failed') { log(it.id + ': author failed'); return { id: it.id, verdict: 'author-failed' } }
