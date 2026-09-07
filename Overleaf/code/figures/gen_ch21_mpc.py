@@ -44,9 +44,9 @@ def save(name, header, array, fmt="%.4f"):
     print("wrote", os.path.relpath(path, ROOT))
 
 
-EXAMPLE_TEX = r"""\begin{tikzpicture}
+EXAMPLE_TEX = r"""\begin{tikzpicture}[font=\footnotesize]
 \begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.7cm},
-  font=\footnotesize, grid=major, grid style={black!12},
+  grid=major, grid style={black!12},
   legend style={font=\scriptsize, fill=white, fill opacity=0.85, text opacity=1, draw=black!30},
   legend cell align=left]
 \nextgroupplot[width=7.6cm, height=7.2cm, axis equal image,

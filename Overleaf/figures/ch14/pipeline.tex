@@ -1,0 +1,17 @@
+% Concept figure: one control step of DWA as a loop.
+\begin{tikzpicture}[node distance=5mm and 6mm,font=\small]
+\node[sbboxgray] (state) {current state\\ $\pos$, $\vel_a$};
+\node[sbbox,right=of state] (window) {dynamic window $V_d$\\ velocities reachable in $\dt$};
+\node[sbbox,right=of window] (grid) {candidate grid\\ $(2n+1)^{\dim}$ commands};
+\node[sbboxalt,below=of grid] (rollout) {rollout of each candidate\\ free distance $\dist(\vel)$};
+\node[sbboxalt,left=of rollout] (adm) {braking test\\ $\norm{\vel}\dt + \norm{\vel}^2/2a_b \le \dist$};
+\node[sbboxgreen,left=of adm] (score) {score $G$: heading,\\ clearance, velocity};
+\node[sbboxgray,below=of score] (exec) {execute $\argmax G$\\ for one interval $\dt$};
+\draw[sbflow] (state) -- (window);
+\draw[sbflow] (window) -- (grid);
+\draw[sbflow] (grid) -- (rollout);
+\draw[sbflow] (rollout) -- node[sbannot,above]{admissible?} (adm);
+\draw[sbflow] (adm) -- (score);
+\draw[sbflow] (score) -- (exec);
+\draw[sbflow] (exec.west) -- ++(-0.9,0) |- node[sbannot,pos=0.25,left,align=center]{new $\pos$, $\vel_a$;\\ sensor update} (state.west);
+\end{tikzpicture}

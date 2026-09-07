@@ -201,10 +201,13 @@ Obstacles are handled in the inflated configuration space of \cref{ch:ch02}:
 every obstacle is grown by the drone's radius $r$ and the drone becomes a
 point. For a candidate $\vel \ne \vect{0}$ the \textbf{free distance}
 \begin{equation}
-  \dist(\vel) = \min\Bigl(d_{\max},\ \text{distance from $\pos$ along the ray in direction $\vel/\norm{\vel}$ to the first inflated obstacle}\Bigr)
+  \dist(\vel) = \min\bigl(d_{\max},\ d_{\mathrm{free}}(\pos, \vel/\norm{\vel})\bigr)
   \label{eq:ch14-dist}
 \end{equation}
-is what the rollout measures.\index{free distance} The cap $d_{\max}$ is the
+is what the rollout measures, where $d_{\mathrm{free}}(\pos, \hat{\vect{u}})$
+is the distance from $\pos$ along the ray in direction $\hat{\vect{u}}$ to the
+first inflated obstacle ($\infty$ if there is none).\index{free distance} The
+cap $d_{\max}$ is the
 sensing range, or simply the distance beyond which we stop caring. For
 $\vel = \vect{0}$ we set $\dist(\vect{0}) = d_{\max}$: standing still never
 runs into a static obstacle. For discs the ray cast is the ray--circle
@@ -682,3 +685,720 @@ by a safety margin, or the smoothing $\sigma$ all widen the berth.
   13 & $(4.69, 0.06)$ & $(1.00, -0.25)$ & $(0.51, -0.13)$ & 0.974 & 0.265 & 0.838\\
   \bottomrule
   \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{Properties: safety, feasibility, and what DWA does not guarantee}
+\label{sec:ch14-properties}
+
+\subsection{Safety with respect to static obstacles}
+
+The admissibility test is a promise about the future: whatever the next
+commands are, the robot can still stop in time. The following lemma and
+theorem make the promise precise for the discrete control loop of
+\cref{alg:ch14-loop}. They are stated for the drone; the differential drive
+is discussed afterwards.
+
+\begin{lemma}[Braking in discrete steps]
+\label{thm:ch14-braking-lemma}
+Let the drone fly at speed $v$ along a fixed direction and from the next
+interval on execute the braking candidates $v - a_b\dt,\ v - 2a_b\dt,\ \dots$,
+each for one interval, down to zero. The distance covered after the current
+interval is at most $v^2/(2a_b)$, and the total distance to standstill,
+including the current interval, is at most $s_b^{\dt}(v) = v\dt + v^2/(2a_b)$.
+\end{lemma}
+\begin{proof}
+The distance after the current interval is
+$\sum_{k \ge 1} \max(v - k a_b\dt, 0)\,\dt$. This is a right Riemann sum of
+the non-increasing function $f(t) = \max(v - a_b t, 0)$ with step $\dt$, so it
+is at most $\int_0^\infty f(t)\,dt = v^2/(2a_b)$, the continuous braking
+distance \cref{eq:ch14-braking}. Adding the $v\dt$ of the current interval
+gives the second claim.
+\end{proof}
+
+\begin{theorem}[Safety invariant of DWA]
+\label{thm:ch14-safety}
+Assume static obstacles, exact free distances in the inflated configuration
+space, $a_b \le a_{\max}$, the braking candidate of
+line~\ref{alg:ch14-command:brake} always in the candidate set, and a starting
+velocity that is admissible in the sense of \cref{eq:ch14-vadm} (for
+instance $\vel_a = \vect{0}$). Then at every step of \cref{alg:ch14-loop}:
+\begin{enumerate}[label=(\roman*)]
+  \item the executed command lies in the dynamic window, so the velocity
+        changes by at most $a_{\max}\dt$ per axis per step (dynamic feasibility);
+  \item at least one candidate is admissible, namely the braking candidate;
+  \item the drone never touches an obstacle.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+(i) holds by construction of the candidate set: every grid point and the
+braking candidate satisfy $\abs{v_k - v_{a,k}} \le a_{\max}\dt$, the latter
+because its per-axis change is $a_b\dt\,\abs{v_{a,k}}/\norm{\vel_a} \le
+a_b\dt \le a_{\max}\dt$.
+
+(ii) and (iii) follow by induction over the steps. Suppose the command $\vel$
+executed in the current step is admissible: $d = \dist(\vel) \ge
+\norm{\vel}\dt + \norm{\vel}^2/(2a_b)$. During the step the drone moves the
+distance $\norm{\vel}\dt < d$ along the ray of $\vel$, which is free up to
+$d$, so it touches nothing (iii). At the next step the braking candidate
+$\vel_b = \lambda\vel$ with $\lambda = \max(0, 1 - a_b\dt/\norm{\vel})$
+points in the same direction, and because the obstacles have not moved the
+free distance along it is now $d' = d - \norm{\vel}\dt \ge
+\norm{\vel}^2/(2a_b)$. Its speed is $v' = \norm{\vel} - a_b\dt$ (or $0$, in
+which case it is trivially admissible), and
+\[
+  v'\dt + \frac{v'^2}{2a_b}
+  = \norm{\vel}\dt - a_b\dt^2 + \frac{\norm{\vel}^2 - 2\norm{\vel}a_b\dt + a_b^2\dt^2}{2a_b}
+  = \frac{\norm{\vel}^2}{2a_b} - \frac{a_b\dt^2}{2} \le d',
+\]
+so $\vel_b$ is admissible (ii). The algorithm executes some admissible
+candidate, and the induction hypothesis holds again for the next step. The
+start of the induction is the assumption on the initial velocity.
+\end{proof}
+
+The theorem says exactly what the braking test buys: as long as the world
+stands still and the free-distance queries are right, a DWA drone can be
+stopped at any moment without collision, no matter how the scores are
+weighted. Everything that the theorem excludes is a real failure mode.
+Obstacles that move towards the drone shrink $d'$ faster than
+$\norm{\vel}\dt$ (\cref{sec:ch14-variants} shows how to repair this with the
+predicted velocities); free distances that are overestimated, by sensor noise
+or by a coarse grid, break the induction; and a velocity controller that
+tracks the command with a lag makes the window larger than what the drone
+can really do. For the differential drive the same argument works along the
+arc provided the robot brakes without changing its curvature (reducing $v$ and
+$\omega$ in proportion); Fox et al.\ test $v$ and $\omega$ separately, which
+is simpler and, for their robot, conservative enough.
+
+\subsection{DWA is a local method}
+
+\begin{proposition}[DWA is not complete]
+\label{thm:ch14-incomplete}
+Let the drone be at rest at a position where every non-zero candidate
+$\vel$ of its window satisfies
+$\alpha\,\mathrm{heading}(\vel) + \beta\,\mathrm{clearance}(\vel) +
+\gamma\,\mathrm{velocity}(\vel) < \beta$. Then \cref{alg:ch14-loop} without
+a global path never moves the drone again, whatever the goal. Such
+positions exist in environments in which a collision-free path to the goal
+exists, so DWA is not complete.
+\end{proposition}
+\begin{proof}
+At rest, $\vect{0}$ is a grid point of the window with $\dist(\vect{0}) =
+d_{\max}$; it is admissible and scores $G(\vect{0}) = \beta$. By assumption
+every other candidate scores less, so the arg max is $\vect{0}$ and the
+drone stays where it is with the same velocity. DWA keeps no memory beyond
+the state $(\pos, \vel_a)$, which is unchanged, so the same decision is
+taken at every later step. For the existence, let $v_1 = \sqrt{\dim}\,
+a_{\max}\dt$ be the largest speed of a candidate in the window of a resting
+drone. If every ray from $\pos$ meets an obstacle within
+$d_{\max}\bigl(1 - (\alpha + \gamma\,v_1/v_{\max})/\beta\bigr)$, every
+non-zero candidate scores at most $\alpha + \gamma\,v_1/v_{\max} +
+\beta\,\mathrm{clearance} < \beta$. A dead-end pocket behind a corner of
+that size satisfies this (all rays are short, but the corner leads out),
+and a goal placed outside it is reachable. With $(\alpha, \beta, \gamma) =
+(0.2, 0.6, 0.2)$ and the parameters of \cref{tab:ch14-parameters} the
+pocket may be $1.65$~m in radius.
+\end{proof}
+
+The proposition describes the clean form of the failure, a
+\textbf{local minimum}\index{local minimum}\index{DWA!local minimum} in
+which the drone rests. With a dominant heading term the drone never rests,
+because some moving candidate always scores more than $\beta$, and the
+failure takes the form of \textbf{oscillation}\index{oscillation}\index{DWA!oscillation}
+instead. \Cref{fig:ch14-utrap} shows the classical instance, a U-shaped
+obstacle between the drone and the goal, and \cref{sec:ch14-tuning} runs
+it: with the default weights the drone flies into the U at full speed,
+brakes in front of the back wall (as \cref{thm:ch14-safety} promises), and
+then, because every candidate that improves the heading points at the wall
+and is inadmissible while the candidates along the wall are admissible,
+it flies up and down between the two arms. In $300$ steps ($75$~s) it covers
+$80$~m without ever leaving the U, coming within $4$~cm of the arms on each
+turn. The self-test of \code{ch14\_dwa.py} reproduces this run and asserts
+that the goal is \emph{not} reached; it is the documented failure case of
+the chapter, and the Week~7 coding exercise asks you to build your own.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch14/utrap}
+  \caption{The U-shaped trap of \code{utrap\_scene()}. The drone has flown
+  into the U towards the goal behind the back wall. Every candidate that
+  improves the heading (red, crossed) points at the wall and fails the
+  braking test; the admissible candidates (blue) run parallel to the wall
+  and score less than the heading-improving ones would, so the drone shuttles
+  between the arms. The greedy rule cannot value the long way round (dashed
+  green), which a global planner finds at once; feeding that path into the
+  heading term is the standard remedy (\cref{sec:ch14-variants}).}
+  \label{fig:ch14-utrap}
+\end{figure}
+
+A second, subtler oscillation arises without any trap. When two candidates
+score almost the same, say the two sides of an obstacle that sits exactly
+on the line to the goal, the winner can change from step to step as the
+geometry changes by a hair, and the drone zigzags. This is the same
+phenomenon as the oscillation of velocity obstacles in \cref{ch:ch12} and
+of potential fields in \cref{ch:ch15}, and the remedies are the same in
+spirit: add inertia to the decision. \Cref{sec:ch14-variants} lists them.
+
+\subsection{Complexity}
+
+One step of \cref{alg:ch14-command} evaluates $N_c = (2n+1)^{\dim}$ grid
+points plus one, with $n = a_{\max}\dt/\Delta v$: $25$ candidates in the plane
+and $125$ in space for the parameters of \cref{tab:ch14-parameters}, $121$
+and $1\,331$ for $\Delta v = 0.1$~m/s. Each candidate needs one free-distance
+query, $\bigO{M}$ for $M$ discs or boxes with analytic ray casts, or
+$\bigO{d_{\max}/\Delta s}$ steps of $\Delta s$ for a marched rollout, and
+constant work for the three terms. The step therefore costs
+$\bigO{N_c\,M}$ time and $\bigO{N_c}$ memory, with nothing carried over
+between steps.\index{DWA!complexity} The self-test of \code{ch14\_dwa.py}
+performs several hundred control steps, each with $25$ candidates against up
+to three obstacles, in about a second of plain \python, which is enough for
+the $4$~Hz loop of the examples; compiled implementations run the same
+computation at hundreds of hertz.
+
+% ---------------------------------------------------------------------
+\section{Tuning the weights}
+\label{sec:ch14-tuning}
+
+\Cref{fig:ch14-experiment} and \cref{tab:ch14-weights} show what happens
+when each weight dominates, in two scenes generated by
+\code{gen\_ch14\_traj.py}: a corridor of half-width $1$~m with a pillar in
+it, and the U-trap of \cref{fig:ch14-utrap}. Each run uses the parameters of
+\cref{tab:ch14-parameters} with the weights changed, starts at rest, and is
+plotted for its first $20$~s.\index{DWA!tuning}\index{weights (DWA)}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch14/experiment}
+  \caption{Closed-loop trajectories for three weight settings, the first
+  $80$ steps ($20$~s) of each run. (a) All three settings pass the pillar
+  in the corridor, but the clearance-dominant drone refuses the corridor
+  altogether and flies around the outside of the lower wall. (b) In the
+  U-trap the heading-dominant drone enters and shuttles between the arms
+  for ever; the clearance-dominant drone turns away from all obstacles and
+  leaves the plot; the velocity-dominant drone rushes through, turns at the
+  back wall and disappears at full speed. Only the run whose heading term
+  follows the global path (dash-dotted green, default weights) reaches the
+  goal.}
+  \label{fig:ch14-experiment}
+\end{figure}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Metrics of the runs of \cref{fig:ch14-experiment} over at most
+  $300$ steps ($75$~s): outcome, steps, path length, minimum clearance
+  between the hull and the obstacles, and mean speed. The last row uses the
+  global path as heading reference.}
+  \label{tab:ch14-weights}
+  \begin{tabular}{@{}lllrrrr@{}}
+  \toprule
+  Scene & $(\alpha, \beta, \gamma)$ & outcome & steps & length [m] & min.\ clear.\ [m] & speed [m/s]\\
+  \midrule
+  corridor & $(0.6, 0.2, 0.2)$ default & reached & 16 & 5.9 & 0.05 & 1.48\\
+  corridor & $(0.8, 0.1, 0.1)$ heading & reached & 16 & 5.8 & 0.05 & 1.46\\
+  corridor & $(0.2, 0.6, 0.2)$ clearance & reached, outside the corridor & 21 & 8.7 & 0.09 & 1.66\\
+  corridor & $(0.2, 0.2, 0.6)$ velocity & reached & 15 & 5.9 & 0.07 & 1.56\\
+  \midrule
+  U-trap & $(0.6, 0.2, 0.2)$ default & oscillates in the U & 300 & 80.5 & 0.04 & 1.07\\
+  U-trap & $(0.8, 0.1, 0.1)$ heading & oscillates in the U & 300 & 79.6 & 0.03 & 1.06\\
+  U-trap & $(0.2, 0.6, 0.2)$ clearance & flies away & 300 & 146.9 & 0.09 & 1.96\\
+  U-trap & $(0.2, 0.2, 0.6)$ velocity & wanders off & 300 & 142.5 & 0.24 & 1.90\\
+  U-trap & $(0.6, 0.2, 0.2)$ + global path & reached & 25 & 10.2 & 0.61 & 1.64\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Heading dominates.}
+With $(0.8, 0.1, 0.1)$ the drone flies the straightest line the braking test
+allows. In the corridor it squeezes past the pillar with $5$~cm to spare and
+arrives in $16$ steps. In the U-trap it drives straight in and oscillates
+between the arms for the whole run. Heading-dominant DWA is efficient and
+predictable in open space and blind in a cluttered one: it cannot trade a
+short detour now for progress later.
+
+\paragraph{Clearance dominates.}
+With $(0.2, 0.6, 0.2)$ the drone is timid. The corridor is $2$~m wide, so
+every candidate that enters it has a clearance of at most $0.33$ against
+$1$ for the open field outside: the drone turns away, flies around the
+outside of the lower wall and reaches the goal from below, $47\,\%$ longer
+than the direct route. In the U-trap it turns around before the U and flies
+away from everything at nearly full speed, ending $141$~m from the start.
+Clearance-dominant DWA keeps the largest berth but avoids narrow passages
+and, if the free space is large, prefers it to the goal.
+
+\paragraph{Velocity dominates.}
+With $(0.2, 0.2, 0.6)$ the drone wants to be fast above all. In the corridor
+this is harmless, since the fastest admissible commands also lead to the
+goal, and it is the quickest of the four runs. In the U-trap it enters, is
+forced by the braking test to turn at the back wall, and then keeps flying
+at full speed wherever there is room, never returning: the heading term is
+too weak to bring it back. Velocity-dominant DWA wanders.
+
+\paragraph{The lesson.}
+The three terms pull in different directions, and no fixed weighting is
+right for all scenes: the heading term should be the largest, as in the
+original paper (Fox et al.\ report using $\alpha = 2.0$, $\beta = 0.2$,
+$\gamma = 0.2$), and the trap must be fixed elsewhere. The last row of
+\cref{tab:ch14-weights} shows where: with the default weights and the
+heading term aimed at a lookahead point on a global path around the U, the
+drone reaches the goal in $25$ steps with a minimum clearance of $0.61$~m.
+Weights tune behaviour; the global path fixes topology.
+
+% ---------------------------------------------------------------------
+\section{Variants and extensions}
+\label{sec:ch14-variants}
+
+\paragraph{A global path for the heading term.}
+The standard remedy for local minima is not to ask DWA to find the way at
+all. A global planner (\astar of \cref{ch:ch04} on a grid, \dstarlite of
+\cref{ch:ch05} when the map changes, or the nominal MAPF path of
+\cref{ch:ch09,ch:ch10}) produces a path, and the heading term chases a
+lookahead point on it (line~\ref{alg:ch14-loop:target} of
+\cref{alg:ch14-loop}). DWA then handles only what the global planner did not
+know about. Brock and Khatib~\cite{brock1999global} made this precise as
+the \emph{global dynamic window approach}\index{global dynamic window approach}:
+the heading term is replaced by the decrease of a navigation function, a
+grid distance-to-goal computed by a wavefront as in \cref{ch:ch03}, which
+has no local minima by construction. The lookahead distance $L$ matters: too
+short and the drone cuts corners into obstacles the path avoided (the
+braking test still saves it, but it stalls); too long and the target lies
+behind a wall so that the heading term again points at the wall. One to two
+seconds of flight, $L \approx 1$--$3$~m here, is a good default.
+
+\paragraph{A longer horizon.}
+DWA evaluates rollouts of a single constant velocity. Simulating a candidate
+for a longer horizon $T$, and scoring the whole predicted trajectory rather
+than a ray, lets the objective see around the next corner and reduces
+oscillation, at the price of more computation and a stronger dependence on
+the assumption that the command stays constant. Planners that roll out
+short sequences of commands, such as the trajectory rollout of many
+navigation stacks and the model predictive controllers of \cref{ch:ch21},
+are the natural continuation of this idea; \cref{ch:ch21} shows that MPC is
+DWA with the window replaced by a constrained optimisation over the horizon.
+
+\paragraph{Hysteresis and smoothing.}
+The zigzag between two nearly equal candidates is removed by
+\textbf{hysteresis}:\index{hysteresis}\index{DWA!hysteresis} keep the current
+command unless the best candidate beats it by a margin $\eta$
+(line~\ref{alg:ch14-loop:hysteresis}). The smoothing $\sigma$ of
+\cref{eq:ch14-G} acts in the same direction in velocity space, favouring
+commands whose neighbours are also good; a penalty on the change
+$\norm{\vel - \vel_a}$ is a third form. All three damp the oscillation, none
+removes a trap: they change which of two bad commands is chosen, not the fact
+that both are bad.
+
+\paragraph{Moving obstacles.}
+\Cref{thm:ch14-safety} assumes static obstacles, and the rollout of
+\cref{alg:ch14-command} treats every obstacle as static even when it is a
+drone crossing at $1.5$~m/s. The repair is the relative-velocity view of
+\cref{ch:ch12}: if an obstacle moves with velocity $\vect{u}$, the rollout
+of $\vel$ collides with it when the ray in direction $\vel - \vect{u}$ meets
+the inflated disc, and the free distance along the drone's own path is
+$\norm{\vel}$ times that collision time. \code{free\_distance()} in
+\code{ch14\_dwa.py} does this for discs with a known velocity, which the
+prediction layer of \cref{ch:ch18,ch:ch20} supplies. The self-test contains
+the corresponding pitfall: an intruder that starts at $(3.5, 3.0)$ and flies
+down at $1.5$~m/s across the drone's route from $(0,0)$ to $(7, 0)$. With
+the static view, refreshed every step but never extrapolated, the drone is
+hit in step~7; with the relative-velocity rollout it slows down, lets the
+intruder pass and reaches the goal in $18$ steps with $4$~cm of clearance
+at the closest point.
+
+\paragraph{Three dimensions.}
+Nothing in the drone form is two-dimensional: the window becomes a cube of
+$(2n+1)^3$ candidates, the rollouts are rays in space, and the ray casts
+against balls and boxes are unchanged. The self-test flies the same open-field
+scene in 2D and 3D and reaches the goal in $17$ and $16$ steps.
+
+\paragraph{Guarantees of convergence.}
+\"Ogren and Leonard~\cite{ogren2005convergent} showed that a DWA-like
+scheme can be made \emph{convergent}, that is, provably reach the goal, by
+choosing the objective as a control Lyapunov function derived from a
+navigation function and by treating the window as the constraint set of a
+receding-horizon controller. This is the bridge between the heuristic DWA of
+this chapter and the MPC of \cref{ch:ch21}. Related curvature-space methods
+and a survey of local planners are found in the handbook chapters of
+\cite{siciliano2016handbook} and in \cite{choset2005principles}.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The three local methods of Part~IV compared. $M$ is the number of
+  obstacles, $N_c$ the number of DWA candidates, $n$ the number of \orca
+  half-planes.}
+  \label{tab:ch14-comparison}
+  \begin{tabular}{@{}L{2.2cm}L{3.6cm}L{3.6cm}L{3.6cm}@{}}
+  \toprule
+   & DWA (this chapter) & \orca (\cref{ch:ch13}) & Potential fields (\cref{ch:ch15})\\
+  \midrule
+  Searches over & velocities reachable in one interval (the window) & all velocities outside the union of half-planes & nothing: follows the negative gradient of a potential\\
+  Assumes & known obstacle geometry near the robot; acceleration and speed limits; obstacles static during the rollout unless predicted & other agents run the same rule and share the avoidance; velocities can change instantly; positions, velocities, radii of the others are known & a potential over positions; obstacles as repulsive sources; the robot follows a force\\
+  Guarantees & no collision with static obstacles as long as a braking command is admissible (\cref{thm:ch14-safety}); dynamically feasible commands; not complete & pairwise collision-free for the horizon $\ttc$ if all agents reciprocate and the program is feasible; not complete (deadlocks) & none in general; local minima and oscillation\\
+  Cost per step & $\bigO{N_c\,M}$, $N_c = 25$--$1\,331$ & a linear program in $n$ half-planes & $\bigO{M}$ gradient evaluation\\
+  Best for & vehicles with tight dynamics, unknown or non-cooperative obstacles, sensor-based avoidance & many cooperative agents of the same kind & very cheap steering, a first cut, or as one term inside another method\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\Cref{tab:ch14-comparison} summarises how DWA relates to its neighbours. In
+one sentence: \orca is the right tool when the obstacles are other \orca
+agents, DWA when the obstacles are anything else and the vehicle cannot jump
+in velocity, and potential fields when you need a steering term in a hurry
+and can live without guarantees.
+
+% ---------------------------------------------------------------------
+\section{Implementation notes}
+\label{sec:ch14-implementation}
+
+\paragraph{Resolution of the velocity grid.}
+The grid spacing $\Delta v$ sets both the cost, $(2n+1)^{\dim}$ candidates,
+and the quality: a narrow admissible corridor between two inadmissible
+regions can fall between grid points and be missed, so that the drone stops
+in front of a gap it could pass. Choose $\Delta v$ so that
+$2n+1$ is at least $5$, and refine the grid adaptively near the boundary of
+the admissible set if narrow passages matter. Because the grid is centred
+on $\vel_a$, the candidates drift with the drone's velocity and are not
+aligned with a fixed grid; this is deliberate, ``keep the current velocity''
+must always be a candidate. Make sure that $a_{\max}\dt/\Delta v$ is at
+least $1$, otherwise the window contains no candidate but $\vel_a$ and the
+drone can never change its velocity (\cref{exr:ch14-window}).
+
+\paragraph{Cost of rollouts and free-distance queries.}
+For discs and boxes the ray cast of \cref{lst:ch14-dist} is exact and costs
+$\bigO{M}$; it is the right choice for the obstacle lists that come out of
+the tracking layer. For an occupancy grid or a point cloud, march along the
+ray in steps $\Delta s$ smaller than the smallest obstacle feature, or
+precompute a distance transform of the map once per scan and read
+$\dist$ off it. The rollout of a differential drive is a march along the arc
+of \cref{eq:ch14-arc}; \code{diffdrive\_free\_distance()} in the code does
+this in steps of $2$~cm and the self-test checks it against the analytic
+ray cast for $\omega = 0$. Whatever the method, the query must be
+\emph{conservative}: \cref{thm:ch14-safety} tolerates underestimated free
+distances (the drone is merely timid) but not overestimated ones. Inflating
+boxes as boxes, as the code does, is conservative at the corners.
+
+\paragraph{The global path as heading reference.}
+Keep the global path as a polyline in the drone's frame of reference,
+project the current position onto it, and take the point at arc length $L$
+beyond the projection as the target of the heading term
+(\code{lookahead\_point()} in the code). When the drone is pushed off the
+path by an avoidance manoeuvre the projection follows, and the drone
+reconnects further along the path rather than backtracking. If the path is
+replanned (\cref{ch:ch05}), just replace the polyline; DWA has no state to
+update.
+
+\paragraph{Goal approach.}
+Apply the braking test to the distance to the goal as well
+(\code{brake\_for\_goal} in the code), so that fast candidates become
+inadmissible near the goal and the drone stops inside the tolerance instead
+of overshooting and turning around. Without it the heading term alone makes
+the drone orbit the goal.
+
+\begin{lstlisting}[caption={The window, the braking candidate and the candidate grid (from \code{code/ch14\_dwa.py}).},label={lst:ch14-window}]
+def dynamic_window(v_a, prm):
+    """Bounds [lo, hi] of the velocities reachable within one interval."""
+    lo = np.maximum(v_a - prm.a_max * prm.dt, -prm.v_max)
+    hi = np.minimum(v_a + prm.a_max * prm.dt, prm.v_max)
+    return lo, hi
+
+
+def braking_candidate(v_a, prm):
+    """The command 'keep the direction, brake with a_brake for one interval'.
+
+    It always lies in the dynamic window (a_brake <= a_max) and is added
+    to the candidate set so that a safe command is always available.
+    """
+    speed = float(np.linalg.norm(v_a))
+    if speed <= prm.a_brake * prm.dt:
+        return np.zeros_like(v_a)
+    return v_a * (1.0 - prm.a_brake * prm.dt / speed)
+
+
+def window_candidates(v_a, prm):
+    """Velocity grid over the dynamic window, intersected with V_s, plus
+    the braking candidate (appended if it is not a grid point already)."""
+    lo, hi = dynamic_window(v_a, prm)
+    n = int(round(prm.a_max * prm.dt / prm.v_res))
+    axes = [v_a[k] + prm.v_res * np.arange(-n, n + 1) for k in range(len(v_a))]
+    grid = np.array(np.meshgrid(*axes, indexing="ij")).reshape(len(v_a), -1).T
+    inside = np.all((grid >= lo - 1e-9) & (grid <= hi + 1e-9), axis=1)
+    grid = grid[inside]
+    grid = grid[np.linalg.norm(grid, axis=1) <= prm.v_max + 1e-9]
+    v_b = braking_candidate(v_a, prm)
+    if not np.any(np.all(np.abs(grid - v_b) < 1e-9, axis=1)):
+        grid = np.vstack([grid, v_b])
+    return grid
+\end{lstlisting}
+
+\Cref{lst:ch14-window} builds the candidate set of
+lines~\ref{alg:ch14-command:window}--\ref{alg:ch14-command:brake}; the
+admissible speed of \cref{eq:ch14-vadm} is the function
+\code{admissible\_speed} with arguments \code{dist}, \code{a\_brake} and
+\code{dt}; its default \code{dt=0} gives the continuous formula of Fox et al. \Cref{lst:ch14-dist} scores the candidates and picks the command.
+The free-distance function called on line~10 of \cref{lst:ch14-dist} ray-casts
+against discs and boxes, and switches to the relative-velocity ray when a
+disc carries a velocity.
+
+\begin{lstlisting}[caption={Scoring and selection (from \code{code/ch14\_dwa.py}).},label={lst:ch14-dist}]
+def evaluate(p, v_a, obstacles, target, prm, goal=None):
+    """Score every candidate of the window; returns a list of Candidate."""
+    alpha, beta, gamma = prm.weights
+    out = []
+    for v in window_candidates(v_a, prm):
+        speed = float(np.linalg.norm(v))
+        if speed < 1e-9:
+            dist = prm.d_max          # standing still never hits a static obstacle
+        else:
+            dist = free_distance(p, v / speed, obstacles, prm.radius, prm.d_max, v)
+        adm = speed <= admissible_speed(dist, prm.a_brake, prm.dt) + 1e-9
+        if prm.brake_for_goal and goal is not None:
+            d_goal = float(np.linalg.norm(goal - p))
+            adm = adm and speed <= admissible_speed(d_goal, prm.a_brake, prm.dt) + 1e-9
+        h = heading_term(p, v, target, prm)
+        c = min(dist, prm.d_max) / prm.d_max
+        s = speed / prm.v_max
+        g = alpha * h + beta * c + gamma * s if adm else 0.0
+        out.append(Candidate(v, dist, adm, h, c, s, g))
+    if prm.smooth:
+        _smooth_scores(out, prm)
+    return out
+
+
+def dwa_command(p, v_a, obstacles, target, prm, goal=None):
+    """One DWA step: the admissible window velocity with the largest G.
+
+    Returns (v_best, candidates).  If no candidate is admissible (which
+    cannot happen with static obstacles, see the safety theorem) the
+    braking candidate is returned (emergency braking).  With hysteresis
+    the current velocity v_a is kept unless the best candidate beats its
+    score by more than prm.hysteresis.
+    """
+    cands = evaluate(p, v_a, obstacles, target, prm, goal)
+    adm = [c for c in cands if c.admissible]
+    if not adm:
+        return braking_candidate(v_a, prm), cands
+    best = max(adm, key=lambda c: c.score)
+    if prm.hysteresis > 0.0:
+        for c in adm:
+            if np.allclose(c.v, v_a) and c.score >= best.score - prm.hysteresis:
+                return c.v, cands
+    return best.v, cands
+\end{lstlisting}
+
+\begin{pitfall}[Forgetting the braking constraint]
+The heading and velocity terms both reward flying fast towards the goal, and
+an implementation that scores every window candidate without the
+admissibility test will fly a drone straight into the first obstacle on its
+line: the clearance term only lowers the score, it does not forbid anything.
+The braking test is the only hard constraint in DWA. Implement it first,
+test it with a wall directly ahead, and remember its discrete-time form
+\cref{eq:ch14-vadm}: the command is held for $\dt$ before braking can start.
+\end{pitfall}
+
+\begin{pitfall}[Scoring in different units]
+Adding an angle in radians, a distance in metres and a speed in metres per
+second with weights like $(0.6, 0.2, 0.2)$ produces a number whose meaning
+changes with the map units and the vehicle. Normalise each term to $[0, 1]$
+by its maximum ($\pi$, $d_{\max}$, $v_{\max}$) before weighting, and note
+that $d_{\max}$ is part of the tuning: doubling it halves every clearance
+score. \Cref{exr:ch14-units} shows that in centimetres the goal stops mattering
+altogether: the heading term contributes less than one percent of the score.
+\end{pitfall}
+
+\begin{pitfall}[A window too small to react]
+The window spans $\pm a_{\max}\dt$ around the current velocity. With a
+short control interval or a small acceleration limit this can be less than
+one grid step, and the only candidate left is $\vel_a$ itself; the drone then
+keeps its velocity whatever happens. Even when the grid is fine enough, a
+drone at $v_{\max}$ needs $v_{\max}/(a_{\max}\dt)$ steps to stop, four
+steps or one second in the examples, and the braking test must account for
+that by looking $v\dt + v^2/(2a_b)$ ahead rather than one step. Check
+$a_{\max}\dt \ge \Delta v$ at start-up, and size $a_{\max}$ by what the
+velocity controller really delivers, not by the datasheet.
+\end{pitfall}
+
+\begin{pitfall}[Treating moving obstacles as static during the rollout]
+A rollout against a snapshot of the obstacles is a rollout against a world
+that has stopped. An intruder crossing the route at $1.5$~m/s is far from
+the ray when the command is chosen and in the way when it is executed; the
+self-test shows the collision in step~7. Use the predicted velocity of every
+tracked obstacle in the rollout (relative-velocity ray casting, or
+time-indexed rollouts), inflate obstacles by their prediction uncertainty as
+\cref{ch:ch24} describes, and keep the horizon short, since predictions
+degrade quickly.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{Where this fits in the drone system}
+\label{sec:ch14-drone}
+
+\begin{dronebox}
+In the four-layer architecture of \cref{ch:ch24}, DWA is the alternative
+local safety layer to \orca. It is the better choice when the drone's
+acceleration limits matter more than reciprocity: a heavy or fast drone
+whose velocity controller cannot jump to an \orca velocity within one
+interval, or an intruder that does not cooperate at all. In the drone form
+the window is a cube of achievable velocities $(v_x, v_y, v_z)$, the
+rollouts are straight segments, and the braking test guarantees that the
+drone can always stop for the obstacles it knows about.
+
+DWA receives three things. From the global layer (\cbs or \ecbs,
+\cref{ch:ch09,ch:ch10}) it receives the nominal path, which supplies the
+heading term through a lookahead point; this is what keeps a locally avoiding
+drone heading back to its route and what keeps it out of the U-trap. From
+the prediction layer (\cref{ch:ch18,ch:ch20}) it receives the positions and
+velocities of the tracked obstacles, which enter the rollouts as
+relative-velocity ray casts, inflated by their uncertainty. From the trigger
+logic of \cref{ch:ch24} it receives control when a predicted conflict enters
+the safety horizon, and it hands control back when the conflict has cleared
+and the drone has reconnected to the path. If the lookahead point becomes
+unreachable, because the avoidance has pushed the drone behind an obstacle
+the path does not account for, DWA reports it and the replanning layer
+(\dstarlite or \astar, \cref{ch:ch05,ch:ch04}) computes a new path from the
+current state. The study plan covers DWA and potential fields in Week~7
+(\cref{ch:appA}); its coding exercise is \cref{exr:ch14-coding}.
+\end{dronebox}
+
+% ---------------------------------------------------------------------
+\section{Summary}
+\begin{summary}
+\begin{itemize}
+  \item DWA searches the velocity space, not the workspace: candidates are
+        velocity commands held for one control interval, and each is judged
+        by a short simulated rollout (an arc for a differential drive, a
+        straight segment for a velocity-controlled drone).
+  \item The search set is $V_r = V_s \cap V_a \cap V_d$: possible velocities,
+        admissible velocities (the braking distance $v^2/(2a_b)$, in discrete
+        time $v\dt + v^2/(2a_b)$, fits into the free distance), and the
+        dynamic window of velocities reachable within $\dt$ under the
+        acceleration limits.
+  \item The objective $G = \sigma(\alpha\,\mathrm{heading} +
+        \beta\,\mathrm{clearance} + \gamma\,\mathrm{velocity})$ must be
+        computed from normalised terms; the heading term is aimed at the goal
+        or, better, at a lookahead point on a global path.
+  \item With static obstacles and the braking candidate always available,
+        DWA never collides and every command is dynamically feasible
+        (\cref{thm:ch14-safety}). It is not complete: it can rest in a local
+        minimum (\cref{thm:ch14-incomplete}) or oscillate in a U-trap.
+  \item Weights tune behaviour (heading: straight and bold; clearance: timid;
+        velocity: fast and wandering); a global path fixes the topology;
+        hysteresis and smoothing damp oscillation; predicted obstacle
+        velocities repair the rollout for moving obstacles.
+  \item Compared with \orca, DWA respects dynamics and needs no cooperation
+        but is greedy; compared with potential fields it has a hard safety
+        constraint and an explicit prediction.
+\end{itemize}
+\end{summary}
+
+\paragraph{Further reading.}
+The original paper~\cite{fox1997dwa} is short and readable and contains the
+experiments on RHINO; the global dynamic window approach~\cite{brock1999global}
+adds the navigation function, and \cite{ogren2005convergent} the convergence
+proof. Textbook treatments of DWA and of the other local methods are in
+\cite{choset2005principles} and in the motion-planning and navigation
+chapters of \cite{siciliano2016handbook}; the potential-field method that
+DWA was designed to improve on is due to Khatib~\cite{khatib1986realtime}
+and is the subject of \cref{ch:ch15}; \orca is due to van den Berg et
+al.~\cite{vandenberg2011orca}.
+
+% ---------------------------------------------------------------------
+\section{Exercises}
+\label{sec:ch14-exercises}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch14-braking}
+A drone flies at $2$~m/s straight at a wall and can brake at
+$a_b = 2$~m/s$^2$. (a) How far does it travel before it stops if braking
+starts immediately? (b) How far if the current command is held for
+$\dt = 0.25$~s first? (c) The wall is $0.608$~m away: what is the largest
+admissible speed under \cref{eq:ch14-Va} and under \cref{eq:ch14-vadm}?
+(d) Explain in one sentence why the answer to (c) differs although the
+physics is the same.
+\end{exercise}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch14-window}
+With $a_{\max} = 2$~m/s$^2$, $\dt = 0.25$~s and $\Delta v = 0.25$~m/s, how
+many grid points does the window have in 2D and in 3D? How many with
+$\Delta v = 0.1$~m/s? Now set $\dt = 0.1$~s and keep $\Delta v = 0.25$~m/s:
+what does the candidate set of \cref{lst:ch14-window} contain, and what does
+the drone do?
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch14-scores}
+Using the terms in \cref{tab:ch14-candidates}, recompute $G$ for the
+candidates $(1.0, 0)$, $(1.0, 0.5)$ and $(0.75, 0.5)$ with the weights
+$(0.8, 0.1, 0.1)$ and with $(0.2, 0.6, 0.2)$. Which of the three wins in each
+case? Explain the result in terms of the behaviours of
+\cref{sec:ch14-tuning}, and then explain why a heading-dominant drone that
+keeps $(1.0, 0)$ still does not crash.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch14-arcs}
+Derive \cref{eq:ch14-arc} from $\dot x = v\cos\theta$, $\dot y = v\sin\theta$,
+$\dot\theta = \omega$ with constant $v$ and $\omega$, and show that the
+trajectory is a circle of radius $v/\omega$ through the start pose. Compute
+the pose after $2$~s for $(v, \omega) = (1\,\text{m/s}, 0.5\,\text{rad/s})$
+from $(0, 0, 0)$ and compare with \code{diffdrive\_rollout()}. Why does the
+heading term of Fox et al.\ need the \emph{predicted} pose for a
+differential drive but hardly for a drone?
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch14-safety}
+(a) Show that the braking candidate lies in the window when the window is a
+Euclidean ball $\norm{\vel - \vel_a} \le a_{\max}\dt$ instead of a cube.
+(b) Point to the exact place in the proof of \cref{thm:ch14-safety} where
+the obstacles are assumed static, and construct an obstacle motion for which
+the braking candidate is inadmissible in the next step. (c) Suppose the
+free-distance query overestimates $\dist$ by up to $\epsilon$. How must
+\cref{eq:ch14-vadm} be changed so that the theorem survives?
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch14-units}
+An implementation forgets to normalise: it scores
+$G = 0.6\,\mathrm{heading} + 0.2\,\dist + 0.2\,\norm{\vel}$ with $\dist$ in
+metres and $\norm{\vel}$ in m/s. (a) Which of the 16 admissible candidates
+of \cref{ex:ch14-approach} wins? (\code{evaluate()} gives you all the
+numbers.) (b) Now the map is in centimetres and speeds in cm/s: which
+candidate wins, and what fraction of its score comes from the heading term?
+Construct a scene in which this drone flies away from its goal. (c) Show in
+general that changing the length unit by a
+factor $\lambda$ multiplies the effective weights $\beta$ and $\gamma$ by
+$\lambda$ but leaves $\alpha$ unchanged, and explain why the normalised form
+\cref{eq:ch14-G} is invariant.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch14-hysteresis}
+A drone flies straight at a disc obstacle centred exactly on the line to
+the goal. (a) Explain why the two mirror-image candidates
+$(v_x, \pm v_y)$ have identical scores and why, after the first step breaks
+the tie, small changes of the geometry can make the winner alternate from
+step to step. (b) Show that the hysteresis rule of
+line~\ref{alg:ch14-loop:hysteresis} with margin $\eta$ stops the alternation
+as soon as the two scores differ by less than $\eta$. (c) Explain why no
+value of $\eta$ makes the drone leave the U-trap of \cref{fig:ch14-utrap},
+and check your claim with \code{DwaParams(hysteresis=0.05)} in
+\code{utrap\_scene()}.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch14-coding}
+This is the Week~7 exercise of the study plan (\cref{ch:appA}). Implement
+DWA in a continuous 2D environment, starting from \code{ch14\_dwa.py} or from
+scratch, and create failure cases: (i) a U-trap of your own dimensions;
+(ii) a gap between two obstacles that the drone could pass but that the
+velocity grid misses at $\Delta v = 0.25$~m/s and finds at $0.05$~m/s;
+(iii) an obstacle exactly on the goal line, to provoke oscillation; (iv) an
+intruder crossing the route, treated as static in the rollout. For each
+case record whether the goal is reached, the path length, the minimum
+clearance and the number of steps. Then repair each case with one remedy
+from \cref{sec:ch14-variants} (a global path from \astar of
+\cref{ch:ch04} as heading reference, a finer grid, hysteresis, the
+relative-velocity rollout) and report the same metrics. Finally extend the
+controller to three dimensions with candidates $(v_x, v_y, v_z)$, fly
+around a sphere, and measure the time per step for $\Delta v = 0.25$ and
+$0.1$~m/s.
+\end{exercise}

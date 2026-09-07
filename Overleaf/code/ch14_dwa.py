@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -209,6 +209,16 @@ class Candidate:
     score: float
 
 
+def _smooth_scores(cands, prm):
+    """The sigma of Fox et al.: replace G by its mean over the grid
+    neighbours (inadmissible neighbours count as zero)."""
+    vs = np.array([c.v for c in cands])
+    raw = np.array([c.score for c in cands])
+    for i, c in enumerate(cands):
+        near = np.all(np.abs(vs - vs[i]) <= prm.v_res + 1e-9, axis=1)
+        c.score = float(raw[near].mean()) if c.admissible else 0.0
+
+
 def evaluate(p, v_a, obstacles, target, prm, goal=None):
     """Score every candidate of the window; returns a list of Candidate."""
     alpha, beta, gamma = prm.weights
@@ -233,23 +243,13 @@ def evaluate(p, v_a, obstacles, target, prm, goal=None):
     return out
 
 
-def _smooth_scores(cands, prm):
-    """The sigma of Fox et al.: replace G by its mean over the grid
-    neighbours (inadmissible neighbours count as zero)."""
-    vs = np.array([c.v for c in cands])
-    raw = np.array([c.score for c in cands])
-    for i, c in enumerate(cands):
-        near = np.all(np.abs(vs - vs[i]) <= prm.v_res + 1e-9, axis=1)
-        c.score = float(raw[near].mean()) if c.admissible else 0.0
-
-
 def dwa_command(p, v_a, obstacles, target, prm, goal=None):
     """One DWA step: the admissible window velocity with the largest G.
 
     Returns (v_best, candidates).  If no candidate is admissible (which
-    cannot happen with static obstacles, see Theorem 14.x) the braking
-    candidate is returned (emergency braking).  With hysteresis the
-    current velocity v_a is kept unless the best candidate beats its
+    cannot happen with static obstacles, see the safety theorem) the
+    braking candidate is returned (emergency braking).  With hysteresis
+    the current velocity v_a is kept unless the best candidate beats its
     score by more than prm.hysteresis.
     """
     cands = evaluate(p, v_a, obstacles, target, prm, goal)
