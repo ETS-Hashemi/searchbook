@@ -825,7 +825,7 @@ if __name__ == "__main__":
     res = cbs(inst, keep_trace=True)
     print_trace(res)
     print_plan(res.paths)
-    for w in (1.05, 1.2):
+    for w in (1.05, 1.1, 1.2):
         print(f"\nWorked example, ECBS(w={w}):")
         res = ecbs(inst, w=w, keep_trace=True)
         print_trace(res)

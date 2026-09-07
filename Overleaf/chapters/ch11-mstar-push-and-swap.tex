@@ -96,7 +96,7 @@ again. Wagner and Choset call this \textbf{subdimensional
 expansion}\index{subdimensional expansion}: the dimension of the search is
 raised locally, and only where a collision has proved that it must be.
 
-\begin{figure}[tb]
+\begin{figure}[!tb]
   \centering
   \inputfigure{ch11/idea}
   \caption{Subdimensional expansion for two agents. The grey dots are the
@@ -192,7 +192,7 @@ walks back, costs $26$ under \cref{eq:ch11-cost} against a sum of costs of
 $27$. The advantage of \cref{eq:ch11-cost} is that the cost of a move
 depends only on the two configurations, which is what \astar needs.
 
-\begin{figure}[tb]
+\begin{figure}[!tb]
   \centering
   \inputfigure{ch11/joint-graph}
   \caption{The joint graph of two agents on a four-vertex graph. Of the
@@ -223,7 +223,7 @@ away from most of the space, but each expansion still pays for the full
 branching factor, and that is what kills joint \astar in
 practice.\index{joint state space!size}\index{branching factor!joint}
 
-\begin{table}[tb]
+\begin{table}[!tb]
   \centering\small
   \caption{Size of the joint state space. $|V|^k$ counts all configurations,
   $|V|^{\underline{k}}$ the collision-free ones, and $5^k$ the joint moves of
@@ -367,7 +367,7 @@ plans conflict. Such a pair is merged and re-planned as one group with the
 joint search; the loop repeats until no two group plans conflict, and the
 final plan is the union of the group plans.
 
-\begin{algorithm}[htb]
+\begin{algorithm}[!htb]
 \caption{Simple independence detection}
 \label{alg:ch11-id}
 \KwIn{graph $G$, starts $s_1, \dots, s_k$, goals $\gamma_1, \dots, \gamma_k$, an optimal joint solver \MstarJointAStar}
@@ -429,7 +429,7 @@ collision set of the node and \emph{backpropagated} to every node in the
 back set, recursively. A node whose collision set grows is put back into
 \Open so that it is expanded again, now with more neighbours.
 
-\begin{algorithm}[htb]
+\begin{algorithm}[!htb]
 \caption{\mstar with collision sets and backpropagation}
 \label{alg:ch11-mstar}
 \KwIn{graph $G$, joint start $v_s$, joint goal $v_f$, optimal individual policies $\phi_1, \dots, \phi_k$, heuristic $\hcost$ from \cref{eq:ch11-heuristic}}
@@ -514,7 +514,7 @@ anyone. The instance is \code{worked\_example()} in \code{ch11\_mstar.py};
 every number below is produced by its self-test.
 \end{example}
 
-\begin{figure}[tb]
+\begin{figure}[!tb]
   \centering
   \inputfigure{ch11/example}
   \caption{\Cref{ex:ch11-aisles}. (a) The individual policies (arrows with
@@ -555,9 +555,9 @@ away.
 \paragraph{Phase 3: the patch (steps 5--27).} A node with $\fcost = 13$ is
 one in which drones~1 and~2 have together lost one step against the
 heuristic, for instance because one of them waited. Twelve of the 31
-expansions are second expansions of a node whose policy successor turned out
-to collide; other nodes inherit $\set{1,2}$ from a policy successor that
-already carries it (line~\ref{alg:ch11-mstar:bpchild}).
+expansions are second expansions, of a node whose collision set grew after
+it had already been expanded; other nodes inherit $\set{1,2}$ from a policy
+successor that already carries it (line~\ref{alg:ch11-mstar:bpchild}).
 
 \paragraph{Phase 4: one-dimensional again (steps 28--31).} In the node of
 step~28 ($\gcost = 9$, $\fcost = 15$) drone~1 sits in the bay and drone~2
@@ -571,7 +571,7 @@ were re-opened at $\fcost = 15$ with a smaller $\gcost$: the tie-breaking
 rule $(\fcost, -\gcost)$ makes the search dive to the goal instead of
 widening those nodes first.
 
-\begin{table}[tb]
+\begin{table}[!tb]
   \centering\footnotesize
   \caption{The decisive expansions of \cref{alg:ch11-mstar} on
   \cref{ex:ch11-aisles}; \code{mstar(inst, trace=True)} records all 31 in
@@ -608,7 +608,7 @@ widening those nodes first.
   \end{tabular}
 \end{table}
 
-\begin{figure}[tb]
+\begin{figure}[!tb]
   \centering
   \inputfigure{ch11/search-graph}
   \caption{The search graph of \mstar on \cref{ex:ch11-aisles}, drawn over
@@ -664,7 +664,7 @@ $2.8$ and $3.8$ agents out of six: \mstar couples agents whenever their
 merges groups only when their optimal plans conflict. Both stay far below
 the diagonal $k$, and that gap is the whole point.
 
-\begin{figure}[tb]
+\begin{figure}[!tb]
   \centering
   \inputfigure{ch11/expansions}
   \caption{Random $8 \times 8$ maps, $30$ instances per $k$, of which the
@@ -683,11 +683,11 @@ the diagonal $k$, and that gap is the whole point.
 \section{Properties: termination, completeness, optimality}
 \label{sec:ch11-properties}
 
-Throughout this section $G$ is finite, the search runs on the joint graph of
-\cref{def:ch11-joint}, the policies $\phi_i$ are optimal in the sense of
-\cref{def:ch11-policy}, the heuristic is admissible (the sum
-\cref{eq:ch11-heuristic} is even consistent, \cref{thm:ch11-heuristic}) and
-the costs are those of \cref{def:ch11-cost}. The results are those of Wagner and
+Throughout this section $G$ is finite, the joint graph is that of
+\cref{def:ch11-joint}, the policies $\phi_i$ are optimal
+(\cref{def:ch11-policy}), the heuristic is admissible
+(\cref{eq:ch11-heuristic} is even consistent, \cref{thm:ch11-heuristic})
+and the costs are those of \cref{def:ch11-cost}. The results are those of Wagner and
 Choset~\cite{wagner2011mstar,wagner2015subdimensional}.
 
 \begin{theorem}[Termination]
@@ -834,12 +834,11 @@ through: $2 + 4 = 6$ single moves. The push fails when the blocking agent
 is locked or when no empty vertex can be reached without crossing $p$; in
 both cases a swap is needed.\index{push (primitive)}
 
-\begin{figure}[tb]
+\begin{figure}[!tb]
   \centering
   \inputfigure{ch11/push-swap}
-  \caption{The primitives. (a) A push with a chain shift: $c$ moves first,
-  then $b$, then $a$ walks through; the chapter code lets $a$ take its free
-  steps before the shift. (b) The exchange at the heart of a swap:
+  \caption{The primitives. (a) A push with a chain shift: the two blockers
+  shift and $a$ walks through. (b) The exchange at the heart of a swap:
   with $a$ at a vertex $v$ of degree three, $b$ behind it and two empty
   neighbours $n_1, n_2$, six moves exchange the two agents and leave the
   rest of the graph untouched. (c) A rotation: with one cleared vertex next
@@ -891,7 +890,7 @@ into the queue; that it still terminates is the argument of Luna and
 Bekris~\cite{luna2011push}, corrected by de Wilde et
 al.~\cite{dewilde2014push}.
 
-\begin{algorithm}[htb]
+\begin{algorithm}[!htb]
 \caption{Push-and-Swap (conceptual)}
 \label{alg:ch11-pas}
 \KwIn{graph $G$, starts $s_1, \dots, s_k$, goals $\gamma_1, \dots, \gamma_k$, with at least two empty vertices}
@@ -995,11 +994,8 @@ coupled patches; it is to \mstar what \ecbs is to \cbs.
 \paragraph{Relatives.} Meta-agent \cbs~\cite{sharon2015cbs} merges two
 agents into a jointly planned meta-agent once they have conflicted more
 than a threshold number of times, the bridge between \cbs and independence
-detection; \textcite{standley2011complete} make independence detection and
-operator decomposition complete and anytime; Surynek's
-BIBOX~\cite{surynek2009novel} solves biconnected graphs with two empty
-vertices by other macros. No constructive method bounds the cost of its
-plan; when a bound matters, \ecbs or inflated \mstar is the right tool.
+detection. No constructive method bounds the cost of its plan; when a bound
+matters, \ecbs or inflated \mstar is the right tool.
 
 \subsection{Every MAPF method of the book in one table}
 \label{sec:ch11-comparison}
@@ -1011,10 +1007,9 @@ of a finite joint space (joint \astar, independence detection, \mstar) and
 Push-and-Rotate also terminate on unsolvable instances and report failure
 (\cref{thm:ch11-par}), which \cbs and \ecbs do not promise. Optimality is paid for in the size of
 a constraint tree or of the collision sets, and a bound is the middle
-ground that two methods offer. The ``scales with'' column names the
-quantity that actually decides the running time, which is never simply $k$.
+ground that two methods offer.
 
-\begin{table}[tb]
+\begin{table}[!tb]
   \centering\footnotesize
   \caption{The multi-agent path finding methods of this book. ``Bounded''
   means bounded suboptimality with a user-chosen factor $w$; ``scales
@@ -1151,10 +1146,9 @@ The global planner of the hybrid architecture in \cref{ch:ch24} is \cbs or
 only where they interact, and it should do so with a guarantee. \cbs
 couples through constraints and never enumerates a joint space; \ecbs adds
 a bound the operator can set. Independence detection is the cheapest way to
-make any of these solvers scale: split the swarm into groups whose nominal
-plans do not conflict, plan the groups separately, and merge only on
-conflict, so that the largest group rather than the swarm decides the
-running time. \mstar is the right global planner when interactions are rare
+make any of these solvers scale, because the largest conflicting group
+rather than the whole swarm then decides the running time. \mstar is the
+right global planner when interactions are rare
 but must be resolved optimally, for instance for a few dozen drones on a
 large map with occasional crossings, and inflated \mstar when a bound is
 enough. A feasible plan is worth accepting when the alternative is no plan
@@ -1301,11 +1295,9 @@ Show also that the multipush can be parallelised into $d$ time steps.
 
 \begin{exercise}[\difficulty{3} Coding]
 \label{exr:ch11-coding}
-This is the coding exercise of this chapter. The study plan
-(\cref{ch:appA}, Week~5) asks only for awareness of \mstar and
-Push-and-Swap, so treat it as the optional extension of the Week-5 work.
-(a) Implement joint \astar for $k$ agents on a
-grid from scratch, with the heuristic \cref{eq:ch11-heuristic} and the
+The study plan (\cref{ch:appA}, Week~5) asks only for awareness of \mstar
+and Push-and-Swap, so treat this as an optional extension of the Week-5
+work. (a) Implement joint \astar for $k$ agents on a grid from scratch, with the heuristic \cref{eq:ch11-heuristic} and the
 cost \cref{eq:ch11-cost}, and check it against \code{joint\_astar} of the
 chapter code on random $5 \times 4$ instances with two to four agents.
 (b) Implement independence detection on top of it, with Standley's

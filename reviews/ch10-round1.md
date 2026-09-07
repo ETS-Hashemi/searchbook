@@ -191,3 +191,97 @@ counter-node $N_7$) is the mistake practitioners actually make. Keep the benchma
 `.dat`-driven figure: the dashed "proven bound" curves next to the true ratio curves are the visual
 statement of the Week-5 milestone. And keep the code as it stands - it is honest, fast, verbatim in
 the listings, and every number in the chapter comes out of it.
+
+## Response to review (round 1)
+
+All seven required changes are applied. Nothing the reviewer asked to keep was touched:
+`thm:ch10-invariant` / `thm:ch10-lowlevel-lb` / `thm:ch10-consistent` / `thm:ch10-ecbs` and the
+paragraph that maps each step of the chain onto the code, the "two rulers" paragraph, the whole
+worked example (including the cost-13-inside-a-band-that-held-12 observation), the low-level
+example with its $w = 4/3$ threshold, all three pitfall boxes, and the benchmark section with its
+`.dat`-driven figure stand verbatim. The chapter is still 22 pages.
+
+### Required changes
+
+1. **`sec:ch10-example`, "ECBS with $w = 1.1$" (category A).** Fixed as prescribed. The two false
+   claims are replaced by "Steps 2 and 3 expand $N_2$ and $N_3$: the band $\cost \le 12.1$ admits
+   $N_2$, then $N_3$ and $N_4$, all with $h_c = 1$, and the tie-break on cost picks the cost-11 node
+   each time." and "\ecbs performs the same first three expansions as \cbs because, while
+   $\mathrm{LB} = 11$, every node inside the band still has a conflict and the tie-break on cost
+   selects the cheapest one, exactly what \cbs does; and it then stops the moment the bound allows
+   it." Verified against the newly printed $w = 1.1$ trace: at step 2 the children are $N_3$
+   (11/11/1, FOCAL) and $N_4$ (12/12/1, FOCAL), so FOCAL at step 3 is $\{N_3, N_4\}$, and the focal
+   heap key in `ecbs()` is `(conflicts, cost, id)`, i.e. $h_c$ then cost then age.
+
+2. **`sec:ch10-focal-alg`, $f_{\min}$ monotonicity (category A).** Rewritten as prescribed, as a
+   displayed chain: "with a consistent $h$, $f_{\min}$ never decreases. Whichever node $n$ is
+   expanded, every successor $n'$ it pushes, including a re-opened one, satisfies
+   $f(n') = g(n) + c(n,n') + h(n') \ge g(n) + h(n) = f(n) \ge f_{\min}$, so no node with an $f$ below
+   the current minimum is ever added to OPEN, and the minimum over OPEN can only rise." The band /
+   "once it is expanded" non sequitur is gone, and the argument now covers re-openings, which is what
+   `sec:ch10-two-heaps` and `lst:ch10-lowlevel` rely on.
+
+3. **`sec:ch10-implementation`, "The self-test" (category A).** Both halves of the reviewer's option
+   were taken. `code/ch10_ecbs.py` demo block now loops `for w in (1.05, 1.1, 1.2)`, so the $w = 1.1$
+   trace of `tab:ch10-ecbs-trace` is printed; it reproduces the table row for row
+   ($N_0, N_2, N_3, N_1$; children $N_1$ O, $N_2$ F, $N_3$ F, $N_4$ F, $N_5$ O, $N_6$ F; 4 expanded,
+   7 generated). The sentence now reads "It then prints the trace of `tab:ch10-cbs-trace` and the
+   traces of \ecbs for $w = 1.05$, $1.1$ and $1.2$; the $w = 1.1$ one is `tab:ch10-ecbs-trace`."
+
+4. **Two numbers contradicting the data file (category A).** `sec:ch10-motivation` now says "about
+   $23$ milliseconds each" (`e15_time_solved` at $k = 16$ is 0.0231 s, matching `tab:ch10-benchmark`),
+   and `sec:ch10-choosing-w` now says "$1$--$12.5\,\%$ more expensive than optimal". I kept the
+   reviewer's wording "$1$" for the low end although the smallest per-$k$ mean is 1.0091; it rounds
+   to 1 %. "never more than $28\,\%$" is unchanged (max 1.2766). The companion sentence in
+   `sec:ch10-benchmark` ("$7$ milliseconds ... $12.5\,\%$" at $k = 14$) was already right.
+
+5. **$H$ and $D$ pinned down (category C).** The prose of `sec:ch10-lowlevel` now reads
+   "$T_{\max} = \lfloor w(H + 1 + D)\rfloor$, where $H$ is the largest time occurring in a constraint
+   of $\mathcal{C}_i$, or $-1$ if $\mathcal{C}_i$ is empty, and $D = \max_v h(v)$ over the free cells
+   $v$", and line 3 of `alg:ch10-lowlevel` sets $H$ and $D$ explicitly before $T_{\max}$. Both match
+   `focal_space_time_astar`: `last_t = max((c.t for c in constraints), default=-1)` and
+   `max(h.values())` over `inst.distances_to(goal)`. `sec:ch10-example` now carries the parenthesis
+   "(no constraints, so $H = -1$ and $T_{\max} = \lfloor w D \rfloor$ with $D = 5$)", which makes
+   $\lfloor 1.5 \cdot 5 \rfloor = 7$ reproducible.
+
+6. **`figures/ch10/example-trees.tex`, panel (b) legend (category D).** Legend replaced by "filled:
+   expanded (order in orange) / plain: generated, in FOCAL, not expanded / dashed: generated outside
+   FOCAL (admitted only when LB rises) / green: returned solution"; $N_5$ stays dashed. The closing
+   annotation now reads "$N_1$ and $N_5$ are admitted when LB rises to 12 after step 3
+   ($1.1 \cdot 12 = 13.2$); $N_1$ is the older and is expanded." The legend was set in `\scriptsize`
+   so the two extra lines do not widen the panel; no overfull box results. For consistency I also
+   extended the last clause of the figure caption from "it is expanded at once because it has no
+   conflicts" to "admits it together with $N_5$, and of the two conflict-free nodes the older one,
+   $N_1$, is expanded."
+
+7. **MAPF expanded at first use (category F).** `sec:ch10-problem` now opens "We use the multi-agent
+   path finding (MAPF)\index{MAPF} notation of \cref{ch:ch07}."
+
+### Suggestions
+
+* **Even $k$ in the benchmark.** Applied: "ten instances for each even number of agents $k$ from $2$
+  to $16$".
+* **$h(\gamma') = 0$ in the proof of `thm:ch10-focal`.** Applied: "Since $\gamma'$ is a goal,
+  admissibility and $h \ge 0$ give $h(\gamma') = 0$, and since $\gamma'$ was chosen from FOCAL, ...".
+* **Hedging the knee of the runtime curve.** Applied: the claim is now stated as what the three
+  sampled $w$ values show, with "Where exactly the knee lies is instance-dependent;
+  `exr:ch10-coding`(b) asks you to locate it by sweeping $w$ on your own instances." No $w$-sweep was
+  added to the data file, to keep the benchmark script and `ch10-benchmark.dat` as they are.
+* **EECBS selection rule.** Applied: a parenthesis after the first test, "(Li et al. state the test
+  on the estimate, $\hat f(N) \le w\,\mathrm{LB}$; the two agree on the conflict-free nodes that can
+  be returned, where $\hat f(N) = \cost(N)$.)"
+* **`frontmatter/notation.tex` rows for FOCAL, $h_{\mathrm{FOCAL}}$, LB, $\mathrm{LB}_i(N)$, $w$.**
+  Not done: out of scope for a chapter reviser (the finisher brief forbids editing files outside the
+  chapter's own set). Reported to the editor as a needed edit.
+* **Length, solutions coverage.** No change, per the reviewer's own recommendation.
+* **`build.sh` exit 12.** Not reproduced: `cd Overleaf && ./build.sh ch10-ecbs` now exits 0 with no
+  `!` errors, no undefined `ch10` references or citations, and no overfull box above 15 pt
+  (`build/only-ch10-ecbs.pdf`, 43 pages; the chapter itself is pp. 13-34, 22 pages).
+
+### Verification
+
+* `python3 code/ch10_ecbs.py` -> "ch10_ecbs self-test passed in 0.4 s (45 random instances checked
+  against CBS)". The only code change is the demo loop, so no assertion or number moved.
+* `figures/data/ch10-benchmark.dat` was not regenerated: the benchmark script is untouched and every
+  number now quoted in the text is read off the committed file (23 ms, 7 %, 7 ms, 12.5 %, 28 %,
+  2-3 %, 1153 expansions, 6/10 and 2/10 at $k = 14, 16$).

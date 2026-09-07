@@ -275,3 +275,116 @@ the ten exercises with their 3/5/2 difficulty spread, and the citation set, whic
 complete, correctly attributed (LSTM / forget gate / BPTT split between Hochreiter &
 Schmidhuber, Gers et al. and Werbos; the constant-velocity finding to Schöller et al.)
 and free of anything I cannot vouch for.
+
+## Response to review (round 2)
+
+All six required changes are applied, plus four of the six suggestions. No result,
+proof, figure, table, subset, row, calibration column or exercise was removed, and
+the experiment was re-run (`code/ch20_prediction.py --self-test`, 27.6 s) and the
+`.dat` files regenerated (`code/figures/gen_ch20_results.py`) before and after the
+edits; every number quoted in the chapter still comes from that run.
+
+**Required 1 — "halves the error" on the visible-evasive subset (A).** Fixed in both
+places. The caption of `fig:ch20-results` now reads "On turns the LSTM halves the
+error and on visible evasive manoeuvres it removes a third of it"; the last summary
+bullet now reads "beats the tuned baselines by 28 % overall, halves the error on
+turns and removes a third of it on visible manoeuvres". (Check: turn 1.125 -> 0.549,
+-51 %; evasive-visible 2.351 -> 1.585, -33 %.) The body text at the
+"Turns and evasive manoeuvres" paragraph was already correct and is unchanged.
+
+**Required 2 — "On straight flight CV wins at every horizon" (A).** Fixed in all
+three places.
+* Caption: "On straight flight the two curves cross between h = 7 and h = 8: the LSTM
+  is marginally ahead over the first 1.4 s and the tuned CV wins from there on,
+  ending 0.09 m ahead at 2.4 s." I wrote "between h = 7 and h = 8" rather than
+  "at h ~ 8" because the data cross there exactly (h = 7: 0.2260 vs 0.2124, LSTM
+  ahead; h = 8: 0.2476 vs 0.2490, CV ahead). The 0.09 m is 0.4267 - 0.3349.
+* Paragraph "Straight flight": added "The advantage is a long-horizon one: up to
+  h = 7 (1.4 s) the two are within 3.5 cm of each other and the LSTM is in fact
+  slightly ahead, and only from h = 8 on does the tuned CV pull away", and the
+  paragraph heading is now "constant velocity wins the long horizons". **One
+  deviation from the suggested wording:** the review proposed "within 2 cm"; the
+  largest gap over h <= 7 is 0.0341 m (at h = 4), so I wrote 3.5 cm, which is a true
+  bound. The "up to 22 %" figure of the review is confirmed (h = 1: 0.0222/0.0991).
+* `keyidea` box: "nothing beats it on straight flight at the long horizons that set
+  the safety margin, or on a manoeuvre that has not started yet."
+* The summary bullet's "loses on straight flight" became "loses on straight flight
+  beyond 1.4 s" for consistency.
+
+**Required 3 — LSTM-abs "above every baseline" (D).** Caption reworded exactly as
+proposed: "stays above both constant-velocity baselines and the Kalman filter at
+every horizon (and above constant acceleration until the last step)". (At h = 12
+ade_abs = 1.3149 < ade_ca = 1.3216.)
+
+**Required 4 — test number on a validation plot (D).** Fixed the recommended way, not
+the fallback. `code/figures/gen_ch20_results.py` now computes the tuned CV's ADE on
+the *validation* split (`ade(predict_cv(val["obs"], k=k_cv), val["future"])`, with
+the same k = 2 the protocol tuned there) and writes `figures/data/ch20-training-cv.dat`
+(two rows spanning the epoch axis); `figures/ch20/training.tex` plots it with
+`\addplot table[...]` and the legend entry is now "CV (tuned), validation". The value
+is 1.076 m. The caption reads "The dashed line is the tuned CV baseline on the same
+validation split (1.076 m); no test-set number appears in this figure." Nothing is
+hard-coded any more, so a rerun updates the line.
+
+**Required 5 — one page over the cap (G).** All four cuts made; the chapter body is
+now PDF pages 18-41 of `build/only-ch20-trajectory-prediction.pdf` = **24 pages**,
+exactly at the cap (it was 18-42 = 25).
+* (a) `sec:ch20-intuition`: the three "First/Second/Third" paragraphs (23 lines) are
+  one 13-line paragraph following `fig:ch20-idea`; the `keyidea` box is untouched.
+* (b) `sec:ch20-motivation`: the section-by-section roadmap is two sentences (the
+  experiment and the properties section).
+* (c) "Horizons, pitfalls and calibration": the LSTM-abs sentence is gone. So that no
+  number is lost with it, the pitfall box "Predicting in absolute coordinates" now
+  carries them: "(1.315 against the tuned CV's 1.141 m overall, and worse on every
+  subset except the hidden manoeuvres, where no predictor is separated from the
+  others)". The cut sentence claimed "worse than the tuned CV on every subset",
+  which `tab:ch20-results` contradicts on the hidden-manoeuvre column (LSTM-abs
+  1.569 against the tuned CV's 1.696, the bold entry the caption already declares a
+  non-winner); the wording moved into the box is corrected accordingly.
+* (d) dronebox "Study plan": reduced to "Week 10 of \cref{ch:appA}." plus the
+  research-direction sentence.
+No content was cut beyond these four passages, and `tab:ch20-methods`,
+`fig:ch20-seq2seq` and `fig:ch20-lstm-cell` were left alone since the cap is met.
+
+**Required 6 — the k/h clash in `alg:ch20-seq2seq` (F).** The decoder index is now h
+throughout the algorithm (loop index, mu_h, log sigma_h, y_h, the sampling and
+free-running branches) and in the "Rolling the decoder out" paragraph (step h,
+mu_{h-1}, y_{h-1}). sigma_h in the algorithm and sigma_h in `eq:ch20-nll` are now
+the same name for the same object; k is left to `alg:ch20-baselines` alone. The
+decoder index h and the hidden state h are distinguished as they are everywhere else
+in the chapter, by the `\vect` macro (upright bold vector against italic scalar).
+
+### Suggestions
+
+* **Q in `def:ch20-attention`.** Applied: "the values attached to the keys, one per
+  row (Q here is the query matrix, not the process noise of `eq:ch20-q`)".
+* **Hidden-manoeuvre overstatement.** Applied: "every predictor scores 1.6-1.8 m and
+  no predictor is ahead by more than the noise of 60 trajectories", matching the
+  caption of `tab:ch20-results`.
+* **The CA 4.7x factor.** Applied, including the better version: the sentence now says
+  "4.7 times that of constant velocity at the same window k = 3 and the same step",
+  then "thm:ch20-cv-noise predicts a mean final error of sqrt(pi)/2 * 4.7 * 0.45 =
+  1.88 m on straight flight against the 1.869 m measured in tab:ch20-results", and
+  the ADE comparison is now labelled with its window ("0.830 m ADE against the
+  0.335 m of the tuned CV at k = 2").
+* **d^safe_h.** Applied: the inflated radius is `d^{\mathrm{safe}}_h` in
+  `eq:ch20-inflated` and at its three other uses, so it no longer looks like a
+  member of the d_k/d_v/d_min family.
+* **Two more solutions.** Added to `appendices/solutions/ch20-solutions.tex`:
+  `exr:ch20-pe` (the block-diagonal rotation M_delta = blockdiag(R(theta_i delta)),
+  and why one fixed bilinear form implements "attend two steps back") and
+  `exr:ch20-protocol` (all six violations, each with the direction of the bias).
+  Seven of ten exercises now have solutions.
+* **Notation table / ch:ch18.** Not actionable from this chapter; left for the
+  re-check when `frontmatter/notation.tex` and ch18 land.
+
+### Build note
+
+Confirmed and not a ch20 defect: `./build.sh ch20-trajectory-prediction` intermittently
+returns status 12 with "File ended while scanning use of \@writefile" while reading
+`build/chapters/*.aux`. The cause is visible on this machine: those `.aux` files are
+shared build artifacts and other chapters' builds truncate them while the ch20 build
+reads them (`build/chapters/ch02-toolbox.aux` was 0 bytes mid-run). Re-running gives
+**status 0 with no errors**, 24 body pages, no overfull box above 15 pt and no
+undefined ch20 label; the only undefined references are the expected cross-chapter
+`ch:chNN`/`ch:appX` ones. Worth passing to the book editor for ch11/ch02 all the same.

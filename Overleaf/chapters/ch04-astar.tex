@@ -278,6 +278,22 @@ grids returns a path longer than optimal on 6 of 40 instances.
   \end{tabular}
 \end{table}
 
+\begin{pitfall}[The Manhattan distance on an 8-connected grid]
+This is the most common inadmissible heuristic in robotics code, and it is
+invisible: the search runs, returns a path, and the path is simply too long.
+The reason is one line of \cref{tab:ch04-heuristics}: a diagonal move costs
+$\sqrt{2} \approx 1.41$ but changes $d_x + d_y$ by~$2$, so
+$\hcost_{\mathrm{M}}(n) > c(n,n') + \hcost_{\mathrm{M}}(n')$ and, worse,
+$\hcost_{\mathrm{M}}$ can exceed $\hcost^*$. \Cref{thm:ch04-optimal} then does
+not apply. In the self-test of \code{ch04\_astar.py}, \astar with the Manhattan
+heuristic on 8-connected random grids returns a strictly longer path on 6 of 40
+instances --- one in seven, silently. The bug is easy to introduce when a
+4-connected planner is extended to diagonal moves and nobody revisits the
+heuristic. Use the octile distance \cref{eq:ch04-octile} on 8-connected maps,
+and test optimality against a Dijkstra run on random instances, as the self-test
+does.
+\end{pitfall}
+
 None of the four sees obstacles, so with walls in the way they all
 underestimate, sometimes badly: the worked example of \cref{sec:ch04-example}
 shows the search walking into a dead end because the Manhattan distance does
@@ -838,3 +854,753 @@ path planning~\cite{phillips2011sipp} compresses the time dimension of the
 search described next. All of them keep the structure of
 \cref{alg:ch04-astar}; what changes is the key, the successor function or
 what is remembered between searches.
+
+% ---------------------------------------------------------------------
+\section{Space-time \astar}
+\label{sec:ch04-spacetime}
+
+Every search so far assumed a static world: an obstacle blocks a cell, and it
+blocks it for ever. A drone that shares its airspace with other drones faces a
+different problem. The cell in front of it may be free now and occupied in three
+seconds, when a neighbour flies through it; a corridor may be usable in one
+direction only, because a drone is coming the other way. The planner that
+resolves such interactions is a \textbf{multi-agent path finding}
+(MAPF)\index{MAPF (multi-agent path finding)} algorithm, and the standard
+formulation is the one of Stern et al.~\cite{stern2019mapf}: agents move on a
+shared graph in discrete time steps, each agent may move to a neighbour or wait,
+and no two agents may occupy the same vertex at the same time step or swap
+places along an edge. \Cref{ch:ch08,ch:ch09,ch:ch10} build three planners on top
+of that formulation. All three share one component, and it is an \astar search:
+plan for \emph{one} agent, in time, subject to a list of forbidden
+$(\text{cell}, \text{time})$ and $(\text{edge}, \text{time})$ pairs. That search
+is \textbf{space-time \astar}\index{A*!space-time}\index{space-time A*}, the
+subject of this section.
+
+\subsection{The state is a cell and a time}
+
+\begin{definition}[Time-expanded graph and space-time state]
+\label{def:ch04-spacetime}
+Let $G = (V, E)$ be the grid graph of \cref{def:ch02-grid}. A \textbf{space-time
+state}\index{state!space-time} is a pair $(v, t)$ with $v \in V$ and
+$t \in \{0, 1, 2, \dots\}$: the agent is in cell $v$ at time step $t$. From
+$(v, t)$ the agent may
+either \textbf{wait}\index{wait action}, reaching $(v, t+1)$, or move along an
+edge $(v, v') \in E$, reaching $(v', t+1)$. Every action costs one time step. The graph on these states, with these edges,
+is the \textbf{time-expanded graph}\index{time-expanded graph} of $G$.
+\end{definition}
+
+Three consequences of \cref{def:ch04-spacetime} shape the search.
+
+\emph{The graph is a directed acyclic graph.} Every edge increases $t$ by
+exactly one, so no cycle exists, and the cost of a path from $(s, 0)$ to
+$(v, t)$ is exactly $t$: $\gcost(v, t) = t$ for every state, no matter which
+route reached it. A state therefore has a single possible $\gcost$, and the
+first time the search generates it, it is already the cheapest. Relaxation
+(line~\ref{alg:ch04-astar:relax} of \cref{alg:ch04-astar}) is replaced by plain
+duplicate detection: a state that has been generated is never generated again,
+and no node is ever re-opened. The two theorems of
+\cref{sec:ch04-properties} apply as they stand, with the trivial consistency
+check below.
+
+\emph{Time is the cost.} Cost and time are the same quantity here, which is why
+a diagonal move on an 8-connected grid also costs one step rather than
+$\sqrt{2}$: a drone that flies diagonally takes one time slot, like every other
+manoeuvre. If you need geometric length as well, carry it as a second number and
+optimise time first; \cref{ch:ch09} discusses the trade-off, and safe interval
+path planning~\cite{phillips2011sipp} avoids the discretisation altogether.
+
+\emph{The state space is infinite unless you bound it.} Waiting is always
+allowed, so from every state there is an infinite chain of wait actions. The
+time horizon of \cref{sec:ch04-horizon} cuts the chain at a point where nothing
+is lost.
+
+\subsection{Constraints and reservation tables}
+
+\begin{definition}[Vertex and edge constraint]
+\label{def:ch04-constraints}
+In the notation of Stern et al.~\cite{stern2019mapf}, a \textbf{vertex
+constraint}\index{constraint!vertex} $\langle a, v, t \rangle$ forbids agent $a$
+to occupy cell $v$ at time step $t$; an \textbf{edge
+constraint}\index{constraint!edge} $\langle a, u, v, t \rangle$ forbids agent
+$a$ to move from $u$ to $v$ between time steps $t$ and $t+1$. A path
+$\pi = (\pi_0, \pi_1, \dots, \pi_T)$ of agent $a$, with $\pi_0$ its start and
+$\pi_T$ its goal, \textbf{respects} a set of constraints if $\langle a, \pi_t,
+t\rangle$ is in none of them for $0 \le t \le T$ and $\langle a, \pi_t,
+\pi_{t+1}, t\rangle$ is in none of them for $0 \le t < T$.
+\end{definition}
+
+A single-agent search only ever sees the constraints of its own agent, so the
+agent index is stripped off before the search starts
+(\code{constraints\_for\_agent()} in the chapter code) and the search works with
+pairs $(v, t)$ and triples $(u, v, t)$.
+
+Where do the constraints come from? In \cref{ch:ch09} the high level of \cbs
+invents them, one per node of its constraint tree, to resolve a collision it has
+detected. In prioritized planning (\cref{ch:ch08}) they come from the paths of
+the agents that were planned earlier, collected in a \textbf{reservation
+table}\index{reservation table}, the data structure Silver introduced for
+cooperative pathfinding~\cite{silver2005cooperative}. Reserving a planned path
+$\pi$ means three things:
+\begin{itemize}
+  \item a vertex constraint $(\pi_t, t)$ for every $t$, so that no one flies
+        through an occupied cell;
+  \item an edge constraint $(\pi_{t+1}, \pi_t, t)$ for every move, that is, the
+        \emph{reverse} of the move, so that no one swaps places with $\pi$
+        head-on;
+  \item a permanent block of the goal cell $\pi_T$ for every $t \ge T$: the
+        agent parks there and does not evaporate.
+\end{itemize}
+The class \code{ReservationTable} in \code{ch04\_astar.py} stores exactly these
+three sets and answers the two questions the search asks: is $v$ blocked at time
+$t$, and is the move $u \to v$ blocked at time $t$.
+
+\subsection{The goal test: the agent has to stay}
+\label{sec:ch04-goalstay}
+
+Reaching the goal is not enough. The plan of an agent ends when it lands, and
+the drone then occupies its landing pad for the rest of the episode. If some
+other agent is scheduled to fly over that pad at time step~9, arriving there at
+step~7 and stopping is not a solution.
+
+\begin{definition}[Goal-stay time]
+\label{def:ch04-goalstay}
+Let $t_\gamma$ be the largest time step at which the goal $\gamma$ carries a
+vertex constraint ($t_\gamma = -1$ if it carries none, $t_\gamma = \infty$ if
+another agent is parked on it). A state $(\gamma, t)$ is a
+\textbf{goal state}\index{goal!stay condition} if and only if $t > t_\gamma$.
+\end{definition}
+
+With this test the returned path $\pi$ can be extended by waiting at $\gamma$ for
+ever without violating a constraint, which is what \cref{def:ch04-constraints}
+demands of a MAPF solution. The value $t_\gamma$ is computed once, before the
+search, by \code{last\_blocked\_time()}. If $t_\gamma = \infty$ the instance is
+unsolvable and the search reports failure without expanding anything.
+
+\begin{pitfall}[Forgetting that the goal must stay free after arrival]
+Using the plain test ``$v = \gamma$'' turns a correct plan into a collision:
+the drone lands and the next agent flies into it. Using a test that is too
+strong is just as bad. A frequent variant is ``$v = \gamma$ and $t \ge H$'',
+with $H$ the last constrained time step of the \emph{whole} table; on a map
+where some far-away agent is still moving at step~50, every plan is then padded
+to 50 steps, and a sub-problem that has a 3-step solution is reported as
+needing 50 or, with a tight horizon, as unsolvable. Test the constraints of
+\emph{this} goal cell only, as in \cref{def:ch04-goalstay}. In the chapter code
+the vertex constraint $\langle a, (2,1), 5\rangle$ on the goal of the mini
+example makes the search hop off the goal and come back: the returned path is
+$(0,1), (1,1), (2,1), (2,1), (2,1), (2,2), (2,1)$ of cost~6, and it is optimal.
+\end{pitfall}
+
+\subsection{Time horizon, completeness and termination}
+\label{sec:ch04-horizon}
+
+Because waiting is always possible, the time-expanded graph is infinite, and an
+unsolvable instance would make the search run for ever. Cutting the search at an
+arbitrary horizon is not safe either: it can report failure on an instance that
+has a solution one step later. The following bound is both safe and easy to
+compute. Write $H$ for the largest time step that appears in any constraint
+($H = -1$ if there is none) and $D$ for the largest number of moves from any
+cell to $\gamma$ in the grid in which the parked cells of the table are treated
+as walls.
+
+\begin{proposition}[A sufficient time horizon]
+\label{thm:ch04-horizon}
+If a path from $s$ that respects the constraints and satisfies
+\cref{def:ch04-goalstay} exists, then one exists that reaches $\gamma$ no later
+than time
+\begin{equation}
+  T_{\max} = H + 1 + D.
+  \label{eq:ch04-horizon}
+\end{equation}
+Space-time \astar restricted to states with $t \le T_{\max}$ is therefore
+complete, and it terminates on every instance.
+\end{proposition}
+\begin{proof}
+Let $\pi$ be a solution and suppose it arrives after $T_{\max}$. No vertex or
+edge constraint is active at a time step larger than $H$, so from time $H+1$ on
+the only forbidden cells are the parked ones, which are forbidden for ever. Let
+$v = \pi_{H+1}$ be the cell of the agent at time $H+1$. The suffix of $\pi$ from
+$H+1$ is a walk from $v$ to $\gamma$ that avoids the parked cells, so $\gamma$ is
+reachable from $v$ in the reduced grid and a shortest such route has at most $D$
+moves. Following it from time $H+1$ gives a path that respects every constraint,
+arrives no later than $H + 1 + D$, and satisfies \cref{def:ch04-goalstay}
+because $H \ge t_\gamma$. Its prefix up to $H+1$ is the prefix of $\pi$, which
+respects the constraints by assumption. For termination, the set of states with
+$t \le T_{\max}$ is finite and each of them is generated at most once, so the
+loop ends after finitely many iterations; if it ends without reaching a goal
+state, no solution exists.
+\end{proof}
+
+\Cref{eq:ch04-horizon} is what \code{default\_horizon()} returns. On the mini
+example below, $H = 1$ and $D = 3$, so $T_{\max} = 5$, while the solution needs
+3 steps; the bound is loose on purpose, since a loose bound costs nothing when
+the search finds a solution early and only matters when it has to prove that
+none exists. Supplying a smaller horizon by hand is allowed and useful in a
+real-time planner, but it makes the search incomplete: with
+\code{max\_time = 2} the mini example is reported unsolvable, with
+\code{max\_time = 3} it is solved.
+
+\subsection{The heuristic: static distances, computed once}
+\label{sec:ch04-static}
+
+Which heuristic should the search use? The Manhattan distance is admissible on a
+4-connected grid, but it ignores the obstacles, and in a constrained re-run of
+the same agent that error is paid over and over. The remark at the end of
+\cref{sec:ch04-grid-heuristics} said that the exact heuristic $\hcost^*$ is too
+expensive for a single query because computing it costs a full search. In
+space-time the arithmetic changes completely:
+
+\begin{itemize}
+  \item the goal of an agent does not change between the calls, so one backward
+        search per agent serves all of them --- in a \cbs run with thousands of
+        constraint-tree nodes, that is one search instead of thousands;
+  \item the same table serves every time layer, because the distance from $v$ to
+        $\gamma$ does not depend on $t$;
+  \item on a grid the backward search is a breadth-first search, not a
+        Dijkstra search, because every action costs one time step.
+\end{itemize}
+
+So let $\hcost(v)$ be the number of moves of a shortest \emph{unconstrained}
+path from $v$ to $\gamma$, computed once by a backward breadth-first search
+(\code{static\_distances()}), and let $\hcost(v, t) = \hcost(v)$.
+
+\begin{proposition}[The static heuristic is consistent]
+\label{thm:ch04-static}
+$\hcost$ is admissible and consistent on the time-expanded graph, for any set of
+constraints.
+\end{proposition}
+\begin{proof}
+Consistency: for the wait action, $\hcost(v) \le 1 + \hcost(v)$; for a move
+$(v, v')$, $\hcost(v) \le 1 + \hcost(v')$, because appending the move to a
+shortest route from $v'$ gives a route from $v$. At a goal state $\hcost(\gamma)
+= 0$. Consistency implies admissibility by
+\cref{thm:ch04-consistent-admissible}; alternatively, note that removing states
+and edges from a graph cannot shorten a path, so the unconstrained distance is a
+lower bound on the constrained one. Note that $\hcost$ is a lower bound but not
+exact: it neither knows the constraints nor the waits they force, which is
+exactly the room in which the search does its work.
+\end{proof}
+
+A cell with $\hcost(v) = \infty$ cannot reach the goal at all and is never
+generated. The consistency of $\hcost$ means the search inherits
+\cref{thm:ch04-consistent}: expansions come out in non-decreasing order of
+$\fcost = t + \hcost(v)$, and no state is expanded twice.
+
+\subsection{The algorithm}
+
+\Cref{alg:ch04-spacetime} puts the pieces together. It differs from
+\cref{alg:ch04-astar} in four places only: the successor function adds the wait
+action and filters on the constraints, the goal test is the one of
+\cref{def:ch04-goalstay}, the horizon truncates the search, and relaxation
+becomes duplicate detection.
+
+\begin{algorithm}[htb]
+\caption{Space-time \astar for one agent under vertex and edge constraints}
+\label{alg:ch04-spacetime}
+\KwIn{grid graph $G$, start $s$, goal $\gamma$, constraint set (or reservation table) $R$ of this agent, horizon $T_{\max}$}
+\KwOut{a time-indexed path $\pi_0, \dots, \pi_T$ of minimum arrival time $T$ that respects $R$, or \emph{failure}}
+\Fn{\AstarSpaceTime{$G$, $s$, $\gamma$, $R$, $T_{\max}$}}{
+  $\hcost \gets$ static distances to $\gamma$ by a backward breadth-first search in $G$\label{alg:ch04-spacetime:h}\;
+  $t_\gamma \gets$ largest $t$ with $(\gamma, t) \in R$ ($-1$ if none, $\infty$ if an agent is parked on $\gamma$)\;
+  \lIf{$\hcost(s) = \infty$ or $t_\gamma = \infty$}{\KwRet \emph{failure}\label{alg:ch04-spacetime:hopeless}}
+  \Open $\gets$ priority queue holding $(s, 0)$ with key $(\hcost(s),\, 0)$; $\mathit{Gen} \gets \{(s, 0)\}$; parent$(s, 0) \gets$ \KwNil\;
+  \While{\Open $\ne \emptyset$}{
+    $(v, t) \gets$ pop the entry with the smallest key $(\fcost, -t)$ from \Open\label{alg:ch04-spacetime:pop}\;
+    \If{$v = \gamma$ \KwAnd $t > t_\gamma$}{\KwRet \AstarPath{parent, $(v,t)$}\label{alg:ch04-spacetime:goal}\;}
+    \If{$t = T_{\max}$}{\KwContinue\tcp*{horizon reached: no successors}\label{alg:ch04-spacetime:horizon}}
+    \ForEach{$v' \in \{v\} \cup \Succ(v)$}{\tcp*[h]{wait first, then the moves}\label{alg:ch04-spacetime:succ}\;
+      \lIf{$\hcost(v') = \infty$}{\KwContinue\label{alg:ch04-spacetime:dead}}
+      \lIf{$(v', t+1) \in R$ \KwOr $(v, v', t) \in R$}{\KwContinue\label{alg:ch04-spacetime:filter}}
+      \lIf{$(v', t+1) \in \mathit{Gen}$}{\KwContinue\tcp*{$\gcost = t+1$ always: the first is the best}\label{alg:ch04-spacetime:dup}}
+      $\mathit{Gen} \gets \mathit{Gen} \cup \{(v', t+1)\}$; parent$(v', t+1) \gets (v, t)$\;
+      push $(v', t+1)$ into \Open with key $(t + 1 + \hcost(v'),\, -(t+1))$\label{alg:ch04-spacetime:push}\;
+    }
+  }
+  \KwRet \emph{failure}\;
+}
+\end{algorithm}
+
+Line~\ref{alg:ch04-spacetime:h} is the backward breadth-first search of
+\cref{sec:ch04-static}; in a planner that calls the search many times for the
+same agent it is hoisted out and computed once.
+Line~\ref{alg:ch04-spacetime:hopeless} catches the two hopeless cases before any
+work is done. Line~\ref{alg:ch04-spacetime:succ} generates the wait action
+first, so that among states with equal keys the wait is popped first; this is a
+choice of tie-breaking, not of correctness.
+Line~\ref{alg:ch04-spacetime:dead} drops cells from which the goal cannot be
+reached at all, and line~\ref{alg:ch04-spacetime:filter} is the whole of the
+constraint handling: one lookup in a hash set per candidate.
+Line~\ref{alg:ch04-spacetime:dup} is duplicate detection; because
+$\gcost(v', t+1) = t+1$ for every route, a second parent could never be better.
+The set $\mathit{Gen}$ of generated states plays the role of both \Open and \Closed of
+\cref{alg:ch04-astar}. Note that the search minimises the \emph{arrival time}
+$T$; if an agent must also stand still at its goal until some later step, that
+is a property of the plan, not of the search.
+
+\subsection{A worked mini-example}
+
+\begin{example}[One vertex constraint, one forced wait]
+\label{ex:ch04-spacetime}
+Take the empty $3 \times 3$ grid, 4-connected, with $s = (0, 1)$ and
+$\gamma = (2, 1)$, and the single vertex constraint $\langle a, (1,1), 1\rangle$:
+another drone crosses the middle cell at time step~1. The instance is
+\code{spacetime\_example()} in \code{ch04\_astar.py}. Without the constraint the
+search expands the three states $((0,1),0)$, $((1,1),1)$, $((2,1),2)$ and
+returns the path $(0,1), (1,1), (2,1)$ of cost~2: with an exact heuristic and
+$\fcost = 2$ everywhere, the tie-breaking rule walks straight down the optimal
+path. With the constraint, the state $((1,1),1)$ no longer exists, the search
+expands four states and returns
+\[
+  (0,1),\ (0,1),\ (1,1),\ (2,1),
+\]
+a path of cost~3 with one wait at the start. \Cref{fig:ch04-spacetime} shows the
+two paths in the time-expanded graph and \cref{tab:ch04-spacetime} the trace.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch04/spacetime}
+  \caption{\Cref{ex:ch04-spacetime}. Left: the $3\times3$ grid; the hatched cell
+  $(1,1)$ is forbidden at $t = 1$. Right: the states $(v, t)$ of the middle row
+  for $t = 0, \dots, 3$. Horizontal edges are wait actions, diagonal edges are
+  moves, and every edge costs one time step. The crossed-out state $((1,1),1)$
+  is the one removed by the vertex constraint; it lies on the dashed path of
+  cost~2, which is therefore no longer available. Grey states are the four the
+  search expands, with their $\fcost = t + \hcost(v)$; the cheapest remaining
+  path (solid) waits once and costs~3.}
+  \label{fig:ch04-spacetime}
+\end{figure}
+
+\begin{table}[tb]
+  \centering\footnotesize
+  \caption{Trace of \cref{alg:ch04-spacetime} on \cref{ex:ch04-spacetime}. Note
+  that $\gcost$ is always the time $t$, that $\fcost$ never decreases
+  (\cref{thm:ch04-consistent}(ii) applies, since $\hcost$ is consistent), and
+  that the state $((1,1),1)$ never enters \Open: the constraint filter of
+  line~\ref{alg:ch04-spacetime:filter} removes it at generation time.}
+  \label{tab:ch04-spacetime}
+  \begin{tabular}{@{}rlrrrp{5.1cm}@{}}
+  \toprule
+  Step & Expanded $(v,t)$ & $\gcost$ & $\hcost$ & $\fcost$ & \Open after the step (state$:\fcost$)\\
+  \midrule
+  1 & $((0,1),0)$ & 0 & 2 & 2 & $((0,0),1){:}4$, $((0,1),1){:}3$, $((0,2),1){:}4$\\
+  2 & $((0,1),1)$ & 1 & 2 & 3 & $((1,1),2){:}3$, $((0,1),2){:}4$, $((0,0),1){:}4$, $((0,2),1){:}4$, $((0,0),2){:}5$, $((0,2),2){:}5$\\
+  3 & $((1,1),2)$ & 2 & 1 & 3 & $((2,1),3){:}3$, $((1,1),3){:}4$, and the six entries of step~2 that are still open\\
+  4 & $((2,1),3)$ & 3 & 0 & 3 & goal state, $t = 3 > t_\gamma = -1$: return the path\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+Two variations, both in the self-test, show the other two mechanisms at work.
+Adding the edge constraint $\langle a, (0,1), (1,1), 1\rangle$ on top of the
+vertex constraint forbids the move that the path above makes at $t = 1$; the
+search then waits twice and returns $(0,1), (0,1), (0,1), (1,1), (2,1)$ of
+cost~4 after five expansions. Replacing the constraints by the single vertex
+constraint $\langle a, (2,1), 5\rangle$ on the goal makes $t_\gamma = 5$: the
+search reaches $(2,1)$ at $t = 2$ but may not stop there, so it waits, steps
+aside to $(2,2)$ at $t = 5$ and returns at $t = 6$, for a path of cost~6.
+
+\begin{example}[Two drones in a corridor with a passing bay]
+\label{ex:ch04-corridor}
+A $5 \times 2$ map has a corridor along $y = 0$ and a single free cell $(2, 1)$
+above it, a passing bay. Agent~1 flies from $(0,0)$ to $(4,0)$ and is planned
+first; its path $(0,0), (1,0), (2,0), (3,0), (4,0)$ goes into the reservation
+table, together with the reversed edges and the permanent block of $(4,0)$ from
+$t = 4$. Agent~2 has to fly from $(3,0)$ to $(0,0)$, which alone takes 3 steps.
+Under the table, space-time \astar returns
+\[
+  (3,0),\ (2,0),\ (2,1),\ (2,0),\ (1,0),\ (0,0),
+\]
+of cost~5: agent~2 hides in the bay at $t = 2$, lets agent~1 pass, and drops
+back into the corridor behind it. No sequence of waits in the corridor itself
+would work, because the reversed-edge constraints forbid the head-on swap. If
+agent~2 instead starts at $(4,0)$, no path exists at all --- agent~1 parks on
+that cell --- and the search proves it in finite time, six expansions, thanks to
+\cref{thm:ch04-horizon}. That failure is not a bug in the search but the known
+incompleteness of prioritized planning, and it is the reason \cref{ch:ch09}
+searches over constraints instead of fixing an order.
+\end{example}
+
+% ---------------------------------------------------------------------
+\section{Implementation notes}
+\label{sec:ch04-implementation}
+
+\Cref{lst:ch04-astar} is the main loop of \code{astar()} in
+\code{code/ch04\_astar.py}, the function that produced every number in this
+chapter. It is \cref{alg:ch04-astar} line by line, and the rest of this section
+explains the six decisions hidden in it.
+
+\begin{lstlisting}[caption={The main loop of \astar (from \code{code/ch04\_astar.py}): a lazy binary heap, a dictionary of $\gcost$ values, a closed set and parent pointers. \code{key()} builds the priority tuple $(\fcost, -\gcost, \mathit{counter})$; \code{EPS} is $10^{-9}$.},label={lst:ch04-astar}]
+    g = {start: 0.0}
+    parent = {start: None}
+    closed = set()
+    expansions = []
+    reopenings = 0
+    open_heap = [(key(weight * heuristic(start), 0.0), 0.0, start)]
+    while open_heap:
+        _, g_entry, n = heapq.heappop(open_heap)
+        if g_entry > g[n]:               # stale: a cheaper path was found
+            continue
+        h_n = heuristic(n)
+        expansions.append(Expansion(n, g[n], h_n, g[n] + weight * h_n))
+        if is_goal(n):
+            snapshot = live_open()
+            if record_open:
+                expansions[-1].open_after = snapshot
+            return SearchResult(_reconstruct(parent, n), g[n], expansions,
+                                closed, {m for (m, _) in snapshot}, g,
+                                reopenings)
+        closed.add(n)
+        for n2, c in successors(n):
+            g2 = g[n] + c
+            if g2 < g.get(n2, INF) - EPS:  # relaxation (EPS: fp noise)
+                if n2 in closed:
+                    if not reopen:
+                        continue
+                    closed.discard(n2)   # re-open (never for consistent h)
+                    reopenings += 1
+                g[n2] = g2
+                parent[n2] = n
+                f2 = g2 + weight * heuristic(n2)
+                heapq.heappush(open_heap, (key(f2, g2), g2, n2))
+        if record_open:
+            expansions[-1].open_after = live_open()
+    return SearchResult(None, INF, expansions, closed, set(), g, reopenings)
+\end{lstlisting}
+
+\paragraph{Hashing the state.}
+The state is the dictionary key, so it must be hashable and cheap to hash. A
+grid cell is the tuple \code{(x, y)} of two \code{int}s; a space-time state is
+the nested tuple \code{((x, y), t)}. Both hash in constant time and compare by
+value, which is what the sets \code{closed} and \code{parent} need. Do not use a
+NumPy array or a list as a state: they are unhashable, and a class without
+\code{\_\_hash\_\_} and \code{\_\_eq\_\_} would compare by identity, so two
+states describing the same cell would look different and the search would
+degenerate into a tree search.
+
+\paragraph{The priority tuple and why it needs a counter.}
+The heap entries are \code{(key, g, node)} with
+\code{key = (f, -g, counter)}. \python compares tuples lexicographically, so the
+first component orders by $\fcost$, the second breaks ties towards the larger
+$\gcost$ (\cref{sec:ch04-tiebreak}), and the third, a value from
+\code{itertools.count()}, breaks the remaining ties first-in-first-out. The
+counter is not cosmetic. Without it, two entries with identical $\fcost$ and
+$\gcost$ would make \code{heapq} compare the next component, the node itself;
+for grid cells that silently sorts by coordinate, which is a bias nobody
+intended, and for a state that is not comparable at all, such as a
+\code{dataclass} without an ordering, it raises \code{TypeError} in the middle
+of a long run. The counter guarantees that no two keys are ever equal, so the
+node is never reached by the comparison.
+
+\paragraph{Parents and path reconstruction.}
+A dictionary \code{parent[node] = predecessor} costs one pointer per generated
+node and turns path extraction into a walk from the goal back to the start
+(\code{\_reconstruct()}), which is then reversed. Storing whole paths in the
+queue instead is the classic beginner's implementation; it multiplies the memory
+by the path length and makes every push copy a list.
+
+\paragraph{Lazy deletion instead of decrease-key.}
+When the $\gcost$ of a node improves, the tidy operation is
+\emph{decrease-key}, which \code{heapq} does not offer. The implementation
+pushes a second entry instead and lets the stale one age in the heap; the test
+\code{g\_entry > g[n]} on the pop discards it. The heap therefore holds at most
+one entry per relaxation, so its size is bounded by the number of edges, and the
+cost of a pop stays $\bigO{\log \abs{E}} = \bigO{\log \abs{V}}$ on a grid. The
+space-time search does not need the mechanism at all, because $\gcost$ is the
+time and can never improve.
+
+\paragraph{Memory.}
+Memory, not time, is what stops \astar on large problems. Every generated node
+occupies an entry in \code{g}, in \code{parent} and, until it is popped, in the
+heap. On a $1000 \times 1000$ grid with 4-connectivity, a search that touches
+every cell holds a few million small \python objects, hundreds of megabytes.
+This is why \cref{ch:ch06} discusses anytime and memory-bounded variants, and
+why the space-time search bounds its state space with \cref{eq:ch04-horizon}
+rather than letting the wait actions run free.
+
+\paragraph{Floating point: \code{round(f, 9)} and \code{EPS}.}
+On an 8-connected grid the costs are $1$ and $\sqrt{2}$, so $\gcost$ is a sum of
+irrational numbers and two routes of equal true cost can differ in the last bit.
+Two places react badly to that. The relaxation test
+\code{g2 < g.get(n2, INF) - EPS} would otherwise accept an ``improvement'' of
+$10^{-16}$, re-open the node, push it again and, with an unlucky cycle of
+rounding, loop; subtracting \code{EPS} makes the test insist on a real
+improvement. The key uses \code{round(f, 9)} so that two $\fcost$ values that
+are equal in exact arithmetic are also equal in the tuple, which lets the
+$-\gcost$ component do the tie-breaking it was put there for --- without the
+rounding, the tie-breaking experiment of \cref{sec:ch04-tiebreak} is decided by
+floating-point noise. The self-test relies on this: it checks that the $\fcost$
+sequence is non-decreasing and that no node is re-opened with a consistent
+heuristic, and both assertions fail without the guards.
+
+\Cref{lst:ch04-spacetime} shows the corresponding heart of
+\code{space\_time\_astar()}: the goal test of \cref{def:ch04-goalstay}, the wait
+action, the constraint filter and the duplicate test, in the same order as
+lines~\ref{alg:ch04-spacetime:goal}--\ref{alg:ch04-spacetime:push} of
+\cref{alg:ch04-spacetime}.
+
+\begin{lstlisting}[caption={The expansion step of space-time \astar (from \code{code/ch04\_astar.py}): the goal-stay test, the wait action, the constraint filter and duplicate detection. \code{h} is the static distance table and \code{table} the reservation table.},label={lst:ch04-spacetime}]
+    while heap:
+        _, (v, t) = heapq.heappop(heap)  # every state is pushed exactly once
+        closed.add((v, t))
+        expansions.append(Expansion((v, t), t, h[v], t + h[v]))
+        if v == goal and t > t_goal:                 # stay-at-goal is safe
+            path = [s[0] for s in _reconstruct(parent, (v, t))]
+            if record_open:
+                expansions[-1].open_after = snapshot()
+            return SearchResult(path, float(t), expansions, closed,
+                                {s for (_, s) in heap})
+        if t < max_time:
+            for v2 in [v] + [n for n, _ in succ(v)]:  # wait first, then moves
+                if v2 not in h:                       # cannot reach the goal
+                    continue
+                if (table.vertex_blocked(v2, t + 1)
+                        or table.edge_blocked(v, v2, t)):
+                    continue
+                s2 = (v2, t + 1)
+                if s2 in parent:                     # g = t + 1: first is best
+                    continue
+                parent[s2] = (v, t)
+                heapq.heappush(heap, (key(*s2), s2))
+\end{lstlisting}
+
+\begin{pitfall}[Testing for the goal when the node is generated]
+It is tempting to check ``is this successor the goal?'' inside the successor
+loop and to return at once. The path that comes back is then the first one
+found, not the cheapest. In \cref{ex:ch04-grid} the goal $(5,2)$ is generated in
+step~19 with $\gcost = 13$, which happens to be optimal, but that is luck: on
+the 8-connected version of the same grid a first path of cost $\approx 12.24$ is
+generated before the optimal one of cost $9 + 2\sqrt{2} \approx 11.83$ is. The
+proof of \cref{thm:ch04-optimal} breaks at exactly this point --- it compares
+$\fcost(\gamma')$ with the keys of the entries \emph{in} \Open when $\gamma'$ is
+\emph{popped}, and a generated node has not been popped. Test the goal after the
+pop, on line~\ref{alg:ch04-astar:goal}. The one search in this book that may
+test at generation time is breadth-first search on unit-cost graphs, where all
+paths to a node found at the same depth cost the same.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{Where this fits in the drone system}
+\label{sec:ch04-drone}
+
+\begin{dronebox}
+\astar is the single most reused component of the hybrid planner of
+\cref{ch:ch24}. It appears in three roles.
+
+\textbf{1. The low-level search of the multi-agent planner.} \cbs
+(\cref{ch:ch09}) and \ecbs (\cref{ch:ch10}) split a collision into constraints
+and call, at every node of their constraint tree, a single-agent search for
+\emph{one} drone under \emph{that node's} constraints. That call is
+\cref{alg:ch04-spacetime}, with the constraints of
+\cref{def:ch04-constraints} and the goal test of \cref{def:ch04-goalstay}.
+Prioritized planning (\cref{ch:ch08}) makes the same call with a reservation
+table instead. A run on thirty drones makes thousands of these calls, so the
+static distance table of \cref{sec:ch04-static} is computed once per drone and
+reused, and every constant factor in \cref{lst:ch04-astar} is multiplied by a
+four-digit number.
+
+\textbf{2. The fallback of the replanning layer.} The reactive layer of
+\cref{ch:ch24} (\orca, \cref{ch:ch13}; DWA, \cref{ch:ch14}) handles the
+seconds-scale avoidance of an intruder locally. When a manoeuvre has pushed a
+drone so far off its nominal route that the local controller cannot rejoin it,
+the replanning layer asks for a new global path from the current cell, and the
+question goes back to \astar --- in space-time again, with the other drones'
+remaining plans reserved, so that the repair does not create a new collision.
+
+\textbf{3. The baseline for the incremental planners.} \lpastar and \dstarlite
+(\cref{ch:ch05}) repair the previous search instead of restarting it, which is
+the right answer when the map changes a little and often; they are \astar plus
+bookkeeping, and their correctness arguments are the ones proved here. Use
+plain \astar when the change is large or rare, and \cref{ch:ch05} when a drone
+discovers obstacles as it flies.
+
+This chapter is the Week~1 milestone of the study plan (\cref{ch:appA}), whose
+coding exercise --- grid \astar, time as a state variable, a picture of the open
+and closed sets --- is \cref{exr:ch04-coding} below.
+\end{dronebox}
+
+% ---------------------------------------------------------------------
+\begin{summary}
+\begin{itemize}
+  \item \astar is best-first search on $\fcost = \gcost + \hcost$: the cost so
+        far plus an estimate of the cost to go. With $\hcost \equiv 0$ it is
+        Dijkstra's algorithm.
+  \item $\hcost$ is \emph{admissible} if $\hcost \le \hcost^*$ everywhere, and
+        \emph{consistent} if $\hcost(\gamma) = 0$ and $\hcost(n) \le c(n,n') +
+        \hcost(n')$ on every edge. Consistency implies admissibility; the
+        converse fails.
+  \item With an admissible $\hcost$ and re-opening enabled, the first goal
+        popped is optimal (\cref{thm:ch04-optimal}). With a consistent $\hcost$,
+        no node is expanded twice and the $\fcost$ of the expansions never
+        decreases (\cref{thm:ch04-consistent}); the nodes with $\gcost^* +
+        \hcost < C^*$ are exactly the ones that must be expanded
+        (\cref{thm:ch04-surely}). Both theorems assume a finite graph,
+        non-negative costs and the goal test on the pop.
+  \item On grids: Manhattan for 4-connected maps, octile for 8-connected maps,
+        Euclidean and Chebyshev when nothing better is available. The Manhattan
+        distance is \emph{not} admissible on an 8-connected grid and silently
+        returns longer paths (\cref{tab:ch04-heuristics}).
+  \item Ties in $\fcost$ decide most of the work near the goal: prefer the
+        larger $\gcost$, and add a counter to keep the comparison total.
+  \item Weighted \astar with $\fcost_w = \gcost + w\hcost$ returns a path of cost
+        at most $w\,C^*$ and is usually far better than the bound.
+  \item Space-time \astar searches over states $(v, t)$ with a wait action, one
+        time step per action, vertex constraints $\langle a,v,t\rangle$ and edge
+        constraints $\langle a,u,v,t\rangle$, a goal test that requires the goal
+        to stay free ($t > t_\gamma$), a horizon $T_{\max} = H + 1 + D$ and a
+        static-distance heuristic computed once per goal. It is the low-level
+        search of every multi-agent planner in this book.
+\end{itemize}
+\end{summary}
+
+\paragraph*{Further reading.}
+\astar was introduced by Hart, Nilsson and Raphael~\cite{hart1968formal}, whose
+correction note~\cite{hart1972correction} fixes the definition of the ``more
+informed'' relation used in \cref{thm:ch04-dominance}.
+Pearl~\cite{pearl1984heuristics} is the reference book on heuristic search and
+contains the sharpest form of the optimality results, including the
+complexity discussion of \cref{sec:ch04-properties}; Dechter and
+Pearl~\cite{dechter1985generalized} settle exactly in which class \astar is
+optimal. Russell and Norvig~\cite{russell2020aima} give the textbook treatment
+that the proofs above follow, and Pohl~\cite{pohl1970heuristic} the original
+weighted search. For grids, jump point search~\cite{harabor2011jps} is the
+standard way to exploit the symmetry of uniform maps, and safe interval path
+planning~\cite{phillips2011sipp} replaces the time layers of
+\cref{sec:ch04-spacetime} by intervals, which pays off when the horizon is long
+and the constraints are sparse. Silver~\cite{silver2005cooperative} introduced
+the reservation table and cooperative pathfinding in the setting that
+\cref{ch:ch08} formalises, and Stern et al.~\cite{stern2019mapf} fix the MAPF
+terminology, including the vertex and edge constraints of
+\cref{def:ch04-constraints}, used throughout \cref{ch:ch08,ch:ch09,ch:ch10}.
+
+% ---------------------------------------------------------------------
+\section{Exercises}
+\label{sec:ch04-exercises}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch04-trace}
+Continue \cref{tab:ch04-trace} by hand for two more steps of \cref{ex:ch04-grid}.
+Give, for steps~11 and~12, the expanded cell with its $\gcost$, $\hcost$ and
+$\fcost$, and the contents of \Open after the step with the current $\fcost$ of
+each cell. Then answer: why is $(0,4)$, which has been in \Open since step~8,
+still not expanded?
+\end{exercise}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch04-fourheuristics}
+On the grid of \cref{ex:ch04-grid} with $\gamma = (5,2)$, compute all four
+heuristics of \cref{eq:ch04-manhattan}--\cref{eq:ch04-chebyshev} at the cells
+$(1,4)$ and $(3,1)$. (a) Order them by dominance and say which is the most
+informed. (b) Which of them are admissible for the 4-connected instance, and
+which for the 8-connected one? (c) The true costs to go on the
+4-connected instance are $\hcost^*(1,4) = 8$ and $\hcost^*(3,1) = 5$. By how
+much does the best of the four underestimate, and which obstacle causes the
+error?
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch04-octile}
+Prove that the octile distance \cref{eq:ch04-octile} is consistent on an
+8-connected grid whose moves obey the corner-cutting rule of
+\cref{def:ch02-grid}. Show first that $\hcost_{\mathrm{O}}$ is the exact cost on
+an obstacle-free grid, then verify \cref{eq:ch04-consistent} on a straight and
+on a diagonal move directly from the formula (four cases, depending on whether
+the move changes $\max(d_x,d_y)$ or $\min(d_x,d_y)$), and finally explain in one
+sentence why forbidding some moves cannot break consistency.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch04-wbound}
+\Cref{thm:ch04-weighted} assumes that closed nodes may be re-opened. Prove the
+same bound $w\,C^*$ for the variant that never re-opens a closed node, assuming
+that $\hcost$ is consistent. Hint: show first that every expanded node $n$
+satisfies $\gcost(n) \le w\,\gcost^*(n)$ by induction along a cheapest path to
+$n$, then repeat the argument of \cref{thm:ch04-weighted} with that inequality
+in place of \cref{thm:ch04-invariant}. Where exactly does your proof use
+consistency, and what goes wrong when $\hcost$ is only admissible?
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch04-max}
+Let $\hcost_1$ and $\hcost_2$ be admissible and let $\hcost(n) =
+\max(\hcost_1(n), \hcost_2(n))$. (a) Show that $\hcost$ is admissible, and that
+it is consistent when both $\hcost_1$ and $\hcost_2$ are. (b) Show that
+$\hcost$ dominates both, and state what \cref{thm:ch04-dominance} then predicts
+about the number of expansions. (c) Give two admissible heuristics on the
+4-connected grid of \cref{ex:ch04-grid} whose maximum is strictly better than
+both, and explain why one does not simply always use the maximum of every
+heuristic one can think of.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch04-lattice}
+\Cref{ch:ch02} defines 6-, 18- and 26-connected lattices in three dimensions,
+with move costs $1$, $\sqrt{2}$ and $\sqrt{3}$ respectively for moves that
+change one, two or three coordinates. Give an admissible and consistent
+heuristic for each connectivity, exact on an obstacle-free lattice, in the style
+of \cref{eq:ch04-octile}. Hint: sort $d_x, d_y, d_z$ so that $d_{(1)} \ge
+d_{(2)} \ge d_{(3)}$ and count how many moves of each kind an optimal
+obstacle-free route uses. Then say which of them is admissible on which of the
+other two lattices, in the manner of \cref{tab:ch04-heuristics}.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch04-manhattan8}
+Construct a grid of at most $4 \times 4$ cells, an 8-connected instance and a
+start/goal pair for which \astar with the Manhattan heuristic returns a path
+that is strictly longer than the optimum, and give both costs. Then explain,
+using \cref{thm:ch04-optimal}, which step of the optimality proof the Manhattan
+heuristic invalidates, and check your instance with
+\code{astar\_grid(grid, s, z, "manhattan", 8)} against
+\code{dijkstra\_grid(grid, s, 8)}.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch04-coding}
+This is the Week~1 coding exercise of the study plan (\cref{ch:appA}); it
+continues \cref{exr:ch03-coding}. Implement \astar yourself, in the API of
+\code{code/ch04\_astar.py}, and do not read that file until you are stuck.
+(a) Write \code{astar(start, goal, successors, heuristic)} with a lazy heap, a
+closed set, the priority tuple $(\fcost, -\gcost, \mathit{counter})$ and parent
+pointers, and \code{astar\_grid()} on top of it for 4- and 8-connected grids.
+Reproduce the numbers of \cref{ex:ch04-grid}: cost~13, 21 expansions, and the
+first ten rows of \cref{tab:ch04-trace}. (b) Add \code{record\_open=True} and
+draw the open and closed sets of your search, in the style of
+\cref{fig:ch04-example}, after every expansion; watch the frontier of the
+Manhattan search walk into the dead end of the column $x = 3$. (c) Add time as
+a state variable: implement \code{space\_time\_astar(grid, start, goal,
+constraints, max\_time)} with the wait action, the constraint filter of
+\cref{def:ch04-constraints}, the goal test of \cref{def:ch04-goalstay} and the
+horizon of \cref{eq:ch04-horizon}. Check it against \cref{ex:ch04-spacetime} and
+\cref{ex:ch04-corridor}. (d) Verify on 50 random $12 \times 12$ grids that your
+\astar returns the same cost as your Dijkstra of \cref{ch:ch03}, that no node is
+re-opened when the heuristic is consistent, and that the space-time cost without
+constraints equals the static distance.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3}]
+\label{exr:ch04-spacetime}
+Take \cref{ex:ch04-spacetime} and add, by hand, the vertex constraint
+$\langle a, (1,1), 2\rangle$ to the existing $\langle a, (1,1), 1\rangle$.
+(a) Predict the cost of the new optimal path, the number of waits and the route.
+(b) Now replace both by the single edge constraint
+$\langle a, (1,1), (2,1), 1\rangle$ and predict again; then say what would
+change if its time index were $2$ instead of $1$. (c) Check both with
+\code{space\_time\_astar()} and compare the expansion counts with the four
+expansions of \cref{tab:ch04-spacetime}. (d) Which of the two instances would
+become unsolvable if the horizon were set to \code{max\_time = 3}, and why does
+that not contradict \cref{thm:ch04-horizon}?
+\end{exercise}
+
+\begin{exercise}[\difficulty{3}]
+\label{exr:ch04-horizon}
+\Cref{thm:ch04-horizon} bounds the arrival time by $T_{\max} = H + 1 + D$.
+(a) Show by an example that the term $D$ cannot be dropped, that is, that
+$H + 1$ alone is not a sufficient horizon. (b) Show that the bound is not tight
+in general by giving an instance whose optimal arrival time is far below
+$T_{\max}$. (c) In \cref{ex:ch04-corridor}, compute $H$, $D$ and $T_{\max}$ for
+agent~2 and compare with the arrival time~5 that the search returns.
+(d) A colleague proposes to drop the parked cells from the computation of $D$,
+using the eccentricity of the goal in the raw grid instead. Show that the
+resulting horizon can be too small, and describe the failure the planner would
+report.
+\end{exercise}

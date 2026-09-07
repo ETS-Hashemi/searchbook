@@ -202,12 +202,17 @@ def grid_successors(grid, connectivity=4):
 
 
 def astar_grid(grid, start, goal, heuristic="manhattan", connectivity=4,
-               weight=1.0, tie_break="high_g"):
-    """A* between two cells of an occupancy grid."""
+               weight=1.0, tie_break="high_g", record_open=False):
+    """A* between two cells of an occupancy grid.
+
+    ``record_open=True`` keeps a snapshot of Open after every expansion,
+    which is what the trace tables and the open/closed pictures need.
+    """
     h = HEURISTICS[heuristic] if isinstance(heuristic, str) else heuristic
     start, goal = tuple(start), tuple(goal)
     return astar(start, goal, grid_successors(grid, connectivity),
-                 lambda n: h(n, goal), weight, tie_break)
+                 lambda n: h(n, goal), weight, tie_break,
+                 record_open=record_open)
 
 
 def dijkstra_grid(grid, source, connectivity=4):

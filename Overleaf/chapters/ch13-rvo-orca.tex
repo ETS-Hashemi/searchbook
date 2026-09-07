@@ -24,8 +24,8 @@
 \section{Why this matters for a drone swarm}
 \label{sec:ch13-motivation}
 
-Eight drones of a survey swarm fly nominal paths planned by \cbs
-(\cref{ch:ch09}). The paths are conflict-free on the grid, but the drones do
+Eight drones of a survey swarm fly nominal paths planned by conflict-based search (\cbs,
+\cref{ch:ch09}). The paths are conflict-free on the grid, but the drones do
 not fly the grid: they track the paths with a velocity controller, they are
 late or early by a second or two, the wind pushes them sideways, and a
 delivery drone that belongs to nobody in the swarm cuts across the survey
@@ -261,7 +261,7 @@ rule anticipate the reaction of the other agent.\index{reciprocal dance}
 
 \begin{definition}[Reciprocal velocity obstacle]
 \label{def:ch13-rvo}
-The \textbf{reciprocal velocity obstacle}\index{reciprocal velocity obstacle}
+The \textbf{reciprocal velocity obstacle}\index{reciprocal velocity obstacle|textbf}
 of agent $A$ induced by agent $B$ is
 \begin{equation}
   \RVO_{A|B}(\vel_B, \vel_A) = \set{\vel \in \R^2 : 2\vel - \vel_A \in \vel_B + \VO_{A|B}}.
@@ -518,7 +518,7 @@ Give half of the change to each agent (\cref{fig:ch13-orca-construction}(d)).
 \label{def:ch13-orca}
 With $\vect{u}$ and $\vect{n}$ as in Step~3, the set of velocities permitted
 to agent $A$ with respect to $B$ for the horizon $\ttc$ is the closed
-half-plane\index{ORCA!half-plane}
+half-plane\index{ORCA!half-plane|textbf}
 \begin{equation}
   \ORCA^{\ttc}_{A|B} = \set{\vel \in \R^2 : \bigl(\vel - (\vel_A + \tfrac12\vect{u})\bigr)\cdot\vect{n} \ge 0}.
   \label{eq:ch13-orca}
@@ -608,7 +608,7 @@ does not know about $A$, a static obstacle, or a drone whose controller has
 failed will not take its half. If $A$ nevertheless takes only half of
 $\vect{u}$, the relative velocity moves only halfway to the boundary and the
 collision course remains. In that case $A$ takes \textbf{full
-responsibility}\index{ORCA!full responsibility}\index{non-cooperative obstacle}:
+responsibility}\index{ORCA!full responsibility|textbf}\index{non-cooperative obstacle}:
 \begin{equation}
   \ORCA^{\ttc,\,1}_{A|B} = \set{\vel \in \R^2 : \bigl(\vel - (\vel_A + \vect{u})\bigr)\cdot\vect{n} \ge 0},
   \label{eq:ch13-orca-full}
@@ -691,7 +691,7 @@ unique solution whenever the feasible set is non-empty
 solution is either $\vel_A^{\mathrm{pref}}$ itself, or its projection onto
 the disc, or it lies on the boundary line of one of the half-planes (or at
 the intersection of two of them, or of one with the circle). This structure
-is what the \textbf{incremental linear program}\index{linear program!incremental}
+is what the \textbf{incremental linear program}\index{linear program!incremental|textbf}
 of \cref{alg:ch13-lp} exploits; it is the algorithm of
 Seidel~\cite{seidel1991small} and of de Berg et al.~\cite{deberg2008computational},
 specialised to two dimensions as in the RVO2 library.
@@ -732,7 +732,7 @@ specialised to two dimensions as in the RVO2 library.
   $t_- \gets -b - \sqrt{\Delta}$; $t_+ \gets -b + \sqrt{\Delta}$\label{alg:ch13-lp:chord}\tcp*{chord of the line inside the disc}
   \For{$j \gets 1$ \KwTo $i-1$}{
     $\vect{d}_j \gets (n_{j,y}, -n_{j,x})$; $\mathit{den} \gets \vect{d} \times \vect{d}_j$; $\mathit{num} \gets \vect{d}_j \times (\vect{q}_i - \vect{q}_j)$\;
-    \If{$\abs{\mathit{den}} \le \eps$}{\lIf{$\mathit{num} < 0$}{\KwRet{\KwNil} (parallel, $H_j$ excludes the whole line)} \lElse{\KwContinue}}
+    \If{$\abs{\mathit{den}} \le \eps$ \textnormal{($\eps = 10^{-9}$, a numerical tolerance)}}{\lIf{$\mathit{num} < 0$}{\KwRet{\KwNil} (parallel, $H_j$ excludes the whole line)} \lElse{\KwContinue}}
     \lIf{$\mathit{den} > 0$}{$t_+ \gets \min(t_+, \mathit{num}/\mathit{den})$} \lElse{$t_- \gets \max(t_-, \mathit{num}/\mathit{den})$\label{alg:ch13-lp:clip}}
     \lIf{$t_- > t_+$}{\KwRet{\KwNil}}
   }
@@ -906,15 +906,17 @@ numbers.
 
 \emph{Step 1.} $\pos_{\mathrm{rel}} = (4, 0.5)$ has length $4.0311$ and
 direction $\varphi = 7.13^\circ$; the cone half-angle is $\theta =
-\arcsin(1/4.0311) = 14.36^\circ$, so the legs point at $21.49^\circ$ (left)
-and $-7.24^\circ$ (right). Directions in this example are measured from the
-axis of the cone: for $\vel \ne \vect{0}$ write
+\arcsin(1/4.0311) = 14.36^\circ$, so in the world frame the legs point at
+$21.49^\circ$ (left) and $-7.24^\circ$ (right). From here on, directions are
+measured from the axis of the cone: for $\vel \ne \vect{0}$ write
 $\angle(\vel, \pos_{\mathrm{rel}}) = \mathrm{atan2}(v_y, v_x) - \varphi$ for the
 signed angle from $\pos_{\mathrm{rel}}$ to $\vel$, positive counter-clockwise,
 so that the legs are at $\pm\theta$ and the cone is the set of directions with
 $\abs{\angle(\vel, \pos_{\mathrm{rel}})} < \theta$. The truncating disc has centre $(1, 0.125)$ and
-radius $0.25$. \emph{Step 2.} $\vel_{\mathrm{rel}} = (2, 0)$ points at
-$0^\circ$, between the legs, and at distance $2$ it is far beyond the
+radius $0.25$. \emph{Step 2.} $\vel_{\mathrm{rel}} = (2, 0)$ points along
+the $x$-axis, that is
+$\angle(\vel_{\mathrm{rel}}, \pos_{\mathrm{rel}}) = -7.13^\circ$, between the
+legs, and at distance $2$ it is far beyond the
 truncating disc: the agents collide in about $1.6$\,s, well within
 $\ttc$. \emph{Step 3.} $\vect{w} = (1, -0.125)$ has
 $\vect{w}\cdot\pos_{\mathrm{rel}} = 3.9375 > 0$, so the arc is ruled out;
@@ -1230,9 +1232,9 @@ fallback.
 A differential-drive robot cannot fly an arbitrary velocity instantly.
 Alonso-Mora et al.\ keep the \orca half-planes and restrict the velocity
 choice to the set of holonomic velocities that the robot can track within a
-bounded error $\eps$ over the next interval, a non-convex set that they
+bounded error $\eta$ over the next interval, a non-convex set that they
 approximate by convex polygons, while inflating the radius by
-$\eps$~\cite{alonsomora2013optimal}. The same recipe applies to a
+$\eta$~\cite{alonsomora2013optimal}. The same recipe applies to a
 multirotor with a velocity controller: measure the tracking error, inflate
 the radius by it, and clip the velocity change per step to what the
 controller delivers (\cref{ch:ch14} treats the acceleration limits
@@ -1255,7 +1257,8 @@ of a half-plane with an uncertainty-dependent margin.
 
 The file \code{ch13\_orca.py} implements everything in this chapter with
 plain tuples and a few NumPy calls; \cref{lst:ch13-cases,lst:ch13-lp}
-show the functions that carry the mathematics, and the line program of
+show the functions that carry the mathematics, where the code writes the
+combined radius \code{r} for what the text calls $R$, and the line program of
 \cref{alg:ch13-lp} is \code{\_lp\_on\_line} in the same file. The geometry helpers
 (\code{dot}, \code{cross}, \code{ray\_circle\_intersection}, \dots) are
 copied from \code{ch02\_toolbox.py} so that the file stands alone.
@@ -1426,7 +1429,8 @@ intruders, or give the leader the right of way with shares $(1, 0)$.
 \begin{dronebox}
 \orca is the local safety layer of the four-layer architecture of
 \cref{ch:ch24}, the Week~6 topic of the study plan (\cref{ch:appA}). It
-receives from the global planner (\cbs or \ecbs, \cref{ch:ch09,ch:ch10}) the
+receives from the global planner (conflict-based search \cbs, or its
+bounded-suboptimal variant \ecbs, \cref{ch:ch09,ch:ch10}) the
 nominal time-indexed path of each drone and turns it into the preferred
 velocity: towards the next waypoint at cruise speed. While no predicted
 conflict is inside the safety horizon, the half-planes are inactive and the

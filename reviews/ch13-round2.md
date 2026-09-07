@@ -203,3 +203,84 @@ the minimax property of the dense fallback, the doubling of the shift in the non
 branch and the rotation covariance of the 3D half-space, `gen_ch13_circle.py` reproduces every
 number of `\cref{tab:ch13-circle}` and of `\cref{fig:ch13-dance}` byte-identically, and both
 scripts together run in under four seconds.
+
+## Response to review (round 2)
+
+All four required changes are applied. The build is status 0 with no errors and no
+overfull boxes above 15 pt; `python3 code/ch13_orca.py` passes its self-test in 2.1 s;
+`gen_ch13_circle.py` reproduces all six `figures/data/ch13-*.dat` files byte-identically
+(md5 checked before and after). Nothing in the "must be kept" list was touched: the
+four-step derivation, `thm:ch13-cases`, `alg:ch13-halfplane`, the convexity and
+pairwise proofs, the `alpha` treatment of responsibility, the proof of
+`thm:ch13-incomplete` and `sec:ch13-limits` are unchanged except for the `r -> R`
+rename and the frame labels asked for below.
+
+**Required 1 (C) — finish the `r -> R` rename.** Done, exactly as prescribed:
+seven `\disc{\pos_{\mathrm{rel}}}{r}` (lines 153, 168, 175, 185, 201, 461, 1044),
+`{r/t}` (176, 193), `{r/2t}` (308), `{r/\ttc}` (195), `{r/\dt}` (484, 502) and
+`\arcsin\frac{r}{\norm{\pos_{\mathrm{rel}}}}` in `eq:ch13-halfangle` (189), plus
+`{r}`, `{r/t}`, `{r/2t}` and `{r/t'}` in `appendices/solutions/ch13-solutions.tex`
+lines 4 and 16. `grep -n '}{r}\|{r/\|frac{r}' chapters/ch13-rvo-orca.tex
+appendices/solutions/ch13-solutions.tex` now returns nothing. The code keyword `r` is
+left in `lst:ch13-cases` and `lst:ch13-lp`, and the paragraph introducing them now
+reads "... show the functions that carry the mathematics, where the code writes the
+combined radius `r` for what the text calls $R$, and the line program ...".
+`eq:ch13-vo-tau` now lines up symbol for symbol with `eq:ch12-union`.
+
+**Required 2 (A) — the seven numbers of `tab:ch13-example` must be printed by the
+code.** `worked_example()` in `code/ch13_orca.py` now computes and prints
+`norm_p = 4.0311`, `w = (1.0000, -0.1250)`, `w_dot_p = 3.9375`, `cross_p_w = -1.0000`,
+`ell = 3.9051`, `d_leg = (0.9920, -0.1260)` and `u_norm = 0.2520`, in the natural place
+in the dictionary (Step-1 quantities next to `p`, Step-3 quantities next to `v_rel`,
+`u_norm` next to `u`). `d_leg` is recomputed with the leg formula of
+`vo_closest_boundary_point`, branching on `cross(p, w)`, so it is correct for the
+mirrored instance of `exr:ch13-by-hand` as well. `_self_test()` gained five checks in
+the style of the existing ones, including the two the review named:
+`abs(ex["u_norm"] - 0.2520) < 1e-4` and `abs(ex["ell"] - 3.9051) < 1e-4`, plus
+`norm_p`, `d_leg` and the two sign tests `w_dot_p == 3.9375`, `cross_p_w == -1`.
+Every printed value matches the table to the four decimals shown, so the sentence at
+line 868 is now true as written.
+
+**Required 3 (C) — the two angle frames in Step 1 / Step 2.** Rewritten as suggested:
+"... so **in the world frame** the legs point at $21.49^\circ$ (left) and $-7.24^\circ$
+(right). **From here on**, directions are measured from the axis of the cone: ... so
+that the legs are at $\pm\theta$ ... *Step 2.* $\vel_{\mathrm{rel}} = (2,0)$ points
+**along the $x$-axis, that is $\angle(\vel_{\mathrm{rel}}, \pos_{\mathrm{rel}}) =
+-7.13^\circ$**, between the legs, and at distance $2$ ...". The later sentence that
+already carried both frames ("$-11.06^\circ$ from $\pos_{\mathrm{rel}}$
+($-3.93^\circ$ in the world frame)") is unchanged and now consistent with it.
+
+**Required 4 (F) — CBS and ECBS unexpanded.** Line 27 now reads "nominal paths planned
+by conflict-based search (\cbs, \cref{ch:ch09})"; the drone box reads "receives from
+the global planner (conflict-based search \cbs, or its bounded-suboptimal variant
+\ecbs, \cref{ch:ch09,ch:ch10})". Line 1446 left alone, as instructed.
+
+### Suggestions
+
+* **`\eps` with three meanings.** The first use, in `alg:ch13-lp`, now reads
+  "if $\abs{\mathit{den}} \le \eps$ ($\eps = 10^{-9}$, a numerical tolerance)", which
+  is the value of `EPS` in `ch13_orca.py`; the tracking-error bound of Alonso-Mora et
+  al. in `sec:ch13-variants` is now $\eta$ (both occurrences). The perturbation in the
+  pitfall box keeps $\eps$, where "a small numerical quantity" is the intended reading.
+* **Bold index entries.** `|textbf` added to the four defining occurrences:
+  `reciprocal velocity obstacle` (264), `ORCA!half-plane` (521),
+  `ORCA!full responsibility` (611), `linear program!incremental` (694).
+* **`figures/ch13/orca-construction.tex` header comment.** `r = 1` -> `R = 1`.
+* **Two more solutions.** `exr:ch13-by-hand` (the mirrored worked example: left leg,
+  $\vect{u} = (-0.0318, 0.2500)$, $\vect{n} = (-0.1260, 0.9920)$, point
+  $(0.9841, 0.1250)$, $\vel_A^{\mathrm{new}} = (1.1809, 0.1500)$, all verified against
+  `orca_half_plane`) and `exr:ch13-corridor` (a: the arc test is ruled out, the right
+  leg gives $\vect{d} = (0.8, 0.6)$, $\vect{u} = (-0.36, 0.48)$, $\vect{n} =
+  (0.6, -0.8)$ and, since the wall takes no responsibility and the leg passes through
+  the origin, $0.6 v_x - 0.8 v_y \ge 0$, i.e. $\abs{v_y} \le 0.75 v_x$; b and c in
+  brief, pointing at the proof of `thm:ch13-incomplete` and at `ch:ch24`). The
+  solutions file now covers eight of ten exercises; both new ones were compiled
+  through `appendices/appC-solutions.tex` and typeset without error (the errors that
+  build reports come from `ch05-solutions.tex`, not this chapter).
+* **Length.** Unchanged at 24 pages, since the review requires no cuts and the two
+  candidate passages overlap with material the "must keep" list protects. The two
+  paragraphs named (the corridor anecdote in `sec:ch13-intuition`, the first paragraph
+  of `sec:ch13-limits`) remain the cheapest three quarters of a page if the book-level
+  budget bites.
+* **Not done (out of scope for this chapter):** the third trace in `fig:ch13-dance`
+  (page budget) and `frontmatter/notation.tex` (front-matter file).

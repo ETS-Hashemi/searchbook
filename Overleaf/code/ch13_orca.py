@@ -632,14 +632,28 @@ def worked_example(verbose=True):
     theta = math.degrees(math.asin(r / norm(p)))
     phi = math.degrees(math.atan2(p[1], p[0]))
     q = add(v_rel, line_a.u)
+    centre = scale(p, 1.0 / tau)             # centre of the truncating disc
+    w = sub(v_rel, centre)                   # step 3 of the case analysis
+    dist2 = dot(p, p)
+    ell = math.sqrt(dist2 - r * r)           # tangent length from the apex
+    if cross(p, w) > 0.0:
+        d_leg = ((p[0] * ell - p[1] * r) / dist2,
+                 (p[0] * r + p[1] * ell) / dist2)     # left leg
+    else:
+        d_leg = ((p[0] * ell + p[1] * r) / dist2,
+                 (-p[0] * r + p[1] * ell) / dist2)    # right leg
     new_rel = sub(v_a, v_b)
     # signed angle from p_rel to the velocity, positive counter-clockwise
     ang_new = math.degrees(math.atan2(new_rel[1], new_rel[0])) - phi
     full_rel = sub(v_full, b.velocity)
     ang_full = math.degrees(math.atan2(full_rel[1], full_rel[0])) - phi
-    out = {"tau": tau, "p": p, "r": r, "phi": phi, "theta": theta,
-           "centre": scale(p, 1.0 / tau), "rho": r / tau,
-           "v_rel": v_rel, "case": line_a.case, "q": q, "u": line_a.u,
+    out = {"tau": tau, "p": p, "r": r, "norm_p": norm(p),
+           "phi": phi, "theta": theta,
+           "centre": centre, "rho": r / tau,
+           "v_rel": v_rel, "w": w, "w_dot_p": dot(w, p),
+           "cross_p_w": cross(p, w), "ell": ell, "d_leg": d_leg,
+           "case": line_a.case, "q": q, "u": line_a.u,
+           "u_norm": norm(line_a.u),
            "n": line_a.normal, "point_a": line_a.point,
            "point_b": line_b.point, "n_b": line_b.normal,
            "v_new_a": v_a, "v_new_b": v_b, "feasible": ok_a and ok_b,
@@ -714,6 +728,11 @@ def _self_test():
     assert abs(ex["angle_full_rel"] + ex["theta"]) < 1e-6
     assert abs(ex["change_a"] - 0.2350) < 5e-5             # not the 0.1512
     assert abs(ex["violation_pref"] - 0.1512) < 5e-5
+    assert abs(ex["norm_p"] - 4.0311) < 1e-4
+    assert abs(ex["ell"] - 3.9051) < 1e-4
+    assert abs(ex["u_norm"] - 0.2520) < 1e-4
+    assert _close(ex["d_leg"], (0.9920, -0.1260), 1e-4)
+    assert abs(ex["w_dot_p"] - 3.9375) < 1e-9 and ex["cross_p_w"] == -1.0
     assert half.half_plane().contains(ex["v_new_a"])
     # the new relative velocity lies on the boundary of VO^tau: the discs
     # graze at most, so the centre distance never drops below r

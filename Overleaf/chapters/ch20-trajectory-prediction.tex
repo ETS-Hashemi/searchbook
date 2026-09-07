@@ -62,16 +62,9 @@ inflate the intruder's radius, \dstarlite (\cref{ch:ch05}) can raise the
 cost of the cells it may occupy, and the MPC of \cref{ch:ch21} can impose a
 chance constraint.
 
-\Cref{sec:ch20-intuition} gives the idea and \cref{sec:ch20-problem} the
-problem, the metrics and the evaluation protocol. \Cref{sec:ch20-baselines}
-presents the physics baselines, \cref{sec:ch20-lstm} the LSTM cell, the
-sequence-to-sequence predictor and the Social-LSTM idea,
-\cref{sec:ch20-transformer} attention and Transformers, and
-\cref{sec:ch20-multimodal} multimodality and uncertainty.
 \Cref{sec:ch20-example} is the experiment of the chapter, run with the
-book's own NumPy code; \cref{sec:ch20-properties} proves the few results
-that make it interpretable. Variants, implementation notes and the place of
-prediction in the drone system close the chapter.
+book's own NumPy code, and \cref{sec:ch20-properties} proves the few results
+that make it interpretable.
 
 % ---------------------------------------------------------------------
 \section{The idea in plain words}
@@ -95,27 +88,18 @@ are visible in the picture, and they organise the chapter.
   \label{fig:ch20-idea}
 \end{figure}
 
-First, the past constrains the future. The drone will not jump: its next
-position is near its last one and its next velocity near its last velocity.
-A predictor that uses only this fact is the constant-velocity model, and for
-the first few steps nothing does much better.
-
-Second, the past reveals the manoeuvre. If the last four displacements
-rotate steadily to the left, the drone is turning and will probably keep
-turning for a while; if the rotation began suddenly two steps ago, it may be
-an evasive manoeuvre, which typically lasts a second and ends in straight
-flight. Which patterns occur, how long they last and how they end is a
-property of the \emph{population} of trajectories, and it can be learned
-from recorded data. A recurrent network that reads the history one step at
-a time, keeps a memory, and writes the future one step at a time is the
-natural tool; a Transformer that lets every time step and every neighbouring
-agent attend to every other is the modern alternative.
-
-Third, the future is uncertain and the uncertainty grows: part of it is
-noise, part is a choice the intruder has not made yet. A predictor that
-outputs a single line is then wrong twice --- its line lies between the
-branches and it does not say how unsure it is --- so the planner needs the
-spread, as an ellipse per step or a handful of sampled futures
+The past constrains the future --- the drone will not jump, so its next position is
+near its last and its next velocity near its last, which is all the
+constant-velocity model uses and for the first few steps enough. The past
+also reveals the manoeuvre: steadily rotating displacements mean a turn that
+will continue, a rotation that began two steps ago may be an evasive burst
+that lasts about a second, and which patterns occur and how they end is a
+property of the \emph{population} of trajectories, learnable from recorded
+data by a recurrent network that reads the history one step at a time or by
+a Transformer that lets every step and every neighbour attend to every
+other. And the future is genuinely uncertain, part noise and part a choice
+the intruder has not made yet, so a single predicted line is wrong twice: it
+lies between the branches and it does not say how unsure it is
 (\cref{sec:ch20-multimodal}).
 
 \begin{keyidea}
@@ -123,7 +107,8 @@ Predict the next $T_{\mathrm{pred}}$ positions from the last $T_{\mathrm{obs}}$,
 in the intruder's own frame, and measure the error at every horizon.
 Constant velocity is the baseline that must be beaten; learned sequence
 models beat it where the history reveals a manoeuvre; nothing beats it on
-straight flight or on a manoeuvre that has not started yet. Always predict a
+straight flight at the long horizons that set the safety margin, or on a
+manoeuvre that has not started yet. Always predict a
 distribution, because the planner needs the spread as much as the mean.
 \end{keyidea}
 
@@ -294,10 +279,13 @@ in \cref{fig:ch20-baselines} cuts inside the turn and ends $4$~m from the
 truth, further than either CV prediction. The second difference amplifies
 the measurement noise as well: its stencil $(1, -2, 1)$ has squared norm
 $6$, three times the first difference's $2$, so the acceleration estimate is
-three times as noisy in variance; extrapolated to $h = 12$ with $k = 3$ this
-becomes a root-mean-square position error $4.7$ times the CV one, which is
-why CA loses on straight flight in \cref{tab:ch20-results} ($0.830$ against
-$0.335$~m). ``More physics'' in the extrapolation is not automatically
+three times as noisy in variance; extrapolated to $h = 12$ this becomes a
+root-mean-square position error $4.7$ times that of constant velocity at the
+same window $k = 3$ and the same step, so \cref{thm:ch20-cv-noise} predicts a
+mean final error of $\sqrt{\pi}/2 \cdot 4.7 \cdot 0.45 = 1.88$~m on straight
+flight against the $1.869$~m measured in \cref{tab:ch20-results}, and CA
+loses there ($0.830$~m ADE against the $0.335$~m of the tuned CV at
+$k = 2$). ``More physics'' in the extrapolation is not automatically
 better.
 
 \paragraph{Kalman extrapolation (KF).}
@@ -498,12 +486,12 @@ make it work.
   $\vect{h}, \vect{c} \gets \vect{0}$; \quad $\bar{\vect{x}} \gets$ mean of the $\vect{x}_t$\tcp*{the constant-velocity displacement}
   \For{$t = 1, \dots, T_{\mathrm{obs}} - 1$}{$(\vect{h}, \vect{c}) \gets \PredCell_{\mathrm{enc}}(\vect{x}_t, \vect{h}, \vect{c})$\label{alg:ch20-seq2seq:encode}\;}
   $\vect{u} \gets \vect{x}_{T_{\mathrm{obs}}-1}$\tcp*{first decoder input: the last observed displacement}
-  \For{$k = 1, \dots, H$}{
+  \For{$h = 1, \dots, H$}{
     $(\vect{h}, \vect{c}) \gets \PredCell_{\mathrm{dec}}(\vect{u}, \vect{h}, \vect{c})$\label{alg:ch20-seq2seq:decode}\;
-    $(\vect{\mu}_k, \log\vect{\sigma}_k) \gets \mat{W}_{\mathrm{out}}\vect{h} + \vect{b}_{\mathrm{out}}$; \quad $\vect{\mu}_k \gets \vect{\mu}_k + \bar{\vect{x}}$\label{alg:ch20-seq2seq:readout}\tcp*{residual over constant velocity}
-    \uIf{mode = teacher forcing}{$\vect{u} \gets \vect{y}_k$\;}
-    \uElseIf{mode = sampling}{$\vect{u} \gets \vect{\mu}_k + \vect{\sigma}_k \odot \vect{\eps}$, $\vect{\eps} \sim \Normal(\vect{0}, \mat{I})$\;}
-    \Else{$\vect{u} \gets \vect{\mu}_k$\label{alg:ch20-seq2seq:feedback}\;}
+    $(\vect{\mu}_h, \log\vect{\sigma}_h) \gets \mat{W}_{\mathrm{out}}\vect{h} + \vect{b}_{\mathrm{out}}$; \quad $\vect{\mu}_h \gets \vect{\mu}_h + \bar{\vect{x}}$\label{alg:ch20-seq2seq:readout}\tcp*{residual over constant velocity}
+    \uIf{mode = teacher forcing}{$\vect{u} \gets \vect{y}_h$\;}
+    \uElseIf{mode = sampling}{$\vect{u} \gets \vect{\mu}_h + \vect{\sigma}_h \odot \vect{\eps}$, $\vect{\eps} \sim \Normal(\vect{0}, \mat{I})$\;}
+    \Else{$\vect{u} \gets \vect{\mu}_h$\label{alg:ch20-seq2seq:feedback}\;}
   }
   \KwRet $(\vect{\mu}_{1:H}, \vect{\sigma}_{1:H})$; positions are the cumulative sums of the means, mapped back to the world frame\;
 }
@@ -536,12 +524,12 @@ constant-velocity prediction and the network only learns the
 on absolute positions is worse than the constant-velocity baseline.
 
 \paragraph{Rolling the decoder out.}
-The decoder's input at step $k$ is a displacement, and where it comes from
+The decoder's input at step $h$ is a displacement, and where it comes from
 defines three modes of the same network. In \textbf{free-running} mode it is
-the mean $\vect{\mu}_{k-1}$ the decoder produced one step earlier
+the mean $\vect{\mu}_{h-1}$ the decoder produced one step earlier
 (line~\ref{alg:ch20-seq2seq:feedback}); this is how the predictor is used at
 run time. In \textbf{teacher forcing}\index{teacher forcing} mode, used during
-training, it is the \emph{true} displacement $\vect{y}_{k-1}$: the decoder is
+training, it is the \emph{true} displacement $\vect{y}_{h-1}$: the decoder is
 told the correct answer for the previous step and only has to predict the
 next one, which makes early training fast and stable because errors do not
 accumulate along the rollout. Its weakness is \textbf{exposure
@@ -682,7 +670,8 @@ benchmarks.
 \label{def:ch20-attention}
 Let $\mat{Q} \in \R^{n_q \times d_k}$ hold $n_q$ \textbf{queries}, $\mat{K} \in
 \R^{n_k \times d_k}$ hold $n_k$ \textbf{keys} and $\mat{V} \in \R^{n_k \times d_v}$
-the \textbf{values} attached to the keys, one per row. Then
+the \textbf{values} attached to the keys, one per row ($\mat{Q}$ here is the
+query matrix, not the process noise of \cref{eq:ch20-q}). Then
 \begin{equation}
   \operatorname{Attention}(\mat{Q}, \mat{K}, \mat{V})
   = \operatorname{softmax}\!\left(\frac{\mat{Q}\mat{K}\T}{\sqrt{d_k}}\right)\mat{V},
@@ -975,19 +964,26 @@ the results; read them subset by subset.
   \caption{Left: $\mathrm{ADE}_h$ on all $800$ test trajectories against the
   horizon. LSTM-NLL and LSTM-MSE are below every baseline from the first
   step on and the gap widens with $h$, while the same network trained on
-  absolute coordinates is above every baseline at every horizon. Right: the tuned CV (dashed)
-  against LSTM-NLL (solid) per subset. On straight flight CV wins at every
-  horizon; on turns and on visible evasive manoeuvres the LSTM halves the
-  error; on hidden manoeuvres the two curves coincide, because nothing in
-  the observation window announces the manoeuvre.}
+  absolute coordinates stays above both constant-velocity baselines and the
+  Kalman filter at every horizon (and above constant acceleration until the
+  last step). Right: the tuned CV (dashed) against LSTM-NLL (solid) per
+  subset. On straight flight the two curves cross between $h = 7$ and
+  $h = 8$: the LSTM is marginally ahead over the first $1.4$~s and the tuned
+  CV wins from there on, ending $0.09$~m ahead at $2.4$~s. On turns the LSTM
+  halves the error and on visible evasive manoeuvres it removes a third of
+  it; on hidden manoeuvres the two curves coincide, because nothing in the
+  observation window announces the manoeuvre.}
   \label{fig:ch20-results}
 \end{figure}
 
-\paragraph{Straight flight: constant velocity wins.}
+\paragraph{Straight flight: constant velocity wins the long horizons.}
 On the $317$ straight trajectories the tuned CV has an ADE of $0.335$~m and
 the Kalman extrapolation $0.312$~m, against $0.427$~m for LSTM-NLL and
-$0.407$~m for LSTM-MSE. This is the expected order, not an accident of
-training: under constant-velocity motion the CV prediction is exact and its
+$0.407$~m for LSTM-MSE. The advantage is a long-horizon one: up to $h = 7$
+($1.4$~s) the two are within $3.5$~cm of each other and the LSTM is in fact
+slightly ahead, and only from $h = 8$ on does the tuned CV pull away
+(\cref{fig:ch20-results}, right). This is the expected order at the horizons
+that set the safety margin, not an accident of training: under constant-velocity motion the CV prediction is exact and its
 only error is amplified measurement noise (\cref{thm:ch20-cv-noise}), which
 the Kalman filter averages almost optimally; the learned model, which starts
 from the same CV displacement, can only add noise-driven corrections and the
@@ -1011,8 +1007,8 @@ error is large because how long the burst continues is only partly
 predictable from its onset. Here the naive $k = 1$ CV ($2.14$~m) beats the
 tuned $k = 2$: during a sharp turn the most recent velocity is the best one,
 and the window chosen for the mixture lags. On the $60$ manoeuvres that start
-\emph{after} the observation window every predictor scores $1.6$--$1.8$~m and
-nothing can do better; this is the irreducible, multimodal part of the
+\emph{after} the observation window every predictor scores $1.6$--$1.8$~m and no
+predictor is ahead by more than the noise of $60$ trajectories; this is the irreducible, multimodal part of the
 problem, and the honest report is that the learned model has not lost
 anything there.
 
@@ -1020,10 +1016,7 @@ anything there.
 \Cref{tab:ch20-horizon} shows the advantage growing with the horizon: at
 $0.8$~s the LSTM's $\mathrm{ADE}_4$ of $0.227$~m is $25\,\%$ below the tuned
 CV, at $2.4$~s it is $28\,\%$ below and $0.32$~m in absolute terms; the
-$0.82$~m over ``all'' hides a $0.43$~m and a $1.60$~m. LSTM-abs is worse
-than the tuned CV on every subset ($1.315$ against $1.141$~m overall): it has
-to learn translation and rotation invariance from $1600$ examples, and it
-does not. LSTM-TF pays the exposure bias of
+$0.82$~m over ``all'' hides a $0.43$~m and a $1.60$~m. LSTM-TF pays the exposure bias of
 \cref{sec:ch20-seq2seq} in full: its free-running validation ADE is best at
 epoch~$3$ and then drifts upwards while its training loss keeps falling, so
 early stopping ends the run after $13$ epochs, and on the test set it is
@@ -1051,7 +1044,8 @@ of LSTM-TF as it happens, epoch by epoch.
   epoch~$13$; the free-running model settles near $0.79$~m. Epoch~$3$ is the
   point to notice: from there on teacher forcing makes the network better at
   the task it is trained on and worse at the task it is used for. The dashed
-  line is the tuned CV baseline.}
+  line is the tuned CV baseline on the same validation split
+  ($1.076$~m); no test-set number appears in this figure.}
   \label{fig:ch20-training}
 \end{figure}
 
@@ -1380,7 +1374,9 @@ final check.
 \begin{pitfall}[Predicting in absolute coordinates]
 A network trained on world positions has to learn that the physics is the
 same everywhere and in every direction. With $1600$ trajectories it did not
-(\cref{tab:ch20-results}: worse than constant velocity). Predict
+(\cref{tab:ch20-results}: $1.315$ against the tuned CV's $1.141$~m overall,
+and worse on every subset except the hidden manoeuvres, where no predictor is
+separated from the others). Predict
 displacements in the agent-centred frame of \cref{eq:ch20-frame}, and let the
 network predict the correction to constant velocity rather than the motion
 itself.
@@ -1411,7 +1407,7 @@ The three consumers of a prediction use the same quantity, derived from the
 time-indexed occupancy region of \cref{eq:ch20-ellipse}: at step $h$, a disc
 of radius
 \begin{equation}
-  d_h = r_A + r_B + k_p\sqrt{\lambda_{\max}(\mat{\Sigma}_h)}
+  d^{\mathrm{safe}}_h = r_A + r_B + k_p\sqrt{\lambda_{\max}(\mat{\Sigma}_h)}
   \label{eq:ch20-inflated}
 \end{equation}
 around the predicted mean contains the intruder (radius $r_B$) with
@@ -1427,11 +1423,11 @@ shows the three interfaces side by side.
   \centering
   \inputfigure{ch20/integration}
   \caption{One prediction, three consumers. (a) \orca inflates the
-  intruder's disc to the radius $d_h$ of \cref{eq:ch20-inflated} at the step
+  intruder's disc to the radius $d^{\mathrm{safe}}_h$ of \cref{eq:ch20-inflated} at the step
   $h$ that matches the time to collision. (b) \dstarlite raises the cost of
   every cell inside $\mathcal{E}_h(p)$ in time layer $h$ of the space-time
   graph. (c) The MPC keeps its own planned position $\pos_{A,h}$ at least
-  $d_h$ from the predicted mean at every step. What to notice: the same
+  $d^{\mathrm{safe}}_h$ from the predicted mean at every step. What to notice: the same
   sequence of ellipses is read three ways --- as one radius, as a set of
   cells, and as a per-step margin --- so a predictor that reports a
   covariance serves all three layers without changing its output.}
@@ -1468,14 +1464,11 @@ for.
 
 \textbf{Control layer} (\cref{ch:ch21}). The MPC plans positions $\pos_{A,h}$
 over its own horizon; the constraint $\norm{\pos_{A,h} - \hat{\pos}_{T+h}} \ge
-d_h$ with $p = 1 - \delta$ in \cref{eq:ch20-inflated} enforces a collision
+d^{\mathrm{safe}}_h$ with $p = 1 - \delta$ in \cref{eq:ch20-inflated} enforces a collision
 probability of at most $\delta$ per step under a Gaussian prediction, the
 chance constraint of Zhu and Alonso-Mora~\cite{zhu2019chance}.
 
-\textbf{Study plan.} Week~10 of \cref{ch:appA}: compare constant velocity
-against an LSTM on trajectory sequences and measure ADE/FDE per horizon;
-milestone: you can quantify whether learning improves prediction.
-Prediction-aware constraints that carry the uncertainty rather than the mean
+\textbf{Study plan.} Week~10 of \cref{ch:appA}. Prediction-aware constraints that carry the uncertainty rather than the mean
 alone are one of the open research directions of \cref{ch:ch24}.
 \end{dronebox}
 
@@ -1488,7 +1481,7 @@ alone are one of the open research directions of \cref{ch:ch24}.
   \item The LSTM cell keeps a gated memory $\vect{c}_t = \vect{f}_t \odot \vect{c}_{t-1} + \vect{i}_t \odot \tilde{\vect{c}}_t$ whose direct gradient path is $\diag(\vect{f}_t)$; an encoder-decoder pair of cells predicts displacements in the agent frame one step at a time, with a Gaussian read-out trained by the negative log-likelihood, Adam and early stopping, in the mode in which it is used.
   \item Social pooling sums the neighbours' previous hidden states per grid cell; attention $\operatorname{softmax}(\mat{Q}\mat{K}\T/\sqrt{d_k})\mat{V}$ generalises it to learned relevance over time steps and over agents at $\Theta(n^2 d)$ per layer.
   \item Squared-error training converges to the conditional mean, which averages the modes; mixtures, samplers and ensembles predict several futures, and a calibrated ellipse per step turns any of them into the inflated radius, cost region or chance constraint that the planners consume.
-  \item In the experiment the LSTM beats the tuned baselines by $28\,\%$ overall and by half on turns and visible manoeuvres, loses on straight flight, ties on hidden manoeuvres, fails on absolute coordinates or under teacher forcing alone, and its ellipses cover $54\,\%$ instead of $95\,\%$ at $2.4$~s.
+  \item In the experiment the LSTM beats the tuned baselines by $28\,\%$ overall, halves the error on turns and removes a third of it on visible manoeuvres, loses on straight flight beyond $1.4$~s, ties on hidden manoeuvres, fails on absolute coordinates or under teacher forcing alone, and its ellipses cover $54\,\%$ instead of $95\,\%$ at $2.4$~s.
 \end{itemize}
 \end{summary}
 

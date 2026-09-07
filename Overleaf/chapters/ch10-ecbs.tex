@@ -42,7 +42,7 @@ sum of costs is at most $w$ times the optimal sum $C^*$, without ever computing
 $C^*$. Enhanced \cbs (\ecbs)\index{ECBS} by Barer, Sharon, Stern and
 Felner~\cite{barer2014ecbs} is the bounded-suboptimal version of \cbs. On the
 same sixteen-drone instances, \ecbs with $w = 1.5$ solves all ten in about
-$25$ milliseconds each, and its plans are on average $7\,\%$ more expensive
+$23$ milliseconds each, and its plans are on average $7\,\%$ more expensive
 than the optimum, far below the guaranteed $50\,\%$. The mechanism behind it,
 \textbf{focal search}\index{focal search}, is thirty years older than \cbs:
 Pearl and Kim's $\astar_\eps$~\cite{pearl1982studies} keeps the ordinary
@@ -155,7 +155,7 @@ bound together with its path.
 \section{Problem statement and notation}
 \label{sec:ch10-problem}
 
-We use the MAPF notation of \cref{ch:ch07}. An instance consists of a
+We use the multi-agent path finding (MAPF)\index{MAPF} notation of \cref{ch:ch07}. An instance consists of a
 4-connected grid with blocked cells, $k$ agents $a_1, \dots, a_k$ with distinct
 start cells $s_i$ and distinct goal cells $\gamma_i$, unit-time move and wait
 actions, and the stay-at-target convention. A path $\pi_i$ lists the cell of
@@ -269,10 +269,14 @@ a closed node is re-opened when a cheaper path to it appears; re-opening is
 needed in general even with a consistent heuristic, because focal search
 expands nodes out of $\fcost$ order and may expand a node before its
 $\gcost$ is optimal. One property of \astar survives: with a consistent
-$\hcost$, $\fcost_{\min}$ never decreases, because expanding a node generates
-only successors with a larger or equal $\fcost$, and the node with the
-smallest $\fcost$ always lies inside the band, so once it is expanded the
-minimum can only rise. \Cref{sec:ch10-implementation} shows how this makes
+$\hcost$, $\fcost_{\min}$ never decreases. Whichever node $n$ is expanded,
+every successor $n'$ it pushes, including a re-opened one, satisfies
+\[
+  \fcost(n') = \gcost(n) + c(n, n') + \hcost(n') \ge \gcost(n) + \hcost(n)
+  = \fcost(n) \ge \fcost_{\min},
+\]
+so no node with an $\fcost$ below the current minimum is ever added to \Open,
+and the minimum over \Open can only rise. \Cref{sec:ch10-implementation} shows how this makes
 \Focal cheap to maintain.
 
 \subsection{The low level: focal search in space-time}
@@ -289,8 +293,9 @@ minus those forbidden by a vertex or edge constraint. Two details of
 \cref{ch:ch04} carry over. The goal test accepts $(\gamma_i, t)$ only if $t$ is
 later than every vertex constraint on $\gamma_i$, written $t > t_\gamma$, so
 that the agent can stay at its goal for ever. And the search is cut at a time
-horizon $T_{\max} = \lfloor w\,(H + 1 + D) \rfloor$, where $H$ is the latest
-constrained time and $D$ the largest grid distance to the goal. With $w = 1$
+horizon $T_{\max} = \lfloor w\,(H + 1 + D) \rfloor$, where $H$ is the largest
+time occurring in a constraint of $\mathcal{C}_i$, or $-1$ if $\mathcal{C}_i$
+is empty, and $D = \max_v \hcost(v)$ over the free cells $v$. With $w = 1$
 this is the horizon of \cref{ch:ch04}, which keeps the search finite and does
 not exclude any optimal constrained path; the factor $w$ stretches it so that
 the band is cut off by the bound and not by the horizon.
@@ -302,7 +307,7 @@ the band is cut off by the bound and not by the horizon.
 \KwOut{a path $\pi_i$ respecting $\mathcal{C}_i$ and a lower bound $\mathrm{lb}_i$ with $\mathrm{lb}_i \le C_i^*(\mathcal{C}_i)$ and $\cost(\pi_i) \le w\,\mathrm{lb}_i$; or \emph{failure}}
 \Fn{\EcbsLowLevel{$a_i$, $\mathcal{C}_i$, $\Pi_{-i}$, $w$}}{
   $\hcost(v) \gets$ grid distance from $v$ to $\gamma_i$ for all free cells $v$ (backward BFS, cached)\label{alg:ch10-lowlevel:h}\;
-  $t_\gamma \gets$ largest $t$ with $\langle i, \gamma_i, t\rangle \in \mathcal{C}_i$, or $-1$; $T_{\max} \gets \lfloor w\,(H + 1 + D)\rfloor$\;
+  $t_\gamma \gets$ largest $t$ with $\langle i, \gamma_i, t\rangle \in \mathcal{C}_i$, or $-1$; $H \gets$ largest $t$ in a constraint of $\mathcal{C}_i$, or $-1$ if $\mathcal{C}_i = \emptyset$; $D \gets \max_v \hcost(v)$ over the free cells; $T_{\max} \gets \lfloor w\,(H + 1 + D)\rfloor$\;
   $n_0 \gets (s_i, 0)$; $h_c(n_0) \gets$ conflicts of $n_0$ with $\Pi_{-i}$; \Open $\gets \set{n_0}$; \Closed $\gets \emptyset$\;
   \While{\Open $\ne \emptyset$}{
     $\fcost_{\min} \gets \min_{n \in \Open} \fcost(n)$; \Focal $\gets \set{n \in \Open : \fcost(n) \le w\,\fcost_{\min}}$\label{alg:ch10-lowlevel:band}\;
@@ -558,7 +563,8 @@ it stops.
   expanded. (b) \ecbs with $w = 1.1$ orders \Open by $\mathrm{LB}(N)$ and
   picks from \Focal by $h_c$. $N_1$ is outside the band until the global
   bound rises from $11$ to $12$ after step~3; then $1.1 \cdot 12 = 13.2 \ge
-  13$ admits it, and it is expanded at once because it has no conflicts.}
+  13$ admits it together with $N_5$, and of the two conflict-free nodes the
+  older one, $N_1$, is expanded.}
   \label{fig:ch10-example-trees}
 \end{figure}
 
@@ -567,8 +573,9 @@ it stops.
 \cref{alg:ch10-ecbs} with $w = 1.1$. After step~1 the global bound is
 $\mathrm{LB} = 11$ and the band is $\cost \le 12.1$: $N_2$ (cost 11) is in
 \Focal, $N_1$ (cost 13) is in \Open only. Steps~2 and~3 expand $N_2$ and
-$N_3$, both with $\mathrm{LB}(N) = 11$, because they are the only nodes in the
-band; their children $N_4$ and $N_6$ have $\mathrm{LB} = 12$ (the constrained
+$N_3$: the band $\cost \le 12.1$ admits $N_2$, then $N_3$ and $N_4$, all with
+$h_c = 1$, and the tie-break on cost picks the cost-11 node each time. Their
+children $N_4$ and $N_6$ have $\mathrm{LB} = 12$ (the constrained
 agent's bound rose by one), and $N_5$, like $N_1$, has cost~13 and
 $\mathrm{LB} = 13$. After step~3, \Open holds $N_1, N_4, N_5, N_6$ with
 bounds $13, 12, 13, 12$, so $\mathrm{LB}$ rises to $12$ and the band widens
@@ -577,8 +584,9 @@ and step~4 expands the older one, $N_1$, and returns its solution of cost~13.
 The guarantee at that moment is $\cost \le 1.1 \cdot 12 = 13.2$; the true
 optimum is 12. \ecbs expanded 4 nodes, generated 7 and used 61 low-level
 expansions. Compare the two traces: \ecbs performs the same first three
-expansions as \cbs, since with a bound of $11$ the band contains exactly the
-nodes of cost~11, and then stops the moment the bound allows it.
+expansions as \cbs because, while $\mathrm{LB} = 11$, every node inside the
+band still has a conflict and the tie-break on cost selects the cheapest one,
+exactly what \cbs does; and it then stops the moment the bound allows it.
 
 \begin{table}[tb]
   \centering\small
@@ -609,7 +617,9 @@ $w = 1.2$ the band is $\cost \le 13.2$ from the start, $N_1$ enters \Focal
 as soon as it is generated, has $h_c = 0$, and is expanded in step~2: two
 expansions, cost~13, proven bound $1.2 \cdot 11 = 13.2$. With $w = 1.5$ the
 run ends at the root: the band of $a_3$'s low level now reaches
-$\fcost \le 7.5$, its horizon $\lfloor 1.5 \cdot 5 \rfloor = 7$ admits the
+$\fcost \le 7.5$, its horizon $\lfloor 1.5 \cdot 5 \rfloor = 7$ (no
+constraints, so $H = -1$ and $T_{\max} = \lfloor w\,D \rfloor$ with $D = 5$)
+admits the
 conflict-free detour through row~0, $(3,0), (2,0), (1,0), (0,0), (0,1),
 (0,2), (1,2), (1,3)$ of cost~7, and the conflict count prefers it to every
 cheaper path. The root has cost $2 + 4 + 7 = 13$ and no conflict, and it is
@@ -694,7 +704,8 @@ graph has finitely many simple paths, so there are finitely many pushes; and
 \Open is not empty until a goal is expanded, by \cref{thm:ch10-invariant}
 applied to an optimal solution path. Now let $\gamma'$ be the goal that the search selects from \Focal, and
 consider that moment. Since
-$\gamma'$ was chosen from \Focal,
+$\gamma'$ is a goal, admissibility and $\hcost \ge 0$ give
+$\hcost(\gamma') = 0$, and since $\gamma'$ was chosen from \Focal,
 \[
   \cost(\text{returned path}) = \gcost(\gamma') = \fcost(\gamma') \le
   w\,\fcost_{\min}.
@@ -878,12 +889,15 @@ is $w\,C^*$ in the worst case. And it changes the \emph{proven} bound of a
 run, $w\,\mathrm{LB}$, the number you can report to the operator. The actual
 solution quality moves much less than the guarantee: in
 \cref{fig:ch10-benchmark} the plans of \ecbs with $w = 2$ are on average
-$1$--$13\,\%$ more expensive than optimal and never more than $28\,\%$, while
+$1$--$12.5\,\%$ more expensive than optimal and never more than $28\,\%$, while
 the guarantee allows $100\,\%$, because the conflict count steers the search
 towards solutions and not towards expensive ones; the band permits detours,
-it does not encourage them. Runtime drops steeply between $w = 1$ and
-$w \approx 1.2$ and flattens afterwards, because a band that admits a couple
-of extra wait steps already lets the search escape most of the \cbs tree.
+it does not encourage them. The benchmark samples only $w \in \set{1.1, 1.5, 2}$, but between those three
+points the runtime drops steeply first and then flattens, which fits the usual
+picture: a band that admits a couple of extra wait steps already lets the
+search escape most of the \cbs tree, and widening it further buys little.
+Where exactly the knee lies is instance-dependent; \cref{exr:ch10-coding}(b)
+asks you to locate it by sweeping $w$ on your own instances.
 Three rules of thumb follow. Start at $w = 1.1$ for a swarm whose plan must
 be tight, and go up to $1.5$ if the planner still times out. Do not go far
 beyond $2$: the solutions degrade, the guarantee becomes meaningless, and the
@@ -936,8 +950,8 @@ guarantee of $w$, not $w^2$.
 
 \Cref{fig:ch10-benchmark} and \cref{tab:ch10-benchmark} compare \cbs with
 \ecbs for $w \in \set{1.1, 1.5, 2.0}$ on random $8 \times 8$ grids with
-$10\,\%$ blocked cells, ten instances for each number of agents $k$ from $2$
-to $16$, each run limited to ten seconds and $50\,000$ CT expansions (script
+$10\,\%$ blocked cells, ten instances for each even number of agents $k$ from
+$2$ to $16$, each run limited to ten seconds and $50\,000$ CT expansions (script
 \code{gen\_ch10\_benchmark.py}; all solvers are the implementation of
 \cref{sec:ch10-implementation}, so the comparison measures the algorithms
 and not the code). Up to eight agents every solver answers within a few
@@ -1019,7 +1033,10 @@ solution in the subtree of $N$, a best guess rather than a bound; and a focal
 list defined by the estimate, $\Focal = \set{N : \hat{\fcost}(N) \le
 w\,\hat{\fcost}_{\min}}$, ordered by the number of conflicts. The selection
 rule asks, in order: does the node with the fewest conflicts in \Focal have
-$\cost \le w\,\mathrm{LB}$? If so, expand it. Otherwise, does the node with
+$\cost \le w\,\mathrm{LB}$? If so, expand it. (Li et al.\ state the test on
+the estimate, $\hat{\fcost}(N) \le w\,\mathrm{LB}$; the two agree on the
+conflict-free nodes that can be returned, where $\hat{\fcost}(N) =
+\cost(N)$.) Otherwise, does the node with
 the smallest $\hat{\fcost}$? If so, expand it. Otherwise expand the node with
 the smallest $\mathrm{LB}(N)$, which raises the global bound. Every returned
 solution still satisfies $\cost \le w\,\mathrm{LB} \le w\,C^*$, so
@@ -1231,7 +1248,9 @@ constrained optimum and the path never exceeds $w$ times the bound; that on
 the \cbs cost and \ecbs with $w \in \set{1.1, 1.5, 2}$ returns valid plans
 whose cost lies between $C^*$ and $w\,C^*$ and below $w\,\mathrm{LB}$; and
 that the two examples of this chapter reproduce every number quoted. It then
-prints the traces of \cref{tab:ch10-cbs-trace,tab:ch10-ecbs-trace}.
+prints the trace of \cref{tab:ch10-cbs-trace} and the traces of \ecbs for
+$w = 1.05$, $1.1$ and $1.2$; the $w = 1.1$ one is
+\cref{tab:ch10-ecbs-trace}.
 
 \begin{pitfall}[An inadmissible heuristic in \Open]
 The bound of \cref{thm:ch10-focal} needs $\fcost_{\min} \le C^*$, and that
