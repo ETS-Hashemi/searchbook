@@ -1,1 +1,53 @@
 % Solutions/hints for ch09 exercises (assembled into Appendix C)
+\begin{solution}{exr:ch09-handtree}
+Planned alone, both agents take the only shortest route through the gap:
+$\pi_1 = (0,0),(1,0),(1,1),(1,2),(2,2)$ and $\pi_2 = (2,0),(1,0),(1,1),(1,2),(0,2)$,
+each of cost~$4$, so the root has cost~$8$. The first conflict is the vertex
+conflict $\langle a_1, a_2, (1,0), 1\rangle$ (the two agents also meet at
+$(1,1)$ at $t=2$ and at $(1,2)$ at $t=3$, but \cbs splits only the earliest one).
+Child $N_1$ adds $\langle a_1,(1,0),1\rangle$: agent $a_1$ waits one step at
+$(0,0)$ and then follows one cell behind $a_2$, $\pi_1 = (0,0),(0,0),(1,0),(1,1),(1,2),(2,2)$,
+cost~$5$; the plan is conflict-free (following is not a conflict) with cost~$9$.
+Child $N_2$ adds $\langle a_2,(1,0),1\rangle$ and is the mirror image, also of cost~$9$.
+The high level pops one of the two (both cost~$9$ and have no conflict), validates
+it and returns a plan of cost~$9$. The tree has three nodes and one split; the
+optimal sum of costs is $9$, one more than the root, because the gap admits only
+one agent per time step.
+\end{solution}
+
+\begin{solution}{exr:ch09-rectangle}
+Write $x_1(t), y_1(t)$ for the position of $a_1$ and $x_2(t), y_2(t)$ for $a_2$.
+A shortest path from $(0,2)$ to $(4,3)$ has cost~$5$ and consists of four
+moves to the right and one move up in some order, so it never moves left or
+down; there are $\binom{5}{1} = 5$ such orders. Likewise a shortest path from
+$(1,1)$ to $(3,4)$ makes two moves right and three moves up, in $\binom{5}{2} = 10$
+orders. Along both paths $x + y$ grows by exactly one per step, so at every
+time $t \le 5$ both agents lie on the anti-diagonal $x + y = 2 + t$. On that
+line a cell is determined by its $x$-coordinate, so the two agents are in the
+same cell at time~$t$ if and only if $x_1(t) = x_2(t)$. At $t = 0$ we have
+$x_1 = 0 < 1 = x_2$; at $t = 5$ we have $x_1 = 4 > 3 = x_2$. Let $t$ be the
+last time with $x_1(t) < x_2(t)$. Then $x_1(t+1) \ge x_2(t+1)$, and because
+$x$-coordinates grow by at most one per step,
+$x_1(t) + 1 \ge x_1(t+1) \ge x_2(t+1) \ge x_2(t) \ge x_1(t) + 1$; all these are
+equalities, so $x_1(t+1) = x_2(t+1)$ and the agents collide at time $t+1$.
+Every one of the $5 \times 10$ pairs of shortest paths therefore contains a
+vertex conflict, and the optimal sum of costs is at least $5 + 5 + 1 = 11$
+(the self-test of \code{ch09\_cbs.py} confirms that \cbs finds $11$).
+\end{solution}
+
+\begin{solution}{exr:ch09-makespan}
+Keep the low level unchanged and let the high level order the constraint tree
+by $\max_i \cost(N.\pi_i)$ instead of $\sum_i \cost(N.\pi_i)$. The optimality
+argument of \cref{sec:ch09-properties} goes through word for word: the
+lemma that no split loses a solution does not mention the objective, and for
+any solution $\Pi$ that respects the constraints of $N$ we have
+$\cost(\pi_i) \ge \cost(N.\pi_i)$ for every agent, hence
+$\max_i \cost(\pi_i) \ge \max_i \cost(N.\pi_i)$, so the node's makespan still
+lower-bounds the makespan of every solution in its subtree. Best-first search
+on this bound is therefore makespan-optimal. Two practical differences: ties
+are far more common, because a constraint on an agent that is not the
+slowest one leaves the node's makespan unchanged, so the tie-breaking on the
+number of conflicts matters much more; and the high-level heuristics of
+\cref{sec:ch09-variants} (which count cost increases per agent) must be
+reformulated before they are admissible for the makespan.
+\end{solution}

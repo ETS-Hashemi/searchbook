@@ -1,0 +1,64 @@
+% Multi-valued decision diagrams (MDDs): level t holds every cell that lies
+% on some shortest path at time t.  Left: the root of the worked example,
+% where a2 and a3 have a single cell at level 1 -> cardinal conflict.
+% Right: two agents crossing an open 3 x 3 room; the shared cells at levels
+% 1-3 have alternatives in both MDDs -> non-cardinal conflicts.
+\begin{tikzpicture}[font=\scriptsize,
+  m/.style={draw=black!60,fill=white,rounded corners=2pt,inner sep=2pt,minimum width=8mm},
+  mc/.style={m,draw=sbRed,line width=1pt},
+  e/.style={draw=black!50}]
+% ---------------- left: chains of the worked example (cardinal)
+\begin{scope}
+  \foreach \t in {0,...,4} \node[sbannot,anchor=east] at (-0.6,-0.85*\t) {$t{=}\t$};
+  \node[m,fill=sbAgentB!25] (b0) at (0,0) {$(2,0)$};
+  \node[mc,fill=sbAgentB!25] (b1) at (0,-0.85) {$(2,1)$};
+  \node[m,fill=sbAgentB!25] (b2) at (0,-1.7) {$(2,2)$};
+  \draw[e] (b0) -- (b1); \draw[e] (b1) -- (b2);
+  \node[m,fill=sbAgentC!25] (c0) at (1.6,0) {$(2,2)$};
+  \node[mc,fill=sbAgentC!25] (c1) at (1.6,-0.85) {$(2,1)$};
+  \node[m,fill=sbAgentC!25] (c2) at (1.6,-1.7) {$(3,1)$};
+  \node[m,fill=sbAgentC!25] (c3) at (1.6,-2.55) {$(4,1)$};
+  \node[m,fill=sbAgentC!25] (c4) at (1.6,-3.4) {$(4,0)$};
+  \draw[e] (c0) -- (c1); \draw[e] (c1) -- (c2); \draw[e] (c2) -- (c3); \draw[e] (c3) -- (c4);
+  \node[sbannot,text=sbAgentB] at (0,0.55) {MDD of $a_2$};
+  \node[sbannot,text=sbAgentC] at (1.6,0.55) {MDD of $a_3$};
+  \node[sbannot,text=black,align=center] at (0.8,-4.1) {one cell each at level 1:\\ $\langle a_2,a_3,(2,1),1\rangle$ is cardinal};
+\end{scope}
+% ---------------- right: open 3 x 3 room (non-cardinal)
+\begin{scope}[xshift=6.1cm]
+  \foreach \t in {0,...,4} \node[sbannot,anchor=east] at (-2.1,-0.85*\t) {$t{=}\t$};
+  % a1: (0,0) -> (2,2)
+  \node[m,fill=sbAgentA!25] (a00) at (0,0) {$(0,0)$};
+  \node[mc,fill=sbAgentA!25] (a10) at (-0.9,-0.85) {$(1,0)$};
+  \node[m,fill=sbAgentA!25] (a01) at (0.9,-0.85) {$(0,1)$};
+  \node[m,fill=sbAgentA!25] (a20) at (-1.8,-1.7) {$(2,0)$};
+  \node[mc,fill=sbAgentA!25] (a11) at (0,-1.7) {$(1,1)$};
+  \node[m,fill=sbAgentA!25] (a02) at (1.8,-1.7) {$(0,2)$};
+  \node[m,fill=sbAgentA!25] (a21) at (-0.9,-2.55) {$(2,1)$};
+  \node[mc,fill=sbAgentA!25] (a12) at (0.9,-2.55) {$(1,2)$};
+  \node[m,fill=sbAgentA!25] (a22) at (0,-3.4) {$(2,2)$};
+  \draw[e] (a00) -- (a10); \draw[e] (a00) -- (a01);
+  \draw[e] (a10) -- (a20); \draw[e] (a10) -- (a11); \draw[e] (a01) -- (a11); \draw[e] (a01) -- (a02);
+  \draw[e] (a20) -- (a21); \draw[e] (a11) -- (a21); \draw[e] (a11) -- (a12); \draw[e] (a02) -- (a12);
+  \draw[e] (a21) -- (a22); \draw[e] (a12) -- (a22);
+  \node[sbannot,text=sbAgentA] at (0,0.55) {MDD of $a_1$: $(0,0)\to(2,2)$};
+  % a2: (2,0) -> (0,2)
+  \begin{scope}[xshift=4.6cm]
+  \node[m,fill=sbAgentB!25] (b20) at (0,0) {$(2,0)$};
+  \node[mc,fill=sbAgentB!25] (b10) at (-0.9,-0.85) {$(1,0)$};
+  \node[m,fill=sbAgentB!25] (b21) at (0.9,-0.85) {$(2,1)$};
+  \node[m,fill=sbAgentB!25] (b00) at (-1.8,-1.7) {$(0,0)$};
+  \node[mc,fill=sbAgentB!25] (b11) at (0,-1.7) {$(1,1)$};
+  \node[m,fill=sbAgentB!25] (b22) at (1.8,-1.7) {$(2,2)$};
+  \node[m,fill=sbAgentB!25] (b01) at (-0.9,-2.55) {$(0,1)$};
+  \node[mc,fill=sbAgentB!25] (b12) at (0.9,-2.55) {$(1,2)$};
+  \node[m,fill=sbAgentB!25] (b02) at (0,-3.4) {$(0,2)$};
+  \draw[e] (b20) -- (b10); \draw[e] (b20) -- (b21);
+  \draw[e] (b10) -- (b00); \draw[e] (b10) -- (b11); \draw[e] (b21) -- (b11); \draw[e] (b21) -- (b22);
+  \draw[e] (b00) -- (b01); \draw[e] (b11) -- (b01); \draw[e] (b11) -- (b12); \draw[e] (b22) -- (b12);
+  \draw[e] (b01) -- (b02); \draw[e] (b12) -- (b02);
+  \node[sbannot,text=sbAgentB] at (0,0.55) {MDD of $a_2$: $(2,0)\to(0,2)$};
+  \end{scope}
+  \node[sbannot,text=black,align=center] at (2.3,-4.1) {red cells are shared at the same level, but both MDDs have alternatives:\\ the conflicts at $(1,0)$, $(1,1)$, $(1,2)$ are non-cardinal};
+\end{scope}
+\end{tikzpicture}

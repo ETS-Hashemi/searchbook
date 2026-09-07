@@ -4,16 +4,16 @@ Avoidance".
 
 The file is self-contained:
 
-* ``Grid``            -- a rows x cols grid with obstacles, 4-connected moves,
+* ``Grid``            -- a cols x rows grid with obstacles, 4-connected moves,
                          backward BFS distances (an exact, consistent heuristic).
 * ``low_level``       -- space-time A* for ONE agent under a set of vertex
                          constraints <v, t> and edge constraints <u, v, t>,
                          with the goal-occupied-later test and a finite horizon.
-* ``first_conflict``  -- vertex / edge (swap) conflict detection between
+* ``all_conflicts``   -- vertex / edge (swap) conflict detection between
                          time-indexed paths (agents stay at their goals).
 * ``cbs``             -- the high level: best-first search on the sum of costs
-                         over the binary constraint tree, optional ICBS-style
-                         cardinal-conflict prioritisation and bypass.
+                         over the binary constraint tree, with optional
+                         ICBS-style cardinal-conflict prioritisation and bypass.
 * ``joint_optimal_cost`` -- Dijkstra on the joint state space (tiny instances
                          only), used by the self-test to certify optimality.
 
@@ -101,6 +101,9 @@ class Constraints:
     def add_edge(self, u: Cell, v: Cell, t: int) -> "Constraints":
         return Constraints(self.vertex, self.edge | {(u, v, t)})
 
+    def union(self, other: "Constraints") -> "Constraints":
+        return Constraints(self.vertex | other.vertex, self.edge | other.edge)
+
     def last_time(self) -> int:
         """Largest time step touched by any constraint (-1 if none)."""
         times = [t for _, t in self.vertex] + [t + 1 for _, _, t in self.edge]
@@ -119,12 +122,10 @@ class Stats:
 
 def low_level(grid: Grid, start: Cell, goal: Cell, cons: Constraints,
               dist: Dict[Cell, int], stats: Optional[Stats] = None) -> Optional[Path]:
-    """Space-time A* for one agent: shortest path from ``start`` to ``goal``
-    that respects ``cons``; ``dist`` are true distances to the goal.
-
+    """Space-time A* for one agent: a shortest path from ``start`` to
+    ``goal`` that respects ``cons``; ``dist`` are true distances to the goal.
     The agent may finish at (goal, t) only if no vertex constraint touches
-    the goal at a time >= t, because it stays at the goal for ever after.
-    """
+    the goal at a time >= t, because it stays at the goal for ever after."""
     if stats is not None:
         stats.low_level_calls += 1
     if start not in dist:
@@ -242,10 +243,10 @@ def sum_of_costs(paths: Sequence[Path]) -> int:
 
 @dataclass
 class CTNode:
-    constraints: Tuple[Constraints, ...]
-    paths: List[Path]
-    cost: int
-    n_conflicts: int
+    constraints: Tuple[Constraints, ...]   # one constraint set per agent
+    paths: List[Path]                      # one path per agent
+    cost: int                              # sum of costs
+    n_conflicts: int                       # for tie-breaking (fewer first)
     id: int = 0
     parent: Optional[int] = None
     added: str = ""          # the constraint added w.r.t. the parent (for traces)
@@ -263,11 +264,10 @@ def _make_child(node: CTNode, agent: int, extra: Constraints, grid: Grid,
                 starts: Sequence[Cell], goals: Sequence[Cell],
                 dists: Sequence[Dict[Cell, int]], stats: Stats) -> Optional[CTNode]:
     """Add ``extra`` to ``agent``'s constraints and replan only that agent."""
-    old = node.constraints[agent]
-    cons = Constraints(old.vertex | extra.vertex, old.edge | extra.edge)
+    cons = node.constraints[agent].union(extra)
     path = low_level(grid, starts[agent], goals[agent], cons, dists[agent], stats)
     if path is None:
-        return None
+        return None                        # no path under these constraints
     constraints = list(node.constraints)
     constraints[agent] = cons
     paths = list(node.paths)
@@ -306,39 +306,50 @@ def _choose_conflict(node: CTNode, split: str, grid: Grid, starts, goals, dists,
     return best[1], best[2]
 
 
+def _bypass(node: CTNode, children: Sequence[CTNode]) -> bool:
+    """ICBS bypass: if a child has the parent's cost and fewer conflicts,
+    adopt its paths in the parent instead of splitting."""
+    better = [c for c in children
+              if c.cost == node.cost and c.n_conflicts < node.n_conflicts]
+    if not better:
+        return False
+    node.paths, node.n_conflicts = better[0].paths, better[0].n_conflicts
+    node.added += " bypass " + better[0].added
+    return True
+
+
+def _record(node: CTNode, conflict: Optional[Conflict], trace: List[dict]) -> dict:
+    entry = {"id": node.id, "parent": node.parent, "added": node.added,
+             "costs": [len(p) - 1 for p in node.paths], "cost": node.cost,
+             "n_conflicts": node.n_conflicts,
+             "conflict": str(conflict) if conflict else "none",
+             "paths": [list(p) for p in node.paths], "children": [], "bypass": False}
+    trace.append(entry)
+    return entry
+
+
 def cbs(grid: Grid, starts: Sequence[Cell], goals: Sequence[Cell],
         split: str = "first", bypass: bool = False,
         time_limit: Optional[float] = None, node_limit: Optional[int] = None,
         keep_trace: bool = False) -> Result:
     """Conflict-Based Search.  Returns paths, the sum of costs and statistics;
     ``paths`` is None if the instance has no solution or a limit was hit."""
-    t0 = time.perf_counter()
-    stats = Stats()
-    dists = [grid.distances(g) for g in goals]
-    counter = itertools.count()
-    root_paths = [low_level(grid, s, g, Constraints(), d, stats)
-                  for s, g, d in zip(starts, goals, dists)]
-    if any(p is None for p in root_paths):
+    t0, stats, trace, ids = time.perf_counter(), Stats(), [], itertools.count()
+    dists = [grid.distances(g) for g in goals]         # one BFS per agent
+    paths = [low_level(grid, s, g, Constraints(), d, stats)
+             for s, g, d in zip(starts, goals, dists)]  # root: no constraints
+    if any(p is None for p in paths):
         return Result(None, None, stats)
-    root = CTNode(tuple(Constraints() for _ in starts), root_paths,
-                  sum_of_costs(root_paths), len(all_conflicts(root_paths)))
-    root.id = next(counter)
-    stats.generated = 1
+    root = CTNode(tuple(Constraints() for _ in starts), paths,
+                  sum_of_costs(paths), len(all_conflicts(paths)), next(ids))
     open_heap = [(root.cost, root.n_conflicts, root.id, root)]
-    trace: List[dict] = []
+    stats.generated = 1
     while open_heap:
-        _, _, _, node = heapq.heappop(open_heap)
+        _, _, _, node = heapq.heappop(open_heap)     # lowest cost, fewest conflicts
         stats.expanded += 1
         conflict, kids = _choose_conflict(node, split, grid, starts, goals, dists, stats)
-        entry = {"id": node.id, "parent": node.parent, "added": node.added,
-                 "costs": [len(p) - 1 for p in node.paths], "cost": node.cost,
-                 "n_conflicts": node.n_conflicts,
-                 "conflict": str(conflict) if conflict else "none",
-                 "paths": [list(p) for p in node.paths], "children": [],
-                 "bypass": False}
-        if keep_trace:
-            trace.append(entry)
-        if conflict is None:
+        entry = _record(node, conflict, trace) if keep_trace else None
+        if conflict is None:                          # goal node: conflict-free
             stats.seconds = time.perf_counter() - t0
             return Result(node.paths, node.cost, stats, trace)
         if (time_limit is not None and time.perf_counter() - t0 > time_limit) or \
@@ -346,26 +357,23 @@ def cbs(grid: Grid, starts: Sequence[Cell], goals: Sequence[Cell],
             break
         children = []
         for kid, (agent, extra) in zip(kids, conflict.constraints()):
-            if kid is None and split == "first":
+            if kid is None and split == "first":     # replan only that agent
                 kid = _make_child(node, agent, extra, grid, starts, goals, dists, stats)
             if kid is not None:
                 children.append(kid)
-        if bypass:
-            better = [c for c in children
-                      if c.cost == node.cost and c.n_conflicts < node.n_conflicts]
-            if better:                    # adopt the child's paths, do not split
-                node.paths, node.n_conflicts = better[0].paths, better[0].n_conflicts
-                node.added += " bypass: " + better[0].added
+        if bypass and _bypass(node, children):
+            stats.bypasses += 1
+            if entry is not None:
                 entry["bypass"] = True
-                stats.bypasses += 1
-                heapq.heappush(open_heap, (node.cost, node.n_conflicts, node.id, node))
-                continue
+            heapq.heappush(open_heap, (node.cost, node.n_conflicts, node.id, node))
+            continue
         for kid in children:
-            kid.id = next(counter)
+            kid.id = next(ids)
             stats.generated += 1
-            entry["children"].append({"id": kid.id, "added": kid.added, "cost": kid.cost,
-                                      "costs": [len(p) - 1 for p in kid.paths],
-                                      "n_conflicts": kid.n_conflicts})
+            if entry is not None:
+                entry["children"].append({"id": kid.id, "added": kid.added, "cost": kid.cost,
+                                          "costs": [len(p) - 1 for p in kid.paths],
+                                          "n_conflicts": kid.n_conflicts})
             heapq.heappush(open_heap, (kid.cost, kid.n_conflicts, kid.id, kid))
     stats.seconds = time.perf_counter() - t0
     return Result(None, None, stats, trace)
@@ -440,14 +448,16 @@ def random_instance(cols: int, rows: int, k: int, density: float,
             return grid, starts, goals
 
 
-# The worked example of the chapter (Section 9.5).
+# The worked example of the chapter: two corridors crossing at cell (2, 1).
+# Agent 1 flies along the horizontal corridor, agents 2 and 3 cross it
+# vertically in opposite directions.
 EXAMPLE_MAP = [
-    "..#..",
-    ".....",
-    "..#..",
+    ".#.#.",      # y = 2
+    ".....",      # y = 1
+    ".#.#.",      # y = 0
 ]
-EXAMPLE_STARTS = [(0, 1), (2, 2), (4, 2)]
-EXAMPLE_GOALS = [(4, 1), (2, 0), (0, 2)]
+EXAMPLE_STARTS = [(0, 1), (2, 0), (2, 2)]
+EXAMPLE_GOALS = [(4, 1), (2, 2), (4, 0)]
 
 
 def worked_example(split: str = "first", bypass: bool = False) -> Result:
@@ -458,16 +468,17 @@ def worked_example(split: str = "first", bypass: bool = False) -> Result:
 
 def print_trace(result: Result) -> None:
     for e in result.trace:
-        print("N%d (parent %s, added %s): costs %s, total %d, conflict %s"
+        print("N%d (parent %s, added %s): costs %s, total %d, %d conflict(s), first %s"
               % (e["id"], "-" if e["parent"] is None else "N%d" % e["parent"],
-                 e["added"] or "none", e["costs"], e["cost"], e["conflict"]))
+                 e["added"] or "none", e["costs"], e["cost"], e["n_conflicts"],
+                 e["conflict"]))
         for i, p in enumerate(e["paths"]):
             print("   a%d: %s" % (i + 1, " ".join("(%d,%d)" % c for c in p)))
         for c in e["children"]:
             print("   -> N%d added %s: costs %s, total %d, %d conflict(s)"
                   % (c["id"], c["added"], c["costs"], c["cost"], c["n_conflicts"]))
         if e["bypass"]:
-            print("   bypass: paths replaced, node re-inserted")
+            print("   bypass: the parent adopted a child's paths and was re-inserted")
 
 
 # ----------------------------------------------------------------------
@@ -491,14 +502,24 @@ def _test_worked_example() -> None:
     res = worked_example()
     assert res.paths is not None and res.cost == 12
     ids = [e["id"] for e in res.trace]
-    assert ids == [0, 1, 2, 3, 5], ids
-    assert [e["cost"] for e in res.trace] == [10, 11, 11, 12, 12]
-    assert res.stats.expanded == 5 and res.stats.generated == 7
+    assert ids == [0, 1, 2, 3], ids
+    assert [e["cost"] for e in res.trace] == [10, 11, 11, 12]
+    assert [e["n_conflicts"] for e in res.trace] == [1, 1, 4, 0]
+    assert res.trace[0]["conflict"] == "<a2, a3, (2, 1), 1>"
+    assert res.trace[1]["conflict"] == "<a1, a2, (2, 1), 2>"
+    assert res.trace[2]["conflict"] == "<a2, a3, (2, 1)->(2, 2), 1>"
+    kids = [(c["id"], c["cost"], c["n_conflicts"]) for e in res.trace for c in e["children"]]
+    assert kids == [(1, 11, 1), (2, 11, 4), (3, 12, 0), (4, 12, 0), (5, 12, 5), (6, 12, 2)], kids
+    assert res.stats.expanded == 4 and res.stats.generated == 7
+    assert res.stats.low_level_calls == 9
+    assert res.paths[0] == [(0, 1), (1, 1), (1, 1), (2, 1), (3, 1), (4, 1)]
+    assert res.paths[1] == [(2, 0), (2, 0), (2, 1), (2, 2)]
+    assert res.paths[2] == [(2, 2), (2, 1), (3, 1), (4, 1), (4, 0)]
     grid = Grid.from_map(EXAMPLE_MAP)
     assert validate(res.paths, grid, EXAMPLE_STARTS, EXAMPLE_GOALS)
     assert joint_optimal_cost(grid, EXAMPLE_STARTS, EXAMPLE_GOALS) == 12
     res2 = worked_example(split="cardinal", bypass=True)
-    assert res2.cost == 12 and res2.stats.expanded <= res.stats.expanded
+    assert res2.cost == 12 and res2.stats.expanded == 4 and res2.stats.bypasses == 0
 
 
 def _test_random_against_brute_force() -> None:
@@ -543,6 +564,10 @@ def _test_rectangle_symmetry() -> None:
     p1s, p2s = shortest_paths(s1, g1), shortest_paths(s2, g2)
     assert len(p1s) == 5 and len(p2s) == 10
     assert all(all_conflicts([p, q]) for p in p1s for q in p2s)
+    res = cbs(grid, [s1, s2], [g1, g2])
+    assert res.cost == 11
+    print("rectangle symmetry: 5 x 10 pairs of shortest paths all conflict; "
+          "CBS expanded %d CT nodes for 2 agents" % res.stats.expanded)
 
 
 if __name__ == "__main__":
@@ -552,6 +577,7 @@ if __name__ == "__main__":
     _test_rectangle_symmetry()
     _test_random_against_brute_force()
     print("--- worked example (split on the first conflict) ---")
+    print("\n".join(EXAMPLE_MAP))
     res = worked_example()
     print_trace(res)
     print("expanded %d CT nodes, generated %d, low-level calls %d, cost %d"

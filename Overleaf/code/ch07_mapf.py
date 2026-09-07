@@ -644,6 +644,27 @@ def _self_test() -> None:
     assert not inst_b.is_free((1, 1)) and not inst_b.is_free((1, 2)) and inst_b.is_free((1, 0))
     assert len(bfs_path(inst_b, (0, 0), (2, 3))) - 1 == 5
 
+    # -- exercises of the chapter -------------------------------------
+    # Exercise 1: classifying pairs of moves on the path A - B - C
+    A, B, C = (0, 0), (0, 1), (0, 2)
+    assert all_conflicts([[A, B], [B, C]]) == []                 # (a) following only
+    assert [c.kind for c in all_conflicts([[A, B], [B, A]])] == ["swap"]          # (b)
+    assert [(c.kind, c.t) for c in all_conflicts([[A, B], [C, B]])] == [("vertex", 1)]
+    assert [(c.kind, c.t) for c in all_conflicts([[A, B], [A, B]])] == [
+        ("vertex", 0), ("vertex", 1)]                             # (d) edge conflict
+    assert [(c.kind, c.t) for c in all_conflicts([[A, B], [B, B]])] == [("vertex", 1)]
+    # Exercise 2: costs of three paths, SoC = 6, makespan = 3
+    ex_paths = [[(0, 0), (0, 1), (0, 1), (0, 2), (0, 2), (0, 2)], [(2, 2)],
+                [(2, 1), (1, 1), (1, 2), (1, 1)]]
+    assert [path_cost(q) for q in ex_paths] == [3, 0, 3]
+    assert sum_of_costs(ex_paths) == 6 and makespan(ex_paths) == 3
+    assert all_conflicts(ex_paths) == []
+    # Exercise 6: a corridor without a pocket is unsolvable, with one it is not
+    corridor4 = MAPFInstance(["...."], [(0, 0), (0, 3)], [(0, 3), (0, 0)], "corridor-4")
+    assert optimal_makespan_bruteforce(corridor4, max_steps=40) is None
+    pocket = MAPFInstance(["....", "@.@@"], [(0, 0), (0, 3)], [(0, 3), (0, 0)], "pocket")
+    assert optimal_makespan_bruteforce(pocket) == 5 and optimal_soc_bruteforce(pocket) == 8
+
     elapsed = time.time() - t0
     assert elapsed < 10, f"self-test too slow: {elapsed:.1f} s"
     print(f"ch07_mapf self-test passed in {elapsed:.2f} s")

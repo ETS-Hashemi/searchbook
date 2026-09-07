@@ -289,6 +289,8 @@ def orca_half_space_3d(p_a, v_a, r_a, p_b, v_b, r_b, tau, dt=0.1,
     p2 = (math.sqrt(_dot3(p, p)), 0.0)       # p in the plane (e1, e2)
     v2 = (along, _dot3(v_rel, e2))           # v_rel in the plane
     u2, n2, case = vo_closest_boundary_point(p2, v2, r, tau, dt)
+    if case.endswith("leg"):
+        case = "leg"                         # no left/right in 3D
     u = tuple(u2[0] * a + u2[1] * b for a, b in zip(e1, e2))
     n = tuple(n2[0] * a + n2[1] * b for a, b in zip(e1, e2))
     share = 0.5 if reciprocal else 1.0
@@ -719,7 +721,8 @@ def _self_test():
     n3, pt3, u3, case3 = orca_half_space_3d(
         (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), 0.5, (4.0, 0.5, 0.0),
         (-1.0, 0.0, 0.0), 0.5, tau)
-    assert case3 == half.case and abs(n3[2]) < 1e-12 and abs(u3[2]) < 1e-12
+    assert case3 == "leg" and half.case.endswith("leg")
+    assert abs(n3[2]) < 1e-12 and abs(u3[2]) < 1e-12
     assert _close(n3[:2], half.normal) and _close(pt3[:2], half.point)
     axis = np.array([1.0, 2.0, -0.5])
     axis /= np.linalg.norm(axis)
@@ -737,8 +740,8 @@ def _self_test():
         assert turned[3] == base[3]
         assert _close(turned[0], rot(base[0])) and _close(turned[2], rot(base[2]))
         # q = v_rel + u lies on the boundary of the 3D cone-with-ball
-        q = tuple(1.0 - vb + uu for vb, uu in zip(v_b3, (base[2])))
-        q = (q[0], -v_b3[1] + base[2][1], -v_b3[2] + base[2][2])
+        q = tuple(va - vb + uu for va, vb, uu
+                  in zip((1.0, 0.0, 0.0), v_b3, base[2]))
         if base[3] == "disc":
             d = tuple(qq - pp / tau for qq, pp in zip(q, p_b3))
             assert abs(math.sqrt(_dot3(d, d)) - 1.0 / tau) < 1e-7
