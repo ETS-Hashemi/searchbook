@@ -193,3 +193,142 @@ clearest short account of the key modifier I have read. The exercise set is well
 solvable from the chapter, the Week-2 coding exercise is present and complete with its 8-connectivity
 part, and the four written solutions - especially the `k1`-only counterexample for Exercise 2.3 - are
 worth more than most textbooks' answer keys.
+
+---
+
+## Response to review (round 1)
+
+All nine required changes are applied. Chapter file: `Overleaf/chapters/ch05-lpastar-dstarlite.tex`;
+code: `Overleaf/code/ch05_dstar_lite.py`; figures: `Overleaf/figures/ch05/`; solutions:
+`Overleaf/appendices/solutions/ch05-solutions.tex`; bibliography: `Overleaf/bib/ch05-extra.bib`.
+
+### Required changes
+
+1. **(A) Consistency inequality in the proof sketch of `thm:ch05-expansions`.** Accepted; the
+   reviewer is right that the printed orientation does not support the deduction. The sentence
+   now reads: "The consistency condition of \cref{sec:ch05-dstarlite}, applied to the edge
+   $(u,s')$ with $u \in \Pred(s')$, reads $\hcost(s_{\mathrm{start}},s') \le
+   \hcost(s_{\mathrm{start}},u) + c(u,s')$, hence $c(u,s') + \gcost(s') \ge \gcost(u)$".
+   The chain now runs: key order gives $\gcost(s') \ge \gcost(u) + \hcost(s_\mathrm{start},u) -
+   \hcost(s_\mathrm{start},s')$, and the (correctly oriented) consistency inequality turns that
+   into $c(u,s') + \gcost(s') \ge \gcost(u)$. The cross-reference points at the section where
+   the condition is stated, so the reader can check the orientation.
+
+2. **(A) "faster at every single one of them" in Sec. 2.8.1.** Accepted, with one correction to
+   the suggested wording. Replaced by: "although its repairs are on average nearly twice as fast
+   as a fresh \astar ($0.8$~ms against $1.5$~ms); at $7$ of the $40$ events, those in which the
+   obstacle forced a long detour, the repair was nevertheless the slower of the two (up to
+   $5.2$~ms against $1.6$~ms)." The reviewer's draft said "three times faster", but
+   $1.493/0.822 = 1.82$, so "nearly twice as fast" is what the data support; the two averages
+   themselves are kept as they were. Re-verified against `figures/data/ch05-replanning.dat`:
+   exactly 7 of the 40 events have `dsl_ms > astar_ms` (events 2, 4, 5, 13, 16, 26, 37), the
+   largest being $5.187$~ms against $1.645$~ms. Those 7 events all have well above-median
+   D* Lite expansion counts (42-174 against a median of 4), which is why the clause attributes
+   them to a long detour rather than to a corridor specifically.
+
+3. **(A) Field D* paragraph, 8% attributed to 4-connected grids.** Accepted verbatim: "Paths on
+   a grid are restricted to a few headings: up to about $41\%$ longer than the true shortest
+   path on a 4-connected grid and up to about $8\%$ longer on an 8-connected one."
+
+4. **(A) The $k_2(u) < k_2(w)$ claim in Sec. 2.4.** Accepted; the reviewer's counterexample is
+   correct. The sentence is now split into the two cases: if $w$ is overconsistent then
+   $k_2(w) = \rhs(w) = \gcost(u)+c(u,w) > \gcost(u) = k_2(u)$ because $c(u,w)>0$, so $u$ comes
+   first among the ties; if $w$ is itself underconsistent it is retracted in the same way before
+   it can be expanded with a stale value.
+
+5. **(D) Caption of `fig:ch05-idea`.** Accepted, and mirrored in the text as the reviewer
+   suggested. The caption now ends "Note that \dstarlite is repairing a search it had already
+   run from the drone's original start ($52$ expansions); \cref{sec:ch05-experiment} accounts
+   for that first search." Sec. 2.2 gained the matching sentence. The number $52$ was re-checked
+   by re-running `code/figures/gen_ch05_examples.py`, which prints "initial search 52, repair 6,
+   A* from scratch 26" and regenerates the three example figures byte-identically.
+
+6. **(G) Running head of Sec. 2.7.** Accepted verbatim:
+   `\section[A worked example: \dstarlite repairs a plan]{A worked example: the robot moves and
+   an obstacle appears}`. `pdftotext -layout` now shows the two heads separated on that page,
+   and the ToC line is one line.
+
+7. **(G) `lst:ch05-main` caption vs. the quoted docstring.** Accepted. The docstring in
+   `code/ch05_dstar_lite.py` is now `"""Process cells whose blocked status flipped (D* Lite main
+   loop).` and the listing was re-copied so that it is again byte-identical to the file. A check
+   over all three listings confirms each is a verbatim substring of `ch05_dstar_lite.py`.
+   (The AAAI line numbering `26'-27'` in the docstring of `move`, which no listing quotes, was
+   left alone.)
+
+8. **(G) Two overfull `\hbox`es.** Accepted and taken further, because the reviewer's numbers
+   fixed only one of them. `figures/ch05/consistency.tex` is now `[scale=0.92, ...]`, which
+   removes the $22.95$~pt box. For `figures/ch05/replanning-experiment.tex`, narrowing the axes
+   to `0.46\textwidth` and `xshift=1.1cm` left a residual $15.47$~pt box, because the culprit is
+   the three-column legend, whose width does not depend on the axis width. Both axes are now
+   `width=0.45\textwidth` with `xshift=0.9cm`, and the legend is `font=\scriptsize` with
+   `column sep=0.2cm` and anchored at `(1.14,-0.34)`. **The chapter build now reports zero
+   overfull `\hbox`es of any size.**
+
+9. **(F) Bridge from Chapter 4's notation.** Accepted, with one addition. A new paragraph after
+   the notation list in Sec. 2.3 reads: "This is the notation of \cref{ch:ch04} in new clothes:
+   $s_{\mathrm{start}}$ is the start node $s$ of \cref{def:ch04-problem}, $s_{\mathrm{goal}}$ is
+   the goal $\gamma$, and $\dist(s_{\mathrm{start}},n)$ is the true distance written
+   $\gcost^*(n)$ there. One symbol changes meaning, and it is the important one: in
+   \cref{ch:ch04}, $\gcost(n)$ is the cost of the best path found *so far in the current
+   search*, whereas here $\gcost(s)$ is a value stored from an *earlier* search that may be
+   stale until the repair reaches it." The notation-table additions
+   ($\rhs$, $k_m$, $\Pred$, $\Succ$, $\dist$) are listed in the final report;
+   `frontmatter/notation.tex` is not this chapter's file and was not touched.
+
+### Suggestions
+
+Applied:
+
+* "Two remarks" is now "Three remarks" in Sec. 2.8.
+* A running-time paragraph was added after the remarks: at most $2|V|$ expansions per call, each
+  calling `UpdateVertex` on $O(\deg u)$ vertices at a cost of the vertex degree plus
+  $O(\log|U|)$, hence $O((|V|+|E|)\log|V|)$ per call, the same bound as a fresh \astar, with the
+  constant paid only where stored values actually changed.
+* `figures/ch05/drone-replanning` caption now explains the two glyphs: the "?" is the
+  non-cooperative intruder, the "1" the drone under our control.
+* Stentz's Focussed D* is now cited (`stentz1995focussed`, IJCAI 1995, added to
+  `bib/ch05-extra.bib`, which is this chapter's bibliography file).
+* CBS, ECBS, ORCA and DWA are expanded at first use in the drone box, and "Lifelong Planning
+  \astar" was moved into Sec. 2.1 where \lpastar first appears.
+* Table 2.4: the cell now reads `[9;6] / [11;6]` and the caption explains that $v$ has a single
+  stored key in any given run, the two entries being the key it receives without and with the
+  modifier.
+* Short hints were written for the two conceptual exercises without code to check against,
+  `exr:ch05-directions` (the reversal, including exactly which lines of `Main` exist only
+  because the start moves) and `exr:ch05-intruder` (rasterising the tube, updating only the
+  symmetric difference on the next prediction, what blocking the whole tube for the whole
+  horizon costs, and why a moving goal breaks the backward search).
+  `appendices/solutions/ch05-solutions.tex` now covers 6 of the 8 exercises.
+
+Not applied, with reasons:
+
+* **Trimming Listing 2.1 to four methods.** The listing is 39 lines, inside the style guide's
+  45-line limit, and every listing in the chapter is currently a byte-exact substring of
+  `ch05_dstar_lite.py`. Cutting `__init__`, `__contains__` and the class docstring, which is
+  where the lazy-deletion invariant ("a heap entry is live only if its key equals
+  `key_of[vertex]`") is actually stated, would cost the one thing the surrounding text discusses
+  in exchange for two thirds of a page.
+* **Reducing the band-effect explanation in Sec. 2.5 to a forward reference.** The four
+  occurrences serve different purposes (a first observation on the toy trace, the theorem's
+  third remark, the measured factor $4.6$, and the pitfall), and the reviewer's own "what must
+  be kept" paragraph names this honesty as the best thing in the chapter. Left as it is rather
+  than risk thinning it.
+
+### Verification
+
+* `cd Overleaf && ./build.sh ch05-lpastar-dstarlite`: no `!` errors from this chapter's files, no
+  overfull `\hbox` of any size, and the only undefined references are the expected cross-chapter
+  ones (`ch:ch01`-`ch:ch03`, `ch:ch06`-`ch:ch25`, `ch:appA`, `ch:appB`) plus zero undefined
+  citations. Occasional `File ended while scanning use of \@writefile` messages naming
+  `build/chapters/ch11-*.aux`, `ch19-*.aux` or `ch21-*.aux` come from other chapters' `.aux`
+  files being rewritten concurrently in the shared `build/` directory; they disappear on a rerun
+  and are not produced by this chapter's sources.
+* `python3 code/ch05_dstar_lite.py`: self-test passes in 0.8 s.
+* `python3 code/figures/gen_ch05_examples.py`: reproduces `idea.tex`, `lpastar-example.tex` and
+  `dstarlite-example.tex` byte-identically and prints the $52/6/26$ expansion counts quoted in
+  Sec. 2.2 and its figure caption.
+* `python3 code/figures/gen_ch05_replanning.py` was re-run: every expansion column of
+  `figures/data/ch05-replanning.dat` is byte-identical, and only the three wall-clock columns
+  move with machine load, so the reviewer-verified `.dat` (the one all quoted timings were
+  checked against) was restored rather than overwritten. Only a docstring changed in the Python
+  file, so no numeric output could change.

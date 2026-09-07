@@ -1256,25 +1256,22 @@ still an optimal continuation when it is conflict-free.
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch11-id-groups}
 (a) Construct a three-agent instance on which simple independence detection
-(\cref{alg:ch11-id}) merges all three agents although agent~3 has an
-optimal path that conflicts with nobody (a group may have several optimal
-plans). (b) How does Standley's conflict avoidance table change the outcome
-on your instance? (c) Show that \cref{thm:ch11-id} still holds when the
-group solver is \mstar or \cbs, and say what remains of the guarantee when
-it is \ecbs.
+(\cref{alg:ch11-id}) merges all three agents although agent~3 has a path that conflicts with nobody (a group may have several optimal
+plans). (b) How does Standley's conflict avoidance table change the outcome? (c) Show that \cref{thm:ch11-id} still holds when the
+group solver is \mstar or \cbs, and what remains of it when it is \ecbs.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch11-reexpansion}
 Run \code{mstar(inst, trace=True)} on \cref{ex:ch11-aisles} and print the
 31 expansions. (a) Twelve nodes are expanded twice; for each, say whether
-its collision set grew because of a collision among its own successors or
-because it was handed up from a child (line~\ref{alg:ch11-mstar:bpchild}).
-(b) Explain why \mstar cannot know the collision set of a node before it
-has searched below it, so that the second expansion of the start (step~4)
-is unavoidable. (c) Design an instance with three drones in one aisle in
-which the collision set of the start grows twice, first to $\set{1,2}$ and
-later to $\set{1,2,3}$, and verify your prediction with the code.
+its collision set grew from a collision among its own successors or was
+handed up from a child (line~\ref{alg:ch11-mstar:bpchild}). (b) Explain why
+\mstar cannot know the collision set of a node before searching below it,
+so that the second expansion of the start (step~4) is unavoidable.
+(c) Design an instance with three drones in one aisle whose start collision
+set grows twice, first to $\set{1,2}$ and later to $\set{1,2,3}$, and check
+your prediction with the code.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
@@ -1282,42 +1279,43 @@ later to $\set{1,2,3}$, and verify your prediction with the code.
 (a) Prove that the swap of \cref{sec:ch11-constructive} needs exactly
 $4d + 6$ single-agent moves when the leading agent is $d$ steps from the
 junction and no other agent has to be cleared. (b) Executed one move per
-time step, what are the makespan and the sum of costs of the plan for the
-swap example of \cref{sec:ch11-quality} as functions of $d$, and what are
-those of the optimal joint plan? (c) Show that the six exchange moves of
-\cref{fig:ch11-push-swap}(b) can be parallelised into exactly three time
-steps and no fewer, under the convention of \cref{sec:ch11-problem} that an
-agent may follow another into the cell it is leaving, and give the pairing.
-Show also that the multipush can be parallelised into $d$ time steps.
+time step, what are the makespan and sum of costs of the swap example of
+\cref{sec:ch11-quality} as functions of $d$, and those of the optimal joint
+plan? (c) Show that the six exchange moves of \cref{fig:ch11-push-swap}(b)
+parallelise into exactly three time steps and no fewer, under the
+convention of \cref{sec:ch11-problem} that an agent may follow another into
+the cell it is leaving, and give the pairing; show also that the multipush
+parallelises into $d$ time steps.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3} Coding]
 \label{exr:ch11-coding}
 The study plan (\cref{ch:appA}, Week~5) asks only for awareness of \mstar
-and Push-and-Swap, so treat this as an optional extension. (a) Implement joint \astar for $k$ agents on a grid, with the heuristic \cref{eq:ch11-heuristic} and the cost
+and Push-and-Swap, so treat this as an optional extension. (a) Implement
+joint \astar for $k$ agents on a grid, with \cref{eq:ch11-heuristic} and
 \cref{eq:ch11-cost}, and check it against \code{joint\_astar} on random
 $5 \times 4$ instances with two to four agents. (b) Add independence
 detection, with Standley's refinement that re-plans one group around the
-other's plan at equal cost before merging; count how often that avoids a
-merge on random $8 \times 8$ maps with six agents, and reproduce the right
-panel of \cref{fig:ch11-expansions}. (c) Implement the push and swap
-primitives on an abstract graph, including the reversal by position; solve
-the swap example of \cref{sec:ch11-quality} and the push example of
-\cref{fig:ch11-push-swap}(a), validate every plan
-and compare makespan and sum of costs with joint \astar. (d) Optional:
-implement \code{rotate} and construct an instance with a fully occupied
-cycle on which your push-and-swap fails and push-and-rotate succeeds.
+other's at equal cost before merging; count how often that avoids a merge
+on random $8 \times 8$ maps with six agents, and reproduce the right panel
+of \cref{fig:ch11-expansions}. (c) Implement the push and swap primitives
+on an abstract graph, including the reversal by position; solve the swap
+example of \cref{sec:ch11-quality} and the push example of
+\cref{fig:ch11-push-swap}(a), and compare makespan and sum of costs with
+joint \astar. (d) Optional: implement \code{rotate} and build an instance
+with a fully occupied cycle on which push-and-swap fails and
+push-and-rotate succeeds.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3}]
 \label{exr:ch11-unsolvable}
 (a) Give an instance with two empty vertices that has no solution, and say
 in one sentence why no algorithm can solve it. (b) Put four agents on a
-cycle of five vertices, one empty, with goals that advance every agent by
-one position. Show that pushes alone solve it, so that ``at least two empty
-vertices'' is sufficient but not necessary; then change the goals so that
-two agents must exchange places and argue that the instance is unsolvable.
-(c) \cbs (\cref{ch:ch09}) runs for ever on some unsolvable instances.
-Explain why \mstar always terminates (\cref{thm:ch11-terminates}) and why
-\cbs needs an extra argument, using (a) as a test case.
+cycle of five vertices, one empty, with goals that advance each agent by
+one position: pushes alone solve it, so ``at least two empty vertices'' is
+sufficient but not necessary. Change the goals so that two agents must
+exchange places, and argue that the instance is then unsolvable. (c) \cbs
+(\cref{ch:ch09}) runs for ever on some unsolvable instances. Explain why
+\mstar always terminates (\cref{thm:ch11-terminates}) and why \cbs needs an
+extra argument, using (a) as a test case.
 \end{exercise}

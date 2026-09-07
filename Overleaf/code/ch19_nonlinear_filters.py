@@ -600,6 +600,11 @@ def occlusion_example(n_particles=2000, seed=19, verbose=True):
     west = np.mean(stages[k_mid]["particles"][:, 0] < OCC_BUILDING[0])
     east = np.mean(stages[k_mid]["particles"][:, 0] > OCC_BUILDING[1])
     near = np.mean(np.linalg.norm(stages[k_first]["particles"][:, :2] - truth[k_first, :2], axis=1) < 15.0)
+    px = stages[k_mid]["particles"][:, 0]
+    py = stages[k_mid]["particles"][:, 1]
+    level = np.mean((px >= OCC_BUILDING[0]) & (px <= OCC_BUILDING[1]))
+    inside = np.mean((px >= OCC_BUILDING[0]) & (px <= OCC_BUILDING[1])
+                     & (py >= OCC_BUILDING[2]) & (py <= OCC_BUILDING[3]))
     result = dict(truth=truth, Z=Z, visible=visible, stages=stages, n_eff=np.array(n_eff),
                   k_last=k_last, k_mid=k_mid, k_first=k_first, west=west, east=east, near=near,
                   resamples=pf.resample_count, pf_est=np.array(pf_est), ukf_est=np.array(ukf_est),
@@ -614,6 +619,8 @@ def occlusion_example(n_particles=2000, seed=19, verbose=True):
                   f"UKF mean ({s['ukf_mean'][0]:6.1f}, {s['ukf_mean'][1]:6.1f})  N_eff={s['n_eff']:7.1f}")
         print(f"at k={k_mid}: {100 * west:.1f}% of the particles west of the building, "
               f"{100 * east:.1f}% east of it")
+        print(f"at k={k_mid}: {100 * level:.1f}% level with the building in x, "
+              f"of which {100 * inside:.1f}% lie inside its footprint with weight zero")
         print(f"at k={k_first}: {100 * near:.1f}% of the particles within 15 m of the truth")
         print(f"resampling events: {pf.resample_count} of {T - 2} steps")
     return result

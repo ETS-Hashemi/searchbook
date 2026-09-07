@@ -137,3 +137,79 @@ the intellectual pay-off of the chapter and the clearest possible argument for t
 pseudocode and the two verbatim listings, the chance-constraint section, the four pitfalls, the tuning table with its
 units paragraph, the drone box, the six figures, the 32 index entries, and the ten well-graded exercises including the
 leader-follower coding exercise that the code's `Follower` and `simulate(..., followers=...)` genuinely support.
+
+## Response to review (round 2)
+
+All three required changes are applied, plus seven of the eight suggestions.
+Build: `./build.sh ch21-mpc` -> status 0, no errors, no overfull boxes above 15 pt,
+no undefined labels of this chapter (only cross-chapter `ch:chNN` / `thm:ch02-*`
+references, expected in a single-chapter build). Self-test: passes in 2.6 s.
+Chapter length unchanged at 23 pages (the additions below are offset by S5).
+
+### Required changes
+
+1. **Off-by-one in the index ranges of `eq:ch21-ocp` (category A).** Applied exactly as
+   prescribed. The single constraint line is now two lines inside the `aligned` block:
+   `\abs{u_{k,i}}\le a_{\max},\qquad k=0,\dots,N-1,` and
+   `\abs{v_{k,i}}\le v_{\max},\quad \pos_k\in\mathcal{X},\qquad k=1,\dots,N,`.
+   The input box is now imposed on `u_0,...,u_{N-1}`, which agrees with the objective, with
+   the dynamics line, with the first block of `eq:ch21-qp-constraints` (the identity on the
+   whole of `U`, 30 rows for `N=15`) and with the assertion `np.abs(rec["u"]) <= mpc.a_max`
+   in `code/ch21_mpc.py`. Nothing else changed.
+
+2. **`\sigma` overloaded in Section 21.4.3 (category C).** The residual scale is renamed to
+   match the listing. The walkthrough now reads "... against the mixed tolerances
+   `eps_abs + eps_rel s_prim` and `eps_abs + eps_rel s_dual`, where
+   `s_prim = max(||Gz||_inf, ||w||_inf)` and
+   `s_dual = max(||Hz||_inf, ||f||_inf, ||G'y||_inf)` are the largest of the terms that make
+   up the residual being tested (`s_prim` and `s_dual` in `\cref{lst:ch21-admm}`)", followed
+   by an explicit sentence that `\sigma` stays with the regularisation of
+   line~`alg:ch21-admm:factor`. `\sigma` now has exactly one meaning in the subsection.
+
+3. **`\mat{K}` collision between the ADMM system matrix and the LQR gain (category F).**
+   The ADMM matrix is renamed `\mat{M}` in `alg:ch21-admm:factor`, in
+   `alg:ch21-admm:linsys` (`\mat{M}\inv(...)`), in `alg:ch21-admm:rho`
+   ("refactorise `\mat{M}`"), in the walkthrough sentence, and in Section 21.6.4
+   ("one product with `\mat{M}\inv`"), which was a fifth occurrence the review did not list.
+   The walkthrough now spells out `\mat{M}=\mat{H}+\sigma\mat{I}+\rho\mat{G}\T\mat{G}`, adds
+   the requested clause "(`Kinv` in `\cref{lst:ch21-admm}` is `\mat{M}\inv`)", and states
+   that `\mat{K}` is reserved for the LQR gain of `eq:ch21-riccati`. The Python is untouched,
+   so the listing still matches the file verbatim.
+
+### Suggestions
+
+* **S1 (applied).** Section 21.6.2 now reads "The MPC form of this classical exact-penalty
+  result (exact penalties themselves go back to the nonlinear-programming literature of the
+  nineteen sixties and seventies) is due to \textcite{kerrigan2000soft}". No new bib entry
+  was added, since the style guide forbids citing works I cannot verify in
+  `references.bib`.
+* **S2 (applied).** `exr:ch21-chance` now names the argument:
+  "... which you pass to the simulator as `simulate(..., cov_growth=(Sigma_0, Sigma_v))`".
+* **S3 (applied).** `exr:ch21-horizon` now points at `\cref{thm:ch02-stopping-distance}`
+  instead of `\cref{ch:ch02}`.
+* **S4 (applied).** The "Horizon N" row of Table 21.2 now reads "the dense condensed Hessian
+  grows quadratically with N and a refactorisation cubically".
+* **S5 (applied).** Items 1 and 2 of Section 21.6.3 are cut to one sentence each, each with a
+  `\cref{sec:ch21-implementation}` and the title of the pitfall that develops it. Items 3 and
+  4 (solver tolerance, nominal stability) are untouched, as asked. This exactly pays for the
+  text added by the required changes and S6, so the chapter stays at 23 pages.
+* **S6 (applied).** Section 21.3.1 now says the per-axis box is a relaxation that admits
+  `||a|| <= sqrt(n) a_max` along a diagonal, that `a_max` must therefore be declared per axis,
+  and that the worked example accordingly takes `a_max = 2 m/s^2` per axis.
+* **S7 (applied).** `assert elapsed < 60.0` is now `assert elapsed < 10.0` in
+  `_self_test`; the run takes 2.6 s, so the margin is still ample and a regression is caught.
+* **S8 (applied).** A solution sketch for `exr:ch21-coding` (Exercise 21.9, the Week-11
+  milestone) is added to `appendices/solutions/ch21-solutions.tex`: how the follower's two
+  extra row blocks are built from the leader's plan, what to log per step (formation error
+  with mean/max/count above `e_max`, distance to the leader and the count of steps above
+  `R_comm` -- both already recorded as `rec["form_err"]` and `rec["dist"]` -- and the slack
+  sums in the soft version), what the reactive baseline is, and what the comparison should
+  show. Solutions now cover 8 of 10 exercises; 21.1 and 21.10 remain open by design.
+
+### Not changed
+
+No numbers moved: the code changed only in the timing assertion, so no `.dat` file needed
+regeneration and every quoted figure (minimum separation 1.000 m at t = 4.2 s, linearisation
+point 0.908 m, largest multiplier 18.70, 26/47 warm/cold ADMM iterations, chance-constrained
+1.143 m, Table 21.3, Table 21.4) is unchanged and still reproduced by
+`python3 code/ch21_mpc.py`. Everything on the reviewer's keep list is intact.

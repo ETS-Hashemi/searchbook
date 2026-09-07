@@ -225,3 +225,96 @@ moving-obstacle one with its verified step-7 collision earns its space), the
 relative-velocity repair, `fig:ch14-utrap` with the global path drawn around it, the drone
 box, and the coding exercise, whose four failure cases and paired remedies are precisely the
 Week-7 milestone.
+
+## Response to review (round 2)
+
+All three required changes are applied. The chapter builds with status 0, no `!` errors and
+no overfull boxes above 15 pt; `python3 code/ch14_dwa.py` passes its self-test (exit 0). No
+code logic changed, so no `.dat` file needed regenerating and every number quoted in the text
+still comes from the same run.
+
+### Required change 1 (A) — the rotational admissibility condition
+
+Rewritten in the paragraph *Where the square root comes from* (`chapters/ch14-dwa.tex`).
+The text now says that the braking argument applied to the rotation gives
+$\omega^2 \le 2\,\Delta\theta(v,\omega)\,\dot\omega_b$ with
+$\Delta\theta(v,\omega)=\lvert\omega\rvert\,\dist(v,\omega)/v$, the heading change still
+available before the obstacle; that Fox et al. write the translational $\dist$ in place of
+$\Delta\theta$, as `eq:ch14-Va` does; that the two sides then do not carry the same units
+($\sqrt{\mathrm{m\cdot rad}}/\mathrm{s}$ against rad/s); and that the condition is therefore a
+heuristic cap on $\omega$, not a braking guarantee. The sentence on the missing absolute value
+is kept, and a closing clause states that the drone form of `def:ch14-admissible` — the one
+`alg:ch14-command` and all the code use — has only the translational test, so nothing else in
+the chapter depends on this. `eq:ch14-Va` itself is unchanged, keeping Fox et al.'s form for
+fidelity. Half a sentence was added to the *Admissible velocity* entry of
+`appendices/glossary/ch14-terms.tex` saying the same thing.
+
+### Required change 2 (G) — `\label{alg:ch14-command:admissible}` pointed at a bare `continue`
+
+The branch is now the one-line form
+`\lIf{...}{\KwContinue\tcp*[f]{brake for the goal as for a wall}\label{alg:ch14-command:admissible}}`,
+following the convention of ch04. The label resolves to algorithm line 8, which is the test
+itself (verified in `build/chapters/ch14-dwa.aux`: `alg:ch14-command:admissible}{{8}`), and the
+algorithm is one line shorter (12 lines instead of 13). The end-of-line comment is set with
+`\tcp*[f]` so that `\lIf` does not emit an extra empty numbered line.
+
+### Required change 3 (G) — repetition
+
+(i) `lst:ch14-window` now prints only `window_candidates()`; `dynamic_window()` and
+`braking_candidate()` are cut and the caption reads "The candidate grid over the dynamic window
+(from code/ch14_dwa.py); the helpers dynamic_window() and braking_candidate() implement
+Equation (3.7) and line 4 directly." The following sentence now names only
+`line~\ref{alg:ch14-command:grid}`. (ii) The duplicated sentence in *Resolution of the velocity
+grid* ("The grid is centred on $\vel_a$ on purpose...") is deleted; the copy in the walkthrough
+of `alg:ch14-command` is kept. Nothing else was cut: the trace table, the discrete-time
+refinement, both proofs, the four pitfalls and the tuning experiment are untouched.
+
+### Suggestions adopted
+
+* `fig:ch14-spaces` caption (c) now ends "here the previous command $(\omega_a, v_a)$ itself
+  carries a cross, because a new obstacle has just come into range and made it inadmissible",
+  which is the cheap half of the alternative; the figure file is unchanged.
+* "the drone never rests, since some moving candidate always beats $\beta$" is now "usually does
+  not rest, because some admissible non-zero candidate then satisfies
+  $\alpha\,\mathrm{heading}+\gamma\,\mathrm{velocity} > \beta(1-\mathrm{clearance})$ ... a tight
+  pocket can still deny it".
+* "simpler and conservative" is now "simpler and, in the cases that matter, more restrictive".
+* The proof of `thm:ch14-safety` gains the goal-term recursion
+  $\lVert\pos_g-\pos'\rVert \ge \lVert\pos_g-\pos\rVert-\lVert\vel\rVert\dt$, so the induction is
+  carried out for $\tilde d=\min(d,\lVert\pos_g-\pos\rVert)$, the quantity line 8 actually tests.
+* `def:ch14-admissible` now says in its last sentence that the test is sharpened to
+  `eq:ch14-vadm` below and that the discrete form is the one the algorithm, the theorem, the
+  tables and the code use.
+* `eq:ch14-clearance`: a clause notes that the `min` is redundant there because `eq:ch14-dist`
+  already caps $\dist$ at $d_{\max}$, and that the code keeps it as a guard.
+* "47 % longer than the direct route" is now "47 % longer than the 5.9 m of the default run".
+* `code/ch14_dwa.py`: the comment `# hysteresis: keep v_a unless clearly beaten` (forbidden word)
+  is now `# keep v_a unless beaten by the margin`; `lst:ch14-dist` was re-copied to match.
+* `bib/ch14-extra.bib`: `ogren2005convergent` now carries `pages = {188--195}`.
+* American spelling: 33 British forms replaced (normalis*, discretised, centred, behaviour(s),
+  colours, metre(s)/centimetre(s), summarises, optimisation, neighbour(s)); "optimistic" was left
+  alone. `grep` for the British forms now returns nothing in the chapter, glossary, solutions and
+  figure files.
+* `appendices/solutions/ch14-solutions.tex`: solutions added for `exr:ch14-arcs` (the arc
+  derivation, the circle of radius $v/\omega$, the pose $(1.683, 0.919, 1)$ after 2 s, and why the
+  predicted pose matters for a differential drive but hardly for a drone) and for
+  `exr:ch14-units` (all three parts; (a) and (b) computed from `evaluate()` on
+  `ex:ch14-approach`: $(1.00, 0.50)$ wins with 1.330 in metres and with 82.87 in centimetres,
+  where the heading term is 0.6 % of the score). Seven of the eight exercises now have solutions;
+  only the Week-7 coding exercise is left open.
+
+### Suggestions not adopted
+
+* `tab:ch14-trace` rows 6–10 were **not** collapsed: round 1 asked for the full trace and the
+  reviewer marked this optional.
+* `frontmatter/notation.tex` is outside this chapter's file set (the brief forbids editing it).
+  Its symbols for ch14 are, for the editor: $\vel_a$, $V_s/V_a/V_d/V_r$, $\dist$, $d_{\max}$,
+  $a_b$, $\dot v_b$, $\dot\omega_b$, $\Delta v$, $v_{\mathrm{adm}}$, $\dim$.
+
+### Length
+
+The chapter is 21 PDF pages of body (pp. 15–35 of the single-chapter build) against the 12–18 of
+STYLE_GUIDE section 2. The two repetitions the review named are gone (about 19 lines); the
+required rewrite of the rotational condition and the proof clause added about 25 lines back.
+Nothing else was cut, on the review's explicit instruction that the remaining excess is required
+content.

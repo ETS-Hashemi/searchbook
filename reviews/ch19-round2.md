@@ -253,3 +253,134 @@ Chapter 24. Keep the proofs as they stand (`thm:ch19-ut`'s cancellation argument
 pitfall, the Joseph form in `alg:ch19-ekf`, the enlarged `fig:ch19-linearisation` and
 `fig:ch19-particles` with their legends outside the axes, and the decision guide "which
 filter for which intruder model", which is what a reader will actually come back to.
+
+## Response to review (round 2)
+
+All four required changes are applied. Build: `./build.sh ch19-nonlinear-filters`
+finishes with no `!` errors, no overfull box wider than 15 pt and no undefined
+reference or citation belonging to this chapter (latexmk's exit code 12 is
+raised only by the expected cross-chapter `ch:chNN` / `ch:appA` references of a
+single-chapter build). `python3 code/ch19_nonlinear_filters.py` passes its
+self-test; `gen_ch19_compare.py`, `gen_ch19_particles.py` and
+`gen_ch19_linearisation.py` were re-run and every number quoted in the text
+still matches their output.
+
+### Required change 1 - the N_eff sawtooth sentence (sec:ch19-pf-example)
+
+Accepted; the reviewer is right and the old clause was false. The sentence now
+reads: the filter resamples in 13 of the 29 steps; resampling resets the weights
+to 1/N, but the next measurement re-concentrates them at once and N_eff is
+plotted *before* resampling (`line~\ref{alg:ch19-pf:ess}`), so the curve climbs
+back only to between 0.2N and 0.8N; that partial recovery is the healthy
+signature, a curve pinned near N (the measurement-free band) means uninformative
+data and one pinned near 1 a lost track. This is exactly what the printed
+sequence 592, 934, 865, 772, 514, 2000, 1906, 432, 1033, 1653, 1424, 964, 1465
+out of N = 2000 shows. The second pitfall box already said the same thing and
+was checked against the new wording; it agrees verbatim ("a curve that stays
+near N means uninformative measurements, one that stays near 1 a lost track").
+
+### Required change 2 - text collisions in figures/ch19/idea.tex
+
+Accepted, with one deviation from the suggested coordinates.
+(i) Both column headings were raised to y = 1.75 (not 1.45): at 1.45 the second
+line of the right-hand heading still touched the blue "tangent image of the
+mean" node, which was verified on a 150 dpi render of the rebuilt page.
+(ii) The row labels are now `\node[sbannot,text=black,anchor=east] at (-1.45,0)`
+exactly as prescribed, so all three end 0.25 cm clear of the input ellipses.
+(iii) The red "true mean" node was moved out from under the blue EKF ellipse: it
+now sits below the banana (`anchor=north` at (7,-0.26)) with a short dotted
+leader up to the cross, which keeps it clear of every other piece of text and of
+the ellipse arc. A render of the rebuilt page confirms no two pieces of text
+touch.
+
+### Required change 3 - the concept figure did not show its own teaching point
+
+Accepted; implemented as an equivalent change rather than literally.
+The arc was widened to `arc (45:135:...)` / `arc (135:45:...)` instead of
+50:130, because the centroid of the 50:130 sector is at y = 0.175 and the
+resulting 0.22 cm bias is at the edge of visibility in print; the 45:135 sector
+has its centroid at y = 0.113, giving a 0.29 cm gap. The markers are now:
+blue EKF mean and its ellipse on the apex at (7,0.40); red cross at the true
+centroid (7,0.11); orange fitted mean at (7,0.20), with a red dotted
+"true-mean level" at y = 0.11 drawn across row (b) so the reader can see the
+UT's correction without a second cross blurring into the orange dot. The map
+exponent in the two `\foreach` loops of rows (b) and (c) is `28*\u` as
+requested. The offset is annotated in row (a) by dotted guides from both markers
+and a `<->` arrow labelled *bias*, as in `fig:ch19-linearisation`. The caption
+now names the red cross, the bias arrow and the dotted true-mean level. Checked
+on the rendered page: the blue mean is clearly above the red cross, the orange
+mean lies between them and on the true-mean level, and the row-(c) banana clears
+row (b) by about 0.4 cm.
+
+### Required change 4 - duplicated numbers, and the page count
+
+Accepted in all three places; every reason was kept and only figures already
+printed in an adjacent table were cut.
+(i) "Four things to notice": the six parenthesised mean-RMSE pairs and the
+median 3.08 are gone; the 10 % and 12 % comparisons, the range/noise
+explanation, the "both Gaussian filters survive" reason and the cost ratios stay.
+(ii) sec:ch19-ukf-example: the sentence on the two standard deviations is
+deleted and the update sentence is compressed to one clause; the sigma-point
+straddling argument, the 0.21 m difference and the (1/2) P_psipsi d^2x'/dpsi^2 =
+0.197 m check are untouched.
+(iii) sec:ch19-variants: the auxiliary and regularised filters are removed from
+the "Better particle filters" paragraph (the regularised filter is still named
+where it belongs, in sec:ch19-resampling); Rao-Blackwellisation and the
+three-dimensional state stay.
+
+**Page count: the chapter is still 21 PDF pages (opening page plus 20 pages of
+running head; pages 17-37 of `build/only-ch19-nonlinear-filters.pdf`), not 20.**
+The three cuts remove about eight typeset lines and the last page of the chapter
+carries roughly 30 lines of exercises, so a further half page would have to go.
+Per the instruction "do not remove anything else to reach 20 pages", nothing
+else was cut. If one more page is wanted, the cheapest content-preserving option
+is to shorten `tab:ch19-comparison` or to let `fig:ch19-particles` drop from
+6.5 cm to 5.5 cm high; both would need a reviewer's sign-off, as the round-1
+protections cover that figure.
+
+### Suggestions
+
+* **Cost per step** - now quoted to one significant figure: "about 0.3 ms (EKF),
+  0.5 ms (UKF) and 1.2 ms (particle filter)". On this machine the generator
+  prints 0.260 / 0.455 / 1.168 ms, ratios 1 : 1.75 : 4.49, so "roughly
+  1 : 1.8 : 4.5" is unchanged.
+* **"no measurements" node in `particles.tex`** - moved inside the grey band it
+  labels. Placed at the band's bottom-left corner (`anchor=south west` at
+  (-38,36)) with `fill=white`, rather than the suggested (0,44), because (0,44)
+  sits in the middle of the k = 15 particle cloud and would have hidden about
+  twenty particles.
+* **The k = 20 cloud hidden by its own cross** - the `mark=x` plot of the true
+  positions is now drawn before the three clouds, and the legend was reordered to
+  match. The stray seventh legend entry (a bare `$k=15$` that pgfplots silently
+  dropped) was folded into "UKF mean ($k=15$)".
+* **The 4.4 m label in `linearisation.tex`** - moved to (27,97.8) and given
+  `inner sep=2pt`; the arrow head no longer touches the leading digit.
+* **`lst:ch19-pf` breaking across a page** - the listing was moved ahead of the
+  "Vectorising the particle filter" paragraph. It now sits whole on one page
+  (page 34), so no split into two listings was needed.
+* **The unverified 4 % at k = 15** - `occlusion_example()` now counts these
+  particles, and the count contradicted the chapter, so the text was corrected:
+  3.9 % of the particles are level with the building in x, and 3.4 % of the
+  cloud sits inside the footprint carrying weight zero, waiting for the next
+  resampling. They are dead bookkeeping, not a third hypothesis and not a
+  north/south lobe. The whole example is now machine-checkable.
+* **One more difficulty-1 exercise** - not added. The chapter is already one page
+  over the ceiling and adding an exercise (plus its solution) pushes the wrong
+  way; this is the one suggestion left open, and it should be taken together with
+  a decision on the page budget.
+* **`frontmatter/notation.tex` and `ch18-kalman-filter.tex`** - out of scope for
+  this file, as the review notes. The symbol list (x, z, xhat^-, P^-, y, S, K,
+  F, H, Q, R, N_eff, X_i, W^(m), W^(c), lambda, alpha, beta, kappa, wrap and the
+  wrapped-difference operator) is repeated here so it can be handed on.
+
+### What round 1 and round 2 protected, and is unchanged
+
+The three-way EKF/UKF/PF structure and the single running scenario; the shared
+step through `alg:ch19-ekf` and `alg:ch19-ukf` in `tab:ch19-ekf-trace` with the
+0.21 m difference explained by the second-order term; `tab:ch19-rmse` with four
+scenarios, mean and median, the "lost" column and its finding; the systematic-
+resampling sentence; the complete treatment of angles including the 290 m
+pitfall; the log-weight / N_eff / sawtooth story and the occlusion example; both
+proofs; the "conservative here, not exact" clause; the Q(x) pitfall; the Joseph
+form; the enlarged `fig:ch19-linearisation` and `fig:ch19-particles` with legends
+outside the axes; and the decision guide.

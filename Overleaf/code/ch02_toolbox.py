@@ -289,9 +289,9 @@ def tangent_points(p, c, r):
     perp = (-u[1], u[0])                  # u rotated by +90 degrees
     cos_a = r / d                         # angle at the centre
     sin_a = math.sqrt(1.0 - cos_a * cos_a)
-    t_left = add(c, scale(add(scale(u, cos_a), scale(perp, sin_a)), r))
-    t_right = add(c, scale(add(scale(u, cos_a), scale(perp, -sin_a)), r))
-    return t_left, t_right
+    t_plus = add(c, scale(add(scale(u, cos_a), scale(perp, sin_a)), r))
+    t_minus = add(c, scale(add(scale(u, cos_a), scale(perp, -sin_a)), r))
+    return t_plus, t_minus
 
 
 def time_of_closest_approach(p_a, v_a, p_b, v_b, horizon=math.inf):

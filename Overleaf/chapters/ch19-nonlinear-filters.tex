@@ -998,8 +998,9 @@ Gaussian filter. Once they stop, the process noise spreads the particles,
 the map removes those whose noise draws point them into the building, and
 the survivors flow round both sides: at $k = 15$, $68.3\,\%$ of the
 particles are west of the building and $27.8\,\%$ east of it; the remaining
-$4\,\%$ are the ones still level with the building in $x$ but north or
-south of it, not a third hypothesis. The UKF,
+$3.9\,\%$ are still level with the building in $x$, and $3.4\,\%$ of them
+sit inside its footprint carrying weight zero, waiting to be removed by the
+next resampling: they are dead bookkeeping, not a third hypothesis. The UKF,
 whose belief must be one ellipse, carries its mean straight through the
 building, $(-3.0, 61.4)$ at $k = 15$, a point where the intruder cannot be.
 At $k = 20$ the intruder reappears on the west side. The
@@ -1229,15 +1230,6 @@ cloud as the circular mean $\operatorname{atan2}(\sum_i
 w^{(i)}\sin\psi^{(i)}, \sum_i w^{(i)}\cos\psi^{(i)})$. The code centralises
 this in \code{wrap\_angle}, \code{residual} and \code{weighted\_mean}.
 
-\paragraph{Vectorising the particle filter.}
-Store the particles as an $(N, n)$ array and write $f$, $h$ and the
-log-likelihood for arrays of states, so that a step is a handful of NumPy
-calls; systematic resampling is a cumulative sum and one
-\code{searchsorted}. With $N = 2\,000$ this brings a step down to about a
-millisecond, a hundred times faster than a Python loop over particles. Keep
-log-weights, normalise with the log-sum-exp trick, and detect a dead cloud
-(all log-weights $-\infty$) explicitly, restarting the weights flat rather
-than dividing by zero.\index{particle filter!vectorisation}
 \Cref{lst:ch19-pf} shows the resampling and the update of the particle
 filter; \code{sigma\_points} and \code{unscented\_transform} in the same
 file transcribe \cref{alg:ch19-ukf} line by line.
@@ -1279,6 +1271,15 @@ def systematic_resample(weights, rng):
         return self.x, self.P
 \end{lstlisting}
 
+\paragraph{Vectorising the particle filter.}
+Store the particles as an $(N, n)$ array and write $f$, $h$ and the
+log-likelihood for arrays of states, so that a step is a handful of NumPy
+calls; systematic resampling is a cumulative sum and one
+\code{searchsorted}. With $N = 2\,000$ this brings a step down to about a
+millisecond, a hundred times faster than a Python loop over particles. Keep
+log-weights, normalise with the log-sum-exp trick, and detect a dead cloud
+(all log-weights $-\infty$) explicitly, restarting the weights flat rather
+than dividing by zero.\index{particle filter!vectorisation}
 \begin{pitfall}
 \textbf{The Jacobian at the wrong point, and the angle that is not wrapped.}
 $\mat{F}_k$ is the derivative of $f$ at the \emph{previous updated}

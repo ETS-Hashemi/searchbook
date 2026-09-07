@@ -261,7 +261,7 @@ def dwa_command(p, v_a, obstacles, target, prm, goal=None):
     if not adm:
         return braking_candidate(v_a, prm), cands
     best = max(adm, key=lambda c: c.score)
-    if prm.hysteresis > 0.0:   # hysteresis: keep v_a unless clearly beaten
+    if prm.hysteresis > 0.0:   # keep v_a unless beaten by the margin
         for c in adm:
             if np.allclose(c.v, v_a) and c.score >= best.score - prm.hysteresis:
                 return c.v, cands

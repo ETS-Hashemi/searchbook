@@ -237,3 +237,15 @@ a tree whose `build/` holds no other chapter's `.aux`: latexmk stops after one p
 because the pass returns 1 on unresolved cross-chapter references. Running it a second time
 converges and exits 0, with no `!` errors, no undefined citation and no undefined reference of
 this chapter (only `ch:chNN`/`ch:appX`, as expected under `\includeonly`).
+
+**Page count, measured.** The shared `Overleaf/build/` directory is written by several chapter
+builds at once here, and its `.aux` state changes the float packing of this chapter by up to
+half a page from run to run, so the count was settled with a private output directory
+(`latexmk -pdf -outdir=<tmp> -jobname=iso-ch11` on `\includeonly{chapters/ch11-mstar-push-and-swap}`,
+two passes, exit 0). In that deterministic build the chapter is **20 printed pages** and its last
+page is full - the exercises end at the bottom of it, with no five-line tail. Getting the last
+three lines back needed a little more than the two prescribed deletions, all of it wording:
+the coding exercise, `exr:ch11-reexpansion`, `exr:ch11-swap-count`, `exr:ch11-id-groups` and
+`exr:ch11-unsolvable` were tightened without dropping a single part of any of them, and Further
+reading lost six words while keeping every citation. All eight exercises, all their parts, and
+every element the specification asks for are still there.

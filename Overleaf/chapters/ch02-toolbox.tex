@@ -20,30 +20,14 @@
 \section{Why this matters for a drone swarm}
 \label{sec:ch02-motivation}
 
-Picture eight quadrotors inspecting the racks of a warehouse. A global planner has given each of them a route. Halfway through the mission a forklift-mounted drone that nobody planned for crosses the main aisle. To handle this scene, the four layers of \cref{ch:ch24} need a surprising amount of shared vocabulary. The global planner needs a \emph{map} it can search: a graph, usually a grid. It needs to know how \emph{big} a drone is, so that a route through a narrow gap is not a route into a shelf. It needs \emph{time}, because two drones may use the same aisle if they do so at different moments. It needs \emph{cost measures} to compare routes and whole multi-agent plans. The local avoidance layer needs the drone's \emph{motion limits} (how fast, how hard it can brake) and a small kit of \emph{geometry}: when do two moving discs touch, and which velocities steer clear of an obstacle? The prediction layer describes the intruder with a mean and a covariance, so the planner must understand \emph{uncertainty}. Finally, everything has to run in a few milliseconds, which is a question of \emph{computation}: complexity, priority queues and hashing.
+Picture eight quadrotors inspecting the racks of a warehouse. A global planner has given each of them a route. Halfway through the mission a forklift-mounted drone that nobody planned for crosses the main aisle. To handle this scene the four layers of \cref{ch:ch24} need a shared vocabulary. The global planner needs a \emph{map} it can search: a graph, usually a grid. It also needs to know how \emph{big} a drone is, so that a route through a narrow gap is not a route into a shelf.
 
-This chapter collects these tools in one place. It is the only chapter of the book that does not present an algorithm; instead it fixes the definitions and conventions that every later chapter cites by number. Read it once from beginning to end, then come back to it as a reference. \Cref{tab:ch02-roadmap} shows where each tool is used again. Every formal object is introduced in a numbered definition, and every number quoted in the text is produced by the companion file \code{code/ch02\_toolbox.py}.
+It needs \emph{time}, because two drones may use the same aisle if they do so at different moments, and \emph{cost measures} to compare routes and whole multi-agent plans.
 
-\begin{table}[tb]
-\centering\small
-\caption{Where the tools of this chapter are used again. Every later chapter cites at least one definition from here.}
-\label{tab:ch02-roadmap}
-\begin{tabular}{@{}lll@{}}
-\toprule
-Tool & Section & Used again in\\
-\midrule
-Graphs, grids, lattices & \cref{sec:ch02-graphs} & \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06,ch:ch07}\\
-Configuration space, inflation & \cref{sec:ch02-cspace} & \cref{ch:ch04,ch:ch16,ch:ch17,ch:ch24}\\
-Space-time states, paths, plans & \cref{sec:ch02-time} & \cref{ch:ch04,ch:ch07,ch:ch08,ch:ch09,ch:ch10}\\
-Cost measures & \cref{sec:ch02-costs} & \cref{ch:ch07,ch:ch09,ch:ch10,ch:ch25}\\
-Motion models, stopping distance & \cref{sec:ch02-motion} & \cref{ch:ch14,ch:ch18,ch:ch21,ch:ch22}\\
-Geometry toolkit & \cref{sec:ch02-geometry} & \cref{ch:ch12,ch:ch13,ch:ch14,ch:ch16}\\
-Gaussians, covariance, Bayes' rule & \cref{sec:ch02-uncertainty} & \cref{ch:ch18,ch:ch19,ch:ch20}\\
-Big-O, priority queues, hashing & \cref{sec:ch02-computation} & \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch09}\\
-Python stack, code layout & \cref{sec:ch02-python} & every chapter\\
-\bottomrule
-\end{tabular}
-\end{table}
+The local avoidance layer needs the drone's \emph{motion limits} (how fast, how hard it can brake) and a small kit of \emph{geometry}: when do two moving discs touch, and which velocities steer clear of an obstacle? The prediction layer describes the intruder with a mean and a covariance, so the planner must understand \emph{uncertainty}. Finally, everything has to run in a few milliseconds, which is a question of \emph{computation}: complexity, priority queues and hashing.
+
+This chapter collects these tools in one place. It is the only chapter of the book that does not present an algorithm; instead it fixes the definitions and conventions that every later chapter cites by number. Read it once from beginning to end, then come back to it as a reference; the drone box of \cref{sec:ch02-drone} says which layer uses what. Every formal object is introduced in a numbered definition, and every number quoted in the text is produced by the companion file \code{code/ch02\_toolbox.py}.
+
 
 % ---------------------------------------------------------------------
 \section{Graphs, grids and lattices}
@@ -103,7 +87,7 @@ A \textbf{grid}\index{grid} of width $W$ and height $H$ is the set of \textbf{ce
 \begin{figure}[tb]
   \centering
   \inputfigure{ch02/grid-connectivity}
-  \caption{Grid connectivity. (a)~The four straight moves of $G_4$ cost $1$ each. (b)~In $G_8$ the diagonal moves cost $\sqrt{2}$; the move into the obstacle and the two diagonals that would pass its corners are forbidden by the corner-cutting rule. (c)~Why: a disc that slides diagonally past an obstacle corner clips it, even though the start and end cells are free.}
+  \caption{Grid connectivity. (a)~The four straight moves of $G_4$ cost $1$ each. (b)~In $G_8$ the diagonal moves cost $\sqrt{2}$; the move into the obstacle is forbidden because the cell is blocked, and the two diagonals past its corners are forbidden by the corner-cutting rule. (c)~Why: a disc that slides diagonally past an obstacle corner clips it, even though the start and end cells are free.}
   \label{fig:ch02-grid-connectivity}
 \end{figure}
 
@@ -143,7 +127,7 @@ The box rule generalises the two side cells of the plane: a move with two non-ze
 \section{Workspace and configuration space}
 \label{sec:ch02-cspace}
 
-The map lives in the \textbf{workspace}\index{workspace} $\mathcal{W}\subseteq\R^2$ or $\R^3$, the physical space in which obstacles occupy a region $\mathcal{O}\subset\mathcal{W}$. A drone is not a point of this space; it is a body that occupies a region. Planning a route for the point at the centre of the drone and then flying it would scrape every wall. The classical remedy, due to Lozano-P\'erez and presented in every planning textbook \cite{lavalle2006planning,choset2005principles}, is to move the problem into the configuration space.
+The map lives in the \textbf{workspace}\index{workspace} $\mathcal{W}\subseteq\R^2$ or $\R^3$, the physical space in which obstacles occupy a region $\mathcal{O}\subset\mathcal{W}$. A drone is not a point of this space; it is a body that occupies a region. Planning a route for the point at the centre of the drone and then flying it would scrape every wall. The classical remedy, due to \textcite{lozanoperez1983spatial} and presented in every planning textbook \cite{lozanoperez1983spatial,lavalle2006planning,choset2005principles}, is to move the problem into the configuration space.
 
 \begin{definition}[Configuration space, free space, obstacle region]
 \label{def:ch02-configuration-space}
@@ -160,12 +144,12 @@ For a disc-shaped robot of radius $r$ whose orientation does not matter, the con
 
 \begin{definition}[Minkowski sum, inflation]
 \label{def:ch02-minkowski-sum}
-The \textbf{Minkowski sum}\index{Minkowski sum} of two sets $A,B\subseteq\R^n$ is $A\oplus B=\set{\vect{a}+\vect{b} : \vect{a}\in A,\ \vect{b}\in B}$. \textbf{Inflating}\index{obstacle inflation} a set $A$ by the radius $r$ means forming $A\oplus\disc{\vect{0}}{r}=\set{\vect{x} : \dist(\vect{x},A)\le r}$, the set of points within distance $r$ of $A$.
+The \textbf{Minkowski sum}\index{Minkowski sum} of two sets $A,B\subseteq\R^n$ is $A\oplus B=\set{\vect{a}+\vect{b} : \vect{a}\in A,\ \vect{b}\in B}$. \textbf{Inflating}\index{obstacle inflation} a set $A$ by the radius $r$ means forming $A\oplus\disc{\vect{0}}{r}=\set{\vect{x} : \dist(\vect{x},A)\le r}$, the set of points within distance $r$ of $A$. Here $\dist(\vect{x},A)=\inf_{\vect{a}\in A}\norm{\vect{x}-\vect{a}}$ is the Euclidean distance from a point to a set; the same symbol $\dist$ denotes graph distance in \cref{def:ch02-shortest-path} and point-to-segment distance in \cref{def:ch02-point-segment-distance}, and which one is meant is always clear from its arguments.
 \end{definition}
 
 \begin{proposition}[Point-robot planning on the inflated map is exact]
 \label[proposition]{thm:ch02-inflation}
-For a disc (in 3D: a ball) robot of radius $r$ whose configuration is its centre $\pos$,
+For a disc (in 3D: a ball) robot of radius $r$ whose configuration is its centre $\pos$, and a closed obstacle region $\mathcal{O}$,
 \begin{equation}
 \Cobs=\mathcal{O}\oplus\disc{\vect{0}}{r}.
 \label{eq:ch02-inflation}
@@ -206,7 +190,7 @@ A path says \emph{where} to go; a multi-agent plan must also say \emph{when}. Th
 
 \begin{definition}[Space-time state, move and wait actions]
 \label{def:ch02-space-time-state}
-Fix a graph $G=(V,E)$ and a time step $\dt>0$. A \textbf{space-time state}\index{space-time state} is a pair $(v,t)$ with $v\in V$ and $t\in\N=\set{0,1,2,\dots}$; it means ``the agent is at vertex $v$ at time $t\,\dt$''. Two kinds of \textbf{actions} lead from $(v,t)$ to time $t+1$: a \textbf{move}\index{move action} along an edge $(v,v')\in E$ leads to $(v',t+1)$, and the \textbf{wait action}\index{wait action} leads to $(v,t+1)$. The move costs $c(v,v')$ and the wait costs $c_{\text{wait}}$; in the unit-cost problems of \cref{ch:ch07}, every action costs $1$.
+Fix a graph $G=(V,E)$ and a time step $\dt>0$. A \textbf{space-time state}\index{space-time state} is a pair $(v,t)$ with $v\in V$ and $t\in\N=\set{0,1,2,\dots}$; it means ``the agent is at vertex $v$ at time $t\,\dt$''. Two kinds of \textbf{actions} lead from $(v,t)$ to time $t+1$: a \textbf{move}\index{move action} along an edge $(v,v')\in E$ leads to $(v',t+1)$, and the \textbf{wait action}\index{wait action} leads to $(v,t+1)$. The move costs $c(v,v')$ and the wait costs $c_{\text{wait}}>0$; in the unit-cost problems of \cref{ch:ch07}, every action costs $1$. The wait cost must be positive: a free wait lets a search postpone progress forever on an unbounded horizon.
 \end{definition}
 
 Space-time states are the reason why a planner can let two agents share a corridor: the states $(v,3)$ and $(v,7)$ are different vertices of the graph below, so occupying one does not block the other.
@@ -535,7 +519,7 @@ $D(t)^2=\norm{\pos}^2+2t\,(\pos\cdot\vel)+t^2\norm{\vel}^2$ is a parabola in $t$
 Drone $A$ is at the origin and flies along the $x$-axis at $1$~m/s; drone $B$ is at $(4,2)$ and flies straight down at $1$~m/s. Then $\pos=(4,2)$ and $\vel=(0,-1)-(1,0)=(-1,-1)$. From \cref{eq:ch02-tca}, $t^*=-(\pos\cdot\vel)/(\vel\cdot\vel)=-(-6)/2=3$~s and $d_{\min}=\abs{\pos\times\vel}/\norm{\vel}=\abs{4\cdot(-1)-2\cdot(-1)}/\sqrt2=2/\sqrt2=\sqrt2\approx1.414$~m. If both drones have radius $0.75$~m, the collision distance is $R=1.5>\sqrt2$, and \cref{eq:ch02-ttc} gives the first contact at $t_c=3-\sqrt{2.25-2}/\sqrt2\approx2.646$~s. If both have radius $0.5$~m then $R=1<\sqrt2$ and they pass each other safely. The toolbox functions \code{time\_of\_closest\_approach} and \code{time\_to\_collision} return exactly these numbers; \cref{fig:ch02-closest-approach} draws the situation.
 \end{example}
 
-Three remarks close the toolkit. First, the time to collision is a ray--circle intersection in the relative frame: \code{time\_to\_collision} in the toolbox is a one-line call to \code{ray\_circle\_intersection} with $\vect{o}=\pos$, $\vect{d}=\vel$ and the disc $\disc{\vect{0}}{R}$; the set of relative velocities for which that ray hits the disc is the cone of \cref{thm:ch02-tangents}, and that cone is the velocity obstacle of \cref{ch:ch12}. Second, a horizon $\ttc$ turns ``will they ever collide?'' into ``will they collide within the next $\ttc$ seconds?'', which is the question the safety layer of \cref{ch:ch24} asks; the toolbox clamps $t^*$ to $[0,\ttc]$. Third, everything in this section carries over to three dimensions without change, except that the cross product becomes a vector (use its norm in \cref{eq:ch02-tca}) and the two tangent lines become a tangent cone with the same half-angle $\theta=\arcsin(r/d)$.
+Two remarks close the toolkit. First, a horizon $\ttc$ turns ``will they ever collide?'' into ``will they collide within the next $\ttc$ seconds?'', which is the question the safety layer of \cref{ch:ch24} asks; the toolbox clamps $t^*$ to $[0,\ttc]$. Second, everything in this section carries over to three dimensions without change, except that the cross product becomes a vector (use its norm in \cref{eq:ch02-tca}) and the two tangent lines become a tangent cone with the same half-angle $\theta=\arcsin(r/d)$.
 
 % ---------------------------------------------------------------------
 \section{Uncertainty: random vectors, Gaussians and Bayes' rule}
@@ -629,7 +613,7 @@ where $p(\state)$ is the \textbf{prior}\index{Bayes' rule} (what you believed be
 For functions $f,g\colon\N\to[0,\infty)$ we write $f(n)=\bigO{g(n)}$\index{big-O notation} if there are constants $c>0$ and $n_0$ such that $f(n)\le c\,g(n)$ for all $n\ge n_0$. The running time of a search is expressed in the sizes of its input: the numbers of vertices $\abs{V}$ and edges $\abs{E}$, the branching factor $b$, the horizon $T$, the number of agents $k$.
 \end{definition}
 
-Big-O hides constants, and in \python the constants are large: a loop iteration costs about a hundred nanoseconds, a NumPy operation on a whole array costs about the same per element but with a hundredfold smaller constant. \Cref{tab:ch02-operations} lists the operations that the book's code relies on. Two of them deserve a closer look, because getting them wrong turns an $\bigO{n\log n}$ search into an $\bigO{n^2}$ one.
+Big-O hides constants, and in \python the constants are large: a loop iteration costs about a hundred nanoseconds, while NumPy does the same work per element roughly a hundred times faster, because the loop runs in C. \Cref{tab:ch02-operations} lists the operations that the book's code relies on. Two of them deserve a closer look, because getting them wrong turns an $\bigO{n\log n}$ search into an $\bigO{n^2}$ one.
 
 \begin{table}[tb]
 \centering\small
@@ -662,7 +646,7 @@ Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a
 \caption{Priority queue with lazy deletion}
 \label{alg:ch02-lazypq}
 \KwData{binary heap $H$ of triples $(\key,\text{counter},\text{item})$; dictionary $\mathit{best}$ mapping items to their best pushed key; counter $c$}
-\Fn{\ToolboxLazyPush{$\text{item}$, $\key$}}{
+\Fn{\ToolboxLazyPush{$\key$, $\text{item}$}}{
   \If{$\text{item}\in\mathit{best}$ \KwAnd $\mathit{best}[\text{item}]\le\key$}{\KwRet{}\tcp*{no improvement: ignore}}
   $\mathit{best}[\text{item}]\gets\key$; $c\gets c+1$\label{alg:ch02-lazypq:best}\;
   push $(\key,c,\text{item})$ onto $H$\tcp*{duplicates are allowed}
@@ -670,7 +654,7 @@ Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a
 \Fn{\ToolboxLazyPop{}}{
   \While{$H$ is not empty}{
     $(\key,\cdot,\text{item})\gets$ pop the minimum of $H$\label{alg:ch02-lazypq:pop}\;
-    \If{$\mathit{best}[\text{item}]=\key$}{
+    \If{$\text{item}\in\mathit{best}$ \KwAnd $\mathit{best}[\text{item}]=\key$}{
       delete $\mathit{best}[\text{item}]$; \KwRet{$(\key,\text{item})$}\;
     }
     \tcp{otherwise the entry is stale: a better key was pushed later}
@@ -679,7 +663,7 @@ Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a
 }
 \end{algorithm}
 
-Line~\ref{alg:ch02-lazypq:best} of \cref{alg:ch02-lazypq} records the best key of each item, which is what makes a stale entry recognisable at line~\ref{alg:ch02-lazypq:pop}: an entry is stale exactly when its key differs from the recorded best key (or the item has already been popped). Each push costs $\bigO{\log n}$, each pop costs $\bigO{\log n}$ plus one extra pop per stale entry it skips; since every entry is popped at most once, the total cost of a search with $P$ pushes is $\bigO{P\log P}$. A search that relaxes every edge once pushes at most $\abs{E}$ entries, so the heap can hold $\abs{E}$ rather than $\abs{V}$ entries; because $\log\abs{E}\le2\log\abs{V}$, the asymptotic bound of the search is unchanged. Two equivalent variants appear in the literature: some codes compare the popped key with the vertex's current $\gcost$ instead of a separate dictionary, and some skip a popped vertex if it is already in the closed set. All three do the same thing; the toolbox version also counts pushes and stale pops so that you can watch the overhead in the exercises.
+Line~\ref{alg:ch02-lazypq:best} of \cref{alg:ch02-lazypq} records the best key of each item, which is what makes a stale entry recognisable at line~\ref{alg:ch02-lazypq:pop}: an entry is stale exactly when its key differs from the recorded best key. Each push costs $\bigO{\log n}$, each pop costs $\bigO{\log n}$ plus one extra pop per stale entry it skips; since every entry is popped at most once, the total cost of a search with $P$ pushes is $\bigO{P\log P}$. A search that relaxes every edge once pushes at most $\abs{E}$ entries, so the heap can hold $\abs{E}$ rather than $\abs{V}$ entries; because $\log\abs{E}\le2\log\abs{V}$, the asymptotic bound of the search is unchanged. Two variants appear in the literature: some codes compare the popped key with the vertex's current $\gcost$ instead of a separate dictionary, and some skip a popped vertex if it is already in the closed set. The first two are equivalent to the version above. The closed-set variant differs: because a popped item is removed from $\mathit{best}$, \cref{alg:ch02-lazypq} re-opens a node when a strictly better key arrives later, while a closed set never does. The two agree whenever the heuristic is consistent (\cref{ch:ch04}); with an inconsistent heuristic the closed-set variant must reopen nodes explicitly to stay optimal. The toolbox version also counts pushes and stale pops so that you can watch the overhead in the exercises.
 
 \paragraph{Hashing states.}
 The dictionaries of a search ($\gcost$-values, parents, the closed set, the best keys of the queue) need hashable keys. In this book a state is always a tuple of integers, such as \code{(x, y)} for a grid cell, \code{((x, y), t)} for a space-time state, or \code{(x, y, z)} for a lattice cell. Tuples of integers hash in constant time, compare quickly and cost about a hundred bytes each. Continuous states, as in \cref{ch:ch16,ch:ch17}, are \emph{not} hashed; they live in arrays and are searched with a KD-tree. If you must key a dictionary by a continuous quantity, round it to a resolution first.
@@ -689,7 +673,7 @@ The dictionaries of a search ($\gcost$-values, parents, the closed set, the best
 \end{pitfall}
 
 \paragraph{Why dictionaries are enough.}
-The largest instances in this book are grids of about $100\times100$ cells with horizons of about $100$ steps, i.e.\ $10^6$ space-time states, and swarms of a few dozen agents. A \python dictionary holding $10^6$ tuple keys occupies about $150$~MB and is filled in a few seconds; a search touches far fewer states than that. This is why no chapter uses a specialised data structure for its closed set, and why the code prefers clarity over speed. Where speed matters in research code, the usual remedies are to encode a state as a single integer $x+W(y+Ht)$, to store $\gcost$-values in a NumPy array indexed by that integer, and eventually to move the inner loop to a compiled language.
+The largest instances in this book are grids of about $100\times100$ cells with horizons of about $100$ steps, i.e.\ $10^6$ space-time states, and a \python dictionary holding $10^6$ tuple keys occupies about $150$~MB and is filled in a few seconds. A search touches far fewer states than that, which is why no chapter uses a specialised data structure for its closed set, why the code prefers clarity over speed, and why \cref{ch:ch25} is the place where faster encodings are discussed.
 
 % ---------------------------------------------------------------------
 \section{The Python stack and the code of the book}
@@ -713,16 +697,9 @@ PyBullet, gym-pybullet-drones \cite{panerati2021learning} & optional & physics s
 \end{tabularx}
 \end{table}
 
-The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, listed in \cref{tab:ch02-stack}. Every algorithm is implemented with \python and NumPy alone; SciPy appears only for the optimisation problems of Part~VII. The code is organised as follows.
+The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, listed in \cref{tab:ch02-stack}. Every algorithm is implemented with \python and NumPy alone; SciPy appears only for the optimisation problems of Part~VII. The code is one file per chapter, \code{Overleaf/code/chNN\_slug.py} (\code{ch02\_toolbox.py} here, \code{ch04\_astar.py} for \astar), self-contained apart from NumPy and the occasional import from an earlier chapter, and ending in an \code{if \_\_name\_\_ == "\_\_main\_\_":} block that runs a self-test of \code{assert} statements in a few seconds; every number quoted in a worked example comes from running it. Figures whose content is computed---a trajectory, a set of samples, a benchmark---are produced by scripts \code{Overleaf/code/figures/gen\_chNN\_slug.py} with fixed random seeds, which write whitespace-separated data files into \code{Overleaf/figures/data/} for the TikZ figure to read.
 
-\begin{itemize}
-  \item One file per chapter, \code{Overleaf/code/chNN\_slug.py}, e.g.\ \code{ch02\_toolbox.py} for this chapter and \code{ch04\_astar.py} for \astar. Each file is self-contained apart from NumPy and, where useful, an import from an earlier chapter's file.
-  \item Each file ends with \code{if \_\_name\_\_ == "\_\_main\_\_":}, which runs a self-test made of \code{assert} statements against hand-computed values. Run it with \code{python3 code/ch02\_toolbox.py} from the \code{Overleaf} directory; it must finish in seconds and print that the test passed. The numbers quoted in the worked examples of every chapter come from these files.
-  \item Figures whose content is computed (a trajectory, a set of samples, a benchmark) are produced by scripts \code{Overleaf/code/figures/gen\_chNN\_slug.py} that write whitespace-separated data files to \code{Overleaf/figures/data/}; the TikZ figure reads the data file. The scripts use fixed random seeds, so that the figures are reproducible.
-  \item Positions in the geometry functions are plain tuples, so that they can be dictionary keys and are cheap to create; the linear-algebra functions use NumPy arrays. ASCII maps use \code{.} for a free cell and \code{\#} for an obstacle, with the top row first.
-\end{itemize}
-
-\Cref{lst:ch02-grid-neighbors} shows the successor function of the toolbox grid, the one function that the searches of \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06} call most often; note the corner-cutting test and the two edge costs of \cref{def:ch02-grid}. \Cref{lst:ch02-geometry} shows the geometry of \cref{thm:ch02-tangents,thm:ch02-closest-approach}, and \cref{lst:ch02-lazypq} the priority queue of \cref{alg:ch02-lazypq}.
+\Cref{lst:ch02-grid-neighbors} shows the successor function of the toolbox grid, the one function that the searches of \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06} call most often; note the corner-cutting test and the two edge costs of \cref{def:ch02-grid}. \Cref{lst:ch02-geometry} shows the tangent construction of \cref{thm:ch02-tangents}; beside it in the same file, \code{time\_of\_closest\_approach} transcribes \cref{eq:ch02-tca} and \code{time\_to\_collision} is a one-line call to \code{ray\_circle\_intersection} in the relative frame. The class \code{LazyPQ} in \code{code/ch02\_toolbox.py} implements \cref{alg:ch02-lazypq} line for line, and counts its pushes and stale pops.
 
 \begin{lstlisting}[caption={The successor function of the grid (from \code{code/ch02\_toolbox.py}).},label={lst:ch02-grid-neighbors}]
     def neighbors(self, cell):
@@ -744,7 +721,7 @@ The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, lis
         return result
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Tangent points, time of closest approach and time to collision (from \code{code/ch02\_toolbox.py}).},label={lst:ch02-geometry}]
+\begin{lstlisting}[caption={The tangent points of \cref{thm:ch02-tangents} (from \code{code/ch02\_toolbox.py}).},label={lst:ch02-geometry}]
 def tangent_points(p, c, r):
     """The two points where the tangent lines from p touch the circle
     (c, r), or None if p lies on or inside the circle."""
@@ -756,64 +733,9 @@ def tangent_points(p, c, r):
     perp = (-u[1], u[0])                  # u rotated by +90 degrees
     cos_a = r / d                         # angle at the centre
     sin_a = math.sqrt(1.0 - cos_a * cos_a)
-    t_left = add(c, scale(add(scale(u, cos_a), scale(perp, sin_a)), r))
-    t_right = add(c, scale(add(scale(u, cos_a), scale(perp, -sin_a)), r))
-    return t_left, t_right
-
-
-def time_of_closest_approach(p_a, v_a, p_b, v_b, horizon=math.inf):
-    """Time t* in [0, horizon] at which two constant-velocity objects are
-    closest, and their distance at that time."""
-    p = sub(p_b, p_a)                     # relative position
-    v = sub(v_b, v_a)                     # relative velocity
-    vv = dot(v, v)
-    t = 0.0 if vv == 0.0 else -dot(p, v) / vv
-    t = max(0.0, min(horizon, t))
-    return t, norm(add(p, scale(v, t)))
-
-
-def time_to_collision(p_a, v_a, r_a, p_b, v_b, r_b):
-    """First time t >= 0 at which two constant-velocity discs touch, or
-    None.  This is a ray-circle test in the relative frame."""
-    return ray_circle_intersection(sub(p_b, p_a), sub(v_b, v_a),
-                                   (0.0, 0.0), r_a + r_b)
-\end{lstlisting}
-
-\begin{lstlisting}[caption={The lazy-deletion priority queue (from \code{code/ch02\_toolbox.py}).},label={lst:ch02-lazypq}]
-class LazyPQ:
-    """Binary-heap priority queue with lazy deletion.
-
-    ``push`` never searches the heap: a better key for a known item is
-    simply pushed as a second entry.  ``pop`` discards entries whose key
-    is no longer the item's best key (they are 'stale').  Ties are broken
-    by insertion order, so items themselves are never compared.
-    """
-
-    def __init__(self):
-        self._heap = []
-        self._best = {}                   # item -> best key pushed so far
-        self._counter = itertools.count()
-        self.pushes = 0
-        self.stale_pops = 0
-
-    def push(self, key, item):
-        """Insert ``item`` with ``key``; ignored unless ``key`` improves."""
-        if item in self._best and self._best[item] <= key:
-            return False
-        self._best[item] = key
-        heapq.heappush(self._heap, (key, next(self._counter), item))
-        self.pushes += 1
-        return True
-
-    def pop(self):
-        """Remove and return (key, item) with the smallest key."""
-        while self._heap:
-            key, _, item = heapq.heappop(self._heap)
-            if self._best.get(item) == key:
-                del self._best[item]
-                return key, item
-            self.stale_pops += 1          # stale entry: skip it
-        raise IndexError("pop from an empty LazyPQ")
+    t_plus = add(c, scale(add(scale(u, cos_a), scale(perp, sin_a)), r))
+    t_minus = add(c, scale(add(scale(u, cos_a), scale(perp, -sin_a)), r))
+    return t_plus, t_minus
 \end{lstlisting}
 
 % ---------------------------------------------------------------------
@@ -840,7 +762,7 @@ Each of the four layers of the hybrid architecture in \cref{ch:ch24} is built fr
 \end{summary}
 
 \paragraph{Further reading.}
-Graphs, shortest paths, heaps and big-O notation are covered in \textcite{cormen2009clrs}, and the search view of planning in \textcite{russell2020aima}. Configuration space, Minkowski sums, holonomic and non-holonomic systems and motion models are the subject of \textcite{lavalle2006planning} and \textcite{choset2005principles}; the latter also contains the geometry of distance computations. The definitions of time-indexed paths, makespan and sum of costs follow \textcite{stern2019mapf}. The velocity-obstacle construction that motivates the tangent-line and closest-approach primitives is due to \textcite{fiorini1998motion}. Gaussians, covariance ellipses and Bayes' rule in the form used by tracking are treated in \textcite{thrun2005probabilistic}. For the quadrotor as a double integrator and differential flatness see \textcite{mellinger2011minimum}; for the simulation stack see \textcite{panerati2021learning}.
+Graphs, shortest paths, heaps and big-O notation are covered in \textcite{cormen2009clrs}, and the search view of planning in \textcite{russell2020aima}. The configuration-space construction and the inflation of \cref{thm:ch02-inflation} go back to \textcite{lozanoperez1983spatial}. Configuration space, Minkowski sums, holonomic and non-holonomic systems and motion models are the subject of \textcite{lavalle2006planning} and \textcite{choset2005principles}; the latter also contains the geometry of distance computations. The definitions of time-indexed paths, makespan and sum of costs follow \textcite{stern2019mapf}. The velocity-obstacle construction that motivates the tangent-line and closest-approach primitives is due to \textcite{fiorini1998motion}. Gaussians, covariance ellipses and Bayes' rule in the form used by tracking are treated in \textcite{thrun2005probabilistic}. For the quadrotor as a double integrator and differential flatness see \textcite{mellinger2011minimum}; for the simulation stack see \textcite{panerati2021learning}.
 
 % ---------------------------------------------------------------------
 \section{Exercises}
@@ -858,15 +780,15 @@ Suppose a diagonal move cost $1$ instead of $\sqrt2$. Give a start and goal on a
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch02-inflation}
-A single cell of a large grid is blocked. Using the cell-centre rule of \code{Grid.inflate}, determine by hand which cells are blocked after inflating by $r=0.6$, $r=1.0$ and $r=1.6$, and confirm the counts $5$, $9$ and $21$. At which values of $r$ does the count change next? Compare the blocked area with the area $\pi(r+\tfrac12)^2$ of the exact Minkowski sum of a square and a disc for large $r$.
+A single cell of a large grid is blocked. Using the cell-centre rule of \code{Grid.inflate}, determine by hand which cells are blocked after inflating by $r=0.6$, $r=1.0$ and $r=1.6$, and confirm the counts $5$, $9$ and $21$. At which values of $r$ does the count change next? Compare the blocked-cell count with the area $1+4r+\pi r^2$ of the exact Minkowski sum of the unit square with the disc of radius $r$, and check that the ratio tends to $1$.
 \end{exercise}
 
-\begin{exercise}[\difficulty{2}]
+\begin{exercise}[\difficulty{3}]
 \label{exr:ch02-time-expanded}
 Let $G=(V,E)$ be undirected. Show that its time-expanded graph with horizon $T$ has $\abs{V}(T+1)$ vertices and $T(\abs{V}+2\abs{E})$ edges, that it is acyclic, and that its paths from $(s,0)$ to $(g,T)$ correspond one-to-one to the time-indexed paths of \cref{def:ch02-time-indexed-path} of length $T$.
 \end{exercise}
 
-\begin{exercise}[\difficulty{2}]
+\begin{exercise}[\difficulty{3}]
 \label{exr:ch02-costs}
 Compute the makespan and the sum of costs of the plan in \cref{ex:ch02-costs}. Then construct an instance with three agents on a corridor in which the plan with the smallest makespan does not have the smallest sum of costs, and vice versa, and prove that no plan is optimal for both objectives.
 \end{exercise}
