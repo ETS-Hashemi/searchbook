@@ -196,7 +196,9 @@ def solve_qp(H, f, G, l, u, z0=None, y0=None, rho=0.1, sigma=1e-6, alpha=1.6,
             r_dual = _norm_inf(Hz + f + Gty)
             s_prim = max(_norm_inf(Gz), _norm_inf(w), 1e-12)
             s_dual = max(_norm_inf(Hz), _norm_inf(Gty), f_norm, 1e-12)
-            if r_prim <= eps_abs + eps_rel * s_prim and r_dual <= eps_abs + eps_rel * s_dual:
+            ok_prim = r_prim <= eps_abs + eps_rel * s_prim
+            ok_dual = r_dual <= eps_abs + eps_rel * s_dual
+            if ok_prim and ok_dual:
                 status = "solved"
                 break
             if _primal_infeasible(G, l, u, y - y_check):
@@ -304,14 +306,15 @@ class MPC:
         rows.append(self.Su[vidx])
         lo.append(-self.v_max - free[vidx])
         up.append(self.v_max - free[vidx])
-        # (3) one linearised half-plane per obstacle and step (softened below)
-        avoid_rows, avoid_lo, avoid_up, avoid_k, normals = [], [], [], [], []
+        # (3) one linearised half-plane per obstacle and step
+        avoid_rows, avoid_lo, avoid_up = [], [], []
+        avoid_k, normals = [], []
         for obs in obstacles:
             for k in range(N):
                 pk = self.pos_idx[k]
                 d = X_guess[pk] - obs.centres[k]
                 dist = float(np.linalg.norm(d))
-                if dist < 1e-9:                          # guess on the centre: use the reference
+                if dist < 1e-9:      # on the centre: use the reference
                     d = xref[pk] - obs.centres[k]
                     dist = float(np.linalg.norm(d))
                 if dist < 1e-9:
@@ -319,12 +322,14 @@ class MPC:
                     dist = 1.0
                 nk = d / dist
                 radius = obs.radius
-                if obs.covs is not None and self.kappa > 0.0:      # chance constraint
-                    radius += self.kappa * math.sqrt(float(nk @ obs.covs[k] @ nk))
-                # nk'(p_k - o_k) >= radius  <=>  -nk' Su_k U <= nk'(free_k - o_k) - radius
+                if obs.covs is not None and self.kappa > 0.0:  # chance
+                    sig = math.sqrt(float(nk @ obs.covs[k] @ nk))
+                    radius += self.kappa * sig
+                # nk'(p_k - o_k) >= radius, written as a row in U
+                bound = float(nk @ (free[pk] - obs.centres[k])) - radius
                 avoid_rows.append(-nk @ self.Su[pk])
                 avoid_lo.append(-INF)
-                avoid_up.append(float(nk @ (free[pk] - obs.centres[k])) - radius)
+                avoid_up.append(bound)
                 avoid_k.append(k)
                 normals.append(nk)
         # (4) polygonal keep-in constraints  n_m'(p_k - c_k) <= radius cos(pi/M)

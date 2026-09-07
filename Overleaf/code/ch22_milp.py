@@ -275,6 +275,15 @@ class MilpModel:
                     row[p] = -1.0                # g - p <= Mg (1 - sum y)
                     self.add_row(row, -np.inf, -veh.goal[d] + Mg)
 
+    def groups(self):
+        """The either-or groups: four binaries whose sum is at most 3."""
+        inst = self.inst
+        groups = [[self.b(i, o, k, j) for j in range(4)]
+                  for (i, o) in self.b_off for k in range(1, inst.horizon + 1)]
+        groups += [[self.cpair(p, k, j) for j in range(4)]
+                   for p in self.pairs for k in range(1, inst.horizon + 1)]
+        return groups
+
     # -- solving -----------------------------------------------------------
     def matrix(self):
         return coo_matrix((self.vals, (self.rows, self.cols)),
@@ -375,7 +384,12 @@ def branch_and_bound(model, max_nodes=500, tol=1e-6):
 
     Every trace entry is a dict with the node id, its parent, the branching
     decision that created it, the LP relaxation value and the action taken.
+    Before the branching variable is chosen, the harmless binaries are
+    rounded up: in an either-or group whose sum is at most 3, a binary that
+    is already 0 certifies the disjunction, so the other three may be set
+    to 1 without changing feasibility or cost (they have zero cost).
     """
+    groups = model.groups()
     bin_idx = np.flatnonzero(model.integrality)
     best_val, best_x, trace = np.inf, None, []
     counter = itertools.count()
@@ -386,7 +400,7 @@ def branch_and_bound(model, max_nodes=500, tol=1e-6):
         node_id += 1
         entry = {"node": node_id, "parent": parent, "decision": decision}
         if bound >= best_val - tol:
-            entry.update(lp=bound, action="pruned by bound (before solving)")
+            entry.update(lp=bound, action="pruned by bound (parent bound)")
             trace.append(entry)
             continue
         sol = model.solve(lb=lb, ub=ub, relax=True)
@@ -394,12 +408,16 @@ def branch_and_bound(model, max_nodes=500, tol=1e-6):
             entry.update(lp=np.inf, action="infeasible")
             trace.append(entry)
             continue
-        frac = np.abs(sol.x[bin_idx] - np.round(sol.x[bin_idx]))
+        x = sol.x.copy()
+        for g in groups:                       # round up the harmless binaries
+            if x[g].min() <= tol:
+                x[g] = np.where(x[g] > tol, 1.0, 0.0)
+        frac = np.abs(x[bin_idx] - np.round(x[bin_idx]))
         entry["lp"] = sol.objective
         if sol.objective >= best_val - tol:
             entry["action"] = "pruned by bound"
         elif frac.max() <= tol:
-            best_val, best_x = sol.objective, sol.x.copy()
+            best_val, best_x = sol.objective, x
             entry["action"] = "integral: new incumbent"
         else:
             j = bin_idx[int(np.argmax(-np.abs(frac - 0.5)))]   # most fractional
@@ -416,11 +434,7 @@ def branch_and_bound(model, max_nodes=500, tol=1e-6):
 
 def brute_force(model):
     """Optimum by enumerating, for every either-or group, which side holds."""
-    inst = model.inst
-    groups = [[model.b(i, o, k, j) for j in range(4)]
-              for (i, o) in model.b_off for k in range(1, inst.horizon + 1)]
-    groups += [[model.cpair(p, k, j) for j in range(4)]
-               for p in model.pairs for k in range(1, inst.horizon + 1)]
+    groups = model.groups()
     assert 4 ** len(groups) <= 5000, "instance too large for brute force"
     best = np.inf
     for choice in itertools.product(range(4), repeat=len(groups)):
@@ -551,13 +565,16 @@ def self_test():
     assert abs(bb_val - bf_val) < 1e-6
     print("  tiny positions:", np.round(tsol.positions[0], 3).tolist())
     print("  tiny inputs:", np.round(tsol.inputs[0], 3).tolist())
-    # 4. a huge M lets the solver cut through the obstacle
-    for big_m in (None, 1e4, 1e6, 1e8):
-        _, sol_m = solve_instance(tiny, big_m=big_m)
-        v = check_solution(tiny, sol_m) if sol_m.x is not None else None
-        print("  big_m %-8s objective %.4f  obstacle penetration %.2e" % (
-            "tight" if big_m is None else "%.0e" % big_m, sol_m.objective,
-            v["obstacle"] if v else float("nan")))
+    # 4. the effect of the big-M value on the two-vehicle instance
+    for big_m in (None, 1e2, 1e4, 1e6):
+        _, sol_m = solve_instance(inst, big_m=big_m)
+        v = check_solution(inst, sol_m) if sol_m.x is not None else None
+        print("  big_m %-6s status %d objective %.4f  %.3f s  %4d nodes  "
+              "obstacle %.1e  separation %.1e" % (
+                  "tight" if big_m is None else "%.0e" % big_m, sol_m.status,
+                  sol_m.objective, sol_m.solve_time, sol_m.nodes,
+                  v["obstacle"] if v else float("nan"),
+                  v["separation"] if v else float("nan")))
     print("self-test passed in %.1f s" % (time.perf_counter() - t_all))
 
 

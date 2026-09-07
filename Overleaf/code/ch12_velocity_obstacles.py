@@ -280,7 +280,12 @@ def choose_velocity(agent, others, tau, dt, samples=None, penalty=1.0):
             continue
         p_rel = sub(other.position, agent.position)
         v_rel = cand - np.asarray(other.velocity, dtype=float)
-        tc = np.minimum(tc, ttc_batch(p_rel, v_rel, agent.radius + other.radius))
+        radius = agent.radius + other.radius
+        if norm(p_rel) <= radius:            # already overlapping: forbid
+            tc_j = np.where(v_rel @ np.asarray(p_rel) > 0.0, 0.0, np.inf)
+        else:                                # every closing velocity
+            tc_j = ttc_batch(p_rel, v_rel, radius)
+        tc = np.minimum(tc, tc_j)
     dist = np.linalg.norm(cand - np.asarray(v_pref), axis=1)
     feasible = (tc > tau) | np.isinf(tc)
     if feasible.any():

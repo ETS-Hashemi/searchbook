@@ -76,7 +76,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [~] 2.20 Ch 20 Trajectory Prediction (constant-velocity baselines, LSTM, Transformers, ADE/FDE, uncertainty) — drafted on Fable (24 pp, 1571 lines, compiles); Opus review in progress
 
 ### Part VII — Optimization and Control
-- [ ] 2.21 Ch 21 Model Predictive Control (receding horizon, constraints, QP formulation, collision constraints)
+- [~] 2.21 Ch 21 Model Predictive Control (receding horizon, constraints, QP formulation, collision constraints) — drafted on Fable (22 pp, compiles); Opus review in progress
 - [ ] 2.22 Ch 22 MILP for Planning (big-M obstacle avoidance, scheduling, when it is too expensive)
 - [ ] 2.23 Ch 23 Consensus and Formation Control (graph Laplacian, consensus protocol, formation error, communication radius)
 

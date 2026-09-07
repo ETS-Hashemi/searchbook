@@ -157,7 +157,7 @@ discs, which are convex but not linear. Throughout this chapter we replace
 them by the per-axis boxes $\abs{u_{k,i}}\le a_{\max}$ and $\abs{v_{k,i}}\le
 v_{\max}$, which are linear; if you need the disc exactly, use a box of
 half-width $a_{\max}/\sqrt{2}$ (which lies inside the disc) or the inscribed
-polygon of \cref{prop:ch21-polygon} below. Time is indexed by $k$
+polygon of \cref{thm:ch21-polygon} below. Time is indexed by $k$
 \emph{within} the horizon ($k=0$ is now, $k=N$ is the end of the window) and
 by $t$ in the closed loop.
 
@@ -231,8 +231,8 @@ Constraint & Form & Convex & In the QP & Hard/soft\\
 Input limit & $\abs{u_{k,i}}\le a_{\max}$ & yes & box on $\mat{U}$ & hard\\
 Velocity limit & $\abs{v_{k,i}}\le v_{\max}$ & yes & box on $\mat{S}_u^{v}\mat{U}$ & hard\\
 Avoidance & $\norm{\pos_k-\hat{\vect{o}}_k}\ge r_k$ & no & half-plane per step, \cref{def:ch21-halfplane} & soft\\
-Formation & $\norm{\pos_k^{i}-\pos_k^{j}-\vect{d}_{ij}}\le e_{\max}$ & yes & polygon, \cref{prop:ch21-polygon} & soft\\
-Communication & $\norm{\pos_k^{i}-\pos_k^{j}}\le R_{\mathrm{comm}}$ & yes & polygon, \cref{prop:ch21-polygon} & soft\\
+Formation & $\norm{\pos_k^{i}-\pos_k^{j}-\vect{d}_{ij}}\le e_{\max}$ & yes & polygon, \cref{thm:ch21-polygon} & soft\\
+Communication & $\norm{\pos_k^{i}-\pos_k^{j}}\le R_{\mathrm{comm}}$ & yes & polygon, \cref{thm:ch21-polygon} & soft\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -280,7 +280,7 @@ at step $k$ is the half-plane
 \end{figure}
 
 \begin{proposition}[The half-plane is conservative]
-\label{prop:ch21-halfplane}
+\label{thm:ch21-halfplane}
 Every $\pos_k$ that satisfies \cref{eq:ch21-halfplane} satisfies
 $\norm{\pos_k-\hat{\vect{o}}_k}\ge r_k$.
 \end{proposition}
@@ -314,7 +314,7 @@ constraint is convex in $\pos_k^{i}$ alone. A disc is still not linear, and
 we approximate it from inside by a polygon.
 
 \begin{proposition}[Inscribed polygon]
-\label{prop:ch21-polygon}
+\label{thm:ch21-polygon}
 Let $\vect{n}_1,\dots,\vect{n}_M$ be the unit vectors at angles $2\pi m/M$ and
 $e>0$. If $\vect{n}_m\T(\pos-\vect{c})\le e\cos(\pi/M)$ for all $m$, then
 $\norm{\pos-\vect{c}}\le e$.
@@ -356,7 +356,7 @@ g_k(\vect{z})\le s_k,\qquad s_k\ge0,\qquad
 with a \textbf{slack variable}\index{slack variable} $s_k$ and penalty
 weights $w_1,w_2\ge0$. The program is then always feasible, and when the hard
 version is feasible and $w_1$ is large enough, the soft version returns the
-same solution with all slacks at zero (\cref{prop:ch21-exact}). When it is
+same solution with all slacks at zero (\cref{thm:ch21-exact}). When it is
 not, the solver returns the input that violates the constraints \emph{least},
 in the sense of the penalty, which is exactly what a drone should do when a
 collision can no longer be ruled out: minimise the damage rather than give up.
@@ -706,7 +706,7 @@ neighbouring steps are nearly parallel and the drone slides along the disc
 for two steps. Second, the multipliers stay between $14$ and $19$ while the
 constraint is active. This number is the price, in units of the cost, of one
 more metre of clearance, and it is the number that decides how large the slack
-weight $w_1$ of a soft constraint must be (\cref{prop:ch21-exact}): with
+weight $w_1$ of a soft constraint must be (\cref{thm:ch21-exact}): with
 $w_1=50$ the soft controller reproduces this trajectory to the millimetre,
 with $w_1=1$ it cuts into the disc (\cref{sec:ch21-tuning}).
 
@@ -816,7 +816,7 @@ soft constraints are the practical answer. They cost nothing when the hard
 problem is feasible:
 
 \begin{proposition}[Exact penalty]
-\label{prop:ch21-exact}
+\label{thm:ch21-exact}
 Let $\vect{z}^{*}$ solve the hard QP with multipliers $\lambda_k^{*}\ge0$ for
 the rows $g_k(\vect{z})\le0$, and let the soft QP replace them by
 \cref{eq:ch21-slack} with $w_1\ge\max_k\lambda_k^{*}$ and $w_2\ge0$. Then
@@ -927,7 +927,7 @@ with $w=10$ the penalty is slightly below the multipliers of $14$ to $19$ and
 the drone gives up $2$~mm of separation ($0.998$~m); with $w=1$ the penalty is
 cheap, the drone barely deviates (RMS error $0.126$~m) and cuts $0.22$~m into
 the safety disc ($0.777$~m). The lesson is the one of
-\cref{prop:ch21-exact}: the slack weight is not a tuning knob for comfort, it
+\cref{thm:ch21-exact}: the slack weight is not a tuning knob for comfort, it
 must dominate the multipliers, and the trajectory should then be identical to
 the hard one.
 
@@ -989,7 +989,7 @@ where $\Phi$ is the standard normal distribution function
 uncertain obstacles: the same half-plane as before with the radius inflated
 by the standard deviation of the prediction \emph{in the direction of the
 normal}, times a confidence factor (\cref{fig:ch21-chance}). By
-\cref{prop:ch21-halfplane} the disc constraint then holds with at least the
+\cref{thm:ch21-halfplane} the disc constraint then holds with at least the
 same probability. Two remarks. The guarantee is per step and per obstacle; if
 you want the whole horizon safe with probability $1-\delta$, Boole's
 inequality suggests $\delta/N$ per step, which is conservative but simple.
@@ -1155,17 +1155,18 @@ which the sequential scheme is measured.
 \Cref{lst:ch21-avoid} shows how the avoidance rows of
 \cref{eq:ch21-qp-constraints} are assembled in \code{MPC.step}, including the
 chance-constraint inflation, and \cref{lst:ch21-admm} the core of the ADMM
-solver, \cref{alg:ch21-admm} in twenty lines.
+solver, \cref{alg:ch21-admm} in some twenty lines.
 
-\begin{lstlisting}[caption={Linearised avoidance rows in \code{MPC.step} (from \code{code/ch21\_mpc.py}). \code{X\_guess} is the shifted previous plan, \code{free} the free response $\mat{S}_x\state_0$, \code{pos\_idx[k]} the indices of $\pos_k$ in the stacked state.},label={lst:ch21-avoid}]
-        # (3) one linearised half-plane per obstacle and step (softened below)
-        avoid_rows, avoid_lo, avoid_up, avoid_k, normals = [], [], [], [], []
+\begin{lstlisting}[caption={Linearised avoidance rows in \code{MPC.step} (from \code{code/ch21\_mpc.py}). \code{X\_guess} is the shifted previous plan, \code{free} the free response $\mat{S}_x\state_0$, \code{pos\_idx[k]} the indices of $\pos_k$ in the stacked state.},label={lst:ch21-avoid},gobble=8]
+        # (3) one linearised half-plane per obstacle and step
+        avoid_rows, avoid_lo, avoid_up = [], [], []
+        avoid_k, normals = [], []
         for obs in obstacles:
             for k in range(N):
                 pk = self.pos_idx[k]
                 d = X_guess[pk] - obs.centres[k]
                 dist = float(np.linalg.norm(d))
-                if dist < 1e-9:                          # guess on the centre: use the reference
+                if dist < 1e-9:      # on the centre: use the reference
                     d = xref[pk] - obs.centres[k]
                     dist = float(np.linalg.norm(d))
                 if dist < 1e-9:
@@ -1173,17 +1174,19 @@ solver, \cref{alg:ch21-admm} in twenty lines.
                     dist = 1.0
                 nk = d / dist
                 radius = obs.radius
-                if obs.covs is not None and self.kappa > 0.0:      # chance constraint
-                    radius += self.kappa * math.sqrt(float(nk @ obs.covs[k] @ nk))
-                # nk'(p_k - o_k) >= radius  <=>  -nk' Su_k U <= nk'(free_k - o_k) - radius
+                if obs.covs is not None and self.kappa > 0.0:  # chance
+                    sig = math.sqrt(float(nk @ obs.covs[k] @ nk))
+                    radius += self.kappa * sig
+                # nk'(p_k - o_k) >= radius, written as a row in U
+                bound = float(nk @ (free[pk] - obs.centres[k])) - radius
                 avoid_rows.append(-nk @ self.Su[pk])
                 avoid_lo.append(-INF)
-                avoid_up.append(float(nk @ (free[pk] - obs.centres[k])) - radius)
+                avoid_up.append(bound)
                 avoid_k.append(k)
                 normals.append(nk)
 \end{lstlisting}
 
-\begin{lstlisting}[caption={The ADMM iteration of \code{solve\_qp} (from \code{code/ch21\_mpc.py}): the linear system with the precomputed inverse, the relaxed update, the projection onto the bounds, the multiplier update, and every ten iterations the residual test and the infeasibility certificate.},label={lst:ch21-admm}]
+\begin{lstlisting}[caption={The ADMM iteration of \code{solve\_qp} (from \code{code/ch21\_mpc.py}): the linear system with the precomputed inverse, the relaxed update, the projection onto the bounds, the multiplier update, and every ten iterations the residual test and the infeasibility certificate.},label={lst:ch21-admm},gobble=4]
     for it in range(1, max_iter + 1):
         zt = Kinv @ (sigma * z - f + G.T @ (rho * w - y))
         w_hat = alpha * (G @ zt) + (1.0 - alpha) * w
@@ -1197,7 +1200,9 @@ solver, \cref{alg:ch21-admm} in twenty lines.
             r_dual = _norm_inf(Hz + f + Gty)
             s_prim = max(_norm_inf(Gz), _norm_inf(w), 1e-12)
             s_dual = max(_norm_inf(Hz), _norm_inf(Gty), f_norm, 1e-12)
-            if r_prim <= eps_abs + eps_rel * s_prim and r_dual <= eps_abs + eps_rel * s_dual:
+            ok_prim = r_prim <= eps_abs + eps_rel * s_prim
+            ok_dual = r_dual <= eps_abs + eps_rel * s_dual
+            if ok_prim and ok_dual:
                 status = "solved"
                 break
             if _primal_infeasible(G, l, u, y - y_check):
@@ -1344,8 +1349,8 @@ constraint $\abs{v_{k,i}}\le v_{\max}$ explicitly.
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch21-halfplane}
-(a)~Prove \cref{prop:ch21-halfplane} and describe the collision-free
-positions that the half-plane excludes. (b)~Prove \cref{prop:ch21-polygon}
+(a)~Prove \cref{thm:ch21-halfplane} and describe the collision-free
+positions that the half-plane excludes. (b)~Prove \cref{thm:ch21-polygon}
 and compute the relative loss $1-\cos(\pi/M)$ for $M=4,8,16,32$.
 (c)~Propose a set of directions and the corresponding apothem for the
 three-dimensional version of the keep-in constraint.
@@ -1370,7 +1375,7 @@ and explain the failures at $N=3$.
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch21-slack}
-Prove \cref{prop:ch21-exact} directly from the KKT conditions of the soft
+Prove \cref{thm:ch21-exact} directly from the KKT conditions of the soft
 problem. Then, on \cref{ex:ch21-crossing}, run the soft controller for
 $w_1=w_2\in\set{1,2,5,10,20,50}$, record the minimum separation, and find
 the threshold above which the soft trajectory equals the hard one. Compare it
