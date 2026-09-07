@@ -179,3 +179,99 @@ printed cell by cell, the `dat`-backed expansions figure, the verbatim listings 
 that checks the chapter's numbers against brute force and against a Bellman-Ford reference are what
 make this chapter trustworthy. The exercise set (difficulties 1,1,2,2,2,2,3,3, ending in the Week-1
 coding exercise that Chapter 4 continues) is well graded and solvable from the chapter alone.
+
+## Response to review (round 1)
+
+All four required changes are applied; nothing the review asked to keep was removed. The wave
+metaphor, the six figures, the proof chain Lemma 3.6 -> Theorem 3.7 -> Corollary 3.8 ->
+Theorem 3.10, the "only place where c >= 0 is used" sentence, Example 3.9, both named pitfall
+boxes, Section 3.7.2 in full, the trace table, the listings, the self-test and the eight
+exercises are untouched except where a required change named them.
+
+### Required changes
+
+1. **(A) Corollary 3.8 (`cor:ch03-ucs`): second claim was unproved.** Applied as prescribed.
+   The proof now carries the argument in full: if `delta(s,v) < delta(s,t)` and `v` were
+   unsettled when `t` is popped, the first unsettled vertex `y` on a shortest path to `v` has,
+   by step (ii) of the proof of Theorem 3.7, the entry `(delta(s,y), y)` in the heap with
+   `delta(s,y) <= delta(s,v) < delta(s,t) = g(t)`, contradicting the minimality of `(g(t), t)`.
+   Exercise 3.3 is kept but its deferral is reduced to exactly the two remaining parts: the tie
+   case `delta(s,v) = delta(s,t)` (now part (a), with a request for a three-vertex example),
+   the upper-bound claim (part (b)) and termination under zero-cost edges (part (c)). A hint
+   for the termination part was added as well (review suggestion 6).
+
+2. **(A) Theorem 3.11 item 1 was false for unreachable `t`.** Applied as prescribed. The
+   statement now reads "Assume in addition `delta(s,t) < infinity`. Then a vertex `v` lies on
+   some shortest path from `s` to `t` if and only if `delta(s,v) + h*(v) = delta(s,t)`; both
+   terms are then finite." The converse direction of the proof now says that both summands are
+   finite because their sum is, so both shortest halves exist before they are concatenated, and
+   a closing sentence records the counterexample that makes the hypothesis necessary (`t`
+   unreachable, every unreachable `v` satisfies `infinity + h*(v) = infinity`).
+
+3. **(F) Dangling pointer to a "best-first skeleton" of Chapter 2.** Applied as prescribed.
+   Section 3.3 now reads: "...form the priority queue Open and the settled vertices the set
+   Closed. Both are new here; from Chapter 2 we reuse only the implicit successor interface
+   Succ and the lazy-deletion queue `LazyPQ` (`alg:ch02-lazypq`, `lst:ch02-lazypq`)." The same
+   repair was made in Section 3.4, where "the lazy deletion idiom of Chapter 2" now also cites
+   `alg:ch02-lazypq`. Both labels exist in `chapters/ch02-toolbox.tex` (lines 663 and 782); they
+   resolve as `??` in a single-chapter build, as expected.
+
+4. **(G) Drone box duplicated Section 3.1.** Applied as prescribed. The two restatements of the
+   baseline-planner and heuristic-factory roles are gone; the box now names the global planning
+   layer of Chapter 24, points back to `sec:ch03-motivation` for the two roles, says who
+   consumes their output, states what the algorithm does not do (other drones, intruders, a map
+   that has changed), links to D* Lite in Chapter 5 and to Week 1 in Appendix A. Section 3.1,
+   the proofs, the examples and the exercises were not touched. Summary bullet 5 was kept: a
+   summary bullet restating a chapter result is what the summary box is for.
+
+### Suggestions
+
+* **Fourth pitfall box (float equality).** Done. "Floating-point costs" is now the pitfall box
+  *Comparing floating-point costs for equality*, placed with the other three; the decrease-key
+  warning stays in "The heap" paragraph, as suggested.
+* **Multi-source wave from obstacles (line 646).** Done. The wave now starts with key 0 from
+  every free cell that touches an obstacle, and the text says the label is one less than the
+  distance to the nearest blocked cell, because the grid graph of Chapter 2 has only free cells
+  as vertices.
+* **Bidirectional stopping rule (Section 3.7.3).** Done. The sketch is now a two-case argument
+  and names the awkward case: when the forward-open vertex comes after the backward-open one,
+  the forward-settled prefix and the backward-settled suffix touch, so the path carries an edge
+  `(x, y)` with `x` settled forward and `y` settled backward; that edge was scanned from one of
+  its ends, which is what the clause "including edges to vertices that either side has settled"
+  is for, so `mu <= c(pi)`. The text now says this case is the crux of Exercise 3.8(b).
+* **Empty Open counts as `min = infinity`.** Done, stated immediately after
+  `eq:ch03-bidir-stop`.
+* **Example 3.9 outside Definition 3.1.** Done: "For this example only we drop the
+  non-negativity requirement of `def:ch03-graph`."
+* **Hint for `exr:ch03-monotone`.** Done (see required change 1).
+* **"Oldest algorithm in this book" (line 39).** Done: "the oldest of the shortest-path
+  algorithms in this book".
+* **Build hygiene.** Confirmed and reproduced: `build/chapters/ch02-toolbox.aux` was truncated
+  by a concurrent build of Chapter 2 while this revision was being checked, which aborts
+  pdflatex with "Runaway argument ... File ended while scanning use of `\@writefile`" and leaves
+  every `\cref` as `??`. The chapter was therefore also built with a private `-outdir`, where it
+  compiles with status 0, no errors, no undefined references other than the expected
+  cross-chapter ones, and no overfull box above 15 pt.
+
+### Not done
+
+* **Notation table.** `frontmatter/notation.tex` is outside this chapter's file set (the
+  finisher brief forbids editing front matter), so the placeholder is left for the book editor.
+  The symbols this chapter would contribute are `delta(u,v)`, `c(u,v)`, `Succ`, `Open`,
+  `Closed`, `g` and `h*`.
+* **"Settled so far" column in `tab:ch03-trace`.** Not added. The table already uses two
+  `L{}` columns of 5.9 cm and 4.4 cm and a fifth column would either overflow the text block or
+  force the heap column to wrap badly; the "twelve pops, seven settles, five stale" arithmetic
+  is stated in the Counting paragraph and checked by `dijkstra_trace` in the code.
+
+### Verification
+
+* `python3 code/ch03_dijkstra.py`: all self-tests pass (0.04 s). No code was changed, so no
+  `.dat` file needed regeneration; `figures/data/ch03-expansions.dat` is unchanged. Every number
+  quoted in the chapter (the trace of Table 3.1, the twelve pops / seven settles / five stale
+  count, `F`: 13 -> 12 -> 11, the settling order and cost 8 of the grid run, the backward table
+  from `G`, the negative-edge run returning 2 against Bellman--Ford's 1) still matches the
+  program output.
+* Length after the revision: 19 pages. The drone-box cut removed about a third of a page and
+  the four required insertions added about the same, so the page count is unchanged. No
+  protected content was cut to reduce it.

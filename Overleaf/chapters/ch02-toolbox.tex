@@ -167,7 +167,7 @@ The disc $\disc{\pos}{r}$ meets $\mathcal{O}$ if and only if there is an obstacl
   \label{fig:ch02-minkowski}
 \end{figure}
 
-\Cref{fig:ch02-minkowski} shows the construction. Inflating a polygon by a disc rounds its corners, and inflating a union of obstacles inflates each of them. The same idea serves twice more in this book. In \cref{ch:ch12} the two drones of an encounter are both discs; viewed from drone~$A$, drone~$B$ is a disc of radius $r_A+r_B$ (the Minkowski sum of the two discs, \cref{thm:ch02-disc-minkowski}) and $A$ is a point. In \cref{ch:ch24} the obstacle is a \emph{predicted} position with a covariance, and the inflation radius grows with the uncertainty of the prediction.
+\Cref{fig:ch02-minkowski} shows the construction. Inflating a polygon by a disc rounds its corners, and inflating a union of obstacles inflates each of them. The same idea serves twice more: \cref{ch:ch12} turns an encounter between two discs into a point and a disc of radius $r_A+r_B$ (\cref{thm:ch02-disc-minkowski}), and in \cref{ch:ch24} the inflation radius grows with the uncertainty of a predicted position.
 
 \paragraph{The drone as a bounding sphere.}
 A quadrotor with its rotor guards is not a disc, and it rotates about its vertical axis while flying. Modelling it exactly would add the yaw angle to the configuration, giving $\Cspace=\R^3\times S^1$ and an obstacle region that depends on the heading; for a car-like ground robot this is unavoidable \cite{lavalle2006planning}. For a drone it is unnecessary: the body fits into a \textbf{bounding sphere}\index{bounding sphere} of radius $r$ that is the same in every heading, so the configuration is the position alone, $\Cspace=\R^3$ (or $\R^2$ at constant altitude), and \cref{thm:ch02-inflation} applies with the sphere radius. In this book every drone is such a sphere. Its radius includes a safety margin, as the following pitfall explains.
@@ -250,7 +250,7 @@ Trajectory (\cref{def:ch02-trajectory}) & position at every time & \cref{ch:ch13
 \end{tabularx}
 \end{table}
 
-\Cref{tab:ch02-path-plan-trajectory} summarises the vocabulary. Keep the three words apart: a \emph{path} is a geometric object, a \emph{plan} is a set of time-indexed paths for several agents, and a \emph{trajectory} is a continuous-time motion. The hybrid architecture of \cref{ch:ch24} converts one into the next: the global planner produces a plan, each drone follows its time-indexed path as a trajectory, and the local layer edits that trajectory when an intruder appears.
+\Cref{tab:ch02-path-plan-trajectory} summarises the vocabulary; keep the three words apart. The hybrid architecture of \cref{ch:ch24} converts one into the next: the global planner produces a plan, each drone follows its time-indexed path as a trajectory, and the local layer edits that trajectory when an intruder appears.
 
 % ---------------------------------------------------------------------
 \section{Cost measures}
@@ -327,7 +327,7 @@ The conflict definitions of \cref{ch:ch07} look at integer times and at swaps al
 \section{Motion models for a drone}
 \label{sec:ch02-motion}
 
-Graph search ignores dynamics: a move is a move, whatever the speed. The reactive and control layers cannot afford that, because a drone at $5$~m/s needs metres to stop. This section fixes the two motion models of the book. Both are \emph{linear}, which is what makes the Kalman filter of \cref{ch:ch18} and the model predictive controller of \cref{ch:ch21} tractable.
+Graph search ignores dynamics: a move is a move, whatever the speed. The reactive and control layers cannot afford that, because a drone at $5$~m/s needs metres to stop. The two motion models below are both \emph{linear}, which is what makes the Kalman filter of \cref{ch:ch18} and the model predictive controller of \cref{ch:ch21} tractable.
 
 \begin{definition}[Single integrator]
 \label{def:ch02-single-integrator}
@@ -338,7 +338,7 @@ The \textbf{single integrator}\index{single integrator} (point-mass model) has t
 \end{equation}
 \end{definition}
 
-The single integrator assumes that the drone can change its velocity instantly. That is the model behind velocity obstacles and optimal reciprocal collision avoidance (\orca; \cref{ch:ch12,ch:ch13}), whose output is a velocity, and it is implicitly the model of a grid planner, where a move of one cell per step is a velocity of one cell per $\dt$.
+The single integrator assumes that the drone can change its velocity instantly. It is the model behind velocity obstacles and optimal reciprocal collision avoidance (\orca; \cref{ch:ch12,ch:ch13}), and implicitly the model of a grid planner, where one cell per step is a velocity of one cell per $\dt$.
 
 \begin{definition}[Double integrator]
 \label{def:ch02-double-integrator}
@@ -385,7 +385,7 @@ Along the direction of motion the speed is $v(t)=v-a_{\max}t$, which reaches zer
   \label{fig:ch02-double-integrator}
 \end{figure}
 
-\Cref{fig:ch02-double-integrator} shows the formula at work: the drone starts braking when the remaining distance equals $d_{\text{stop}}(v_{\max})=2^2/(2\cdot1)=2$~m and stops on the mark. The stopping distance is the single most important number of the reactive layer. It sets the safety horizon after which an intruder must trigger avoidance (\cref{ch:ch24}), it defines the admissible velocities of the dynamic window approach (\cref{ch:ch14}), and it tells you how far ahead a prediction must look (\cref{ch:ch20}). \Cref{tab:ch02-motion-models} lists the models side by side.
+\Cref{fig:ch02-double-integrator} shows the formula at work. The stopping distance is the single most important number of the reactive layer: it sets the safety horizon after which an intruder must trigger avoidance (\cref{ch:ch24}), defines the admissible velocities of the dynamic window approach (\cref{ch:ch14}), and tells you how far ahead a prediction must look (\cref{ch:ch20}). \Cref{tab:ch02-motion-models} lists the models side by side.
 
 \begin{table}[tb]
 \centering\small
@@ -412,7 +412,7 @@ The limits $\norm{\acc}\le a_{\max}$ and $\norm{\vel}\le v_{\max}$ are not part 
 \section{A geometry toolkit}
 \label{sec:ch02-geometry}
 
-The reactive layer of the book is built from a handful of geometric primitives. They are collected here with their formulas and proofs; the toolbox implements each of them on plain tuples of floats, so that positions can also serve as dictionary keys.
+The reactive layer of the book is built from a handful of geometric primitives. They are collected here with their formulas and proofs; the toolbox implements each of them on plain tuples of floats.
 
 \begin{definition}[Vectors, dot product, 2D cross product]
 \label{def:ch02-dot-cross}
@@ -525,7 +525,7 @@ Two remarks close the toolkit. First, a horizon $\ttc$ turns ``will they ever co
 \section{Uncertainty: random vectors, Gaussians and Bayes' rule}
 \label{sec:ch02-uncertainty}
 
-The tracker of \cref{ch:ch18} does not hand the planner a position; it hands over an estimate \emph{and} a statement of how much to trust it. That statement is a covariance matrix, and the language for it is probability. This section fixes the few facts that Part~VI builds on and that \cref{ch:ch24} uses to inflate constraints.
+The tracker of \cref{ch:ch18} does not hand the planner a position; it hands over an estimate \emph{and} a covariance that says how much to trust it. This section fixes the few facts about that object which Part~VI builds on and \cref{ch:ch24} uses to inflate constraints.
 
 \begin{definition}[Random vector, mean, covariance]
 \label{def:ch02-mean-covariance}
@@ -578,7 +578,7 @@ and the major axis makes the angle $\operatorname{atan2}(e_{1,y},e_{1,x})$ with 
 Substitute $\vect{y}=\mat{E}\T(\state-\vect{\mu})$. Since $\mat{E}$ is orthogonal, $\mat{\Sigma}\inv=\mat{E}\mat{\Lambda}\inv\mat{E}\T$ and the quadratic form becomes $y_1^2/\lambda_1+y_2^2/\lambda_2=k^2$, an axis-aligned ellipse with semi-axes $k\sqrt{\lambda_i}$, which \cref{eq:ch02-ellipse-param} parametrises; $\state=\vect{\mu}+\mat{E}\vect{y}$ rotates it back onto the eigenvectors. For the mass, note that $\vect{y}$ scaled by $\mat{\Lambda}^{-1/2}$ is a standard Gaussian in $\R^2$, whose squared norm is $\chi^2$-distributed with two degrees of freedom, i.e.\ exponential with mean $2$; hence $\Prob(\text{inside }\mathcal{E}_k)=1-e^{-k^2/2}$. \qedhere
 \end{proof}
 
-To draw the ellipse in practice, call \code{numpy.linalg.eigh} on $\mat{\Sigma}$ (it returns the eigenvalues in ascending order, so reverse them), take the square roots, and evaluate \cref{eq:ch02-ellipse-param} at, say, $72$ angles. The toolbox does this in \code{covariance\_ellipse} and \code{ellipse\_points}; the self-test checks that every returned point has squared Mahalanobis distance exactly $k^2$.
+To draw the ellipse, call \code{numpy.linalg.eigh} on $\mat{\Sigma}$ (it returns the eigenvalues in ascending order, so reverse them), take the square roots and evaluate \cref{eq:ch02-ellipse-param} at, say, $72$ angles; the toolbox does this in \code{covariance\_ellipse} and \code{ellipse\_points}.
 
 \begin{example}[Reading a covariance matrix]
 \label[example]{ex:ch02-ellipse}
@@ -640,7 +640,7 @@ A \textbf{priority queue}\index{priority queue} stores items with numeric keys a
 \end{definition}
 
 \paragraph{The lazy-deletion idiom.}
-Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a vertex whenever they find a cheaper path to it, and \lpastar and \dstarlite (\cref{ch:ch05}) must also remove vertices from the queue. \code{heapq} offers neither operation, and searching the list for the entry would cost $\bigO{n}$. The idiom used throughout this book, called \textbf{lazy deletion}\index{lazy deletion}\index{priority queue!lazy deletion}, avoids both: never touch an entry that is already in the heap; when a key improves, push a \emph{second} entry with the better key; when popping, skip any entry whose key is no longer the item's best known key. \Cref{alg:ch02-lazypq} states the two operations and \cref{lst:ch02-lazypq} shows the toolbox class \code{LazyPQ}.
+Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a vertex whenever they find a cheaper path to it, and \lpastar and \dstarlite (\cref{ch:ch05}) must also remove vertices from the queue. \code{heapq} offers neither operation, and searching the list for the entry would cost $\bigO{n}$. The idiom used throughout this book, called \textbf{lazy deletion}\index{lazy deletion}\index{priority queue!lazy deletion}, avoids both: never touch an entry that is already in the heap; when a key improves, push a \emph{second} entry with the better key; when popping, skip any entry whose key is no longer the item's best known key. \Cref{alg:ch02-lazypq} states the two operations; the class \code{LazyPQ} of \code{code/ch02\_toolbox.py} implements them.
 
 \begin{algorithm}[htb]
 \caption{Priority queue with lazy deletion}

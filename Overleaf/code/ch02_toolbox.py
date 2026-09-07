@@ -280,7 +280,9 @@ def minkowski_disc(c1, r1, c2, r2):
 
 def tangent_points(p, c, r):
     """The two points where the tangent lines from p touch the circle
-    (c, r), or None if p lies on or inside the circle."""
+    (c, r), or None if p lies on or inside the circle.  Returns
+    (t_plus, t_minus) in the sign convention of Proposition 2.32:
+    t_plus uses +sin(alpha) along u rotated by +90 degrees."""
     u = sub(p, c)
     d = norm(u)
     if d <= r:
@@ -575,10 +577,10 @@ def _self_test():
     assert segment_circle_intersects((0, 0), (5, 0), (2, 0.5), 1.0)
     assert not segment_circle_intersects((0, 0), (5, 0), (2, 1.5), 1.0)
     assert minkowski_disc((1, 1), 0.5, (2, 0), 0.25) == ((3, 1), 0.75)
-    t1, t2 = tangent_points((0, 0), (4, 0), 2.0)
-    assert _close(t1[0], 3.0) and _close(t1[1], -math.sqrt(3))   # (3, -sqrt 3)
-    assert _close(t2[0], 3.0) and _close(t2[1], math.sqrt(3))    # (3, +sqrt 3)
-    assert _close(norm(t1), math.sqrt(12))                       # tangent length
+    t_plus, t_minus = tangent_points((0, 0), (4, 0), 2.0)
+    assert _close(t_plus[0], 3.0) and _close(t_plus[1], -math.sqrt(3))
+    assert _close(t_minus[0], 3.0) and _close(t_minus[1], math.sqrt(3))
+    assert _close(norm(t_plus), math.sqrt(12))                   # tangent length
     assert tangent_points((3, 0), (4, 0), 2.0) is None
     t_star, d_min = time_of_closest_approach((0, 0), (1, 0), (4, 2), (0, -1))
     assert _close(t_star, 3.0) and _close(d_min, SQRT2)

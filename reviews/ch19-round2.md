@@ -329,7 +329,7 @@ where it belongs, in sec:ch19-resampling); Rao-Blackwellisation and the
 three-dimensional state stay.
 
 **Page count: the chapter is still 21 PDF pages (opening page plus 20 pages of
-running head; pages 17-37 of `build/only-ch19-nonlinear-filters.pdf`), not 20.**
+running head in `build/only-ch19-nonlinear-filters.pdf`), not 20.**
 The three cuts remove about eight typeset lines and the last page of the chapter
 carries roughly 30 lines of exercises, so a further half page would have to go.
 Per the instruction "do not remove anything else to reach 20 pages", nothing
@@ -356,8 +356,8 @@ protections cover that figure.
 * **The 4.4 m label in `linearisation.tex`** - moved to (27,97.8) and given
   `inner sep=2pt`; the arrow head no longer touches the leading digit.
 * **`lst:ch19-pf` breaking across a page** - the listing was moved ahead of the
-  "Vectorising the particle filter" paragraph. It now sits whole on one page
-  (page 34), so no split into two listings was needed.
+  "Vectorising the particle filter" paragraph. It now sits whole on one page,
+  so no split into two listings was needed.
 * **The unverified 4 % at k = 15** - `occlusion_example()` now counts these
   particles, and the count contradicted the chapter, so the text was corrected:
   3.9 % of the particles are level with the building in x, and 3.4 % of the
