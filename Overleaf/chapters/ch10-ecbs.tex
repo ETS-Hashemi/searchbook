@@ -310,7 +310,7 @@ the band is cut off by the bound and not by the horizon.
     \If{$v = \gamma_i$ \KwAnd $t > t_\gamma$}{\KwRet (path to $(v, t)$, $\fcost_{\min}$)\label{alg:ch10-lowlevel:goal}\;}
     \If{$t + 1 > T_{\max}$}{\KwContinue}
     \ForEach{$v' \in \set{v} \cup \Succ(v)$ with $\langle i, v', t+1\rangle \notin \mathcal{C}_i$ and $\langle i, v, v', t\rangle \notin \mathcal{C}_i$}{
-      \If{$(v', t+1)$ was generated before\label{alg:ch10-lowlevel:dup}}{\KwContinue\tcp*{same cost $t+1$: first path wins}}
+      \If{$(v', t+1)$ was generated before}{\KwContinue\tcp*{same cost $t+1$: first path wins}\label{alg:ch10-lowlevel:dup}}
       $h_c(v', t+1) \gets h_c(v, t) + \abs{\set{j : \pi_j[t+1] = v'}} + \abs{\set{j : \pi_j[t] = v',\ \pi_j[t+1] = v}}$\label{alg:ch10-lowlevel:hc}\;
       \If{$v' = \gamma_i$ \KwAnd $t + 1 > t_\gamma$}{$h_c(v', t+1) \gets h_c(v', t+1) + \abs{\set{(j, t') : t' > t+1,\ \pi_j[t'] = \gamma_i}}$\label{alg:ch10-lowlevel:park}\;}
       $\fcost(v', t+1) \gets t + 1 + \hcost(v')$; parent$(v', t+1) \gets (v, t)$; put $(v', t+1)$ into \Open\label{alg:ch10-lowlevel:push}\;
@@ -330,7 +330,7 @@ with the path. At that moment the goal state itself is still counted in
 \Open, so $\fcost_{\min} \le \fcost(\gamma_i, t) = t$; \cref{sec:ch10-properties}
 shows that $\fcost_{\min}$ is also a lower bound on the optimal constrained
 cost, and that $t \le w\,\fcost_{\min}$ because the goal was taken from the
-band. Line~\ref{alg:ch10-lowlevel:dup} is the duplicate test. In space-time
+band. The duplicate test that ends in line~\ref{alg:ch10-lowlevel:dup} is the second addition. In space-time
 with unit costs, every path to $(v', t+1)$ costs exactly $t+1$, so a second
 visit can never be cheaper and re-opening is never needed; the first path to
 a state wins, even if a later path to the same state would have fewer
@@ -404,7 +404,7 @@ $\mathrm{LB}(N)$ instead of $\cost(N)$, and the node to expand is chosen from
   \While{\Open $\ne \emptyset$}{
     $\mathrm{LB} \gets \min_{N \in \Open} \mathrm{LB}(N)$; \Focal $\gets \set{N \in \Open : \cost(N) \le w\,\mathrm{LB}}$\label{alg:ch10-ecbs:band}\;
     $N \gets \argmin_{N' \in \Focal} h_c(N')$ (ties: smaller cost, then older node); remove $N$ from \Open\label{alg:ch10-ecbs:pop}\;
-    \If{$h_c(N) = 0$\label{alg:ch10-ecbs:goal}}{\KwRet $N$'s paths\tcp*{$\cost(N) \le w\,\mathrm{LB} \le w\,C^*$}}
+    \If{$h_c(N) = 0$}{\KwRet $N$'s paths\tcp*{$\cost(N) \le w\,\mathrm{LB} \le w\,C^*$}\label{alg:ch10-ecbs:goal}}
     $\chi \gets$ the earliest conflict among $N$'s paths, between agents $a_i$ and $a_j$\label{alg:ch10-ecbs:conflict}\;
     \ForEach{$a \in \set{a_i, a_j}$, with $\chi_a$ the constraint on $a$ that resolves $\chi$}{
       $N' \gets$ copy of $N$; $N'.\mathcal{C}_a \gets N.\mathcal{C}_a \cup \set{\chi_a}$\label{alg:ch10-ecbs:child}\;
@@ -429,8 +429,7 @@ it: the root of plain \cbs, with independent shortest paths, would do as well.
 Line~\ref{alg:ch10-ecbs:band} computes the global lower bound
 \cref{eq:ch10-LB} and the band \cref{eq:ch10-focal-high};
 line~\ref{alg:ch10-ecbs:pop} picks the node with the fewest conflicts inside
-it. The goal test at line~\ref{alg:ch10-ecbs:goal} is the same as in \cbs, and
-the comment states the guarantee proved in \cref{sec:ch10-properties}.
+it. The goal test, with its return at line~\ref{alg:ch10-ecbs:goal}, is the same as in \cbs, and the comment states the guarantee proved in \cref{sec:ch10-properties}.
 Lines~\ref{alg:ch10-ecbs:conflict} to~\ref{alg:ch10-ecbs:insert} are the
 \cbs split: the earliest conflict is resolved by one constraint on each of the
 two agents, and each child re-plans only the constrained agent. The other
@@ -1044,22 +1043,21 @@ given here is sufficient; EECBS is the upgrade path when it is not.
 
 \subsection{Other relatives}
 
-Focal search is a general tool. An anytime \ecbs runs \cref{alg:ch10-ecbs}
-with a decreasing sequence of factors $w$, in the spirit of \arastar
-(\cref{ch:ch06}), so that a first plan is available quickly and improved while
-the drones are still on the ground. And because the bound never depended on
-$\hcost_{\Focal}$, the conflict count can be changed freely: counting only
-conflicts inside a time window, or penalising cells near a predicted intruder,
-are one-line changes that keep the guarantee. \Cref{ch:ch11} completes the
-picture of MAPF solvers with \mstar and the push-and-swap family and compares
-all the methods of Part~III.
+An anytime \ecbs runs \cref{alg:ch10-ecbs} with a decreasing sequence of
+factors $w$, in the spirit of \arastar (\cref{ch:ch06}), so that a first plan
+is available quickly and is improved while the drones are still on the ground.
+And because the bound never depended on $\hcost_{\Focal}$, the conflict count
+can be changed freely: counting only conflicts inside a time window, or
+penalising cells near a predicted intruder, keeps the guarantee.
+\Cref{ch:ch11} completes the picture of MAPF solvers with \mstar and the
+push-and-swap family and compares all the methods of Part~III.
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
 \label{sec:ch10-implementation}
 
 The file \code{code/ch10\_ecbs.py} is a self-contained implementation of
-everything in this chapter, in about 650 lines: an \code{Instance} class with
+everything in this chapter, in about 800 lines: an \code{Instance} class with
 cached breadth-first distance tables, conflict detection and counting in the
 conventions of \cref{ch:ch07}, constraints, the conflict table
 \code{OtherPaths}, the focal low level \code{focal\_space\_time\_astar}, the
@@ -1214,8 +1212,7 @@ def _child(inst: Instance, parent: CTNode, con: Constraint, w: float,
         \cref{alg:ch10-lowlevel} cost $\bigO{1}$ or a binary search; the table
         is rebuilt per child in $\bigO{kT}$ time. The distance table of a goal
         is computed once per instance.
-  \item \emph{Duplicates.} Line~\ref{alg:ch10-lowlevel:dup} keeps the first
-        path to a state. Some implementations, among them the public EECBS
+  \item \emph{Duplicates.} The test before line~\ref{alg:ch10-lowlevel:dup} keeps the first path to a state. Some implementations, among them the public EECBS
         code, re-insert a state when a path with the same cost but fewer
         conflicts reaches it; this finds better paths at the price of some
         re-expansions and does not affect the bound (\cref{exr:ch10-variants}).
@@ -1335,8 +1332,7 @@ paths away from it without touching the bound.
         solution costs at most $w\,C^*$, and $\mathrm{LB}$ is a certificate.
   \item On random $8 \times 8$ grids \ecbs with $w = 1.5$ solves sixteen-agent
         instances in tens of milliseconds where \cbs fails within ten seconds,
-        at an average cost excess of about $7\,\%$; the observed excess is far
-        below the guarantee, and runtime flattens beyond $w \approx 1.2$.
+        at a cost excess of about $7\,\%$, far below the guarantee.
   \item The three classic bugs are an inadmissible ordering of \Open, a
         missing or stale lower bound, and a band tested against a node's own
         $\mathrm{LB}(N)$ instead of the global $\mathrm{LB}$.
@@ -1463,6 +1459,5 @@ $\cost/C^*$ with $\ecbs(w)$ on the benchmark of \cref{exr:ch10-coding} for
 $w = 1.5$. Which level profits more from the band? (b) Change the duplicate
 rule of the low level so that a state is re-inserted when a path with the same
 cost but fewer conflicts reaches it, and check whether the root of
-\cref{ex:ch10-grid} with $w = 1.2$ changes. (c) Measure the effect of (b) on
-the benchmark: CT expansions, low-level expansions and solution cost.
+\cref{ex:ch10-grid} with $w = 1.2$ changes. (c) Measure the effect of (b) on the benchmark of \cref{exr:ch10-coding}.
 \end{exercise}
