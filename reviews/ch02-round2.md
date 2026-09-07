@@ -223,3 +223,76 @@ $\sumcost=11$ forces makespan 6) I verified case by case.
 Above all, keep the discipline that produced this draft: every quoted number traced to a
 runnable script, a build with zero overfull boxes, 66 index entries, eleven verified
 citations, and a solutions file that now covers eight of ten exercises.
+
+## Response to review (round 2)
+
+All three required changes are applied; the two chapter-level suggestions and four of the
+five optional ones are applied as well. Build: `./build.sh ch02-toolbox` -> status 0, no
+`!` errors, zero overfull or underfull boxes, no undefined reference or citation belonging
+to Chapter 2 (only `ch:chNN` and `ch:appB` of chapters outside the single-chapter build).
+`python3 code/ch02_toolbox.py` passes its self-test and prints the same numbers as before
+(`length (3.0, 2.0)`, `time (3, 3)`, `makespan 3`, `soc 6`, `sep 1.0`,
+`sep_cont 0.7071067811865476`, `tca (3.0, 1.4142135623730951)`, `ttc_r075 2.646446609406726`,
+`ttc_r050 None`, `ellipse (1.6733200530681511, 0.44721359549995787, 33.69006752597979)`);
+the code changes are comments and docstrings only, so no `.dat` file needed regenerating and
+no number quoted in the chapter, the captions or the solutions changed. The chapter still
+occupies printed pages 21-42.
+
+### Required changes
+
+1. **"The first two are equivalent to the version above" (Section 2.9, line 666).**
+   Applied exactly as prescribed: the sentence now reads "The first of these is equivalent
+   to the version above." The rest of the paragraph is unchanged apart from the half-sentence
+   added under the second suggestion below.
+
+2. **Solution to `exr:ch02-adjacency`, cell $(2,1)$.** Rewritten to state the answer once,
+   positively, as prescribed: "Cell $(2,1)$ is adjacent to the blocked cell $(1,1)$, so the
+   straight moves lead to $(3,1)$, $(2,0)$ and $(2,2)$ at cost $1$. Of the four diagonals,
+   those to $(1,0)$ and $(1,2)$ pass between $(1,1)$ and a free cell and are forbidden by the
+   corner-cutting rule of `\cref{def:ch02-grid}`; only $(3,0)$ and $(3,2)$ remain, at cost
+   $\sqrt2$. Cell $(2,1)$ therefore has five neighbours." (I wrote "is adjacent to the
+   blocked cell $(1,1)$" rather than "has ... as its left neighbour" so that the sentence
+   does not depend on the reader's picture of the axis directions; the content is the
+   reviewer's.) The count now matches the self-test `sorted(nb) == [(2,0),(2,2),(3,0),(3,1),(3,2)]`.
+   The file was compiled on its own (`./build.sh --standalone appendices/solutions/ch02-solutions.tex`,
+   status 0) to confirm the new sentence typesets.
+
+3. **`tangent_points` docstring, stale proposition number.** Applied in the reviewer's
+   second, renumbering-immune form: "Returns (t_plus, t_minus) in the sign convention of the
+   chapter's tangent-line proposition: t_plus uses +sin(alpha) along u rotated by +90
+   degrees." I did **not** write "Equation (2.16)": in the current build the tangent-point
+   formula is Equation **(2.13)** (`build/chapters/ch02-toolbox.aux`:
+   `\newlabel{eq:ch02-tangent-points}{{2.13}...}`, and the printed page 33 shows `(2.13)`
+   beside $\vect{t}_{\pm}$; `(2.16)` is now the covariance definition on page 34). Naming no
+   number keeps the docstring correct under any renumbering, which is what the fix asked for.
+
+### Suggestions
+
+* **Definition 2.8, closedness.** Applied: "Inflating a **closed** set $A$ by the radius $r$
+  means forming $A\oplus\disc{\vect{0}}{r}=\set{\vect{x}:\dist(\vect{x},A)\le r}$", matching
+  the hypothesis of Proposition 2.9.
+* **Lazy deletion re-opens on *any* later push.** Applied in both places. The chapter now
+  says: "because a popped item is removed from $\mathit{best}$, the guard of `\ToolboxLazyPush{}`
+  rejects only items that are still queued, so `\cref{alg:ch02-lazypq}` re-opens a node when a
+  later push arrives for it, while a closed set never does." `LazyPQ.push` now documents:
+  "While the item is queued the push is ignored unless `key` improves; once the item has been
+  popped it is gone from `self._best`, so any later push for it is accepted and the item is
+  queued again."
+* **Length trims (a)-(d).** All four applied: the clause repeating the Status column after
+  Table 2.6 is gone; the pitfall "Floats and arrays as dictionary keys" loses its closing
+  sentence, which repeated the quantisation advice of the "Hashing states" paragraph above
+  (the NumPy-arrays sentence is kept, as it appears nowhere else); Table 2.5 loses the rows
+  "append, index, pop from the end", "sort" and "vector operation of length $n$", keeping the
+  four rows the following paragraphs use; the sentence after Table 2.2 restating its
+  "Produced by"/"Consumed by" columns is gone (the `\cref` to the table stays in the sentence
+  before it). As predicted, this saves about half a page of text and the chapter still
+  measures 22 printed pages; nothing on the "must be kept" list was touched.
+* **Exercise 2.3.** The counts are no longer given to the student: the exercise now says
+  "determine by hand which cells are blocked ... and count them in each case". The numbers
+  $5$, $9$ and $21$ remain in the solution.
+* **`covariance_ellipse` angle units.** The comment on `math.atan2(...)` now reads
+  "radians, in (-90, 90] deg".
+* **Editor-level notes (notation table, `\ttc` versus a `\horizon` macro, stale
+  `build/chapters/*.aux` in single-chapter builds).** Left alone: all three are outside this
+  chapter's files (`frontmatter/notation.tex`, `searchbook.sty`, `build.sh`/`main.tex`), which
+  the finisher brief forbids me to edit. They are recorded here for the editor.

@@ -664,6 +664,11 @@ def _self_test() -> None:
     assert optimal_makespan_bruteforce(corridor4, max_steps=40) is None
     pocket = MAPFInstance(["....", "@.@@"], [(0, 0), (0, 3)], [(0, 3), (0, 0)], "pocket")
     assert optimal_makespan_bruteforce(pocket) == 5 and optimal_soc_bruteforce(pocket) == 8
+    pocket_plan = [[(0, 0), (0, 1), (1, 1), (0, 1), (0, 2), (0, 3)],
+                   [(0, 3), (0, 2), (0, 1), (0, 0)]]
+    assert validate_plan(pocket, pocket_plan) == (True, [])
+    assert [path_cost(q) for q in pocket_plan] == [5, 3]
+    assert sum_of_costs(pocket_plan) == 8 and makespan(pocket_plan) == 5
 
     elapsed = time.time() - t0
     assert elapsed < 10, f"self-test too slow: {elapsed:.1f} s"

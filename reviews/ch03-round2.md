@@ -179,3 +179,89 @@ timing bug with its 13 -> 12 -> 11 evidence, the constant-shift trap, the missin
 the float-equality box promoted in round 1), and a self-test that checks the chapter's numbers
 against brute force and against a Bellman-Ford reference. This chapter's numbers are trustworthy:
 everything I recomputed independently matched the text to the last digit.
+
+## Response to review (round 2)
+
+All required changes applied; the cheap suggestions applied as well. Build:
+`./build.sh ch03-dijkstra` -> **status 0**, no `!` errors, no undefined reference or citation
+belonging to Chapter 3, no overfull box above 15 pt, `build/only-ch03-dijkstra.pdf`.
+Chapter body still **19 pages** (pp. 14-32 of the single-chapter PDF).
+`python3 code/ch03_dijkstra.py` -> `all self-tests passed (0.04 s)`. No code and no `.dat` file
+needed to change: none of the edits touches a quoted number.
+
+**Required change 1 (category A) - the early-exit gap in the proof of `cor:ch03-ucs`.**
+Applied exactly as prescribed, in the proof of Corollary 3.8. Before the appeal to step~(ii) the
+proof now rules `t` out of the path:
+
+> Note first that `t` does not lie on this path: the prefix of the path ending at `t` would cost at
+> least `\delta(s,t)` and the rest of the path at least 0, so `\delta(s,t)\le\delta(s,v)`,
+> contradicting `\delta(s,v)<\delta(s,t)` (here `c\ge0` is used again). This step is needed because
+> `t` is the one vertex that the early exit on line~\ref{alg:ch03-dijkstra:exit} settles without
+> expanding. Hence `y\neq t`, and the predecessor of `y` on the path is a vertex settled *and*
+> expanded strictly before `t` was popped, so, as in step~(ii) of the proof of
+> `thm:ch03-invariant`, it has relaxed the edge into `y` and the heap holds the entry
+> `(\delta(s,y),y)` with ...
+
+One sentence was added beyond the suggested wording - the reminder that `t` is the only settled
+vertex that is never expanded - so that the reader sees *why* the clause is there and the point
+connects to the Section 3.5 observation the review quotes. Nothing else in the proof changed.
+
+**Required change 2 (category F) - the non-existent label `lst:ch02-lazypq` and the overclaim.**
+Applied. Section 3.3 (now around line 176) reads: "Both are new here; from \cref{ch:ch02} we reuse
+the implicit successor interface `\Succ` and the lazy-deletion idiom of its priority queue
+`LazyPQ` (`\cref{alg:ch02-lazypq}`), in the closed-set form: since `\hcost=0` here, the two forms
+settle exactly the same vertices." The dangling label is gone (`grep -rn lst:ch02-lazypq` over the
+project now returns nothing), the claim matches what Chapter 3 actually does, and the closed-set /
+best-key equivalence is exactly the one Chapter 2 states at its line 666 for a consistent
+heuristic. The correct `\cref{alg:ch02-lazypq}` in Section 3.4 was left untouched.
+
+**Suggestion 1 (bidirectional sketch) - applied, both half-clauses.**
+(a) Case 1 now names the witnesses: `u` is the first vertex of `\pi` the forward side has not
+settled and `w` the last one the backward side has not settled, `u` comes no later than `w`, step
+(ii) of `thm:ch03-invariant` gives `\gcost_f(u)=\delta(s,u)` in `\Open_f` and
+`\gcost_b(w)=\delta(w,t)` in `\Open_b`, so the two minima are bounded by the prefix and the suffix
+of `\pi` and the piece between them costs at least 0. (b) Case 2 now names the end that scanned
+the edge: "Whichever of `x` and `y` was settled later scanned that edge during its own expansion -
+`x` scans `(x,y)` forward, `y` scans it backward on `G^R` ... - and by then both `\gcost_f(x)` and
+`\gcost_b(y)` were already final".
+
+**Suggestion 2 (optional trim) - applied.** The two sentences at the old lines 263-265 became
+"Without a target every reachable vertex is settled; \cref{cor:ch03-ucs} says exactly which
+vertices a run with a target settles." The rest of the paragraph (path reconstruction, the
+unreachable target) is unchanged. This removes the sixth statement of the upper-bound point and
+offsets the lines added above; the body stayed at 19 pages.
+
+**Suggestion 3 (the "oldest" superlative) - applied.** Line 39 now reads "It is the oldest
+algorithm this book studies in detail", which leaves Bellman-Ford (Ford 1956) alone.
+
+**Suggestion 4 (Exercise 3.6(c) solution) - applied.** The sentence now reads "... the drone must
+wait one step or take a detour and, with a wait action of cost 1 as in the unit-cost setting of
+`\cref{ch:ch02}`, the true constrained cost from `S` is 9".
+
+**Suggestion 5 (solution for `exr:ch03-bidirectional`) - applied.** A fifth solution was added to
+`appendices/solutions/ch03-solutions.tex`. Part (a) gives a counterexample to the naive meeting
+rule that I verified with a throwaway alternating bidirectional Dijkstra rather than by eye:
+undirected `S-a=1`, `a-b=28`, `b-T=1`, `S-u=16`, `u-T=16`. The settle order is `S` (f), `T` (b),
+`a` (f), `b` (b); `\mu=30` is recorded when the forward expansion of `a` scans `(a,b)` with
+`\gcost_b(b)=1` already finite; `\cref{eq:ch03-bidir-stop}` then fires at `16+16\ge30` and returns
+`S,a,b,T`, while the first vertex settled by both sides is `u` with
+`\gcost_f(u)+\gcost_b(u)=32>30`. Part (b) mirrors Suggestion 1 in full; part (c) says what to
+report and why obstacles erode the factor of one half. `./build.sh appC-solutions` produces the
+appendix PDF with no `!` error and no undefined `ch03-` reference (its non-zero latexmk status is
+the 160 chapter labels that are undefined in any appendix-only build, none of them from Chapter 3;
+the one overfull box near the file's start belongs to the Chapter 14 solutions, not to this file).
+
+**Suggestion 6 (book-level: `frontmatter/notation.tex`, `appendices/glossary.tex`) - not actioned,
+by the rules of the finisher brief.** Both files are outside this chapter's file set and belong to
+the editor's Phase 1/7 pass; `appendices/glossary/ch03-terms.tex` and its fifteen entries are in
+place and ready to be `\input`.
+
+**Kept, as required.** The wave metaphor and its `\lfloor \gcost \rfloor` bands, all six figures
+and their generators, the proof architecture Lemma 3.6 -> Theorem 3.7 -> Corollary 3.8 ->
+Theorem 3.10, the sentence "This is the only place where `c\ge0` is used" with Example 3.9 walking
+through `2\le0`, the second half of the Corollary 3.8 proof (now with the missing clause), the
+`\delta(s,t)<\infty` hypothesis of Theorem 3.11 and its counterexample, the honest two-case
+bidirectional argument (strengthened, not replaced), Section 3.7.2 in full including the green
+`\gcost+\hcost^*=8` cells and the directed-grid subtlety, the trace table with the heap after every
+pop, the settling order, the `.dat`-backed expansions figure, the verbatim listings, the four
+pitfall boxes and the self-test.

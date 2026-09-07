@@ -37,8 +37,8 @@ plan}\index{naive plan}. With two agents, $95\,\%$ of the plans happen to be
 conflict-free. With eight, only $5\,\%$ are, and a plan contains $3.5$
 conflicts on average; with twenty agents no naive plan out of sixty was free
 of conflicts, and with forty agents a plan has about $97$ conflicts among
-$72$ conflicting pairs. The number of conflicts grows roughly like the number
-of pairs, $k(k-1)/2$. Coordination is not an optional refinement: beyond a
+$72$ conflicting pairs. The number of conflicts grows roughly in
+proportion to the number of pairs, $k(k-1)/2$. Coordination is not an optional refinement: beyond a
 handful of agents, independent planning never produces a flyable plan.
 
 \begin{figure}[!htb]
@@ -186,6 +186,14 @@ $T = \max_i T_i$. A plan is a \textbf{solution}\index{MAPF!solution} (or is
 the sense of \cref{def:ch07-conflicts} at any time $t \ge 0$.
 \end{definition}
 
+One warning about $T$, because the neighbouring chapters use the letter
+differently. \Cref{ch:ch02} writes the final-arrival time of a path as
+$T(\pi_i)$; here that quantity is $\cost(\pi_i)$, while $T_i$ is only the
+last index the stored list mentions. Hence $T_i \ge \cost(\pi_i)$ and
+$T \ge \makespan(\Pi)$: the horizon equals the makespan exactly when no path
+ends with waits at its goal, which is how \cref{ch:ch08,ch:ch09} store their
+paths. Read $T$ as ``how far the tables go'', never as a cost.
+
 \subsection{Conflicts}
 \label{sec:ch07-conflicts}
 
@@ -238,9 +246,15 @@ Parts (a), (b) and (d) are the definitions read twice. For (c), the $m$
 vertices of the cycle are distinct by definition and at time $t$ each holds exactly one of
 the agents; at $t+1$ each agent has moved to the vertex of its predecessor, so
 the $m$ agents again occupy the $m$ distinct vertices and no vertex conflict
-arises. A swap would require $\pi_{i_1}[t+1] = \pi_{i_2}[t]$ together with
-$\pi_{i_2}[t+1] = \pi_{i_1}[t]$, that is $i_3 = i_1$, which is impossible for
-$m \ge 3$.
+arises. No pair swaps either, and this has to be checked for
+\emph{every} pair, not only for neighbours in the rotation. Suppose
+$a_{i_a}$ and $a_{i_b}$ swap, so $\pi_{i_a}[t+1] = \pi_{i_b}[t]$ and
+$\pi_{i_b}[t+1] = \pi_{i_a}[t]$. The rotation gives
+$\pi_{i_a}[t+1] = \pi_{i_{a+1}}[t]$, and because the $m$ vertices are
+distinct, $\pi_{i_b}[t] = \pi_{i_{a+1}}[t]$ forces $i_b = i_{a+1}$;
+symmetrically the second equation forces $i_a = i_{b+1}$ (indices modulo
+$m$). Together $a \equiv a + 2 \pmod m$, so $m = 2$, and no pair of a cycle
+with $m \ge 3$ swaps.
 \end{proof}
 
 \paragraph{What this book forbids.}
@@ -275,7 +289,7 @@ sums up the rules.
   vertex & $\pi_i[t] = \pi_j[t]$ & forbidden & two agents in one cell\\
   edge & same edge, same direction & forbidden & implies a vertex conflict\\
   swapping & same edge, opposite directions & forbidden & agents pass through each other\\
-  following & $\pi_i[t+1] = \pi_j[t]$, $a_j$ moves on & allowed & one edge apart at every integer time\\
+  following & $\pi_i[t+1] = \pi_j[t]$, $a_j$ moves on & allowed & one edge apart at integer times\\
   cycle ($m \ge 3$) & rotation on an occupied cycle & allowed & $m$ following conflicts, no collision\\
   \bottomrule
   \end{tabular}
@@ -358,8 +372,8 @@ that the two questions are of very different difficulty.
 The solvers of \cref{ch:ch08,ch:ch09,ch:ch10,ch:ch11} all contain the same
 subroutine: given a plan, find its first conflict or report that there is
 none.\index{conflict!detection} It is also the validator that you run on any
-plan before you trust it, and the re-check of the drone architecture
-(\cref{alg:ch07-pairwise} states the direct version).
+plan before you trust it, and the re-check of the drone architecture.
+\Cref{alg:ch07-pairwise} states the direct version of that subroutine.
 
 \begin{algorithm}[!htb]
 \caption{First conflict of a plan by pairwise comparison}
@@ -483,9 +497,10 @@ numbers them from $1$.
   \inputfigure{ch07/example-instance}
   \caption{\Cref{ex:ch07-grid} with the naive plan of independent shortest
   paths. Solid circles are starts, dashed rings goals, and the small numbers
-  give the time at which each agent reaches a cell. The crosses mark the three
-  conflicts found by hand in \cref{tab:ch07-example-paths}: two vertex
-  conflicts at $(0,1)$ and a swap on the edge $(0,1)$--$(0,2)$.}
+  give the time at which each agent reaches a cell. The cross on $(0,1)$
+  carries both vertex conflicts found by hand in
+  \cref{tab:ch07-example-paths}, and the cross on the edge $(0,1)$--$(0,2)$
+  marks the swap.}
   \label{fig:ch07-example-instance}
 \end{figure}
 
@@ -610,18 +625,18 @@ property of the instance, not a rule.
 
 \begin{proposition}[Elementary bounds]
 \label{prop:ch07-bounds}
-Let $d(u, v)$ be the length of a shortest path between $u$ and $v$ in $G$
+Let $\dist(u, v)$ be the distance of \cref{ch:ch02} in $G$
 and let $\Pi$ be any solution of $\langle G, s, g\rangle$. Then
 \begin{equation}
-  \sumcost(\Pi) \ge \sum_{i=1}^{k} d(s_i, g_i), \qquad
-  \makespan(\Pi) \ge \max_{i} d(s_i, g_i), \qquad
+  \sumcost(\Pi) \ge \sum_{i=1}^{k} \dist(s_i, g_i), \qquad
+  \makespan(\Pi) \ge \max_{i} \dist(s_i, g_i), \qquad
   \makespan(\Pi) \le \sumcost(\Pi) \le k \cdot \makespan(\Pi).
   \label{eq:ch07-bounds}
 \end{equation}
 \end{proposition}
 \begin{proof}
 The path $\pi_i$ is at $g_i$ from time $\cost(\pi_i)$ on and makes at most
-one move per step, so $\cost(\pi_i) \ge d(s_i, g_i)$; summing or maximising
+one move per step, so $\cost(\pi_i) \ge \dist(s_i, g_i)$; summing or maximising
 over $i$ gives the first two inequalities. The third holds because a sum of
 $k$ non-negative numbers lies between their maximum and $k$ times their
 maximum.
@@ -737,10 +752,11 @@ quality and in what they pay for it~\cite{stern2019mapf,felner2017search}.
   \toprule
   Family & Guarantee & Representatives & Where to use it\\
   \midrule
-  optimal, search-based & optimal and complete & \cbs (\cref{ch:ch09}); \mstar (\cref{ch:ch11}); ICTS \cite{sharon2013icts}; \astar in the joint space with operator decomposition and independence detection \cite{standley2010finding} & tens of agents; when the plan is flown many times or optimality is the point\\
+  optimal, search-based & optimal and complete & \cbs (\cref{ch:ch09}); \mstar (\cref{ch:ch11}); increasing cost tree search (ICTS)
+  \cite{sharon2013icts}; \astar in the joint space with operator decomposition and independence detection \cite{standley2010finding} & tens of agents; when the plan is flown many times or optimality is the point\\
   bounded-suboptimal & cost $\le w \cdot$ optimum, complete & \ecbs (\cref{ch:ch10}); EECBS \cite{li2021eecbs} & hundreds of agents; the default choice for a swarm planner\\
   unbounded-suboptimal & none on cost; prioritized planning is incomplete, Push-and-Rotate is complete & prioritized planning, cooperative \astar \cite{silver2005cooperative} (\cref{ch:ch08}); Push-and-Swap, Push-and-Rotate (\cref{ch:ch11}) & real-time replanning, very many agents, sparse maps\\
-  reduction-based & optimal for the encoded objective, usually the makespan; complete & SAT encodings \cite{surynek2010optimization}, surveyed in \cite{felner2017search}; integer programming \cite{yu2016optimal} (\cref{ch:ch22}) & small dense instances; when a strong external solver is at hand\\
+  reduction-based & optimal for the encoded objective, usually the makespan; complete & SAT encodings (surveyed in \cite{felner2017search}); integer programming \cite{yu2016optimal} (\cref{ch:ch22}) & small dense instances; when a strong external solver is at hand\\
   learned & none & PRIMAL \cite{sartoretti2019primal} & decentralised execution with partial observation; needs a validator and a fallback\\
   \bottomrule
   \end{tabularx}
@@ -751,9 +767,8 @@ The table says what each family guarantees; what distinguishes the members
 is what they search. \cbs~\cite{sharon2015cbs}\index{CBS!as solver family}
 searches a tree of constraints, branching on the first conflict that the
 detector of \cref{sec:ch07-detection} reports; \mstar searches the joint
-space, coupling only the agents that actually conflict; the increasing cost
-tree search (ICTS)\index{ICTS} searches the vectors of path costs in
-increasing order. All three pay for optimality with exponential worst-case
+space, coupling only the agents that actually conflict; ICTS\index{ICTS}
+searches the vectors of path costs in increasing order. All three pay for optimality with exponential worst-case
 time, as \cref{thm:ch07-nphard} demands. \ecbs~\cite{barer2014ecbs} searches
 the tree of \cbs with focal search instead of best-first search and returns a
 solution of cost at most $w$ times the optimum for a chosen $w \ge 1$,
@@ -1030,7 +1045,8 @@ showed that this does not force a new problem definition. Their MAPF-POST
 takes a classical MAPF plan, keeps the \emph{order} in which the agents visit
 every cell, and turns the time steps into a simple temporal network: an agent
 may enter a cell only after its predecessor has left it, and every move
-respects the velocity limits. Solving that network is a linear program, so
+respects the velocity limits. Deciding that network is a shortest-path
+computation on its distance graph (a special linear program), so
 real arrival times and trajectories with a guaranteed safety distance follow
 in polynomial time; later work plans quadrotor swarms with the same
 discrete-then-continuous split~\cite{honig2018trajectory}. The other route is

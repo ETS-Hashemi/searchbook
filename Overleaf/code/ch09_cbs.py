@@ -8,7 +8,7 @@ The file is self-contained:
                          backward BFS distances (an exact, consistent heuristic).
 * ``low_level``       -- space-time A* for ONE agent under a set of vertex
                          constraints <v, t> and edge constraints <u, v, t>,
-                         with the goal-occupied-later test and a finite horizon.
+                         with the goal-stay test and a finite horizon.
 * ``all_conflicts``   -- vertex / edge (swap) conflict detection between
                          time-indexed paths (agents stay at their goals).
 * ``cbs``             -- the high level: best-first search on the sum of costs

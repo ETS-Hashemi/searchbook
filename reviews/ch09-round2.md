@@ -149,3 +149,81 @@ constraint sets such that every solution satisfies at least one of them is a leg
 Keep the code, its certification against a joint-space optimum on 65 random instances, and
 the generated scaling experiment with its caveat paragraph: together they are exactly the
 Week-4 milestone.
+
+## Response to review (round 2)
+
+Both required changes are applied; seven of the eight suggestions are applied as well.
+`cd Overleaf && ./build.sh ch09-cbs` exits **0**, no `!` errors, no overfull box above
+15 pt, no undefined reference or citation belonging to this chapter (only cross-chapter
+`ch:chNN` / `ch:appX`, as a single-chapter build allows). `python3 code/ch09_cbs.py`
+passes every assert in 2.3 s; the algorithm was not touched, so no `.dat` file needed
+regenerating and every number quoted in the chapter still reproduces. Chapter body is
+still 21 PDF pages.
+
+### Required changes
+
+1. **MA-CBS glossary entry (category A).** Done, verbatim as asked.
+   `appendices/glossary/ch09-terms.tex`, entry "Meta-agent CBS (MA-CBS)": the clause
+   "interpolating between \cbs ($B = \infty$) and joint-space \astar ($B = 0$)" is
+   replaced by "interpolating between plain \cbs ($B = \infty$) and Standley's
+   independence detection ($B = 0$), in which every pair is merged at its first conflict,
+   so each group of interacting agents is solved by a joint-space \astar while agents that
+   never conflict are still planned alone." The entry now agrees word for word with
+   `sec:ch09-macbs`, so Appendix B no longer contradicts Chapter 9.
+
+2. **"Goal-stay test" naming (category F).** Done, in both places. The glossary head word
+   is now `\item[Goal-stay test (goal-occupied-later test)]` with the definition unchanged,
+   so the assembled glossary lists the concept once, under the book-wide name, with the
+   alternative name available for lookup. `code/ch09_cbs.py` line 11 now reads "with the
+   goal-stay test and a finite horizon", matching the in-code comment on the goal test and
+   the caption of `lst:ch09-lowlevel`. (The listing in the chapter quotes the low-level
+   function, not the module docstring, so no listing text changed.)
+
+### Suggestions
+
+* **MA-CBS conflict counter.** Taken, in the hedged form: "counts, for every pair of
+  agents, the conflicts split between them in the search so far (some implementations count
+  only along the current branch)". Sharon et al.'s `CM[i][j]` is indeed maintained across
+  the CT search rather than per branch, and the parenthesis keeps the reader safe with the
+  implementations that reset it.
+* **Edge-conflict timing in `sec:ch09-example`, "Depth one".** Taken: "between $t = 1$ and
+  $t = 2$, $a_2$ moves up into $(2,2)$ while $a_3$ moves down into $(2,1)$", which now
+  explains the conflict's index 1 instead of fighting it.
+* **Solution to `exr:ch09-handtree`.** Taken: the solution now answers the second question
+  too - up to $7 \times 6 = 42$ position pairs per time step on the seven free cells, a few
+  dozen of them expanded, against three CT nodes and four low-level searches (two at the
+  root, one in each child) - and links the instance to the bottleneck case of
+  `sec:ch09-complexity`. Verified by rebuilding `appC-solutions`: the paragraph typesets
+  with no overfull box.
+* **`sec:ch09-experiment` parenthesis.** Taken and rewritten so the explanation is
+  within-ICBS: "because at $k = 10$ it still solves an instance that needs $771$ nodes --
+  one of those that plain \cbs abandons -- whereas at $k = 12$ the three hardest instances
+  time out and drop out of the mean altogether". Both facts come from
+  `figures/data/ch09-scaling.dat`: ICBS max $771$ at $k = 10$, success $0.75$ of twelve
+  instances at $k = 12$.
+* **`def:ch09-ctnode`.** Taken: "Every non-goal node has *at most* two children, one per
+  constraint of the split of one of its conflicts; a child whose low-level problem is
+  infeasible does not exist (`alg:ch09-cbs` discards it at
+  line~\ref{alg:ch09-cbs:replan})." The completeness proof's counting argument still reads
+  correctly, since it only needs the branching factor as an upper bound.
+* **Unreferenced definitions.** Taken for all three: `tab:ch09-conflict-types`'s caption now
+  names `def:ch09-cardinal` (and says how to read the last column), the low-level
+  walkthrough now opens with "`alg:ch09-lowlevel` solves the low-level problem of
+  `def:ch09-lowlevel`", and the same walkthrough now cites `def:ch09-constraint` where the
+  successor filter drops constrained moves.
+* **`frontmatter/notation.tex` and a third path style in `searchbook.sty`.** Not done, by
+  the rules of the finisher brief (never edit `searchbook.sty` or front matter from a
+  chapter revision). Both stay on the book-level list: notation should gain $\pi_i$,
+  $\gamma_i$, SoC, $C^*$, $\langle a_i,v,t\rangle$, $N.\mathcal{C}$, $N.\cost$, and the
+  style file a third path style so `figures/ch09/example.tex` can drop its improvised
+  `draw=sbGreen,line width=1.6pt`.
+
+Everything listed under "What must be kept" is untouched: the proof section and its
+three-part decomposition, the completeness bound $\Delta = k(|V|+2|E|)(C^*+2)$ and
+`rem:ch09-unsolvable`, the full worked example with `fig:ch09-example`, `fig:ch09-tree`,
+`tab:ch09-ct`, `tab:ch09-timeline` and the four lessons, the $h_{CG}$ admissibility
+argument and the CBSH walk-through, the corridor-versus-open-room analysis with the 15-node
+rectangle and the coupled maze, all three pitfall boxes, the $T_{\max} = H+1+D$ horizon,
+the goal-stay treatment in the low level and the validator, the `sec:ch09-variants`
+sequence and its closing principle, and the code with its joint-space certification and the
+generated scaling experiment with its caveat paragraph.

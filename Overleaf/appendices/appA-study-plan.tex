@@ -23,8 +23,8 @@ After working through this appendix you will be able to
     ``Done when'' test rather than a feeling of understanding;
   \item name the four layers of the capstone architecture, the interface of each layer, and
     the decision logic that switches between them at run time;
-  \item design the capstone experiment matrix, name the metrics to report, and say what each
-    metric hides;
+  \item design the capstone experiment matrix, name the metrics to report, and say what the
+    headline metrics hide;
   \item use the traceability table in both directions: from an algorithm of the plan to its
     chapter and week, and from a chapter to the depth the plan expects of you there.
 \end{itemize}
@@ -41,7 +41,7 @@ different kinds of trouble: \emph{planned} conflicts between the drones you cont
 \emph{unexpected} moving obstacles such as an unknown drone crossing your formation. The
 target outcome after twelve weeks is a working research prototype that combines a global
 multi-agent path finding (MAPF) solver (conflict-based search, \cbs, or its
-bounded-suboptimal variant \ecbs, \cref{ch:ch09,ch:ch10}), a reactive avoidance layer
+bounded-suboptimal variant enhanced \cbs (\ecbs), \cref{ch:ch09,ch:ch10}), a reactive avoidance layer
 (optimal reciprocal collision avoidance, \orca, or the dynamic window approach, DWA,
 \cref{ch:ch13,ch:ch14}), a prediction layer (a Kalman filter or a long short-term memory
 network, LSTM, \cref{ch:ch18,ch:ch20}) and a replanning layer (\dstarlite or \astar,
@@ -79,8 +79,8 @@ The plan assumes the following tools. All of them are free, and the book's own c
 only the first two.
 \begin{itemize}
   \item \textbf{Python 3.10+ and NumPy.} Every reference implementation in this book is
-    plain Python with NumPy (SciPy only for the QP and MILP solvers of
-    \cref{ch:ch21,ch:ch22}). Write your own code the same way; you will read and debug it
+    plain Python with NumPy (SciPy only for the quadratic program (QP) and mixed-integer
+    linear program (MILP) solvers of \cref{ch:ch21,ch:ch22}). Write your own code the same way; you will read and debug it
     faster.
   \item \textbf{NetworkX} \cite{hagberg2008networkx} for quick graph experiments and for
     checking your graph code against an independent shortest-path implementation.
@@ -208,7 +208,7 @@ background or optional depth.
 12 & Hybrid system integration
   & \cref{ch:ch24,ch:ch25}
   & Global MAPF + reactive avoidance + prediction + replanning.
-  & Build the capstone architecture (\cref{sec:appA-capstone}) and run controlled experiments.
+  & Build the capstone architecture (Section~\ref{sec:appA-capstone}) and run controlled experiments.
   & A research prototype and an experiment matrix suitable for a paper/thesis chapter.\\
 \end{longtable}
 }
@@ -222,8 +222,8 @@ depth in each: \emph{learn deeply} (A, B, C), \emph{know well} (D, E) and \emph{
 to integrate} (F). \Cref{fig:appA-timeline} shows how the twelve weeks are distributed over
 the families. Notice that seven of the twelve weeks -- more than half -- go to the three
 ``learn deeply'' families, and that the capstone gets a full week of its own. If you are short of time, the
-places to compress are Week~7 (do DWA \emph{or} APF, not both), Week~8 (use a library for
-\rrtstar) and the MILP part of Week~11 (read \cref{ch:ch22}, do not implement it). Do not
+places to compress are Week~5 (benchmark two values of $w$ instead of four), Week~8 (use a
+library for \rrtstar) and the MILP part of Week~11 (read \cref{ch:ch22}, do not implement it). Do not
 compress Weeks~1, 4, 6, 9 or 12: each of them builds a layer of the capstone that the later
 weeks assume.
 \index{study plan!timeline}
@@ -259,7 +259,7 @@ the \cbs low level of Week~4 and the replanning layer of Week~12, and each time 
 look like a new bug. \Cref{fig:appA-week-dependencies} draws the artifacts that later weeks
 reuse, so that you can see how far a red test travels before it is found. If the milestone sentence is not true on the last day of the week,
 spend the first hours of the next week on it and shorten that week's exercise instead;
-\cref{sec:appA-timeline} names the parts that can be compressed.
+Section~\ref{sec:appA-timeline} names the parts that can be compressed.
 \end{pitfall}
 
 \begin{figure}[htb]
@@ -271,7 +271,7 @@ replanning layer, the Week-3 checker is the conflict detector of \cbs and of the
 re-check step, and the Week-6 simulator produces both the failure cases of Week~7 and the
 trajectories that Week~10 learns from. Notice how much hangs on Weeks~1 and 3: four arrows leave Week~1 and
 two leave Week~3, so a bug carried out of either reappears in every week it feeds, which is why
-\cref{sec:appA-timeline} refuses to let you compress them.}
+Section~\ref{sec:appA-timeline} refuses to let you compress them.}
 \label{fig:appA-week-dependencies}
 \end{figure}
 
@@ -420,8 +420,11 @@ implementation.
 \noindent\textbf{Load}\ \difficulty{3}\quad\textbf{Read}\ \cref{ch:ch12,ch:ch13}.
 
 \textbf{Focus.} Everything is relative: relative position, relative velocity and a Minkowski
-disc whose radius is the sum of the two radii. The velocity obstacle (VO) is the set of
-relative velocities that reach the disc within the horizon $\ttc$; the reciprocal velocity
+disc whose radius is the sum of the two radii. The velocity obstacle $\VO^{\ttc}_{A|B}$ is the
+set of velocities of $A$ that, if $B$ held its current velocity, would bring the two discs
+into contact within the horizon $\ttc$; subtracting $\vel_B$ gives the relative-velocity
+form -- the truncated cone of \cref{ch:ch12} -- which is the form \orca reasons in. The
+reciprocal velocity
 obstacle (RVO) shares the avoidance between cooperating agents; \orca turns it into one
 half-plane per neighbor, so that the new velocity is a small linear program.
 
@@ -429,9 +432,11 @@ half-plane per neighbor, so that the new velocity is a small linear program.
 exchanging places) in three modes, no avoidance, VO and \orca, recording collisions,
 minimum separation and time to goal.
 
-\textbf{Done when.} No avoidance collides, VO avoids but oscillates or detours widely, \orca
-is smooth and collision-free at the same speeds, and you can draw the cone and the \orca
-half-plane for one pair.
+\textbf{Done when.} You can draw the cone and the \orca half-plane for one pair and say
+which velocities each of them forbids. Across the three modes you should see no avoidance
+collide, VO avoid but oscillate or detour widely, and \orca stay smooth and collision-free
+at the same speeds; if your radii and speeds put VO closer to \orca than that, say so and
+report the separation numbers rather than doubting a correct implementation.
 
 \textbf{Traps.} The orientation of the half-plane (it must exclude the velocity obstacle);
 the truncated cone for finite $\ttc$ is a disc plus two tangent legs, not a triangle; when
@@ -584,7 +589,7 @@ linearizing around a stale trajectory; a model $\dt$ that differs from the contr
 \index{study plan!week 12@week 12}
 \noindent\textbf{Load}\ \difficulty{3}\quad\textbf{Read}\ \cref{ch:ch24,ch:ch25}.
 
-\textbf{Focus.} The architecture and decision logic of \cref{sec:appA-capstone}: the safety
+\textbf{Focus.} The architecture and decision logic of Section~\ref{sec:appA-capstone}: the safety
 horizon and the time-to-collision trigger, reconnection to the nominal path, the replanning
 triggers, the conflict re-check, and the experiment matrix and metrics of \cref{ch:ch25}.
 
@@ -633,7 +638,7 @@ conflict check runs again.}
 \label{fig:appA-architecture}
 \end{figure}
 
-\begin{table}[htb]
+\begin{table}[H]
 \centering\small
 \caption{The four layers of the capstone architecture, in the plan's words, with the
 chapters that teach each layer and the weeks in which you build it.}
@@ -655,7 +660,7 @@ chapters that teach each layer and the weeks in which you build it.}
   & \cref{ch:ch13,ch:ch14} & 6--7\\
 \addlinespace
 4\ Replanning layer (\dstarlite or \astar)
-  & If the local maneuver cannot safely return the drone to its nominal route, replan from the current state. Then re-check swarm conflicts and formation/communication constraints.
+  & If the local maneuver cannot safely return the drone to its nominal route, replan from the current state. Then re-check swarm conflicts and formation/communication constraints. (Week~11 adds the formation and communication constraints this re-check must test.)
   & \cref{ch:ch04,ch:ch05} & 1--2, 11\\
 \bottomrule
 \end{tabular}
@@ -681,7 +686,7 @@ what happens to the optimality of the \cbs plan once a drone leaves it.
 \end{enumerate}
 \index{decision logic!capstone}
 
-\begin{figure}[htb]
+\begin{figure}[H]
 \centering
 \inputfigure{appA/decision-logic}
 \caption{The decision logic of the capstone, one pass per control cycle. Notice the three
@@ -689,7 +694,9 @@ triggers on the left: the two diamonds are the only places where a drone leaves 
 its nominal \cbs/\ecbs path, so they are also the only places to instrument when you count
 replans. The two dashed cuts are the ``avoidance strategy'' axis of the experiment matrix:
 cutting layer~4 leaves the local-only strategy, cutting layer~3 leaves the replan-only
-strategy, and the whole chart is the hybrid.}
+strategy, and the whole chart is the hybrid. In replan-only the \emph{yes} branch goes
+straight to step~4 (dotted); in local-only step~4 is never reached and the drone stays on
+the local layer until it can reconnect.}
 \label{fig:appA-decision-logic}
 \end{figure}
 
@@ -747,6 +754,16 @@ logic of \cref{ch:ch24}, since it counts how often the local layer was not enoug
 them deserve a warning: a collision rate of zero hides near misses, which is what minimum
 separation is for, and a mean computation time hides the cycle that missed its deadline, so
 report the maximum as well.
+
+\begin{pitfall}[Benchmarking on one instance]
+One instance, one seed and one trajectory split are the three cheapest ways to reach a
+conclusion that does not survive contact with a second one. Week~5 warns against concluding
+from one instance and Week~10 against tuning on the test set; the capstone inherits both
+traps at once, because a hybrid strategy that wins on a single crossing geometry can lose on
+the next. Fix the factors of \cref{tab:appA-experiments} at a default, run every cell you
+report over several seeds, give the spread and not only the mean, and keep the instances you
+tune on apart from the instances you report on.
+\end{pitfall}
 \FloatBarrier
 
 % ---------------------------------------------------------------------
@@ -781,23 +798,28 @@ $\square$ & I can evaluate the hybrid system with reproducible metrics and contr
 \end{tabular}
 \end{table}
 
-\paragraph{A six-question self-check.}
+\paragraph{An eight-question self-check.}
 The chapters carry the graded exercises; the questions below are the plan's own ``Done
-when'' tests turned into prompts, and you should be able to answer all six from your own
-lab notebook without opening a chapter.
+when'' tests turned into prompts, graded like those exercises from \difficulty{1} to
+\difficulty{3}, and you should be able to answer all eight from your own lab notebook
+without opening a chapter.
 \begin{enumerate}
-  \item State the optimality theorem of \astar with its conditions, and say what breaks when
-    each condition is dropped (Week~1).
-  \item Show a log in which the path cost after every \dstarlite repair equals the cost of a
-    fresh \astar from the same position (Week~2).
-  \item Give an instance on which one priority order fails and another succeeds, and name
-    the conflict type that appears (Weeks~3).
-  \item Draw the constraint tree of a two-agent instance by hand and match it against your
-    \cbs log (Week~4).
-  \item Show your cost-against-runtime plot as $w$ varies and say in numbers what
-    suboptimality bought (Week~5).
-  \item Name one run of your capstone in which the local layer was not enough, and say which
-    trigger fired and what the replanning count was (Week~12).
+  \item \difficulty{1} State the optimality theorem of \astar with its conditions, and say
+    what breaks when each condition is dropped (Week~1).
+  \item \difficulty{2} Show a log in which the path cost after every \dstarlite repair
+    equals the cost of a fresh \astar from the same position (Week~2).
+  \item \difficulty{1} Give an instance on which one priority order fails and another
+    succeeds, and name the conflict type that appears (Week~3).
+  \item \difficulty{2} Draw the constraint tree of a two-agent instance by hand and match it
+    against your \cbs log (Week~4).
+  \item \difficulty{2} Show your cost-against-runtime plot as $w$ varies and say in numbers
+    what suboptimality bought (Week~5).
+  \item \difficulty{2} Draw the VO cone and the \orca half-plane for one crossing pair and
+    say which velocities each of them forbids (Week~6).
+  \item \difficulty{2} Show the filtered estimate beating the raw measurements on one run,
+    and the ADE/FDE table per horizon for constant velocity and the LSTM (Weeks~9--10).
+  \item \difficulty{3} Name one run of your capstone in which the local layer was not
+    enough, and say which trigger fired and what the replanning count was (Week~12).
 \end{enumerate}
 \index{self-check}
 \FloatBarrier
@@ -933,8 +955,8 @@ anything about configuration spaces, sampling and collision checking that
   \item The rhythm is 6--8 hours a week -- at most two reading, four to six coding -- and the
     milestone rule: if the week's sentence is not true on the last day, close the gap in the
     first hours of the next week instead of moving on.
-  \item If time runs short, compress Week~7 (DWA \emph{or} APF), Week~8 (use a library for
-    \rrtstar) and the MILP part of Week~11. Do not compress Weeks~1, 4, 6, 9 or 12: each
+  \item If time runs short, compress Week~5 (two values of $w$ instead of four), Week~8
+    (use a library for \rrtstar) and the MILP part of Week~11. Do not compress Weeks~1, 4, 6, 9 or 12: each
     builds a layer that the later weeks assume, as \cref{fig:appA-week-dependencies} shows.
   \item The capstone has four layers -- global swarm planner, prediction, local safety,
     replanning (\cref{fig:appA-architecture}) -- joined by the five-step decision logic of
