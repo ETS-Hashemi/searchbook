@@ -1,0 +1,40 @@
+% Attention across agents: four drones (left) and the attention matrix
+% computed by the scaled dot-product formula with the hand-set query and key
+% maps of toy_agent_attention (right).
+% Data: figures/data/ch20-attention*.dat (code/figures/gen_ch20_results.py).
+\begin{tikzpicture}
+\begin{axis}[
+  at={(0,0)},anchor=south west,
+  width=0.5\textwidth,height=6.2cm,
+  axis equal image,
+  xlabel={$x$ [m]},ylabel={$y$ [m]},
+  grid=major,font=\footnotesize,
+  xmin=-8,xmax=10,ymin=-7,ymax=7,
+  legend pos=south east,legend cell align=left,legend style={font=\scriptsize},
+]
+\addplot[sbBlue,quiver={u=\thisrow{vx},v=\thisrow{vy},scale arrows=2},-{Stealth[length=4pt]},thick] table[x=x,y=y]{figures/data/ch20-attention-agents.dat};
+\addplot[only marks,mark=*,mark size=2.4pt,sbBlue] table[x=x,y=y]{figures/data/ch20-attention-agents.dat};
+\addplot[only marks,mark=x,mark size=3pt,sbRed,thick] table[x expr=\thisrow{x}+2*\thisrow{vx},y expr=\thisrow{y}+2*\thisrow{vy}]{figures/data/ch20-attention-agents.dat};
+\legend{$\vel_j$ (arrow $=2$\,s of flight),position $\pos_j$,$\pos_j + \tau\vel_j$ ($\tau = 2$\,s)}
+\node[font=\footnotesize,sbBlue,anchor=north] at (axis cs:0,-0.5) {A};
+\node[font=\footnotesize,sbBlue,anchor=north] at (axis cs:8,-2.5) {B};
+\node[font=\footnotesize,sbBlue,anchor=south] at (axis cs:3,3.5) {C};
+\node[font=\footnotesize,sbBlue,anchor=north] at (axis cs:-6,-5.5) {D};
+\end{axis}
+\begin{axis}[
+  at={(0.56\textwidth,0.3cm)},anchor=south west,
+  width=0.4\textwidth,height=5.6cm,
+  xlabel={key agent $j$},ylabel={query agent $i$},
+  xtick={0,1,2,3},xticklabels={A,B,C,D},
+  ytick={0,1,2,3},yticklabels={A,B,C,D},
+  y dir=reverse,
+  font=\footnotesize,
+  colormap={sbheat}{color(0cm)=(white); color(1cm)=(sbBlue)},
+  point meta min=0,point meta max=1,
+  enlargelimits=false,
+  nodes near coords={\pgfmathprintnumber[fixed,precision=2]{\pgfplotspointmeta}},
+  every node near coord/.append style={font=\tiny,anchor=center},
+]
+\addplot[matrix plot*,mesh/cols=4,point meta=explicit] table[x=j,y=i,meta=w]{figures/data/ch20-attention.dat};
+\end{axis}
+\end{tikzpicture}

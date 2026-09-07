@@ -1,0 +1,55 @@
+% The search graph of M* on the worked example of Chapter 11.  Nodes are
+% joint configurations written as the cells of agents 1, 2, 3; the grey
+% numbers are the steps of the trace table at which the node is expanded.
+% The graph is a chain along the policies, widens where agents 1 and 2 are
+% in the collision set, and becomes a chain again once they have passed.
+\begin{tikzpicture}[x=1.86cm,y=1cm,font=\footnotesize,
+  cfg/.style={draw=sbBlue,fill=white,thick,rounded corners=2pt,inner sep=2.5pt,font=\tiny,align=center},
+  cfgbad/.style={draw=sbRed,fill=sbLightRed,thick,dashed,rounded corners=2pt,inner sep=2.5pt,font=\tiny,align=center},
+  other/.style={circle,draw=sbBlue!60,fill=sbOpen,inner sep=0pt,minimum size=4.5pt},
+  step/.style={font=\tiny,text=sbGray},
+  gen/.style={-{Stealth[length=4pt]},draw=black!60,thick},
+  bp/.style={-{Stealth[length=4pt]},draw=sbRed,thick,dashed}]
+% background: where the collision set is {1,2}
+\fill[sbLightOrange,rounded corners=6pt] (-0.42,-2.55) rectangle (3.45,1.75);
+\node[sbannot,text=sbOrange,anchor=north,align=center] at (1.5,1.72) {collision set $\{1,2\}$: agents 1 and 2 branch over all their moves,\\ agent 3 keeps following its policy};
+\node[sbannot,text=sbBlue,anchor=north,align=center] at (5.5,1.72) {collision set $\emptyset$:\\ one successor per node};
+% the chain along the policies and the collision
+\node[cfg] (v0) at (0,0) {$(0,1)\,(4,1)\,(0,3)$\\ $f=12$};
+\node[cfg] (v1) at (1,0) {$(1,1)\,(3,1)\,(1,3)$\\ $f=12$};
+\node[cfgbad] (vc) at (2,0) {$(2,1)\,(2,1)\,(2,3)$\\ collision of 1 and 2};
+\draw[gen] (v0) -- (v1);
+\draw[gen,draw=sbRed] (v1) -- (vc);
+\node[step,anchor=south] at (v0.north) {steps 1, 4};
+\node[step,anchor=south] at (v1.north) {steps 2, 3};
+% backpropagation
+\draw[bp] (vc.south) to[out=-150,in=-30] node[sbannot,text=sbRed,below,yshift=-1pt] {backpropagate $\{1,2\}$} (v1.south);
+\draw[bp] (v1.south west) to[out=-140,in=-40] (v0.south);
+% the other successors of the re-expanded nodes (fans)
+\foreach \dy in {0.55,0.85,1.15} {\node[other] at (1,\dy) {}; \draw[gen,draw=black!35] (v0.east) -- (1,\dy);}
+\node[step,anchor=west] at (1.1,0.9) {5 successors};
+\foreach \dy in {0.5,0.8,1.1,1.4} {\node[other] at (2,\dy) {}; \draw[gen,draw=black!35] (v1.east) -- (2,\dy);}
+\node[step,anchor=west] at (2.1,1.0) {11 successors};
+% the successor on the optimal path
+\node[cfg] (w2) at (2,-1.3) {$(1,1)\,(2,1)\,(2,3)$\\ $f=13$};
+\draw[gen] (v1.east) -- (w2.west);
+\node[step,anchor=north] at (w2.south) {steps 5, 7};
+\foreach \dy in {-1.85,-2.1,-2.35} {\node[other] at (3,\dy) {}; \draw[gen,draw=black!35] (w2.east) -- (3,\dy);}
+\node[step,anchor=west] at (3.1,-2.1) {9 successors};
+\node[cfg] (w3) at (3,-1.3) {$(1,0)\,(1,1)\,(3,3)$\\ $f=15$};
+\draw[gen] (w2) -- (w3);
+\node[step,anchor=south] at (w3.north) {step 28};
+% the chain after the agents have passed each other
+\node[cfg] (w4) at (4,-1.3) {$(1,1)\,(0,1)\,(4,3)$\\ $f=15$};
+\node[cfg] (w5) at (5,-1.3) {$(2,1)\,(0,1)\,(4,3)$\\ $f=15$};
+\node[cfg] (w6) at (6,-1.3) {$(3,1)\,(0,1)\,(4,3)$\\ $f=15$};
+\node[cfg,draw=sbGoal,fill=sbGoal!12] (w7) at (7,-1.3) {$(4,1)\,(0,1)\,(4,3)$\\ goal, $g=15$};
+\draw[gen] (w3) -- (w4); \draw[gen] (w4) -- (w5); \draw[gen] (w5) -- (w6); \draw[gen] (w6) -- (w7);
+\node[step,anchor=south] at (w4.north) {step 29};
+\node[step,anchor=south] at (w5.north) {step 30};
+\node[step,anchor=south] at (w6.north) {step 31};
+\node[step,anchor=south] at (w7.north) {popped};
+% time axis
+\draw[->,black!50] (-0.4,-3.0) -- (7.4,-3.0);
+\foreach \t in {0,...,7} {\node[step] at (\t,-3.25) {$t=\t$};}
+\end{tikzpicture}

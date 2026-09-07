@@ -322,9 +322,9 @@ def focal_space_time_astar(inst: Instance, agent: int,
     vcons = {(c.cells[0], c.t) for c in constraints if c.kind == "vertex"}
     econs = {(c.cells[0], c.cells[1], c.t) for c in constraints if c.kind == "edge"}
     t_goal = max((t for v, t in vcons if v == goal), default=-1)
-    if max_time is None:                       # horizon H + 1 + D
+    if max_time is None:                       # horizon w * (H + 1 + D)
         last_t = max((c.t for c in constraints), default=-1)
-        max_time = last_t + 1 + max(h.values())
+        max_time = int(w * (last_t + 1 + max(h.values())))
 
     counter = itertools.count()
     s0 = (start, 0)
@@ -770,7 +770,8 @@ def _self_test() -> None:
     assert tight.solved and tight.cost == 12 and tight.ct_expanded == 7, (
         tight.cost, tight.ct_expanded)
     loose = ecbs(inst, w=1.5)
-    assert loose.solved and loose.cost == 13 and loose.ct_expanded == 2
+    assert loose.solved and loose.cost == 13 and loose.ct_expanded == 1
+    assert loose.lower_bound == 11 and loose.trace == [] and loose.ct_generated == 1
 
     # -- the low-level example: w = 1 accepts the conflict, w = 1.5 waits -
     inst, fixed = low_level_example()

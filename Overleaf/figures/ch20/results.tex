@@ -1,0 +1,44 @@
+% ADE per horizon on the test split: all methods (left) and CV against the
+% LSTM per manoeuvre subset (right).
+% Data: figures/data/ch20-results.dat (code/figures/gen_ch20_results.py).
+\begin{tikzpicture}
+\begin{axis}[
+  at={(0,0)},anchor=south west,
+  width=0.5\textwidth,height=6.4cm,
+  xlabel={horizon $h$ [steps of $0.2$\,s]},
+  ylabel={$\mathrm{ADE}_h$ [m]},
+  legend pos=north west,legend cell align=left,legend style={font=\scriptsize},
+  grid=major,font=\footnotesize,
+  xmin=0.5,xmax=12.5,ymin=0,ymax=1.45,
+  xtick={2,4,...,12},
+]
+\addplot[black!50,densely dotted,thick,mark=*,mark size=1.2pt] table[x=h,y=ade_cv1]{figures/data/ch20-results.dat};
+\addplot[sbBlue,thick,mark=square*,mark size=1.4pt] table[x=h,y=ade_cv]{figures/data/ch20-results.dat};
+\addplot[sbPurple!70,thick,dashed,mark=triangle,mark size=2pt,mark options={solid}] table[x=h,y=ade_ca]{figures/data/ch20-results.dat};
+\addplot[sbOrange,thick,mark=diamond*,mark size=1.8pt] table[x=h,y=ade_kf]{figures/data/ch20-results.dat};
+\addplot[sbGreen,very thick,mark=*,mark size=1.4pt] table[x=h,y=ade_nll]{figures/data/ch20-results.dat};
+\addplot[sbGreen!60!black,thick,densely dashed,mark=o,mark size=1.6pt,mark options={solid}] table[x=h,y=ade_mse]{figures/data/ch20-results.dat};
+\addplot[sbRed,thick,dotted,mark=x,mark size=2pt,mark options={solid}] table[x=h,y=ade_abs]{figures/data/ch20-results.dat};
+\legend{CV ($k=1$),CV (tuned),CA (tuned),KF (tuned),LSTM-NLL,LSTM-MSE,LSTM (absolute coord.)}
+\end{axis}
+\begin{axis}[
+  at={(0.52\textwidth,0)},anchor=south west,
+  width=0.5\textwidth,height=6.4cm,
+  xlabel={horizon $h$ [steps of $0.2$\,s]},
+  ylabel={$\mathrm{ADE}_h$ [m]},
+  legend pos=north west,legend cell align=left,legend style={font=\scriptsize},
+  grid=major,font=\footnotesize,
+  xmin=0.5,xmax=12.5,ymin=0,ymax=2.6,
+  xtick={2,4,...,12},
+]
+\addplot[sbGreen,thick,dashed] table[x=h,y=ade_cv_straight]{figures/data/ch20-results.dat};
+\addplot[sbGreen,thick] table[x=h,y=ade_nll_straight]{figures/data/ch20-results.dat};
+\addplot[sbBlue,thick,dashed] table[x=h,y=ade_cv_turn]{figures/data/ch20-results.dat};
+\addplot[sbBlue,thick] table[x=h,y=ade_nll_turn]{figures/data/ch20-results.dat};
+\addplot[sbOrange,thick,dashed] table[x=h,y=ade_cv_evis]{figures/data/ch20-results.dat};
+\addplot[sbOrange,thick] table[x=h,y=ade_nll_evis]{figures/data/ch20-results.dat};
+\addplot[sbRed,thick,dashed] table[x=h,y=ade_cv_ehid]{figures/data/ch20-results.dat};
+\addplot[sbRed,thick] table[x=h,y=ade_nll_ehid]{figures/data/ch20-results.dat};
+\legend{straight: CV,straight: LSTM,turn: CV,turn: LSTM,evasive (visible): CV,evasive (visible): LSTM,evasive (hidden): CV,evasive (hidden): LSTM}
+\end{axis}
+\end{tikzpicture}

@@ -1,0 +1,44 @@
+% Concept figure: observe T_obs positions, predict the next T_pred, with
+% growing uncertainty and a second plausible future.
+\begin{tikzpicture}[x=1.05cm,y=1.05cm,font=\small]
+  % time axis
+  \draw[->,black!60] (-0.3,-1.1) -- (8.4,-1.1) node[right,sbannot] {time};
+  \foreach \x/\l in {0/{$T{-}7$},4.2/{$T$},7.8/{$T{+}12$}} {
+    \draw[black!60] (\x,-1.2) -- (\x,-1.0); \node[sbannot,below] at (\x,-1.15) {\l};
+  }
+  \draw[black!40,dashed] (4.2,-1.0) -- (4.2,3.4);
+  \node[sbannot,anchor=south east] at (4.15,3.2) {now};
+  \draw[<->,sbGray] (0,-0.6) -- (4.2,-0.6) node[midway,below,sbannot] {observed: $T_{\mathrm{obs}} = 8$ steps};
+  \draw[<->,sbGray] (4.2,-0.6) -- (7.8,-0.6) node[midway,below,sbannot] {to predict: $T_{\mathrm{pred}} = 12$ steps};
+  % uncertainty ellipses of the prediction (drawn first, below the lines)
+  \foreach \x/\y/\a/\b in {5.4/1.06/0.22/0.14, 6.6/1.40/0.45/0.28, 7.8/1.74/0.72/0.44} {
+    \fill[sbBlue,opacity=0.10] (\x,\y) ellipse [x radius=\a,y radius=\b,rotate=16];
+    \draw[sbBlue!70,thin] (\x,\y) ellipse [x radius=\a,y radius=\b,rotate=16];
+  }
+  % observed positions
+  \draw[black!50,thin] (0,0) -- (0.6,0.05) -- (1.2,0.10) -- (1.8,0.18) -- (2.4,0.28) -- (3.0,0.40) -- (3.6,0.55) -- (4.2,0.72);
+  \foreach \x/\y in {0/0,0.6/0.05,1.2/0.10,1.8/0.18,2.4/0.28,3.0/0.40,3.6/0.55} {
+    \fill[black!70] (\x,\y) circle (1.6pt);
+  }
+  \node[sbintruder,minimum size=9pt] at (4.2,0.72) {};
+  \node[sbannot,anchor=north west] at (4.25,0.62) {$\pos_T$};
+  % true future
+  \draw[sbGreen,thick] (4.2,0.72) -- (4.8,0.95) -- (5.4,1.25) -- (6.0,1.60) -- (6.6,2.00) -- (7.2,2.45) -- (7.8,2.95);
+  \foreach \x/\y in {4.8/0.95,5.4/1.25,6.0/1.60,6.6/2.00,7.2/2.45,7.8/2.95} { \fill[sbGreen] (\x,\y) circle (1.4pt); }
+  \node[sbGreen,anchor=south east,font=\small] at (7.7,3.0) {true future $\pos_{T+h}$};
+  % predicted mean
+  \draw[sbBlue,thick] (4.2,0.72) -- (4.8,0.89) -- (5.4,1.06) -- (6.0,1.23) -- (6.6,1.40) -- (7.2,1.57) -- (7.8,1.74);
+  \foreach \x/\y in {4.8/0.89,5.4/1.06,6.0/1.23,6.6/1.40,7.2/1.57,7.8/1.74} { \fill[sbBlue] (\x,\y) circle (1.4pt); }
+  \node[sbBlue,anchor=north west,font=\small] at (7.0,1.55) {prediction $\hat{\pos}_{T+h}$};
+  % second plausible future
+  \draw[sbOrange,thick,dashed] (4.2,0.72) -- (4.8,0.85) -- (5.4,0.90) -- (6.0,0.80) -- (6.6,0.60) -- (7.2,0.35) -- (7.8,0.05);
+  \node[sbOrange,anchor=north west,font=\small] at (6.3,0.55) {another plausible future};
+  % errors
+  \foreach \x/\yt/\yp in {4.8/0.95/0.89,5.4/1.25/1.06,6.0/1.60/1.23,6.6/2.00/1.40,7.2/2.45/1.57} {
+    \draw[sbRed,thin] (\x,\yt) -- (\x,\yp);
+  }
+  \draw[sbRed,thick] (7.8,2.95) -- (7.8,1.74);
+  \node[sbRed,anchor=west,font=\footnotesize] at (7.9,2.35) {FDE};
+  \node[sbRed,anchor=south,font=\footnotesize] at (5.7,1.6) {$e_h$};
+  \node[sbannot,anchor=north,align=center] at (6.6,-0.05) {\textcolor{sbBlue}{ellipses}: uncertainty\\ grows with $h$};
+\end{tikzpicture}

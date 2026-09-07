@@ -1,0 +1,52 @@
+% The LSTM cell: three gates, the cell state and the hidden state.
+\begin{tikzpicture}[font=\small,
+  gate/.style={draw=sbBlue,fill=sbLightBlue,rounded corners=2pt,minimum width=1.0cm,minimum height=0.55cm,thick},
+  op/.style={circle,draw=sbGray,fill=white,thick,inner sep=1pt,minimum size=14pt,font=\footnotesize},
+  wire/.style={-{Stealth[length=5pt]},thick,draw=black!70},
+  cwire/.style={-{Stealth[length=5pt]},line width=1.6pt,draw=sbOrange}]
+  % cell body
+  \draw[rounded corners=6pt,draw=sbGray,fill=sbLightGray!60] (0.3,-0.2) rectangle (8.7,4.4);
+  \node[sbannot,anchor=north west] at (0.4,4.35) {LSTM cell, step $t$};
+  % cell state line (top)
+  \node[op] (mulf) at (2.4,3.6) {$\odot$};
+  \node[op] (plus) at (5.2,3.6) {$+$};
+  \draw[cwire] (-0.4,3.6) node[left,black] {$\vect{c}_{t-1}$} -- (mulf);
+  \draw[cwire] (mulf) -- (plus);
+  \draw[cwire] (plus) -- (9.4,3.6) node[right,black] {$\vect{c}_t$};
+  % gates
+  \node[gate] (f) at (2.4,1.7) {$\sigma$};
+  \node[gate] (i) at (3.9,1.7) {$\sigma$};
+  \node[gate] (g) at (5.2,1.7) {$\tanh$};
+  \node[gate] (o) at (7.3,1.7) {$\sigma$};
+  \node[sbannot,below=1pt of f] {forget $\vect{f}_t$};
+  \node[sbannot,below=1pt of i] {input $\vect{i}_t$};
+  \node[sbannot,below=1pt of g] {candidate $\tilde{\vect{c}}_t$};
+  \node[sbannot,below=1pt of o] {output $\vect{o}_t$};
+  % input bus: [x_t ; h_{t-1}]
+  \draw[wire] (-0.4,0.9) node[left,black] {$\vect{h}_{t-1}$} -- (1.2,0.9);
+  \draw[wire] (4.5,-1.0) node[below,black] {$\vect{x}_t$} -- (4.5,0.3);
+  \draw[thick,black!70] (1.2,0.9) -- (1.2,0.3) -- (7.3,0.3);
+  \node[sbannot,anchor=north] at (2.6,0.28) {$[\vect{x}_t;\vect{h}_{t-1}]$};
+  \foreach \n in {f,i,g,o} { \draw[wire] (\n.south |- 0,0.3) -- (\n.south); }
+  % i * g
+  \node[op] (mulig) at (4.55,2.7) {$\odot$};
+  \draw[wire] (i.north) -- (mulig);
+  \draw[wire] (g.north) -- (mulig);
+  \draw[wire] (mulig) -- (plus);
+  \draw[wire] (f.north) -- (mulf);
+  % output branch
+  \node[op] (tanh) at (6.4,2.7) {$\tanh$};
+  \node[op] (mulo) at (7.3,2.7) {$\odot$};
+  \draw[wire] (6.4,3.6) -- (tanh);
+  \draw[wire] (tanh) -- (mulo);
+  \draw[wire] (o.north) -- (mulo);
+  \draw[wire] (mulo) -- (9.4,2.7) node[right,black] {$\vect{h}_t$};
+  % equations on the right
+  \node[anchor=north west,align=left,font=\footnotesize] at (9.6,4.3) {%
+    $\vect{f}_t=\sigma(\mat{W}_f[\vect{x}_t;\vect{h}_{t-1}]+\vect{b}_f)$\\[1pt]
+    $\vect{i}_t=\sigma(\mat{W}_i[\vect{x}_t;\vect{h}_{t-1}]+\vect{b}_i)$\\[1pt]
+    $\vect{o}_t=\sigma(\mat{W}_o[\vect{x}_t;\vect{h}_{t-1}]+\vect{b}_o)$\\[1pt]
+    $\tilde{\vect{c}}_t=\tanh(\mat{W}_c[\vect{x}_t;\vect{h}_{t-1}]+\vect{b}_c)$\\[1pt]
+    $\vect{c}_t=\vect{f}_t\odot\vect{c}_{t-1}+\vect{i}_t\odot\tilde{\vect{c}}_t$\\[1pt]
+    $\vect{h}_t=\vect{o}_t\odot\tanh(\vect{c}_t)$};
+\end{tikzpicture}

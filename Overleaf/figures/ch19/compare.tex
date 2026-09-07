@@ -1,2 +1,30 @@
-% temporary placeholder, replaced by the generated figure
-\begin{tikzpicture}\node[sbannot] {figure compare (placeholder)};\end{tikzpicture}
+% EKF, UKF and particle filter on the turning target (one baseline run).
+% Data: code/figures/gen_ch19_compare.py
+\begin{tikzpicture}
+\begin{groupplot}[
+  group style={group size=2 by 1, horizontal sep=1.7cm},
+  height=6.4cm, font=\footnotesize, grid=major,
+  legend style={font=\scriptsize, fill=white, fill opacity=0.85, text opacity=1}, legend cell align=left]
+\nextgroupplot[width=0.5\textwidth, axis equal image, xlabel={$x$ [m]}, ylabel={$y$ [m]},
+  legend style={at={(0.03,0.97)}, anchor=north west}]
+\addplot[only marks, mark=*, mark size=0.6pt, color=black!40] table[x=meas_x, y=meas_y] {figures/data/ch19-compare-track.dat};
+\addplot[black, thick] table[x=x_true, y=y_true] {figures/data/ch19-compare-track.dat};
+\addplot[sbBlue, thick] table[x=ekf_x, y=ekf_y] {figures/data/ch19-compare-track.dat};
+\addplot[sbOrange, thick, dashed] table[x=ukf_x, y=ukf_y] {figures/data/ch19-compare-track.dat};
+\addplot[sbGreen, thick, dotted] table[x=pf_x, y=pf_y] {figures/data/ch19-compare-track.dat};
+\node[sbagentA] at (axis cs:0,0) {};
+\node[sbannot, anchor=west] at (axis cs:4,0) {sensor};
+\legend{measurements, truth, EKF, UKF, PF}
+\nextgroupplot[width=0.5\textwidth, xlabel={time $t$ [s]}, ylabel={position error [m]}, ymin=0, xmin=0, xmax=30,
+  legend style={at={(0.97,0.97)}, anchor=north east}]
+\addplot[black!45] table[x=t, y=err_meas] {figures/data/ch19-compare-error.dat};
+\addplot[sbBlue, thick] table[x=t, y=err_ekf] {figures/data/ch19-compare-error.dat};
+\addplot[sbOrange, thick, dashed] table[x=t, y=err_ukf] {figures/data/ch19-compare-error.dat};
+\addplot[sbGreen, thick, dotted] table[x=t, y=err_pf] {figures/data/ch19-compare-error.dat};
+\draw[sbGray, dashed] ({axis cs:4,0}|-{rel axis cs:0,0}) -- ({axis cs:4,0}|-{rel axis cs:0,1});
+\draw[sbGray, dashed] ({axis cs:17,0}|-{rel axis cs:0,0}) -- ({axis cs:17,0}|-{rel axis cs:0,1});
+\node[sbannot, anchor=south west] at ({axis cs:4,0}|-{rel axis cs:0,0.02}) {left turn};
+\node[sbannot, anchor=south west] at ({axis cs:17,0}|-{rel axis cs:0,0.02}) {right turn};
+\legend{measurement, EKF, UKF, PF}
+\end{groupplot}
+\end{tikzpicture}

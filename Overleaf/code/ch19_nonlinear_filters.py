@@ -25,7 +25,7 @@ import time
 import numpy as np
 
 TWO_PI = 2.0 * math.pi
-OMEGA_EPS = 1e-6        # below this |omega| the straight-line formulas are used
+OMEGA_EPS = 1e-4        # below this |omega| the straight-line expansion is used
 
 
 def wrap_angle(theta):
@@ -41,7 +41,7 @@ class CoordinatedTurnModel:
 
     Process noise: a longitudinal acceleration a ~ N(0, sigma_a^2) and a
     turn acceleration gamma ~ N(0, sigma_gamma^2), constant over the step,
-    enter through G(x) (eq. 19.6 of the book), so Q(x) = G diag(...) G^T.
+    enter through the matrix G(x) of the chapter, so Q(x) = G diag(...) G^T.
     """
     dim = 5
     angle_index = (3,)          # the heading is an angle
@@ -61,23 +61,29 @@ class CoordinatedTurnModel:
         small = np.abs(om) < OMEGA_EPS
         om_safe = np.where(small, 1.0, om)
         psi1 = psi + om * dt
-        dx = np.where(small, v * dt * np.cos(psi),
+        # |omega| < OMEGA_EPS: series in omega to second order (avoids 0/0)
+        c, s = np.cos(psi), np.sin(psi)
+        dx = np.where(small, v * dt * c - 0.5 * v * om * dt ** 2 * s - v * om ** 2 * dt ** 3 * c / 6.0,
                       v / om_safe * (np.sin(psi1) - np.sin(psi)))
-        dy = np.where(small, v * dt * np.sin(psi),
+        dy = np.where(small, v * dt * s + 0.5 * v * om * dt ** 2 * c - v * om ** 2 * dt ** 3 * s / 6.0,
                       -v / om_safe * (np.cos(psi1) - np.cos(psi)))
         out = np.column_stack([px + dx, py + dy, v, wrap_angle(psi1), om])
         return out[0] if single else out
 
     def jacobian(self, x):
-        """5 x 5 Jacobian dF/dx of f at the state x (Proposition 19.6)."""
+        """5 x 5 Jacobian of f at the state x (the chapter's proposition)."""
         _, _, v, psi, om = np.asarray(x, dtype=float)
         dt = self.dt
         F = np.eye(5)
         F[3, 4] = dt
-        if abs(om) < OMEGA_EPS:
+        if abs(om) < OMEGA_EPS:                      # series in omega (omega = 0: the limits)
             s, c = math.sin(psi), math.cos(psi)
-            F[0, 2], F[0, 3], F[0, 4] = dt * c, -v * dt * s, -0.5 * v * dt * dt * s
-            F[1, 2], F[1, 3], F[1, 4] = dt * s, v * dt * c, 0.5 * v * dt * dt * c
+            F[0, 2] = dt * c - 0.5 * om * dt ** 2 * s - om ** 2 * dt ** 3 * c / 6.0
+            F[0, 3] = -v * dt * s - 0.5 * v * om * dt ** 2 * c + v * om ** 2 * dt ** 3 * s / 6.0
+            F[0, 4] = -0.5 * v * dt ** 2 * s - v * om * dt ** 3 * c / 3.0
+            F[1, 2] = dt * s + 0.5 * om * dt ** 2 * c - om ** 2 * dt ** 3 * s / 6.0
+            F[1, 3] = v * dt * c - 0.5 * v * om * dt ** 2 * s - v * om ** 2 * dt ** 3 * c / 6.0
+            F[1, 4] = 0.5 * v * dt ** 2 * c - v * om * dt ** 3 * s / 3.0
         else:
             psi1 = psi + om * dt
             s0, c0, s1, c1 = math.sin(psi), math.cos(psi), math.sin(psi1), math.cos(psi1)
@@ -137,7 +143,7 @@ class RangeBearingSensor:
         return out[0] if single else out
 
     def jacobian(self, x):
-        """2 x 5 Jacobian dh/dx at the state x (Proposition 19.7)."""
+        """2 x 5 Jacobian of h at the state x (the chapter's proposition)."""
         dx = x[0] - self.pos[0]
         dy = x[1] - self.pos[1]
         r2 = dx * dx + dy * dy
@@ -328,11 +334,12 @@ class ParticleFilter:
     """
 
     def __init__(self, motion, sensor, x0, P0, n_particles, rng,
-                 resample_threshold=0.5, constraint=None):
+                 resample_threshold=0.5, constraint=None, roughening=None):
         self.motion, self.sensor, self.rng = motion, sensor, rng
         self.n = int(n_particles)
         self.threshold = resample_threshold * self.n
         self.constraint = constraint
+        self.roughening = None if roughening is None else np.asarray(roughening, float)
         self.X = rng.multivariate_normal(np.asarray(x0, float), np.asarray(P0, float), size=self.n)
         self.X[:, 2] = np.abs(self.X[:, 2])          # speeds are non-negative
         self.X[:, 3] = wrap_angle(self.X[:, 3])
@@ -370,6 +377,8 @@ class ParticleFilter:
         if self.n_eff < self.threshold:
             idx = systematic_resample(w, self.rng)
             self.X = self.X[idx]
+            if self.roughening is not None:              # optional jitter of the copies
+                self.X = self.X + self.rng.normal(size=self.X.shape) * self.roughening
             self.logw = np.full(self.n, -math.log(self.n))
             self.resample_count += 1
         return self.x, self.P
@@ -407,15 +416,23 @@ def simulate_turning_target(x0, segments, dt):
     return np.array(states)
 
 
-def initial_estimate(z0, z1, sensor, dt, sigma_omega=0.3):
-    """Track initialisation from two range-bearing measurements."""
+def initial_estimate(z0, z1, sensor, dt, v_max=30.0, sigma_omega=0.3):
+    """Track initialisation from two range-bearing measurements.
+
+    Position from the second measurement, speed and heading from the
+    displacement between the two (the speed clipped to [0, v_max]), turn rate
+    zero.  The standard deviations follow from the measurement noise at that
+    range: sigma_p across and along the line of sight, sqrt(2) sigma_p / dt for
+    the speed (capped at v_max / 2) and sqrt(2) sigma_p / |displacement| for
+    the heading (capped at 1 rad).
+    """
     p0, p1 = sensor.to_cartesian(z0), sensor.to_cartesian(z1)
     d = p1 - p0
-    speed = np.hypot(*d) / dt
+    speed = min(np.hypot(*d) / dt, v_max)
     heading = math.atan2(d[1], d[0])
     r = z1[0]
     sigma_p = math.sqrt(sensor.sigma_r ** 2 + (r * sensor.sigma_phi) ** 2)
-    sigma_v = min(math.sqrt(2.0) * sigma_p / dt, 8.0)
+    sigma_v = min(math.sqrt(2.0) * sigma_p / dt, 0.5 * v_max)
     sigma_psi = min(math.sqrt(2.0) * sigma_p / max(np.hypot(*d), 1e-6), 1.0)
     x0 = np.array([p1[0], p1[1], speed, heading, 0.0])
     P0 = np.diag([sigma_p ** 2, sigma_p ** 2, sigma_v ** 2, sigma_psi ** 2, sigma_omega ** 2])
@@ -423,7 +440,7 @@ def initial_estimate(z0, z1, sensor, dt, sigma_omega=0.3):
 
 
 def run_tracking(truth, sensor, motion, rng, n_particles=2000, init_error=None,
-                 init_heading_std=None, seed_pf=None):
+                 init_heading_std=None, seed_pf=None, roughening=None):
     """Run EKF, UKF and PF on one measurement sequence; return estimates and errors."""
     T = truth.shape[0]
     Z = np.array([sensor.measure(truth[k], rng) for k in range(T)])
@@ -437,7 +454,7 @@ def run_tracking(truth, sensor, motion, rng, n_particles=2000, init_error=None,
     filters = {
         "ekf": ExtendedKalmanFilter(motion, sensor, x0, P0),
         "ukf": UnscentedKalmanFilter(motion, sensor, x0, P0),
-        "pf": ParticleFilter(motion, sensor, x0, P0, n_particles, pf_rng),
+        "pf": ParticleFilter(motion, sensor, x0, P0, n_particles, pf_rng, roughening=roughening),
     }
     est = {name: np.zeros((T, 5)) for name in filters}
     times = {name: 0.0 for name in filters}
@@ -457,8 +474,11 @@ def run_tracking(truth, sensor, motion, rng, n_particles=2000, init_error=None,
                 times={n: times[n] / (T - 2) for n in filters})
 
 
-def rmse(err, start=2):
-    """Root-mean-square of an error sequence, skipping the initialisation steps."""
+SETTLE_STEPS = 10           # RMSE is computed after a 5 s settling period (dt = 0.5 s)
+
+
+def rmse(err, start=SETTLE_STEPS):
+    """Root-mean-square of an error sequence after the settling period."""
     e = np.asarray(err[start:], dtype=float)
     return float(np.sqrt(np.mean(e * e)))
 
@@ -476,7 +496,7 @@ def turning_target_truth():
 # Worked example: one EKF step and one UKF step by hand
 # ---------------------------------------------------------------------------
 def worked_example(verbose=True):
-    """The instance of Example 19.8/19.11: returns every intermediate quantity."""
+    """The one-step worked example of the chapter: returns every intermediate quantity."""
     motion = CoordinatedTurnModel(dt=1.0, sigma_a=1.0, sigma_gamma=0.1)
     sensor = RangeBearingSensor(pos=(0.0, 0.0), sigma_r=2.0, sigma_phi=0.03)
     x_prev = np.array([-100.0, -4.0, 10.0, math.pi, 0.3])
@@ -535,6 +555,8 @@ def worked_example(verbose=True):
 # ---------------------------------------------------------------------------
 OCC_BUILDING = (-10.0, 10.0, 50.0, 70.0)     # x_min, x_max, y_min, y_max
 OCC_BAND = (35.0, 75.0)                      # no measurements while y is in the band
+# north for 4 s, a 1 s left turn at 1 rad/s, 2 s straight, a 1 s right turn, then north
+OCC_SEGMENTS = [(4.0, 0.0), (1.0, 1.0), (2.0, 0.0), (1.0, -1.0), (7.0, 0.0)]
 
 
 def outside_building(X, building=OCC_BUILDING):
@@ -547,12 +569,11 @@ def outside_building(X, building=OCC_BUILDING):
 def occlusion_example(n_particles=2000, seed=19, verbose=True):
     """Track an intruder that turns left behind a building while unobserved."""
     dt = 0.5
-    truth = simulate_turning_target((0.0, 5.0, 8.0, math.pi / 2, 0.0),
-                                    [(3.0, 0.0), (1.0, 0.8), (2.5, 0.0), (1.0, -0.8), (7.0, 0.0)], dt)
+    truth = simulate_turning_target((0.0, 5.0, 8.0, math.pi / 2, 0.0), OCC_SEGMENTS, dt)
     T = truth.shape[0]
     rng = np.random.default_rng(seed)
-    sensor = RangeBearingSensor(pos=(0.0, 0.0), sigma_r=2.0, sigma_phi=0.02)
-    motion = CoordinatedTurnModel(dt, sigma_a=1.0, sigma_gamma=0.6)
+    sensor = RangeBearingSensor(pos=(0.0, 0.0), sigma_r=2.0, sigma_phi=0.05)
+    motion = CoordinatedTurnModel(dt, sigma_a=0.5, sigma_gamma=0.3)
     visible = ~((truth[:, 1] >= OCC_BAND[0]) & (truth[:, 1] <= OCC_BAND[1]))
     Z = [sensor.measure(truth[k], rng) if visible[k] else None for k in range(T)]
     x0, P0 = initial_estimate(Z[0], Z[1], sensor, dt)
@@ -599,7 +620,7 @@ def occlusion_example(n_particles=2000, seed=19, verbose=True):
 # ---------------------------------------------------------------------------
 # Self-test
 # ---------------------------------------------------------------------------
-def _finite_difference_jacobian(g, x, eps=1e-6):
+def _finite_difference_jacobian(g, x, eps=1e-5):
     x = np.asarray(x, dtype=float)
     g0 = np.atleast_1d(g(x))
     J = np.zeros((g0.size, x.size))
@@ -625,11 +646,10 @@ def _self_test():
     # 2. Jacobians against finite differences (turning, almost straight, straight)
     motion = CoordinatedTurnModel(dt=0.7, sigma_a=1.0, sigma_gamma=0.2)
     sensor = RangeBearingSensor(pos=(3.0, -2.0), sigma_r=2.0, sigma_phi=0.03)
-    for omega in (0.3, -0.8, 1e-4, 0.0):
+    for omega in (0.3, -0.8, 5e-4, 0.0):
         for _ in range(5):
             x = np.array([rng.uniform(-100, 100), rng.uniform(-100, 100), rng.uniform(1, 20),
                           rng.uniform(-math.pi, math.pi), omega])
-            f_plain = lambda s: s[:3].tolist() + [s[3] + s[4] * motion.dt, s[4]] if False else None  # noqa
             # compare with the unwrapped heading so that finite differences are smooth
             def f_unwrapped(s):
                 y = motion.f(s)
@@ -637,10 +657,11 @@ def _self_test():
                 return y
             assert np.allclose(motion.jacobian(x), _finite_difference_jacobian(f_unwrapped, x), atol=1e-5)
             assert np.allclose(sensor.jacobian(x), _finite_difference_jacobian(sensor.h, x), atol=1e-6)
-    x_small = np.array([1.0, 2.0, 10.0, 0.4, 1e-9])
-    x_zero = x_small.copy()
-    x_zero[4] = 0.0
-    assert np.allclose(motion.f(x_small), motion.f(x_zero), atol=1e-6)     # continuity at omega = 0
+    x_lo = np.array([1.0, 2.0, 10.0, 0.4, OMEGA_EPS * (1 - 1e-9)])
+    x_hi = x_lo.copy()
+    x_hi[4] = OMEGA_EPS * (1 + 1e-9)
+    assert np.allclose(motion.f(x_lo), motion.f(x_hi), atol=1e-6)         # continuity at the threshold
+    assert np.allclose(motion.jacobian(x_lo), motion.jacobian(x_hi), atol=1e-5)
 
     # 3. sigma points: weights sum to one, mean and covariance reproduced, affine exactness
     for n, params in ((5, (1.0, 2.0, 0.0)), (5, (1.0, 2.0, -2.0)), (2, (1.0, 2.0, 1.0)),
@@ -697,8 +718,9 @@ def _self_test():
     assert occ["west"] > 0.15 and occ["east"] > 0.15, (occ["west"], occ["east"])
     assert occ["near"] > 0.9, occ["near"]
     bx0, bx1, by0, by1 = OCC_BUILDING
-    ux, uy = occ["stages"][occ["k_mid"]]["ukf_mean"]
-    assert bx0 < ux < bx1 and by0 < uy < by1        # the Gaussian mean sits inside the building
+    gap = occ["ukf_est"][occ["k_last"] + 1:occ["k_first"]]
+    assert np.any((gap[:, 0] > bx0) & (gap[:, 0] < bx1) & (gap[:, 1] > by0) & (gap[:, 1] < by1))
+    # the Gaussian filter's mean passes through the building while the intruder is hidden
 
     print(f"all self-tests passed in {time.perf_counter() - t_start:.1f} s")
     print(f"turning target, one run: RMSE meas {r_meas:.2f} m, EKF {rmse(res['errors']['ekf']):.2f} m, "

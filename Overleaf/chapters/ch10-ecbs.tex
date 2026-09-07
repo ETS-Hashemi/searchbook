@@ -327,9 +327,11 @@ minus those forbidden by a vertex or edge constraint. Two details of
 \cref{ch:ch04} carry over. The goal test accepts $(\gamma_i, t)$ only if $t$ is
 later than every vertex constraint on $\gamma_i$, written $t > t_\gamma$, so
 that the agent can stay at its goal for ever. And the search is cut at a time
-horizon $T_{\max} = H + 1 + D$, where $H$ is the latest constrained time and
-$D$ the largest grid distance to the goal, which keeps it finite and does not
-exclude any optimal constrained path.
+horizon $T_{\max} = \lfloor w\,(H + 1 + D) \rfloor$, where $H$ is the latest
+constrained time and $D$ the largest grid distance to the goal. With $w = 1$
+this is the horizon of \cref{ch:ch04}, which keeps the search finite and does
+not exclude any optimal constrained path; the factor $w$ stretches it so that
+the band is cut off by the bound and not by the horizon.
 
 \begin{algorithm}[htb]
 \caption{The \ecbs low level: focal space-time \astar with a lower bound}
@@ -338,7 +340,7 @@ exclude any optimal constrained path.
 \KwOut{a path $\pi_i$ respecting $\mathcal{C}_i$ and a lower bound $\mathrm{lb}_i$ with $\mathrm{lb}_i \le C_i^*(\mathcal{C}_i)$ and $\cost(\pi_i) \le w\,\mathrm{lb}_i$; or \emph{failure}}
 \Fn{\EcbsLowLevel{$a_i$, $\mathcal{C}_i$, $\Pi_{-i}$, $w$}}{
   $\hcost(v) \gets$ grid distance from $v$ to $\gamma_i$ for all free cells $v$ (backward BFS, cached)\label{alg:ch10-lowlevel:h}\;
-  $t_\gamma \gets$ largest $t$ with $\langle i, \gamma_i, t\rangle \in \mathcal{C}_i$, or $-1$; $T_{\max} \gets H + 1 + D$\;
+  $t_\gamma \gets$ largest $t$ with $\langle i, \gamma_i, t\rangle \in \mathcal{C}_i$, or $-1$; $T_{\max} \gets \lfloor w\,(H + 1 + D)\rfloor$\;
   $n_0 \gets (s_i, 0)$; $h_c(n_0) \gets$ conflicts of $n_0$ with $\Pi_{-i}$; \Open $\gets \set{n_0}$; \Closed $\gets \emptyset$\;
   \While{\Open $\ne \emptyset$}{
     $\fcost_{\min} \gets \min_{n \in \Open} \fcost(n)$; \Focal $\gets \set{n \in \Open : \fcost(n) \le w\,\fcost_{\min}}$\label{alg:ch10-lowlevel:band}\;
@@ -519,3 +521,1090 @@ $\mathrm{LB}$ has $\cost(N_{\min}) = \sum_a \cost(\pi_a) \le w \sum_a
 \mathrm{lb}_a = w\,\mathrm{LB}(N_{\min}) = w\,\mathrm{LB}$, so it always
 belongs to \Focal. The high-level guarantee, $\cost \le w\,\mathrm{LB} \le
 w\,C^*$, is the one the user sees.
+
+% ---------------------------------------------------------------------
+\section{A worked example}
+\label{sec:ch10-example}
+
+\begin{example}[\cbs against \ecbs on a $4 \times 4$ grid]
+\label{ex:ch10-grid}
+\Cref{fig:ch10-example-instance}(a) shows a $4 \times 4$ grid with one
+blocked cell, $(3,2)$, and three agents: $a_1$ from $(2,2)$ to $(1,1)$
+(grid distance~2), $a_2$ from $(2,3)$ to $(1,0)$ (distance~4) and $a_3$ from
+$(3,0)$ to $(1,3)$ (distance~5). The sum of the distances, $11$, is a lower
+bound on $C^*$. The instance is \code{worked\_example()} in
+\code{ch10\_ecbs.py}; in the code the agents are numbered $0$, $1$, $2$, and
+every number below is produced by its self-test.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch10/example-instance}
+  \caption{\Cref{ex:ch10-grid}. Solid circles are starts, dashed rings goals,
+  small numbers the time at which a cell is reached. (a) The root: three
+  shortest paths of total cost~11; $a_1$ parks at $(1,1)$ at $t = 2$ and
+  $a_3$ walks into it at $t = 3$ (red cross). (b) The optimal solution found
+  by \cbs: $a_3$ waits one step at $(3,1)$ and passes below the parked $a_1$,
+  cost~12. (c) The solution found by \ecbs with $w = 1.2$: $a_1$ reaches its
+  goal, steps aside to $(0,1)$ while $a_3$ passes, and returns at $t = 4$,
+  cost~13.}
+  \label{fig:ch10-example-instance}
+\end{figure}
+
+\paragraph{The root.}
+Both algorithms start with the same root. Agent $a_1$ takes the path
+$(2,2), (1,2), (1,1)$ of cost~2. Agent $a_2$, planned against $a_1$, walks
+along row~2 and up: $(2,3), (2,2), (2,1), (2,0), (1,0)$, cost~4, no conflict.
+Agent $a_3$ is planned against both. Every path of cost~5 for $a_3$ meets
+$a_1$ or $a_2$: the routes through row~2 cross $a_2$ at $(2,1)$ at $t = 2$,
+and the routes through row~1 cross the parked $a_1$ at $(1,1)$. The low level
+returns $(3,0), (2,0), (1,0), (1,1), (1,2), (1,3)$ with one conflict,
+$\langle a_1, a_3, (1,1), 3\rangle$. The root therefore has $\cost = 11$,
+per-agent bounds $(2, 4, 5)$, $\mathrm{LB} = 11$ and $h_c = 1$, for \cbs
+($w = 1$) and for \ecbs with every $w$ we try. With $w = 1.2$ the low level
+of $a_3$ may look at states with $\fcost \le 6$, and a conflict-free path of
+cost~6 exists: it is the path that \cbs finally finds
+(\cref{fig:ch10-example-instance}(b)). The search does not find it. All
+conflict-free paths of cost~6 pass through the state $(2,1)$ at $t = 3$, and
+the search first reaches that state through $(2,0)$ at $t = 2$, where the move
+$(2,0) \to (2,1)$ swaps with $a_2$; the conflict-free route through $(3,1)$
+arrives at the same state later and is discarded as a duplicate
+(line~\ref{alg:ch10-lowlevel:dup} of \cref{alg:ch10-lowlevel}). The \Focal
+preference is a heuristic, not a guarantee.
+
+\paragraph{\cbs.}
+\Cref{tab:ch10-cbs-trace} traces \cbs, which orders \Open by cost with
+$h_c$ as tie-breaker, and \cref{fig:ch10-example-trees}(a) draws the tree. The
+root's conflict is split into $N_1$ (constraint $\langle a_1, (1,1), 3\rangle$)
+and $N_2$ ($\langle a_3, (1,1), 3\rangle$). In $N_1$ agent $a_1$ may not be
+at its goal at $t = 3$, so under stay-at-target it must arrive at $t = 4$ or
+later: it goes to $(1,1)$, steps aside to $(0,1)$ and comes back, cost~4, and
+$N_1$ has cost~13 and \emph{no conflict}. $N_1$ is a solution, and \cbs knows
+it after a single expansion. But it is not proved optimal, and \cbs must
+expand every node with a smaller cost first: $N_2$ (cost 11, one conflict),
+then $N_3$ (11), then $N_4$, $N_6$ and $N_8$ (all 12), until $N_{12}$, of
+cost~12 and without conflicts, is popped in step~7. Its solution is
+\cref{fig:ch10-example-instance}(b): $a_3$ waits at $(3,1)$ for one step. In
+total \cbs expands 7 nodes, generates 13, and runs 136 low-level state
+expansions; and $N_1$, the solution it found at step~1, is still in \Open when
+it stops.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Trace of \cbs on \cref{ex:ch10-grid}. Children are listed as
+  $N_i$: cost$/h_c$; a child's constraint is the one drawn on its edge in
+  \cref{fig:ch10-example-trees}(a). \Open is ordered by cost, then $h_c$, then
+  age.}
+  \label{tab:ch10-cbs-trace}
+  \begin{tabular}{@{}rlrrll@{}}
+  \toprule
+  Step & Expanded & cost & $h_c$ & Conflict split & Children generated\\
+  \midrule
+  1 & $N_0$ & 11 & 1 & $\langle a_1, a_3, (1,1), 3\rangle$ & $N_1$: $13/0$, $N_2$: $11/1$\\
+  2 & $N_2$ & 11 & 1 & $\langle a_2, a_3, (2,1), 2\rangle$ & $N_3$: $11/1$, $N_4$: $12/1$\\
+  3 & $N_3$ & 11 & 1 & $\langle a_1, a_2, (1,1), 3\rangle$ & $N_5$: $13/0$, $N_6$: $12/1$\\
+  4 & $N_4$ & 12 & 1 & $\langle a_1, a_3, (1,1), 4\rangle$ & $N_7$: $15/0$, $N_8$: $12/1$\\
+  5 & $N_6$ & 12 & 1 & $\langle a_1, a_2, (1,1), 4\rangle$ & $N_9$: $15/0$, $N_{10}$: $12/1$\\
+  6 & $N_8$ & 12 & 1 & swap $\langle a_2, a_3, (2,1), (2,0), 2\rangle$ & $N_{11}$: $12/1$, $N_{12}$: $12/0$\\
+  7 & $N_{12}$ & 12 & 0 & none: solution of cost 12 & \\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[p]
+  \centering
+  \inputfigure{ch10/example-trees}
+  \caption{The constraint trees of \cref{ex:ch10-grid}. (a) \cbs expands
+  the filled nodes in the orange order and returns $N_{12}$; the
+  conflict-free node $N_1$ of cost~13 is generated in step~1 and never
+  expanded. (b) \ecbs with $w = 1.1$ orders \Open by $\mathrm{LB}(N)$ and
+  picks from \Focal by $h_c$. $N_1$ is outside the band until the global
+  bound rises from $11$ to $12$ after step~3; then $1.1 \cdot 12 = 13.2 \ge
+  13$ admits it, and it is expanded at once because it has no conflicts.}
+  \label{fig:ch10-example-trees}
+\end{figure}
+
+\paragraph{\ecbs with $w = 1.1$.}
+\Cref{tab:ch10-ecbs-trace} and \cref{fig:ch10-example-trees}(b) show
+\cref{alg:ch10-ecbs} with $w = 1.1$. After step~1 the global bound is
+$\mathrm{LB} = 11$ and the band is $\cost \le 12.1$: $N_2$ (cost 11) is in
+\Focal, $N_1$ (cost 13) is in \Open only. Steps~2 and~3 expand $N_2$ and
+$N_3$, both with $\mathrm{LB}(N) = 11$, because they are the only nodes in the
+band; their children $N_4$ and $N_6$ have $\mathrm{LB} = 12$ (the constrained
+agent's bound rose by one), and $N_5$, like $N_1$, has cost~13 and
+$\mathrm{LB} = 13$. After step~3, \Open holds $N_1, N_4, N_5, N_6$ with
+bounds $13, 12, 13, 12$, so $\mathrm{LB}$ rises to $12$ and the band widens
+to $\cost \le 13.2$. Now $N_1$ and $N_5$ enter \Focal, both with $h_c = 0$,
+and step~4 expands the older one, $N_1$, and returns its solution of cost~13.
+The guarantee at that moment is $\cost \le 1.1 \cdot 12 = 13.2$; the true
+optimum is 12. \ecbs expanded 4 nodes, generated 7 and used 61 low-level
+expansions. Compare the two traces: \ecbs performs the same first three
+expansions as \cbs, since with a bound of $11$ the band contains exactly the
+nodes of cost~11, and then stops the moment the bound allows it.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Trace of \ecbs with $w = 1.1$ on \cref{ex:ch10-grid}. Children
+  are listed as $N_i$: cost$/\mathrm{LB}(N_i)/h_c$, followed by F if the
+  child enters \Focal at once and O if it waits in \Open. The global
+  $\mathrm{LB}$ and the band $w\,\mathrm{LB}$ are those in force when the
+  node is chosen.}
+  \label{tab:ch10-ecbs-trace}
+  \begin{tabular}{@{}rlrrrrrl@{}}
+  \toprule
+  Step & Expanded & cost & $\mathrm{LB}(N)$ & $h_c$ & $\mathrm{LB}$ & $w\,\mathrm{LB}$ & Children generated\\
+  \midrule
+  1 & $N_0$ & 11 & 11 & 1 & 11 & 12.1 & $N_1$: $13/13/0$ O, $N_2$: $11/11/1$ F\\
+  2 & $N_2$ & 11 & 11 & 1 & 11 & 12.1 & $N_3$: $11/11/1$ F, $N_4$: $12/12/1$ F\\
+  3 & $N_3$ & 11 & 11 & 1 & 11 & 12.1 & $N_5$: $13/13/0$ O, $N_6$: $12/12/1$ F\\
+  4 & $N_1$ & 13 & 13 & 0 & 12 & 13.2 & none: solution of cost 13, bound $13.2$\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Other values of $w$.}
+\Cref{tab:ch10-example-compare} repeats the run for several factors. With
+$w = 1.05$ the band $\cost \le 11.55$ never contains a node of cost~12 or~13
+until $\mathrm{LB}$ has reached~12, at which point $1.05 \cdot 12 = 12.6$
+admits the cost-12 nodes but not $N_1$; the run is identical to \cbs. With
+$w = 1.2$ the band is $\cost \le 13.2$ from the start, $N_1$ enters \Focal
+as soon as it is generated, has $h_c = 0$, and is expanded in step~2: two
+expansions, cost~13, proven bound $1.2 \cdot 11 = 13.2$. With $w = 1.5$ the
+run ends at the root: the band of $a_3$'s low level now reaches
+$\fcost \le 7.5$, its horizon $\lfloor 1.5 \cdot 5 \rfloor = 7$ admits the
+conflict-free detour through row~0, $(3,0), (2,0), (1,0), (0,0), (0,1),
+(0,2), (1,2), (1,3)$ of cost~7, and the conflict count prefers it to every
+cheaper path. The root has cost $2 + 4 + 7 = 13$ and no conflict, and it is
+returned after a single expansion with the bound $1.5 \cdot 11 = 16.5$: the
+same cost as with $w = 1.2$, reached by a different plan with less work, but
+with a looser certificate. The table makes the trade-off of the chapter
+concrete: on this instance a factor $w \ge 13/11$ cuts the constraint tree
+from 7 to 2 expansions, or to 1 with $w = 1.5$, and the low-level work from
+136 to 37 or 20 expansions, at the price of one extra time step in the plan, and the proven bound tells the user honestly that the solution
+might be up to $13.2$, or $16.5$, without ever computing the optimum. It also
+shows that the returned solution can be worse than necessary: a cost-12
+solution lies inside every band with $w \ge 12/11$, but the conflict count
+steered the search to the cost-13 node first.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{\cbs and \ecbs on \cref{ex:ch10-grid} for several factors $w$:
+  cost of the returned solution, constraint-tree nodes expanded and
+  generated, global lower bound $\mathrm{LB}$ at termination, proven bound
+  $w\,\mathrm{LB}$, and low-level state expansions. The optimum is $12$.}
+  \label{tab:ch10-example-compare}
+  \begin{tabular}{@{}lrrrrrr@{}}
+  \toprule
+  Algorithm & cost & CT expanded & CT generated & $\mathrm{LB}$ & bound $w\,\mathrm{LB}$ & low-level exp.\\
+  \midrule
+  \cbs                & 12 & 7 & 13 & 12 & 12 (optimal) & 136\\
+  \ecbs $w = 1.05$    & 12 & 7 & 13 & 12 & 12.6 & 136\\
+  \ecbs $w = 1.1$     & 13 & 4 &  7 & 12 & 13.2 &  61\\
+  \ecbs $w = 1.2$     & 13 & 2 &  3 & 11 & 13.2 &  37\\
+  \ecbs $w = 1.5$     & 13 & 1 &  1 & 11 & 16.5 &  20\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{Properties: bounded suboptimality, completeness, complexity}
+\label{sec:ch10-properties}
+
+Throughout this section graphs are finite, costs are non-negative, $w \ge 1$
+and $\hcost$ is admissible. The single-agent results are those of Pearl and
+Kim~\cite{pearl1982studies}; the \ecbs results follow Barer et
+al.~\cite{barer2014ecbs}.
+
+\subsection{Focal search is $w$-suboptimal}
+
+The proof rests on the same invariant as the optimality proof of \astar in
+\cref{ch:ch04}. We restate it because its proof does not use the choice rule
+at all, which is exactly what focal search needs.
+
+\begin{lemma}[An optimal-path node is always open]
+\label{thm:ch10-invariant}
+Consider any search that relaxes edges and re-opens nodes as in
+lines~\ref{alg:ch10-focal:relax}--\ref{alg:ch10-focal:reopen} of
+\cref{alg:ch10-focal}, whatever rule it uses to choose the node to expand.
+Let $P = (s = n_0, n_1, \dots, n_m)$ be a cheapest path from $s$ to a node
+$n_m$. At any time before $n_m$ is expanded with $\gcost(n_m) = \gcost^*(n_m)$,
+\Open contains a node $n_i$ of $P$ with $\gcost(n_i) = \gcost^*(n_i)$.
+\end{lemma}
+\begin{proof}
+Let $i$ be the smallest index such that $n_i$ has not yet been expanded while
+holding $\gcost(n_i) = \gcost^*(n_i)$; it exists because $n_m$ qualifies. If
+$i = 0$, the start has not been expanded and is still open with
+$\gcost(s) = 0$. Otherwise $n_{i-1}$ was expanded with its optimal value, and
+the relaxation of the edge $(n_{i-1}, n_i)$ set $\gcost(n_i) \le
+\gcost^*(n_{i-1}) + c(n_{i-1}, n_i) = \gcost^*(n_i)$; since every $\gcost$
+value is the cost of a real path, equality holds from then on. The push that
+established this value put $n_i$ into \Open, re-opening it if necessary, and
+by the choice of $i$ it has not been expanded since. So $n_i \in \Open$.
+\end{proof}
+
+\begin{theorem}[Bounded suboptimality of focal search; Pearl and Kim 1982]
+\label{thm:ch10-focal}
+If $\hcost$ is admissible and a goal is reachable from $s$, then
+\cref{alg:ch10-focal} terminates and returns a path of cost at most
+$w\,C^*$, for every secondary heuristic $\hcost_{\Focal}$.
+\index{focal search!bounded suboptimality theorem}
+\end{theorem}
+\begin{proof}
+Termination is as for \astar: every push strictly decreases the $\gcost$ of
+some node, the parent pointers always describe a simple path, and a finite
+graph has finitely many simple paths, so there are finitely many pushes; and
+\Open is not empty until a goal is expanded, by \cref{thm:ch10-invariant}
+applied to an optimal solution path. Now let $\gamma'$ be the goal that
+line~\ref{alg:ch10-focal:pop} selects, and consider that moment. Since
+$\gamma'$ was chosen from \Focal,
+\[
+  \cost(\text{returned path}) = \gcost(\gamma') = \fcost(\gamma') \le
+  w\,\fcost_{\min}.
+\]
+Let $P = (s, \dots, \gamma)$ be an optimal solution, of cost $C^*$. If
+$\gamma' = \gamma$ with $\gcost(\gamma) = C^*$ we are done. Otherwise
+\cref{thm:ch10-invariant} gives a node $n_i \in \Open$ on $P$ with
+$\gcost(n_i) = \gcost^*(n_i)$, and admissibility gives $\hcost(n_i) \le
+\hcost^*(n_i) \le C^* - \gcost^*(n_i)$, hence $\fcost(n_i) \le C^*$. Since
+$\fcost_{\min}$ is the minimum over \Open, $\fcost_{\min} \le \fcost(n_i)
+\le C^*$. Together, $\gcost(\gamma') \le w\,C^*$.
+\end{proof}
+
+The proof used $\hcost_{\Focal}$ nowhere and admissibility of $\hcost$ in
+one place, to bound $\fcost_{\min}$ by $C^*$. This is the whole theory of
+focal search: the ruler must be honest, the choice inside the band is free.
+Weighted \astar (\cref{ch:ch04}) can be read as a focal search whose choice
+rule happens to be $\gcost + w\hcost$; the advantage of the explicit band is
+that any information may drive the choice.
+
+\subsection{The low level returns a lower bound}
+
+\begin{lemma}[Lower bound from the low level]
+\label{thm:ch10-lowlevel-lb}
+Suppose \cref{alg:ch10-lowlevel} returns the path to $(\gamma_i, t)$
+together with $\fcost_{\min}$, and suppose a path respecting $\mathcal{C}_i$
+exists within the horizon $T_{\max}$, with optimal cost $C_i^*(\mathcal{C}_i)$.
+Then
+\[
+  \fcost_{\min} \le C_i^*(\mathcal{C}_i) \le t \le w\,\fcost_{\min}.
+\]
+\index{lower bound!returned by the low level}
+\end{lemma}
+\begin{proof}
+In space-time with unit costs every path to a state $(v, t')$ costs exactly
+$t'$, so every generated state carries its optimal $\gcost$ and
+\cref{thm:ch10-invariant} applies although \cref{alg:ch10-lowlevel} never
+re-opens a state. Let $P^*$ be an optimal path respecting $\mathcal{C}_i$;
+it ends in a goal state $(\gamma_i, t^*)$ with $t^* = C_i^*(\mathcal{C}_i)
+> t_\gamma$ and $t^* \le T_{\max}$. Every state of $P^*$ passes the
+constraint tests of \cref{alg:ch10-lowlevel}, so the successor generation
+never blocks $P^*$. At the moment $(\gamma_i, t)$ is selected, either it is
+the last state of $P^*$ and $t = t^*$, or by \cref{thm:ch10-invariant} some
+state $(v_j, j)$ of $P^*$ is open with $\fcost(v_j, j) = j + \hcost(v_j) \le
+j + (t^* - j) = t^*$, because the grid distance $\hcost(v_j)$ is at most the
+number of steps that $P^*$ still needs. In both cases $\fcost_{\min} \le
+t^*$. Next, $t^* \le t$ because the returned path respects $\mathcal{C}_i$.
+Finally, the goal state was still in \Open when $\fcost_{\min}$ was taken and
+it was chosen from \Focal, so $\fcost_{\min} \le \fcost(\gamma_i, t) = t \le
+w\,\fcost_{\min}$.
+\end{proof}
+
+\subsection{\ecbs is $w$-suboptimal}
+
+Fix, for the rest of the section, one optimal solution $\Pi^* = (\pi_1^*,
+\dots, \pi_k^*)$ of cost $C^*$. Call a CT node $N$ \textbf{consistent with
+$\Pi^*$}\index{constraint tree!node consistent with an optimal solution} if
+$\pi_i^*$ respects $N.\mathcal{C}_i$ for every agent $a_i$. We assume that
+the low-level horizon $T_{\max}$ is large enough to contain $\pi_i^*$ under
+the constraints of every consistent node; the horizon $T_{\max} = \lfloor
+w\,(H + 1 + D)\rfloor \ge H + 1 + D$ of \cref{alg:ch10-lowlevel} guarantees
+this, by the argument of \cref{ch:ch04}.
+
+\begin{lemma}[A consistent node is always open]
+\label{thm:ch10-consistent}
+At every moment of \cref{alg:ch10-ecbs} before it returns, \Open contains a
+node consistent with $\Pi^*$.
+\end{lemma}
+\begin{proof}
+The root has no constraints and is consistent. Suppose the invariant holds
+and the node removed at line~\ref{alg:ch10-ecbs:pop} is the consistent one,
+$N$; if it is another node the invariant is untouched. $N$ has a conflict,
+otherwise the algorithm would have returned. Let it be a vertex conflict
+$\langle i, j, v, t\rangle$. Since $\Pi^*$ is conflict-free, $\pi_i^*$ and
+$\pi_j^*$ are not both at $v$ at time $t$, so at least one of the constraints
+$\langle i, v, t\rangle$, $\langle j, v, t\rangle$ is respected by $\Pi^*$;
+for a swapping conflict the same holds for the two edge constraints. The
+child $N'$ carrying that constraint is consistent with $\Pi^*$. Its low-level
+call at line~\ref{alg:ch10-ecbs:replan} cannot fail: $\pi_a^*$ respects
+$N'.\mathcal{C}_a$ and lies within the horizon, so a path exists and
+\cref{alg:ch10-lowlevel} finds one (it only stops with failure when \Open is
+empty, which by \cref{thm:ch10-invariant} cannot happen before a goal state
+is expanded). Hence $N'$ is inserted into \Open at
+line~\ref{alg:ch10-ecbs:insert}.
+\end{proof}
+
+\begin{theorem}[Bounded suboptimality of \ecbs; Barer et al.\ 2014]
+\label{thm:ch10-ecbs}
+On a solvable instance, if \cref{alg:ch10-ecbs} returns a solution $\Pi$,
+then $\cost(\Pi) \le w\,C^*$. Moreover, at every moment $\mathrm{LB} \le C^*$,
+so the algorithm also returns a valid lower bound on the optimum.
+\index{ECBS!suboptimality theorem}
+\end{theorem}
+\begin{proof}
+First we show that every per-agent bound of a consistent node $N$ satisfies
+$\mathrm{LB}_i(N) \le \cost(\pi_i^*)$. The bound $\mathrm{LB}_i(N)$ is the
+maximum of values $\fcost_{\min}$ returned by low-level searches for agent
+$a_i$ under constraint sets $\mathcal{C} \subseteq N.\mathcal{C}_i$: the set of
+$N$ itself if $a_i$ was replanned in $N$, and the sets of ancestors of $N$
+otherwise, which are subsets because constraints are only ever added along a
+branch. For each such set, $\pi_i^*$ respects $\mathcal{C}$, so
+$C_i^*(\mathcal{C}) \le \cost(\pi_i^*)$, and \cref{thm:ch10-lowlevel-lb}
+gives $\fcost_{\min} \le C_i^*(\mathcal{C}) \le \cost(\pi_i^*)$. The maximum
+of numbers below $\cost(\pi_i^*)$ is below $\cost(\pi_i^*)$. Summing over the
+agents, $\mathrm{LB}(N) \le \sum_i \cost(\pi_i^*) = C^*$ for every consistent
+node $N$.
+
+Now consider any moment of the algorithm. By \cref{thm:ch10-consistent} some
+consistent node $N_c$ is in \Open, and $\mathrm{LB} = \min_{N \in \Open}
+\mathrm{LB}(N) \le \mathrm{LB}(N_c) \le C^*$. In particular, when the
+solution node $N$ is chosen at line~\ref{alg:ch10-ecbs:pop}, it belongs to
+\Focal, so $\cost(N) \le w\,\mathrm{LB} \le w\,C^*$.
+\end{proof}
+
+The proof explains every piece of bookkeeping. The low level must return a
+lower bound under \emph{its own} constraint set, which is what
+\cref{thm:ch10-lowlevel-lb} provides. Inherited bounds stay valid because a
+child has more constraints than its parent. Taking the maximum at
+line~\ref{alg:ch10-ecbs:lb} is safe because both numbers bound the same
+quantity. And the band must be measured against the \emph{global}
+$\mathrm{LB}$: a node's own $\mathrm{LB}(N)$ may exceed $C^*$ whenever $N$
+carries a constraint that the optimal solution violates, so a test of the
+form $\cost(N) \le w\,\mathrm{LB}(N)$ proves nothing
+(\cref{exr:ch10-node-bound}).
+
+\subsection{Termination and completeness}
+
+\begin{proposition}[Termination on solvable instances]
+\label{thm:ch10-terminates}
+On a solvable instance, \cref{alg:ch10-ecbs} terminates and returns a
+solution.
+\end{proposition}
+\begin{proof}[Proof sketch]
+By \cref{thm:ch10-consistent}, \Open is never empty before a solution is
+returned, and \Focal is never empty when \Open is not, because the node
+attaining $\mathrm{LB}$ lies in the band (\cref{sec:ch10-highlevel}). So the
+loop keeps expanding nodes, and it remains to show that it cannot expand
+infinitely many. Every expanded node $N$ was in \Focal when it was chosen,
+so $\cost(N) \le w\,\mathrm{LB} \le w\,C^*$ at that time. A conflict in $N$
+happens at a time $t$ no later than the makespan of $N$'s paths, which is at
+most $\cost(N)$; hence every constraint that the algorithm ever creates has
+$t \le w\,C^*$. There are finitely many constraints with $t \le w\,C^*$ on a
+finite grid. Along a branch no constraint is created twice, because once
+$\langle a, v, t\rangle$ is in $N.\mathcal{C}_a$, every path of $a$ in the
+subtree of $N$ respects it and the corresponding conflict cannot recur. So
+every expanded node is a set of constraints drawn from a finite universe
+without repetition along its branch, the tree of expanded nodes has bounded
+depth and binary branching, and it is finite.
+\end{proof}
+
+As for \cbs, nothing is claimed for unsolvable instances: the algorithm may
+run for ever. In practice one imposes a node or time limit, and since
+$\mathrm{LB}$ is valid at every moment (\cref{thm:ch10-ecbs}), a run that is
+cut off still reports a lower bound on $C^*$.
+
+\subsection{Complexity}
+
+The worst case of \ecbs is the worst case of \cbs: the constraint tree can
+have a number of nodes exponential in the number of conflicts that must be
+resolved, and each node costs one or two low-level searches over at most
+$\abs{V}\,T_{\max}$ space-time states plus a conflict count in
+$\bigO{k^2 T}$ time, or $\bigO{k T}$ with hashing as in \cref{ch:ch07}.
+What changes is not the bound but the typical case. Focal search at the high
+level heads for conflict-free nodes instead of proving that no cheaper node
+exists, and focal search at the low level produces paths with fewer
+conflicts, so fewer splits are needed in the first place. The experiment of
+\cref{sec:ch10-benchmark} quantifies the effect: at fourteen agents the mean
+number of expanded CT nodes drops from about $1\,150$ for \cbs to fewer than
+six for \ecbs with $w = 1.5$.
+
+% ---------------------------------------------------------------------
+\section{Variants and extensions}
+\label{sec:ch10-variants}
+
+\subsection{Choosing $w$}
+\label{sec:ch10-choosing-w}
+
+The factor $w$ has three effects. It widens both bands, so the search
+becomes more greedy and expands fewer nodes. It loosens the guarantee, which
+is $w\,C^*$ in the worst case. And it changes the \emph{proven} bound of a
+run, $w\,\mathrm{LB}$, which is the number you can report to the operator.
+The actual solution quality moves much less than the guarantee: in
+\cref{fig:ch10-benchmark} the plans of \ecbs with $w = 2$ are on average
+$3$--$12\,\%$ more expensive than optimal, never more than $28\,\%$, while
+the guarantee allows $100\,\%$. The reason is that the conflict count steers
+the search towards solutions and not towards expensive ones; the band merely
+permits detours, it does not encourage them. Runtime, on the other hand,
+drops steeply between $w = 1$ and $w \approx 1.2$ and flattens afterwards,
+because a band that admits every node with a couple of extra wait steps
+already lets the search escape most of the \cbs tree. Three rules of thumb
+follow. Start at $w = 1.1$ for a swarm whose plan must be tight, and go up to
+$1.5$ if the planner still times out. Do not go far beyond $2$: the solutions
+degrade, the guarantee becomes meaningless, and the flight time of the swarm
+is what pays. And look at $\cost/\mathrm{LB}$ after each run: if it is close
+to $1$, the plan is nearly optimal whatever $w$ was; if it is close to $w$,
+the band was fully used and a smaller $w$ would probably buy a better plan at
+a moderate cost. A value of $w$ slightly above $1$ is not free: with $w = 1.1$
+the search sometimes expands \emph{more} nodes than \cbs on easy instances,
+because it accepts suboptimal paths that create new conflicts
+(\cref{tab:ch10-benchmark}, eight agents).
+
+\subsection{The family of suboptimal \cbs variants}
+\label{sec:ch10-family}
+
+Barer et al.~\cite{barer2014ecbs} studied several ways of making \cbs
+suboptimal before arriving at \ecbs; \cref{tab:ch10-variants} lists them
+together with EECBS. \emph{Greedy \cbs} (GCBS) orders both levels purely by
+conflicts. It is fast but offers no bound. \emph{Bounded \cbs}
+$\mathrm{BCBS}(w_H, w_L)$\index{BCBS} runs focal search with factor $w_L$ at
+the low level and focal search with factor $w_H$ at the high level, but the
+high level orders \Open by \emph{cost} and uses the band $\cost(N) \le w_H
+\cdot \min_{N' \in \Open} \cost(N')$, without lower bounds. Because the
+smallest cost in \Open is not a lower bound on $C^*$ when the low level is
+suboptimal, the guarantee is only $w_H\,w_L\,C^*$
+(\cref{exr:ch10-bcbs-proof}); $\mathrm{BCBS}(w, 1)$ is focal search at the
+high level only, $\mathrm{BCBS}(1, w)$ at the low level only. \ecbs improves
+on both by carrying the lower bounds: one factor $w$ at both levels, and a
+guarantee of $w$, not $w^2$.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Suboptimal relatives of \cbs. ``Focal'' means focal search with
+  the number of conflicts as secondary heuristic.}
+  \label{tab:ch10-variants}
+  \begin{tabular}{@{}lllll@{}}
+  \toprule
+  Algorithm & Low level & High level: \Open by & High level: choice & Guarantee\\
+  \midrule
+  \cbs & \astar & cost & smallest cost & optimal\\
+  GCBS & greedy on $h_c$ & -- & fewest conflicts & none\\
+  $\mathrm{BCBS}(w_H, w_L)$ & focal, $w_L$ & cost & focal, $w_H$ & $w_H w_L\,C^*$\\
+  $\ecbs(w)$ & focal, $w$, returns $\mathrm{lb}$ & $\mathrm{LB}(N)$ & focal, $w$ & $w\,C^*$\\
+  $\mathrm{EECBS}(w)$ & focal, $w$, returns $\mathrm{lb}$ & $\mathrm{LB}(N)$ and $\hat{\fcost}(N)$ & explicit estimation & $w\,C^*$\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{A benchmark against \cbs}
+\label{sec:ch10-benchmark}
+
+\Cref{fig:ch10-benchmark} and \cref{tab:ch10-benchmark} compare \cbs with
+\ecbs for $w \in \set{1.1, 1.5, 2.0}$ on random $8 \times 8$ grids with
+$10\,\%$ blocked cells, ten instances for each number of agents $k$ from $2$
+to $16$, each run limited to ten seconds and $50\,000$ CT expansions (script
+\code{gen\_ch10\_benchmark.py}; all solvers are the implementation of
+\cref{sec:ch10-implementation}, so the comparison measures the algorithms
+and not the code). Up to eight agents every solver answers within a few
+milliseconds. From ten agents on, \cbs meets instances with hundreds of
+conflicts to untangle: at $k = 14$ it solves six of ten instances within the
+limit, needing on average $1\,153$ CT expansions and about $2$ seconds for
+those it solves, and at $k = 16$ it solves two. \ecbs with $w = 1.5$ solves
+every instance, at $k = 14$ in $13$ milliseconds and $5.7$ expansions on
+average, and its plans cost $6.2\,\%$ more than the optimum on average
+(worst case $10.5\,\%$), with a proven bound of $14\,\%$ on average. With
+$w = 2$ the runtime drops a little further, to $10$ milliseconds, and the
+excess cost rises to $11.4\,\%$. With $w = 1.1$ the plans are within
+$2$--$3\,\%$ of optimal, but the band is so narrow that the search inherits
+much of the \cbs tree: it solves seven of ten instances at $k = 14$ and four
+at $k = 16$. The dashed lines in the right panel are the proven bounds
+$\cost/\mathrm{LB}$; they lie between the actual ratio and $w$, and they are
+what a planner can report without knowing $C^*$.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch10/benchmark}
+  \caption{\cbs against \ecbs on random $8 \times 8$ grids with $10\,\%$
+  obstacles, ten instances per number of agents. Left: mean runtime (log
+  scale); runs that hit the ten-second limit count with ten seconds, so the
+  curves of \cbs and $\ecbs(1.1)$ are lower bounds beyond $k = 10$. Right:
+  mean ratio of the returned cost to the optimal cost over the instances that
+  \cbs solved (solid), and the mean proven bound $\cost/\mathrm{LB}$ over all
+  solved instances (dashed). The guarantees $1.1$, $1.5$ and $2$ are far above
+  the observed ratios.}
+  \label{fig:ch10-benchmark}
+\end{figure}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Speed against quality on the benchmark of \cref{fig:ch10-benchmark}
+  for 8, 12 and 16 agents. Runtime, CT expansions and low-level expansions are
+  means over the solved instances; $\cost/C^*$ is the mean over the instances
+  that \cbs solved (two instances at $k = 16$); $\cost/\mathrm{LB}$ is the
+  mean proven bound.}
+  \label{tab:ch10-benchmark}
+  \begin{tabular}{@{}rlrrrrrr@{}}
+  \toprule
+  $k$ & Solver & solved & runtime & CT exp. & low-level exp. & $\cost/C^*$ & $\cost/\mathrm{LB}$\\
+  \midrule
+   8 & \cbs           & 10/10 & 4.7\,ms & 6.9 & 169 & 1.000 & 1.000\\
+   8 & \ecbs $w=1.1$  & 10/10 & 6.3\,ms & 8.2 & 255 & 1.015 & 1.033\\
+   8 & \ecbs $w=1.5$  & 10/10 & 1.7\,ms & 2.0 &  93 & 1.018 & 1.046\\
+   8 & \ecbs $w=2.0$  & 10/10 & 1.6\,ms & 1.8 &  98 & 1.026 & 1.056\\
+  \midrule
+  12 & \cbs           &  9/10 & 0.42\,s & 311 & 8\,847 & 1.000 & 1.000\\
+  12 & \ecbs $w=1.1$  &  9/10 & 10\,ms  & 6.8 & 282 & 1.015 & 1.048\\
+  12 & \ecbs $w=1.5$  & 10/10 & 5.5\,ms & 3.0 & 236 & 1.038 & 1.088\\
+  12 & \ecbs $w=2.0$  & 10/10 & 4.5\,ms & 2.0 & 266 & 1.099 & 1.153\\
+  \midrule
+  16 & \cbs           &  2/10 & 3.2\,s  & 1\,695 & 33\,718 & 1.000 & 1.000\\
+  16 & \ecbs $w=1.1$  &  4/10 & 0.70\,s & 295 & 17\,467 & 1.028 & 1.077\\
+  16 & \ecbs $w=1.5$  & 10/10 & 30\,ms  & 8.3 & 1\,283 & 1.071 & 1.240\\
+  16 & \ecbs $w=2.0$  & 10/10 & 19\,ms  & 4.6 & 1\,115 & 1.117 & 1.249\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{EECBS: explicit estimation and online learning}
+\label{sec:ch10-eecbs}
+
+\ecbs orders \Open by a lower bound and \Focal by a conflict count, and
+neither says how expensive the \emph{best solution below a node} will be. Li,
+Ruml and Koenig~\cite{li2021eecbs} replaced the high-level focal search by
+\textbf{explicit estimation search}\index{explicit estimation search (EES)}
+(EES) of Thayer and Ruml~\cite{thayer2011bounded} and called the result
+\textbf{EECBS}\index{EECBS}. Two ideas are involved; we sketch them without
+the details, which the paper gives.
+
+\paragraph{Explicit estimation.}
+EES keeps three orderings of the open CT nodes. The first is by
+$\mathrm{LB}(N)$, as in \ecbs; its minimum is the global bound
+$\mathrm{LB}$. The second is by an \emph{inadmissible estimate}
+$\hat{\fcost}(N)$ of the cost of the best solution in the subtree of $N$: not
+a bound but a best guess, typically larger than $\mathrm{LB}(N)$. The third
+is a focal list, defined by the estimate rather than the bound, $\Focal =
+\set{N : \hat{\fcost}(N) \le w\,\hat{\fcost}_{\min}}$, and ordered by the
+number of conflicts. The selection rule then asks, in order: does the node
+with the fewest conflicts in \Focal have $\cost \le w\,\mathrm{LB}$? If so,
+expand it. Otherwise, does the node with the smallest $\hat{\fcost}$ have
+$\cost \le w\,\mathrm{LB}$? If so, expand it. Otherwise expand the node with
+the smallest $\mathrm{LB}(N)$, which raises the global bound. Every expanded
+solution node still satisfies $\cost \le w\,\mathrm{LB} \le w\,C^*$, so the
+guarantee of \cref{thm:ch10-ecbs} is untouched; what changes is that a node
+is judged by where its subtree is expected to end up, not by where it is now.
+
+\paragraph{Online learning of the estimate.}
+Where does $\hat{\fcost}$ come from? EECBS learns it during the search. Each
+expansion shows how much the lower bound of a child exceeds that of its parent
+and how many conflicts the child has, compared with the parent. Averaging
+these one-step changes gives an estimate of the cost that each remaining
+conflict will eventually add, and multiplying it by the number of conflicts of
+a node gives $\hat{\hcost}(N)$; the estimate is $\hat{\fcost}(N) = \cost(N)
++ \hat{\hcost}(N)$ or $\mathrm{LB}(N)$ plus a corrected term, depending on the
+variant. The estimate is inadmissible by design and improves as the search
+proceeds. EECBS combines this with the \cbs improvements of \cref{ch:ch09},
+adapted to the bounded-suboptimal setting: bypassing conflicts, prioritising
+cardinal conflicts, symmetry reasoning and admissible high-level heuristics
+that lift $\mathrm{LB}(N)$ above the sum of the per-agent bounds. In the
+experiments of Li et al.\ the combination solves instances with hundreds of
+agents within a minute where \ecbs solves a fraction of them, and it is the
+state of the art among bounded-suboptimal MAPF solvers at the time of
+writing. For a swarm of the sizes considered in this book, \ecbs as given here
+is sufficient, and EECBS is the upgrade path when it is not.
+
+\subsection{Other relatives}
+
+Focal search is a general tool. The \arastar of \cref{ch:ch06} is an anytime
+weighted \astar; an anytime \ecbs runs \cref{alg:ch10-ecbs} with a
+decreasing sequence of factors $w$, reusing the constraint tree between the
+runs, so that a first plan is available quickly and improved while the
+drones are still on the ground. Bounded-suboptimal search also appears
+inside a single low-level call: a \emph{windowed} low level that counts
+conflicts only inside a time window, or a low level whose secondary heuristic
+also penalises proximity to intruders, are one-line changes of $h_c$ and keep
+the bound, because the bound never depended on $\hcost_{\Focal}$. \Cref{ch:ch11}
+completes the picture of MAPF solvers with \mstar and the push-and-swap family
+and compares all the methods of Part~III.
+
+% ---------------------------------------------------------------------
+\section{Implementation notes}
+\label{sec:ch10-implementation}
+
+The file \code{code/ch10\_ecbs.py} is a self-contained implementation of
+everything in this chapter, in about 650 lines: an \code{Instance} class with
+cached breadth-first distance tables, conflict detection and counting in the
+conventions of \cref{ch:ch07}, constraints, the conflict table
+\code{OtherPaths}, the focal low level \code{focal\_space\_time\_astar}, the
+high levels \code{ecbs} and \code{cbs}, a plan validator, random instances,
+and the two examples of this chapter. Its self-test runs in well under a
+second and is described at the end of this section.
+
+\subsection{Two heaps kept consistent}
+\label{sec:ch10-two-heaps}
+
+\Cref{alg:ch10-focal} recomputes \Focal at every step, which would cost a
+scan of \Open each time. The implementation keeps two binary heaps and makes
+them agree.\index{FOCAL list!implementation with two heaps}
+\begin{itemize}
+  \item \Open is a heap keyed on $(\fcost, -t, \text{tie})$. It serves one
+        purpose only: to read $\fcost_{\min}$. States are never removed from
+        the middle of it; a state that has been expanded is marked closed and
+        is purged lazily when it reaches the top, exactly as the stale entries
+        of \cref{ch:ch04}.\index{priority queue!lazy deletion}
+  \item \Focal is a heap keyed on $(h_c, \fcost, -t, \text{tie})$, and a set
+        \code{in\_focal} records which states are in it. A state enters \Focal
+        either when it is generated, if $\fcost \le w\,\fcost_{\min}$ at that
+        moment, or later, when $\fcost_{\min}$ rises.
+  \item \emph{Updating \Focal when $\fcost_{\min}$ rises.} At the top of each
+        iteration the code purges closed states from \Open and reads the new
+        minimum. If it is larger than before, the band has widened, and every
+        open state with $\fcost \le w\,\fcost_{\min}$ that is not yet in
+        \Focal is pushed into it. The code scans the whole \Open heap for
+        them. This looks expensive, but with unit costs $\fcost_{\min}$ takes
+        integer values up to $T_{\max}$ and rises at most that many times, so
+        the scans cost $\bigO{T_{\max} \cdot \abs{\Open}}$ in total; a third
+        heap keyed on $\fcost$, holding the open states that are not yet in
+        \Focal, avoids even that and is the usual choice in C++
+        implementations.
+\end{itemize}
+Reading $\fcost_{\min}$ \emph{before} popping from \Focal is essential: the
+popped state is still counted, so the returned lower bound satisfies
+$\fcost_{\min} \le t$, and \cref{thm:ch10-lowlevel-lb} holds. The high level
+uses the same structure with $\mathrm{LB}(N)$ in place of $\fcost$, $\cost(N)$
+in place of the band test, and expanded node ids in place of closed states.
+\Cref{lst:ch10-lowlevel} is the main loop of the low level.
+
+\begin{lstlisting}[caption={The main loop of the low level: two heaps, lazy purge of \Open, widening of the band, goal test with the lower bound, and successor generation with conflict counts (from \code{code/ch10\_ecbs.py}).},label={lst:ch10-lowlevel}]
+    while True:
+        while open_heap and open_heap[0][3] in closed:     # lazy deletion
+            heapq.heappop(open_heap)
+        if not open_heap:
+            return None
+        if open_heap[0][0] > f_min:                        # f_min rose:
+            f_min = open_heap[0][0]                        # admit new states
+            for f, neg_t, tie, st in open_heap:            # to FOCAL
+                if f <= w * f_min and st not in in_focal and st not in closed:
+                    heapq.heappush(focal, (nc[st], f, neg_t, tie, st))
+                    in_focal.add(st)
+        conflicts, f, _, _, state = heapq.heappop(focal)
+        if trace is not None:                              # for trace tables
+            _snapshot(trace, state, conflicts, f, f_min, focal, open_heap, closed)
+        closed.add(state)
+        cell, t = state
+        if cell == goal and t > t_goal:
+            return LowLevelResult(_reconstruct(parent, state), f_min,
+                                  conflicts, expansions)
+        expansions += 1
+        t2 = t + 1
+        if t2 > max_time:
+            continue
+        for v in [cell] + inst.neighbors(cell):
+            if (v, t2) in vcons or (v != cell and (cell, v, t) in econs):
+                continue
+            st2 = (v, t2)
+            if st2 in parent:                  # same g = t2: first path wins
+                continue
+            parent[st2] = state
+            c = conflicts + others.vertex_hits(v, t2)
+            if v != cell:
+                c += others.swap_hits(cell, v, t)
+            if v == goal and t2 > t_goal:      # parked at the goal from t2 on
+                c += others.future_hits(goal, t2)
+            nc[st2] = c
+            f2 = t2 + h[v]
+            tie = next(counter)
+            heapq.heappush(open_heap, (f2, -t2, tie, st2))
+            if f2 <= w * f_min:
+                heapq.heappush(focal, (c, f2, -t2, tie, st2))
+                in_focal.add(st2)
+\end{lstlisting}
+
+\subsection{Tie-breaking}
+
+Ties matter more in focal search than in \astar, because $h_c$ takes few
+distinct values. The \Focal key orders states by conflicts, then by
+$\fcost$ (cheaper first), then by larger $t$ (deeper first, the rule of
+\cref{ch:ch04} that makes a search dive along one path), then by insertion
+order. With $w = 1$ every state in \Focal has $\fcost = \fcost_{\min}$, and
+the key reduces to conflicts, depth, age: \astar with conflict-avoiding
+tie-breaking, which is the low level of our \cbs baseline. The high-level
+\Focal key is $(h_c, \cost, \text{id})$: fewest conflicts, then cheapest, then
+oldest. \Open keys carry the id or the tie counter as their last component so
+that \python never compares two nodes directly.\index{tie-breaking!in focal
+search}
+
+\subsection{Bookkeeping of the lower bounds}
+
+\Cref{lst:ch10-child} creates a child: it copies the parent, adds one
+constraint, rebuilds the conflict table of the other agents, calls the low
+level with the same $w$, and stores the new path and the new bound. The
+\code{max} on the bound is line~\ref{alg:ch10-ecbs:lb} of
+\cref{alg:ch10-ecbs}. Note that the child's conflict count is recomputed
+from scratch with the $\bigO{k^2 T}$ routine of \cref{ch:ch07}; for large
+$k$ the hashed variant should be used.
+
+\begin{lstlisting}[caption={Creating a child node: one more constraint, one replanned agent, and the lower-bound bookkeeping (from \code{code/ch10\_ecbs.py}).},label={lst:ch10-child}]
+def _child(inst: Instance, parent: CTNode, con: Constraint, w: float,
+           stats: _Stats) -> Optional[CTNode]:
+    """Copy the parent, add one constraint and replan the constrained agent.
+
+    The lower bound of the replanned agent is the larger of the parent's
+    bound (still valid: more constraints cannot make the optimum cheaper)
+    and the f_min returned by the low level.
+    """
+    a = con.agent
+    cons = list(parent.constraints)
+    cons[a] = cons[a] | {con}
+    others = OtherPaths([p for i, p in enumerate(parent.paths) if i != a])
+    res = focal_space_time_astar(inst, a, cons[a], others, w)
+    if res is None:
+        return None
+    stats.low_level_expansions += res.expansions
+    stats.generated += 1
+    paths = list(parent.paths)
+    paths[a] = res.path
+    lbs = list(parent.lbs)
+    lbs[a] = max(lbs[a], res.lower_bound)
+    return CTNode(tuple(cons), paths, lbs, sum_of_costs(paths), sum(lbs),
+                  count_conflicts(paths), next(stats.ids), parent.id, con)
+\end{lstlisting}
+
+\subsection{The high-level loop}
+
+\Cref{lst:ch10-ecbs} is the loop of \code{ecbs}. Compare it with
+\cref{lst:ch10-lowlevel}: the two heaps, the lazy purge, the widening of the
+band and the goal test are the same code pattern with different keys. The
+function \code{done} packs the result together with the global bound
+\code{lb\_min}, which is valid even when the run stops at the node or time
+limit (\cref{thm:ch10-ecbs}). Children are pushed into \Open unconditionally
+and into \Focal only if they satisfy the band test against the current global
+bound.
+
+\begin{lstlisting}[caption={The high-level loop of \ecbs: \Open ordered by $\mathrm{LB}(N)$, \Focal ordered by conflicts, band test against the global bound (from \code{code/ch10\_ecbs.py}).},label={lst:ch10-ecbs}]
+    open_heap = [(root.lb, root.id, root)]                 # ordered by LB(N)
+    focal = [(root.conflicts, root.cost, root.id, root)]   # ordered by h_c(N)
+    in_focal = {root.id}
+    expanded = set()
+    lb_min = root.lb
+
+    def done(status, node=None):
+        return Result(node.paths if node else None, node.cost if node else None,
+                      lb_min, w, len(expanded), stats.generated,
+                      stats.low_level_expansions, time.perf_counter() - t0,
+                      status, trace or [])
+
+    while open_heap:
+        while open_heap and open_heap[0][1] in expanded:   # lazy deletion
+            heapq.heappop(open_heap)
+        if not open_heap:
+            break
+        if open_heap[0][0] > lb_min:                       # LB rose: admit
+            lb_min = open_heap[0][0]                       # more nodes to FOCAL
+            for lb, nid, n in open_heap:
+                if n.cost <= w * lb_min and nid not in in_focal and nid not in expanded:
+                    heapq.heappush(focal, (n.conflicts, n.cost, nid, n))
+                    in_focal.add(nid)
+        _, _, _, node = heapq.heappop(focal)
+        expanded.add(node.id)
+        conflict = first_conflict(node.paths) if node.conflicts else None
+        _record(trace, node, lb_min, conflict)
+        if conflict is None:
+            return done("solved", node)                    # cost <= w * lb_min
+        if len(expanded) >= node_limit:
+            return done("node_limit")
+        if time.perf_counter() - t0 > time_limit:
+            return done("time_limit")
+        for con in split_conflict(conflict):
+            child = _child(inst, node, con, w, stats)
+            if child is None:                              # no path: prune
+                _record_child(trace, con, None, False)
+                continue
+            heapq.heappush(open_heap, (child.lb, child.id, child))
+            admitted = child.cost <= w * lb_min
+            if admitted:
+                heapq.heappush(focal, (child.conflicts, child.cost, child.id, child))
+                in_focal.add(child.id)
+            _record_child(trace, con, child, admitted)
+    return done("unsolvable")
+\end{lstlisting}
+
+\subsection{Practical details}
+
+\begin{itemize}
+  \item \emph{The band test in floating point.} The test $\fcost \le
+        w\,\fcost_{\min}$ compares an integer with a product of a float and
+        an integer; $3 \cdot 1.3333333333333333$ may or may not equal $4$.
+        For factors given as fractions $w = p/q$ the exact test is
+        $q\,\fcost \le p\,\fcost_{\min}$; for decimal factors such as $1.1$
+        the code compares directly, and the self-test allows a tolerance of
+        $10^{-9}$ where it checks the bound.
+  \item \emph{Conflict tables.} \code{OtherPaths} precomputes, for the other
+        agents' paths, the number of agents in each cell at each time, the
+        number moving along each directed edge at each time, the parked goal
+        cells, and for each cell the sorted list of visiting times, so that
+        the three counts of lines~\ref{alg:ch10-lowlevel:hc}
+        and~\ref{alg:ch10-lowlevel:park} of \cref{alg:ch10-lowlevel} cost
+        $\bigO{1}$ or a binary search. The table is rebuilt for every child in
+        $\bigO{k T}$ time, which is cheap compared with the search that uses
+        it.
+  \item \emph{Caching.} The distance table of an agent's goal is computed once
+        per instance and shared by every low-level call for that agent.
+  \item \emph{Duplicates.} Line~\ref{alg:ch10-lowlevel:dup} keeps the first
+        path to a state. Some implementations, among them the public EECBS
+        code, re-insert a state when a path with the same cost but fewer
+        conflicts reaches it; this finds better paths at the price of some
+        re-expansions and does not affect the bound
+        (\cref{exr:ch10-variants}).
+  \item \emph{Counting and limits.} The code counts CT expansions, CT
+        generations and low-level state expansions, measures wall-clock time,
+        and stops at a node or time limit with the status of the run and the
+        bound $\mathrm{LB}$ reached; the benchmark script relies on all of
+        these.
+\end{itemize}
+
+\paragraph{The self-test.}
+Running \code{python3 code/ch10\_ecbs.py} checks, on random instances, that
+the conflict count carried by the low level equals the count of the plan
+validator; that with $w = 1$ the low level returns the grid distance as both
+cost and bound; that under constraints the returned bound never exceeds the
+constrained optimum and the path never exceeds $w$ times the bound; that on
+45 random $6 \times 6$ instances with four agents \ecbs with $w = 1$ returns
+the \cbs cost and \ecbs with $w \in \set{1.1, 1.5, 2}$ returns valid,
+conflict-free plans whose cost lies between $C^*$ and $w\,C^*$ and below
+$w\,\mathrm{LB}$; and that the worked example and the low-level example
+reproduce every number quoted in this chapter. It then prints the traces of
+\cref{tab:ch10-cbs-trace,tab:ch10-ecbs-trace}.
+
+\begin{pitfall}[An inadmissible heuristic in \Open]
+The bound of \cref{thm:ch10-focal} needs $\fcost_{\min} \le C^*$, and that
+is true only if \Open is ordered by an admissible $\fcost$. Two mistakes are
+common. One is to order \Open by the inflated $\gcost + w\hcost$ of weighted
+\astar \emph{and} to use a band on top of it: the band is then measured
+against an inflated ruler, and the real guarantee is $w^2$. The other is to
+let the conflict count leak into $\fcost$, for instance by adding a penalty
+per conflict to the path cost so that the search avoids conflicts. The
+ordering of \Open must see the true cost and an admissible estimate of the
+cost to go, nothing else; every preference belongs in $\hcost_{\Focal}$,
+where it cannot harm the bound.
+\end{pitfall}
+
+\begin{pitfall}[Forgetting to return or update the lower bound]
+The high level of \ecbs is only correct because the number it orders \Open by
+is a lower bound. Three ways to break this: use the cost of the path returned
+by the low level as its bound (the cost is an \emph{upper} bound on the
+constrained optimum); return $\fcost_{\min}$ computed after the goal state
+has been removed from \Open, or from a heap top that is a stale entry; or
+replan an agent in a child without storing its new bound, so that the child
+inherits the parent's cost as if it were a bound. In each case the global
+$\mathrm{LB}$ can exceed $C^*$, the band admits nodes it should not, and the
+returned plan can be worse than $w\,C^*$ while the program happily reports a
+``proven'' bound. The self-test's check $\mathrm{LB} \le C^*$ against \cbs
+catches all three.
+\end{pitfall}
+
+\begin{pitfall}[Applying $w$ per agent instead of to the sum]
+The low level guarantees $\cost(\pi_i) \le w\,\mathrm{lb}_i$ for every
+agent, and it is tempting to conclude that any node whose paths all satisfy
+this is within the bound. It is not. The guarantee is about the sum of costs
+and the \emph{global} bound $\mathrm{LB} = \min_{N \in \Open} \mathrm{LB}(N)$:
+a node with $\cost(N) \le w\,\mathrm{LB}(N)$ may still have $\cost(N) >
+w\,C^*$, because $\mathrm{LB}(N)$ counts constraints that the optimal
+solution does not obey (in \cref{ex:ch10-grid}, $N_7$ has $\mathrm{LB}(N_7)
+= 15 > C^* = 12$). Conversely, the sum test may admit a node in which one
+agent is far above its own bound and another well below; that is allowed and
+is often where the cheap solutions are. Test $\cost(N) \le w\,\mathrm{LB}$
+with the global bound, and nothing else.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{Where this fits in the drone system}
+\label{sec:ch10-drone}
+
+\begin{dronebox}
+In the four-layer architecture of \cref{ch:ch24}, \ecbs is the global swarm
+planner: it turns the starts and goals of the connected swarm members into
+nominal, time-indexed paths that are free of planned inter-drone conflicts.
+It is the practical choice over \cbs for three reasons. First, time: the
+nominal plan must exist before take-off and must be recomputed whenever the
+replanning layer (\dstarlite or \astar from the current state, \cref{ch:ch05})
+has moved a drone off its route, and a planner that needs minutes instead of
+milliseconds cannot sit in that loop. Second, the guarantee: the operator gets
+a plan together with the numbers $\mathrm{LB}$ and $w\,\mathrm{LB}$, so the
+cost of the speed-up is measured, not guessed, which is exactly the Week~5
+milestone of the study plan (\cref{ch:appA}). Third, the knob: a single
+parameter $w$ moves the planner between optimal and greedy, and the local
+layer makes the exact value forgiving.
+
+How the bound interacts with the safety layer is worth stating precisely.
+\ecbs guarantees a conflict-free plan for every $w$; the factor only affects
+cost, never safety. Safety against \emph{unexpected} moving obstacles is the
+job of the prediction layer (\cref{ch:ch18,ch:ch20}) and of the local
+avoidance layer (\orca or DWA, \cref{ch:ch13,ch:ch14}), which deviates from
+the nominal path when a predicted conflict enters the safety horizon and
+reconnects to it afterwards. A nominal path that is $10\,\%$ longer than
+optimal costs flight time and battery, but it is neither more nor less safe.
+Two practical consequences follow. A modest $w$ between $1.1$ and $1.5$ is
+enough, because the local layer perturbs the paths anyway and optimality of
+the nominal plan is not what limits the mission. And after a replanning
+event the new \ecbs plan should be re-checked for conflicts with the drones
+that were not replanned, as the decision logic of \cref{ch:ch24} prescribes.
+The conflict count $h_c$ is also the natural place to add mission knowledge
+to the planner: penalising cells near the predicted trajectory of an intruder
+in $\hcost_{\Focal}$ steers the nominal paths away from it without touching
+the bound.
+\end{dronebox}
+
+% ---------------------------------------------------------------------
+\section{Summary}
+\begin{summary}
+\begin{itemize}
+  \item Optimal \cbs pays for a proof of optimality that a swarm operator
+        does not need; a bounded-suboptimal planner returns, for a chosen
+        $w \ge 1$, a solution of cost at most $w\,C^*$ without computing $C^*$.
+  \item Focal search keeps \Open ordered by an admissible $\fcost$, takes
+        $\fcost_{\min}$ as a lower bound on $C^*$, and expands any node of the
+        band $\Focal = \set{n : \fcost(n) \le w\,\fcost_{\min}}$, chosen by a
+        secondary heuristic that need not be admissible. The result is
+        $w$-suboptimal for every secondary heuristic.
+  \item The \ecbs low level is focal space-time \astar with the number of
+        conflicts as secondary heuristic; it returns the path and
+        $\fcost_{\min}$, a lower bound on the agent's constrained optimum, with
+        $\cost \le w\,\fcost_{\min}$.
+  \item The \ecbs high level stores one lower bound per agent in each CT
+        node, orders \Open by their sum $\mathrm{LB}(N)$, and expands from
+        $\Focal = \set{N : \cost(N) \le w\,\mathrm{LB}}$ the node with the
+        fewest conflicts, where $\mathrm{LB}$ is the smallest $\mathrm{LB}(N)$
+        in \Open. Because $\mathrm{LB} \le C^*$ at all times, the returned
+        solution costs at most $w\,C^*$, and $\mathrm{LB}$ is a certificate.
+  \item On random $8 \times 8$ grids \ecbs with $w = 1.5$ solves sixteen-agent
+        instances in tens of milliseconds where \cbs fails within ten seconds,
+        at an average cost excess of about $7\,\%$; the observed excess is far
+        below the guarantee, and runtime flattens beyond $w \approx 1.2$.
+  \item The three classic bugs are an inadmissible ordering of \Open, a
+        missing or stale lower bound, and a band tested against a node's own
+        $\mathrm{LB}(N)$ instead of the global $\mathrm{LB}$.
+  \item EECBS replaces the high-level focal search by explicit estimation
+        search with estimates learned online and adds the \cbs improvements of
+        \cref{ch:ch09}; it keeps the bound $w$ and scales to hundreds of agents.
+\end{itemize}
+\end{summary}
+
+\paragraph{Further reading.}
+Focal search is the $\astar_\eps$ of Pearl and Kim~\cite{pearl1982studies};
+Pearl's book~\cite{pearl1984heuristics} treats it together with weighted
+\astar~\cite{pohl1970heuristic} and the other semi-admissible searches, and
+Russell and Norvig~\cite{russell2020aima} give the textbook view of bounded
+suboptimality. \ecbs and its siblings BCBS and GCBS are due to Barer, Sharon,
+Stern and Felner~\cite{barer2014ecbs}, building on \cbs~\cite{sharon2015cbs}
+and the improvements of ICBS~\cite{boyarski2015icbs}. Explicit estimation
+search is by Thayer and Ruml~\cite{thayer2011bounded}, and its use in EECBS
+by Li, Ruml and Koenig~\cite{li2021eecbs}, whose paper also surveys the
+high-level heuristics~\cite{felner2018adding} and symmetry
+reasoning~\cite{li2019symmetry} that the bounded-suboptimal setting inherits.
+The MAPF definitions and the benchmark format used in this chapter are those
+of Stern et al.~\cite{stern2019mapf}; the anytime idea of decreasing $w$ is
+the one of \arastar~\cite{likhachev2003ara}.
+
+% ---------------------------------------------------------------------
+\section{Exercises}
+\label{sec:ch10-exercises}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch10-focal-by-hand}
+\Open contains eight nodes with $(\fcost, \hcost_{\Focal})$ equal to
+$(10, 3)$, $(11, 1)$, $(12, 0)$, $(13, 4)$, $(14, 2)$, $(15, 0)$, $(17, 1)$
+and $(20, 0)$, as in \cref{fig:ch10-idea}, and $w = 1.3$.
+(a) List \Focal and the node that focal search expands.
+(b) Its expansion removes it and generates two successors with
+$(12, 2)$ and $(16, 0)$. Which node is expanded next?
+(c) For which values of $w$ does the node $(15, 0)$ belong to \Focal, and is
+it then expanded before $(12, 0)$?
+(d) Suppose that later every node with $\fcost \le 12$ has been expanded and
+the smallest remaining $\fcost$ is $13$, the other nodes being unchanged.
+What is the band, which nodes are in \Focal, and which one is expanded?
+\end{exercise}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch10-lower-bound}
+Explain in your own words why the $\fcost_{\min}$ returned by
+\cref{alg:ch10-lowlevel} is a lower bound on the agent's constrained optimum
+while the cost of the returned path is not. In \cref{ex:ch10-lowlevel} the runs
+with $w = 1$ and $w = 1.5$ return paths of cost~3 and~4 but the same
+bound~3; explain, with the help of the band, why a larger $w$ tends to return
+a smaller bound for the same agent, and why that bound is still valid. Finally, explain
+why $\mathrm{LB}(N)$ bounds the cost of every solution in the subtree of $N$
+but not, in general, $C^*$.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch10-w-one}
+Show that \ecbs with $w = 1$ is \cbs with conflict-based tie-breaking. First
+show that the low level with $w = 1$ returns an optimal constrained path and
+a bound equal to its cost. Then show that with $w = 1$ every node in the
+high-level \Focal has $\cost(N) = \mathrm{LB}(N) = \mathrm{LB}$, and conclude
+that the expanded node always has the smallest cost in \Open, so that the
+returned solution is optimal.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch10-lowlevel-threshold}
+In \cref{ex:ch10-lowlevel} the state ``wait at $(1,0)$ until $t = 1$'' has
+$\fcost = 4$ and $\fcost_{\min} = 3$. (a) For which factors $w$ does the low
+level return the waiting path, and for which the conflicting one? (b) What
+does your implementation do for $w = 4/3$ if the band test is computed in
+floating point, and how do you make the test exact? (c) Now let agent B wait
+at $(1,1)$ for two steps, $(0,1), (1,1), (1,1), (2,1)$. Determine by hand,
+and check with \code{focal\_space\_time\_astar}, which path and which bound
+the low level returns for $w = 1.5$ and for $w = 2$.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch10-node-bound}
+Show with \cref{ex:ch10-grid} that a CT node can have
+$\mathrm{LB}(N) > C^*$. Then explain why a high level that expands the node
+with the fewest conflicts among those with $\cost(N) \le w\,\mathrm{LB}(N)$
+(the node's own bound) is not $w$-suboptimal: exhibit, in the tree of
+\cref{fig:ch10-example-trees}(a), a node that this rule may return for
+$w = 1.2$ and compute the ratio of its cost to $C^*$.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3}]
+\label{exr:ch10-bcbs-proof}
+$\mathrm{BCBS}(w_H, w_L)$ runs focal search with factor $w_L$ at the low
+level and, at the high level, orders \Open by $\cost(N)$, uses the band
+$\cost(N) \le w_H \cdot \min_{N' \in \Open} \cost(N')$ and picks the node with
+the fewest conflicts; no lower bounds are stored. Prove that it returns a
+solution of cost at most $w_H\,w_L\,C^*$. Hint: adapt
+\cref{thm:ch10-consistent}, then show that a node consistent with an optimal
+solution $\Pi^*$ has $\cost(N) \le w_L\,C^*$ by bounding each path
+separately, including the paths inherited from ancestors. Where exactly does
+the argument for \ecbs save the factor $w_L$?
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch10-coding}
+This is the Week~5 exercise of the study plan (\cref{ch:appA}). Add \ecbs to
+your \cbs solver from \cref{ch:ch09}, or start from
+\code{code/ch10\_ecbs.py}, and benchmark it against \cbs.
+(a) Generate random $8 \times 8$ and $16 \times 16$ grids with $10\,\%$
+obstacles and $k = 2, 4, \dots, 20$ agents, ten instances each, and run \cbs
+and \ecbs with $w \in \set{1.1, 1.5, 2}$ under a time limit. Record success
+rate, runtime, CT expansions, $\cost/C^*$ where \cbs succeeded and
+$\cost/\mathrm{LB}$ always, validate every returned plan with a conflict
+checker, and plot the curves of \cref{fig:ch10-benchmark} for both grid sizes.
+(b) Fix $k = 12$ and vary $w \in \set{1, 1.02, 1.05, 1.1, 1.2, 1.5, 2, 3}$;
+plot runtime and $\cost/C^*$ against $w$ and locate the knee of the runtime
+curve. (c) Report the largest $\cost/C^*$ you observed for each $w$ and
+compare it with the guarantee. The milestone is reached when you can say, for
+your own instances, what a given speed-up costs in solution quality.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch10-variants}
+(a) Implement $\mathrm{BCBS}(w, 1)$ and $\mathrm{BCBS}(1, w)$ by switching the
+band off at one level of \code{ch10\_ecbs.py}, and compare CT expansions and
+$\cost/C^*$ with $\ecbs(w)$ on the benchmark of \cref{exr:ch10-coding} for
+$w = 1.5$. Which level profits more from the band? (b) Change the duplicate
+rule of the low level so that a state is re-inserted when a path with the same
+cost but fewer conflicts reaches it, and check whether the root of
+\cref{ex:ch10-grid} with $w = 1.2$ changes. (c) Measure the effect of (b) on
+the benchmark: CT expansions, low-level expansions and solution cost.
+\end{exercise}

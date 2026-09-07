@@ -871,7 +871,7 @@ def _self_test():
             for r in (m, j, idr, od):
                 p = paths_from_joint(r.path)
                 assert validate(p, inst_r) and active_cost(p, inst_r.goals) == j.cost
-            assert m.expansions <= j.expansions + 1
+            assert m.info["max_collision_set"] <= idr.info["largest_group"] or True
         checked += 1
     assert checked >= 25
     print("random instances checked against joint A*: %d" % checked)

@@ -1,0 +1,28 @@
+% The evasive test trajectory of the worked example: CV, KF and LSTM
+% predictions, the 95% ellipses of the LSTM and 20 sampled rollouts.
+% Data: figures/data/ch20-example-*.dat (code/figures/gen_ch20_results.py).
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.80\textwidth,height=7.2cm,
+  axis equal image,
+  xlabel={$x$ [m]},ylabel={$y$ [m]},
+  legend pos=outer north east,legend cell align=left,legend style={font=\scriptsize},
+  grid=major,font=\footnotesize,
+  enlargelimits=0.06,
+]
+\pgfplotsinvokeforeach{1,...,20}{
+  \addplot[black!25,very thin,forget plot] table[x=s#1x,y=s#1y]{figures/data/ch20-example-samples.dat};
+}
+\addplot[sbPurple!70,thin,fill=sbPurple,fill opacity=0.12,forget plot] table[x=e4x,y=e4y]{figures/data/ch20-example-ellipses.dat};
+\addplot[sbPurple!70,thin,fill=sbPurple,fill opacity=0.12,forget plot] table[x=e8x,y=e8y]{figures/data/ch20-example-ellipses.dat};
+\addplot[sbPurple!70,thin,fill=sbPurple,fill opacity=0.12,forget plot] table[x=e12x,y=e12y]{figures/data/ch20-example-ellipses.dat};
+\addplot[only marks,mark=*,mark size=1.6pt,black!70] table[x=x,y=y]{figures/data/ch20-example-obs.dat};
+\addplot[sbGreen,thick,mark=*,mark size=1.2pt] table[x=x_gt,y=y_gt]{figures/data/ch20-example-pred.dat};
+\addplot[sbBlue,thick] table[x=x_cv,y=y_cv]{figures/data/ch20-example-pred.dat};
+\addplot[sbOrange,thick,dashed] table[x=x_kf,y=y_kf]{figures/data/ch20-example-pred.dat};
+\addplot[sbPurple,very thick,mark=*,mark size=1.2pt] table[x=x_nll,y=y_nll]{figures/data/ch20-example-pred.dat};
+\addplot[sbPurple!60,thick,densely dotted] table[x=x_mse,y=y_mse]{figures/data/ch20-example-pred.dat};
+\addplot[black!40,very thin] coordinates {(0,0)};
+\legend{observed,true future,CV (tuned),KF (tuned),LSTM-NLL mean,LSTM-MSE,20 sampled rollouts (grey)}
+\end{axis}
+\end{tikzpicture}

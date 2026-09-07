@@ -1,2 +1,27 @@
-% temporary placeholder, replaced by the generated figure
-\begin{tikzpicture}\node[sbannot] {figure linearisation (placeholder)};\end{tikzpicture}
+% Linearisation error of the EKF versus the unscented transform on the
+% polar-to-Cartesian map.  Data: code/figures/gen_ch19_linearisation.py
+\begin{tikzpicture}
+\begin{groupplot}[
+  group style={group size=2 by 1, horizontal sep=1.6cm},
+  width=0.5\textwidth, height=5.6cm, axis equal image,
+  xmin=-45, xmax=45, ymin=58, ymax=112,
+  xlabel={$x$ [m]}, ylabel={$y$ [m]}, font=\footnotesize, grid=major,
+  legend style={font=\scriptsize, at={(0.5,0.03)}, anchor=south, fill=white, fill opacity=0.85, text opacity=1},
+  legend cell align=left, legend columns=2]
+\nextgroupplot[title={(a) EKF: the tangent at the mean}]
+\addplot[only marks, mark=*, mark size=0.45pt, color=black!35] table[x=x, y=y] {figures/data/ch19-banana-samples.dat};
+\addplot[sbGray, dashed, thick] table[x=mc_x, y=mc_y] {figures/data/ch19-banana-ellipses.dat};
+\addplot[sbBlue, thick] table[x=ekf_x, y=ekf_y] {figures/data/ch19-banana-ellipses.dat};
+\addplot[only marks, mark=*, mark size=2pt, color=sbBlue] table[x=x, y=y] {figures/data/ch19-banana-mean-ekf.dat};
+\addplot[only marks, mark=x, mark size=3.5pt, very thick, color=sbRed] table[x=x, y=y] {figures/data/ch19-banana-mean-mc.dat};
+\legend{samples, $2\sigma$ of samples, EKF $2\sigma$, EKF mean, true mean}
+\nextgroupplot[title={(b) UKF: five sigma points}]
+\addplot[only marks, mark=*, mark size=0.45pt, color=black!35] table[x=x, y=y] {figures/data/ch19-banana-samples.dat};
+\addplot[sbGray, dashed, thick] table[x=mc_x, y=mc_y] {figures/data/ch19-banana-ellipses.dat};
+\addplot[sbOrange, thick] table[x=ut_x, y=ut_y] {figures/data/ch19-banana-ellipses.dat};
+\addplot[only marks, mark=square*, mark size=2pt, color=sbOrange] table[x=x, y=y] {figures/data/ch19-banana-sigma.dat};
+\addplot[only marks, mark=*, mark size=2pt, color=sbOrange!70!black] table[x=x, y=y] {figures/data/ch19-banana-mean-ut.dat};
+\addplot[only marks, mark=x, mark size=3.5pt, very thick, color=sbRed] table[x=x, y=y] {figures/data/ch19-banana-mean-mc.dat};
+\legend{samples, $2\sigma$ of samples, UT $2\sigma$, sigma-point images, UT mean, true mean}
+\end{groupplot}
+\end{tikzpicture}

@@ -1,0 +1,58 @@
+% The three primitives of the constructive MAPF methods of Chapter 11:
+% (a) push with a chain shift, (b) the six-move exchange of a swap at a
+% vertex of degree three, (c) a rotation on a fully occupied cycle.
+\begin{tikzpicture}[font=\small,
+  gv/.style={circle,draw=sbGray,fill=white,thick,inner sep=1pt,minimum size=14pt,font=\scriptsize},
+  mv/.style={-{Stealth[length=4.5pt]},line width=1.1pt,shorten >=6pt,shorten <=6pt},
+  num/.style={font=\tiny,fill=white,inner sep=0.8pt,circle}]
+% ---- (a) push --------------------------------------------------------------
+\begin{scope}
+  \foreach \i in {0,...,4} {\coordinate (v\i) at (\i*0.95,0);}
+  \coordinate (w1) at (1.9,-0.95); \coordinate (w2) at (1.9,-1.9);
+  \draw[sbedge] (v0) -- (v4); \draw[sbedge] (v2) -- (w2);
+  \foreach \i in {0,...,4} {\node[gv] at (v\i) {$v_\i$};}
+  \node[gv] at (w1) {$w_1$}; \node[gv] at (w2) {$w_2$};
+  \node[sbagentA] at (v0) {$a$}; \node[sbagentB] at (v2) {$b$}; \node[sbagentC] at (w1) {$c$};
+  \node[sbgoal,minimum size=15pt,fill opacity=0.3] at (v4) {};
+  \draw[mv,draw=sbAgentC] (w1) -- (w2); \node[num,text=sbAgentC] at (2.25,-1.45) {1};
+  \draw[mv,draw=sbAgentB] (v2) -- (w1); \node[num,text=sbAgentB] at (2.25,-0.5) {2};
+  \draw[mv,draw=sbAgentA] (v0) to[out=50,in=130] (v4); \node[num,text=sbAgentA] at (1.9,0.62) {3--6};
+  \node[sbannot,anchor=north,align=center] at (1.9,-2.35) {(a) push: $a$ walks to $v_4$; the blockers $b$ and $c$\\ are shifted one step down the side branch};
+\end{scope}
+% ---- (b) swap: the exchange at a junction ----------------------------------
+\begin{scope}[xshift=5.6cm,yshift=0.35cm]
+  \foreach \i/\pa/\pb/\fr/\to/\col in {0/v/u/v/n1/sbAgentA, 1/n1/u/u/v/sbAgentB, 2/n1/v/v/n2/sbAgentB, 3/n1/n2/n1/v/sbAgentA, 4/v/n2/v/u/sbAgentA, 5/u/n2/n2/v/sbAgentB} {
+    \begin{scope}[xshift=\i*1.75cm]
+      \coordinate (u) at (0,0); \coordinate (v) at (0.75,0); \coordinate (n1) at (1.25,0.55); \coordinate (n2) at (1.25,-0.55);
+      \draw[sbedge] (u) -- (v) -- (n1); \draw[sbedge] (v) -- (n2);
+      \node[gv,minimum size=12pt] at (u) {}; \node[gv,minimum size=12pt] at (v) {}; \node[gv,minimum size=12pt] at (n1) {}; \node[gv,minimum size=12pt] at (n2) {};
+      \node[sbagentA,minimum size=10pt] at (\pa) {$a$}; \node[sbagentB,minimum size=10pt] at (\pb) {$b$};
+      \draw[mv,draw=\col,shorten >=5pt,shorten <=5pt] (\fr) -- (\to);
+      \pgfmathtruncatemacro{\n}{\i+1}
+      \node[sbannot,font=\tiny] at (0.6,-1.0) {move \n};
+    \end{scope}
+  }
+  \node[sbannot,font=\tiny,anchor=east] at (-0.2,0) {$u$};
+  \node[sbannot,font=\tiny,anchor=south] at (0.75,0.2) {$v$};
+  \node[sbannot,font=\tiny,anchor=west] at (1.42,0.55) {$n_1$};
+  \node[sbannot,font=\tiny,anchor=west] at (1.42,-0.55) {$n_2$};
+  \node[sbannot,anchor=north,align=center] at (5.2,-1.35) {(b) swap: at a vertex $v$ of degree $\ge 3$ with two empty neighbours $n_1$, $n_2$,\\ six moves exchange $a$ and $b$ without moving anyone else};
+\end{scope}
+% ---- (c) rotate ------------------------------------------------------------
+\begin{scope}[xshift=5.9cm,yshift=-3.35cm]
+  \foreach \i in {0,...,4} {\coordinate (c\i) at ({90+72*\i}:0.95);}
+  \coordinate (e) at ({90+72*2}:1.95);
+  \draw[sbedge] (c0) -- (c1) -- (c2) -- (c3) -- (c4) -- (c0); \draw[sbedge] (c2) -- (e);
+  \foreach \i in {0,...,4} {\node[gv] at (c\i) {};}
+  \node[gv] at (e) {};
+  \node[sbannot,font=\tiny,anchor=north] at ({90+72*2}:2.25) {empty};
+  \foreach \i/\lab in {0/1,1/2,2/3,3/4,4/5} {\node[sbagentD,minimum size=10pt] at (c\i) {\lab};}
+  \draw[mv,draw=sbAgentD] (c2) -- (e); \node[num,text=sbAgentD] at ({90+72*2-14}:1.5) {1};
+  \draw[mv,draw=sbAgentD] (c1) to[bend right=25] (c2); \node[num,text=sbAgentD] at ({90+72*1.5}:1.2) {2};
+  \draw[mv,draw=sbAgentD] (c0) to[bend right=25] (c1); \node[num,text=sbAgentD] at ({90+72*0.5}:1.2) {3};
+  \draw[mv,draw=sbAgentD] (c4) to[bend right=25] (c0); \node[num,text=sbAgentD] at ({90+72*4.5}:1.2) {4};
+  \draw[mv,draw=sbAgentD] (c3) to[bend right=25] (c4); \node[num,text=sbAgentD] at ({90+72*3.5}:1.2) {5};
+  \draw[mv,draw=sbAgentD,dashed] (e) to[bend right=20] (c3); \node[num,text=sbAgentD] at ({90+72*2.6}:1.75) {6};
+  \node[sbannot,anchor=north,align=center] at (3.9,0.3) {(c) rotate: on a fully occupied cycle\\ agent 3 steps out into a cleared vertex,\\ the others advance one position,\\ and agent 3 steps back in behind them:\\ every agent has moved one vertex\\ along the cycle};
+\end{scope}
+\end{tikzpicture}

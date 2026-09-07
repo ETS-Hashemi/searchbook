@@ -1,0 +1,55 @@
+% Worked example of Chapter 11: two drones meet head-on in an aisle with one
+% bay; a third drone flies along the upper aisle, which is joined to the
+% lower one only through the passage (4,2).  Left: the instance with the
+% individual shortest paths.  Right: the optimal joint plan found by M*.
+\begin{tikzpicture}[scale=0.82,every node/.style={font=\footnotesize},
+  goalA/.style={circle,draw=sbAgentA,dashed,thick,inner sep=1pt,minimum size=13pt},
+  goalB/.style={circle,draw=sbAgentB,dashed,thick,inner sep=1pt,minimum size=13pt},
+  goalC/.style={circle,draw=sbAgentC,dashed,thick,inner sep=1pt,minimum size=13pt},
+  pathA/.style={draw=sbAgentA,line width=1.3pt,-{Stealth[length=4.5pt]}},
+  pathB/.style={draw=sbAgentB,line width=1.3pt,-{Stealth[length=4.5pt]}},
+  pathC/.style={draw=sbAgentC,line width=1.3pt,-{Stealth[length=4.5pt]}},
+  tA/.style={font=\tiny,text=sbAgentA}, tB/.style={font=\tiny,text=sbAgentB}, tC/.style={font=\tiny,text=sbAgentC},
+  cross/.style={cross out,draw=sbRed,line width=1.2pt,minimum size=7pt,inner sep=0pt}]
+% ---- left panel: the instance and the individual policies ------------------
+\begin{scope}
+  \drawgrid{5}{4}
+  \gridobstacle{0}{0}\gridobstacle{2}{0}\gridobstacle{3}{0}\gridobstacle{4}{0}
+  \gridobstacle{0}{2}\gridobstacle{1}{2}\gridobstacle{2}{2}\gridobstacle{3}{2}
+  \foreach \x in {0,...,4} \node[sbannot,font=\tiny] at (\x+0.5,-0.28) {$x{=}\x$};
+  \foreach \y in {0,...,3} \node[sbannot,font=\tiny,anchor=east] at (-0.12,\y+0.5) {$y{=}\y$};
+  \node[sbannot,font=\tiny,text=black] at (1.5,0.5) {bay};
+  \node[sbannot,font=\tiny,text=black] at (4.5,2.5) {pass.};
+  % individual shortest paths
+  \draw[pathA] (0.5,1.62) -- (4.2,1.62);
+  \draw[pathB] (4.5,1.38) -- (0.8,1.38);
+  \draw[pathC] (0.5,3.5) -- (4.2,3.5);
+  \node[tA] at (1.5,1.85) {1}; \node[tA] at (2.5,1.85) {2}; \node[tA] at (3.5,1.85) {3};
+  \node[tB] at (3.5,1.15) {1}; \node[tB] at (2.5,1.15) {2}; \node[tB] at (1.5,1.15) {3};
+  \node[tC] at (1.5,3.75) {1}; \node[tC] at (2.5,3.75) {2}; \node[tC] at (3.5,3.75) {3}; \node[tC] at (4.5,3.75) {4};
+  \node[goalB] at (0.5,1.5) {}; \node[goalA] at (4.5,1.5) {}; \node[goalC] at (4.5,3.5) {};
+  \node[sbagentA] at (0.5,1.5) {1}; \node[sbagentB] at (4.5,1.5) {2}; \node[sbagentC] at (0.5,3.5) {3};
+  \node[cross] at (2.5,1.5) {};
+  \node[sbannot,text=sbRed,font=\tiny,anchor=south] at (2.5,1.95) {$t{=}2$};
+  \node[sbannot,anchor=north,align=center] at (2.5,-0.6) {(a) individual policies: agents 1 and 2\\ collide in cell $(2,1)$ at $t=2$};
+\end{scope}
+% ---- right panel: the optimal joint plan found by M* -----------------------
+\begin{scope}[xshift=7.3cm]
+  \drawgrid{5}{4}
+  \gridobstacle{0}{0}\gridobstacle{2}{0}\gridobstacle{3}{0}\gridobstacle{4}{0}
+  \gridobstacle{0}{2}\gridobstacle{1}{2}\gridobstacle{2}{2}\gridobstacle{3}{2}
+  % agent 1: (0,1) (1,1) wait (1,0) (1,1) (2,1) (3,1) (4,1)
+  \draw[pathA] (0.5,1.62) -- (1.38,1.62) -- (1.38,0.5) -- (1.62,0.5) -- (1.62,1.62) -- (4.2,1.62);
+  % agent 2: (4,1) (3,1) (2,1) (1,1) (0,1)
+  \draw[pathB] (4.5,1.38) -- (0.8,1.38);
+  % agent 3: straight along the upper aisle
+  \draw[pathC] (0.5,3.5) -- (4.2,3.5);
+  \node[tA] at (1.2,1.9) {1,2}; \node[tA] at (1.2,0.75) {3}; \node[tA] at (1.85,0.75) {4};
+  \node[tA] at (2.5,1.85) {5}; \node[tA] at (3.5,1.85) {6}; \node[tA] at (4.15,1.85) {7};
+  \node[tB] at (3.5,1.15) {1}; \node[tB] at (2.5,1.15) {2}; \node[tB] at (1.5,1.15) {3}; \node[tB] at (0.5,1.15) {4};
+  \node[tC] at (1.5,3.75) {1}; \node[tC] at (2.5,3.75) {2}; \node[tC] at (3.5,3.75) {3}; \node[tC] at (4.5,3.75) {4};
+  \node[goalB] at (0.5,1.5) {}; \node[goalA] at (4.5,1.5) {}; \node[goalC] at (4.5,3.5) {};
+  \node[sbagentA] at (0.5,1.5) {1}; \node[sbagentB] at (4.5,1.5) {2}; \node[sbagentC] at (0.5,3.5) {3};
+  \node[sbannot,anchor=north,align=center] at (2.5,-0.6) {(b) plan of cost $15$: agent 1 waits at $(1,1)$,\\ hides in the bay while agent 2 passes, and continues};
+\end{scope}
+\end{tikzpicture}

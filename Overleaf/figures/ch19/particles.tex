@@ -1,2 +1,31 @@
-% temporary placeholder, replaced by the generated figure
-\begin{tikzpicture}\node[sbannot] {figure particles (placeholder)};\end{tikzpicture}
+% The particle cloud of the occlusion example at three moments, and the
+% effective sample size over time.  Data: code/figures/gen_ch19_particles.py
+\begin{tikzpicture}
+\begin{axis}[name=map, width=0.46\textwidth, axis equal image,
+  xmin=-45, xmax=45, ymin=-4, ymax=100,
+  xlabel={$x$ [m]}, ylabel={$y$ [m]}, font=\footnotesize, grid=major,
+  legend style={font=\scriptsize, at={(0.03,0.97)}, anchor=north west, fill=white, fill opacity=0.85, text opacity=1},
+  legend cell align=left]
+\fill[sbLightGray] (axis cs:-45,35) rectangle (axis cs:45,75);
+\fill[sbobstacle] (axis cs:-10,50) rectangle (axis cs:10,70);
+\addplot[black, dashed, thick] table[x=x, y=y] {figures/data/ch19-particles-truth.dat};
+\addplot[only marks, mark=*, mark size=0.6pt, color=sbBlue] table[x=x1, y=y1] {figures/data/ch19-particles.dat};
+\addplot[only marks, mark=*, mark size=0.6pt, color=sbOrange] table[x=x2, y=y2] {figures/data/ch19-particles.dat};
+\addplot[only marks, mark=*, mark size=0.6pt, color=sbGreen] table[x=x3, y=y3] {figures/data/ch19-particles.dat};
+\addplot[only marks, mark=x, mark size=3.5pt, very thick, color=black] table[x=x, y=y] {figures/data/ch19-particles-marks.dat};
+\addplot[only marks, mark=square*, mark size=2.5pt, color=sbPurple] table[x=x, y=y] {figures/data/ch19-particles-ukf.dat};
+\node[font=\scriptsize, text=white] at (axis cs:0,60) {building};
+\node[sbannot, anchor=south east] at (axis cs:44,36) {no measurements};
+\node[sbagentA] at (axis cs:0,0) {};
+\legend{true path, $k=7$ (last meas.), $k=15$ (hidden), $k=20$ (first meas.), true position, UKF mean at $k=15$}
+\end{axis}
+\begin{axis}[at={(map.east)}, anchor=west, xshift=1.8cm, width=0.5\textwidth, height=5.4cm,
+  xmin=1, xmax=15, ymin=0, ymax=1.05, xlabel={time $t$ [s]}, ylabel={$N_{\mathrm{eff}} / N$},
+  font=\footnotesize, grid=major]
+\fill[sbLightGray] (axis cs:3.75,0) rectangle (axis cs:9.75,1.05);
+\addplot[sbGreen, thick, mark=*, mark size=1pt] table[x=t, y expr=\thisrow{neff}/2000] {figures/data/ch19-particles-neff.dat};
+\draw[sbGray, dashed] (axis cs:1,0.5) -- (axis cs:15,0.5);
+\node[sbannot, anchor=south] at (axis cs:6.75,1.0) {no measurements};
+\node[sbannot, anchor=south west] at (axis cs:10.3,0.52) {threshold $N/2$};
+\end{axis}
+\end{tikzpicture}
