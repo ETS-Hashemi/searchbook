@@ -1,4 +1,469 @@
 \chapter{The Multi-Agent Path Finding Problem}
 \label{ch:ch07}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode are prefixed with "Mapf" to stay unique
+% across the book.
+\SetKwFunction{MapfPosition}{Position}
+\SetKwFunction{MapfPairwise}{FirstConflictPairwise}
+\SetKwFunction{MapfHashed}{FirstConflictHashed}
+
+\begin{objectives}
+\begin{itemize}
+  \item State the classical multi-agent path finding problem exactly: graph, agents, discrete synchronous time, move and wait actions, time-indexed paths and plans, and the stay-at-target convention.
+  \item Recognise the five kinds of conflict of Stern et al.\ (vertex, edge, swapping, following, cycle), know which two this book forbids and why, and detect them by hand in a table of paths.
+  \item Compute the sum of costs and the makespan of a plan, explain why the two objectives can disagree, and state what is known about the complexity of feasibility and of optimality.
+  \item Read and write instances in the \code{.map} and \code{.scen} formats of the standard benchmark and name the solver families that the following chapters develop.
+  \item Implement a plan validator and a conflict detector in \python, in $\bigO{k^2T}$ and in $\bigO{kT}$ time, and use it to build deliberate conflict cases.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch07-motivation}
+
+Twelve inspection drones share the hall of a warehouse. Each has its own start
+pad and its own target shelf, and each, on its own, can find a shortest route
+with the \astar of \cref{ch:ch04} in a few milliseconds. Fly those twelve
+routes at the same time and two of them meet head-on in an aisle, a third
+crosses the first at an intersection at the wrong moment, and a fourth arrives
+at a shelf in front of which a drone that has already finished is still
+hovering. None of the single-agent planners of
+\cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06} can see these events, because each of
+them plans one agent in a world that contains no others.
+
+\Cref{fig:ch07-conflict-growth} measures how bad the problem is. On random
+$16 \times 16$ grids with $20\,\%$ obstacles we planned every agent
+independently and counted the conflicts of the resulting \textbf{naive
+plan}\index{naive plan}. With two agents, $95\,\%$ of the plans happen to be
+conflict-free. With eight, only $5\,\%$ are, and a plan contains $3.5$
+conflicts on average; with twenty agents no naive plan out of sixty was free
+of conflicts, and with forty agents a plan has about $97$ conflicts among
+$72$ conflicting pairs. The number of conflicts grows roughly like the number
+of pairs, $k(k-1)/2$. Coordination is not an optional refinement: beyond a
+handful of agents, independent planning never produces a flyable plan.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch07/conflict-growth}
+  \caption{Naive plans (independent shortest paths) on random $16 \times 16$
+  grids with $20\,\%$ obstacles, $60$ instances per value of $k$
+  (\code{gen\_ch07\_conflict\_growth.py}). Left: the mean number of vertex and
+  swapping conflicts and of conflicting agent pairs grows roughly
+  quadratically with $k$. Right: the fraction of instances whose naive plan is
+  conflict-free drops to zero at about twelve agents.}
+  \label{fig:ch07-conflict-growth}
+\end{figure}
+
+The problem of finding routes for many agents that never collide is
+\textbf{multi-agent path finding}\index{MAPF (multi-agent path finding)}
+(\textbf{MAPF}). This chapter defines it; the four chapters that follow solve
+it. In the hybrid architecture of \cref{ch:ch24}, MAPF is the job of the
+\emph{global} layer: it produces the nominal, time-indexed routes of all
+drones under our control before take-off, and it is consulted again whenever
+the local avoidance layer or the replanning layer has changed a route and the
+swarm must re-check that the changed route conflicts with nobody. That
+re-check is the conflict detector of this chapter, and it is the one piece of
+MAPF that every layer of the system uses.
+
+A problem chapter has a different shape from an algorithm chapter.
+\Cref{sec:ch07-intuition} gives the idea and \cref{sec:ch07-problem} the exact
+definitions of Stern et al.~\cite{stern2019mapf}: instances, actions, paths,
+plans, the five kinds of conflict, and the two objectives. The algorithm of
+the chapter, in \cref{sec:ch07-detection}, is conflict detection, and
+\cref{sec:ch07-example} runs it by hand on three agents.
+\Cref{sec:ch07-properties} collects what is known about complexity:
+feasibility is easy, optimality is NP-hard for both objectives.
+\Cref{sec:ch07-solvers} maps the solver families to
+\cref{ch:ch08,ch:ch09,ch:ch10,ch:ch11,ch:ch22}, \cref{sec:ch07-benchmarks}
+explains the benchmark files you will use for the rest of Part~III,
+\cref{sec:ch07-implementation} the \python, and \cref{sec:ch07-drones} what
+changes when the agents are drones.
+
+% ---------------------------------------------------------------------
+\section{The idea in plain words}
+\label{sec:ch07-intuition}
+
+Freeze time into steps of length $\dt$ and write down where every agent is at
+every step. A route becomes a row of a table, one column per time step, and a
+plan for $k$ agents is a table with $k$ rows. Two agents \emph{conflict} when
+the table shows them in the same place in the same column, or shows them
+exchanging places along one edge between two consecutive columns. Finding a
+plan means filling in the table so that every row is a legal route for its
+agent and no such coincidence occurs anywhere; finding a good plan means doing
+so with rows that are as short as possible.
+
+This is the space-time view of \cref{ch:ch04}: the state of an agent is a pair
+$(v, t)$, a step either moves along an edge or waits, and time advances by one
+for every agent at once. What is new is that the rows are no longer
+independent. The same table also shows what a conflict is \emph{not}. If
+agent~2 leaves a cell in the step in which agent~1 enters it, the two never
+share a column entry; they follow each other, one cell apart, like the
+carriages of a train. Whether that is dangerous depends on the physics of the
+agents (\cref{sec:ch07-drones}), but under the discrete model it is not a
+conflict. \Cref{fig:ch07-conflict-types} shows the five patterns that the
+literature distinguishes.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch07/conflict-types}
+  \caption{The conflict types of Stern et al.\ \cite{stern2019mapf} between
+  time $t$ and $t+1$. (a)~Two agents enter the same vertex. (b)~Two agents
+  traverse the same edge in the same direction, which means they already
+  shared $u$ at time $t$. (c)~Two agents exchange vertices along an edge.
+  (d)~One agent enters the vertex that the other is leaving. (e)~A rotation
+  along a fully occupied cycle. Classical MAPF forbids (a)--(c) and allows (d)
+  and (e).}
+  \label{fig:ch07-conflict-types}
+\end{figure}
+
+\begin{keyidea}
+A MAPF plan is a table of positions, one row per agent and one column per
+time step, in which an agent that has reached its goal keeps its goal cell in
+every later column. The plan is valid when every row is a legal path and no
+two rows share a cell in a column or swap two cells between consecutive
+columns. Everything else, including how good a plan is and how to find one,
+is built on this table.
+\end{keyidea}
+
+% ---------------------------------------------------------------------
+\section{Problem statement and notation}
+\label{sec:ch07-problem}
+
+\subsection{Instances, actions and paths}
+
+\begin{definition}[Classical MAPF instance]
+\label{def:ch07-instance}
+A \textbf{classical MAPF instance}\index{MAPF!classical}\index{MAPF!instance}
+is a triple $\langle G, s, g \rangle$: an undirected graph $G = (V, E)$, a
+number $k$ of \textbf{agents}\index{agent} $a_1, \dots, a_k$, and two maps
+$s, g \colon \set{1,\dots,k} \to V$ that assign to every agent a
+\textbf{start vertex} $s_i$ and a \textbf{goal vertex} $g_i$. The starts are
+pairwise distinct and so are the goals. Time is discrete,
+$t \in \set{0, 1, 2, \dots}$, and all agents act synchronously: in every time
+step each agent either \textbf{moves}\index{move action} along one edge to an
+adjacent vertex or \textbf{waits}\index{wait action} at its vertex. Both
+actions take exactly one time step and cost $1$.
+\end{definition}
+
+The graph is usually the 4-connected grid $G_4$ of \cref{ch:ch02}, whose
+vertices are the free cells and whose edges join horizontally or vertically
+adjacent free cells. We write a cell as $(r, c)$ with the row $r$ counted from
+the top and the column $c$ from the left, because that is the order in which
+a benchmark map file is read (\cref{sec:ch07-benchmarks}); the single-agent
+chapters used $(x, y)$ with the origin at the bottom left, and both are only
+names for vertices. A start vertex may coincide with a goal vertex, of the
+same agent or of another one; only the starts among themselves and the goals
+among themselves must be distinct.
+
+\begin{definition}[Time-indexed path, stay-at-target]
+\label{def:ch07-path}
+A \textbf{time-indexed path}\index{path!time-indexed} for agent $a_i$ is a
+sequence $\pi_i = (\pi_i[0], \pi_i[1], \dots, \pi_i[T_i])$ of vertices with
+$\pi_i[0] = s_i$, $\pi_i[T_i] = g_i$ and, for every $t < T_i$, either
+$\pi_i[t+1] = \pi_i[t]$ (a wait) or $\set{\pi_i[t], \pi_i[t+1]} \in E$ (a
+move). Under the \textbf{stay-at-target}\index{stay-at-target} convention the
+agent remains at its goal after the end of its path: we set
+$\pi_i[t] = g_i$ for all $t > T_i$, so that $\pi_i[t]$ is defined for every
+$t \ge 0$. The \textbf{cost}\index{path!cost (MAPF)} of the path is the time
+of its last arrival at the goal,
+\begin{equation}
+  \cost(\pi_i) = \min \set{ \tau \ge 0 \;:\; \pi_i[t] = g_i \text{ for all } t \ge \tau }.
+  \label{eq:ch07-path-cost}
+\end{equation}
+\end{definition}
+
+Two remarks. First, a path may visit its goal, leave it and come back;
+\cref{eq:ch07-path-cost} charges every step until the \emph{final} arrival,
+and trailing waits at the goal are free. The sequence
+$\bigl((0,0), (0,1), (0,1), (0,2), (0,2)\bigr)$ has $T_i = 4$ but cost $3$.
+Second, the alternative \textbf{disappear-at-target}\index{disappear-at-target}
+convention removes an agent from the graph when it first reaches its goal.
+It models robots that park in a docking station or leave the warehouse, and
+it makes some instances easier because a finished agent blocks nobody. A
+hovering drone blocks its cell as much as a flying one, so this book uses
+stay-at-target throughout, as do the benchmark and almost all solvers
+\cite{stern2019mapf}.
+
+\begin{definition}[Plan and solution]
+\label{def:ch07-plan}
+A \textbf{plan}\index{plan!MAPF} is a tuple $\Pi = (\pi_1, \dots, \pi_k)$ of
+one time-indexed path per agent. Its \textbf{horizon}\index{plan!horizon} is
+$T = \max_i T_i$. A plan is a \textbf{solution}\index{MAPF!solution} (or is
+\emph{valid}) if it contains no vertex conflict and no swapping conflict in
+the sense of \cref{def:ch07-conflicts} at any time $t \ge 0$.
+\end{definition}
+
+\subsection{Conflicts}
+\label{sec:ch07-conflicts}
+
+\begin{definition}[Conflicts \cite{stern2019mapf}]
+\label{def:ch07-conflicts}
+Let $\Pi$ be a plan, $i \ne j$ two agents and $t \ge 0$ a time step.
+\begin{enumerate}[label=(\alph*)]
+  \item A \textbf{vertex conflict}\index{conflict!vertex} $\langle a_i, a_j, v, t \rangle$
+    occurs if $\pi_i[t] = \pi_j[t] = v$: both agents occupy $v$ at time $t$.
+  \item An \textbf{edge conflict}\index{conflict!edge} $\langle a_i, a_j, u, v, t \rangle$
+    occurs if $\pi_i[t] = \pi_j[t] = u$ and $\pi_i[t+1] = \pi_j[t+1] = v \ne u$:
+    both traverse the edge $\set{u,v}$ in the same direction in the same step.
+  \item A \textbf{swapping conflict}\index{conflict!swapping} $\langle a_i, a_j, u, v, t \rangle$
+    occurs if $\pi_i[t] = \pi_j[t+1] = u$ and $\pi_i[t+1] = \pi_j[t] = v \ne u$:
+    the agents exchange vertices along the edge $\set{u,v}$ between $t$ and $t+1$.
+  \item A \textbf{following conflict}\index{conflict!following} occurs if
+    $\pi_i[t+1] = \pi_j[t]$: agent $a_i$ enters at $t+1$ the vertex that $a_j$
+    occupied at $t$.
+  \item A \textbf{cycle conflict}\index{conflict!cycle} occurs if agents
+    $a_{i_1}, \dots, a_{i_m}$ ($m \ge 2$) all move at step $t$ and
+    $\pi_{i_1}[t+1] = \pi_{i_2}[t]$, $\pi_{i_2}[t+1] = \pi_{i_3}[t]$, \dots,
+    $\pi_{i_m}[t+1] = \pi_{i_1}[t]$: they rotate along a cycle of $m$ vertices
+    that is fully occupied.
+\end{enumerate}
+\end{definition}
+
+The five types are not independent, and it pays to see exactly how they
+overlap before deciding which of them to forbid.
+
+\begin{proposition}[Relations between conflict types]
+\label{prop:ch07-hierarchy}
+\begin{enumerate}[label=(\alph*)]
+  \item An edge conflict $\langle a_i, a_j, u, v, t\rangle$ implies the vertex
+    conflicts $\langle a_i, a_j, u, t\rangle$ and $\langle a_i, a_j, v, t+1\rangle$.
+  \item A swapping conflict is a cycle conflict with $m = 2$, and it consists of
+    two following conflicts, one in each direction.
+  \item A cycle conflict with $m \ge 3$ consists of $m$ following conflicts and
+    contains no vertex conflict and no swapping conflict.
+  \item A following conflict in which the leading agent waits,
+    $\pi_j[t+1] = \pi_j[t] = \pi_i[t+1]$, is the vertex conflict
+    $\langle a_i, a_j, \pi_j[t], t+1\rangle$.
+\end{enumerate}
+\end{proposition}
+\begin{proof}
+Parts (a), (b) and (d) are the definitions read twice. For (c), the $m$
+vertices of the cycle are distinct and at time $t$ each holds exactly one of
+the agents; at $t+1$ each agent has moved to the vertex of its predecessor, so
+the $m$ agents again occupy the $m$ distinct vertices and no vertex conflict
+arises. A swap would require $\pi_{i_1}[t+1] = \pi_{i_2}[t]$ together with
+$\pi_{i_2}[t+1] = \pi_{i_1}[t]$, that is $i_3 = i_1$, which is impossible for
+$m \ge 3$.
+\end{proof}
+
+\paragraph{What this book forbids.}
+Following \textcite{stern2019mapf}, \emph{classical} MAPF forbids vertex and
+swapping conflicts and allows following and cycle conflicts. Vertex conflicts
+are collisions by definition. Swapping conflicts are collisions too: two
+agents that exchange the endpoints of an edge in one step pass through each
+other in the middle of it. Edge conflicts need no rule of their own, because
+by \cref{prop:ch07-hierarchy}(a) they are already vertex conflicts. Following
+is allowed because synchronous unit-speed motion keeps the follower one full
+edge behind the leader at every instant, and forbidding it would rule out
+convoys through a corridor and the plan of \cref{sec:ch07-example}. Cycle
+conflicts are allowed for the same reason: a rotation on a fully occupied
+cycle keeps every agent one edge from its neighbours. Some hardware disagrees
+with both choices, for example robots that need a free cell ahead before they
+start moving, or drones so large that following around a corner brings them
+too close (\cref{exr:ch07-separation}); such systems add following conflicts
+to the forbidden list and pay with longer plans.
+\Cref{tab:ch07-conflict-summary} sums up the rules.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The conflict types of \cref{def:ch07-conflicts} and their status in classical MAPF.}
+  \label{tab:ch07-conflict-summary}
+  \begin{tabular}{@{}llll@{}}
+  \toprule
+  Conflict & Pattern between $t$ and $t+1$ & Classical MAPF & Why\\
+  \midrule
+  vertex & $\pi_i[t] = \pi_j[t]$ & forbidden & two agents in one cell\\
+  edge & same edge, same direction & forbidden & implies a vertex conflict\\
+  swapping & same edge, opposite directions & forbidden & agents pass through each other\\
+  following & $\pi_i[t+1] = \pi_j[t]$, $a_j$ moves on & allowed & one edge apart at all times\\
+  cycle & rotation on an occupied cycle & allowed & $m$ following conflicts, no collision\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Objectives}
+\label{sec:ch07-objectives}
+
+\begin{definition}[Sum of costs and makespan]
+\label{def:ch07-objectives}
+The \textbf{sum of costs}\index{sum of costs}\index{objective!sum of costs}
+and the \textbf{makespan}\index{makespan}\index{objective!makespan} of a plan
+$\Pi = (\pi_1, \dots, \pi_k)$ are
+\begin{equation}
+  \sumcost(\Pi) = \sum_{i=1}^{k} \cost(\pi_i),
+  \qquad
+  \makespan(\Pi) = \max_{i=1,\dots,k} \cost(\pi_i).
+  \label{eq:ch07-objectives}
+\end{equation}
+A solution is \textbf{optimal}\index{MAPF!optimal solution} for an objective
+if no solution of the instance has a smaller value of it.
+\end{definition}
+
+The sum of costs is the total number of time steps that agents spend before
+they are finished, so it measures total flight time and energy; the makespan
+is the time at which the last agent arrives, so it measures the duration of
+the mission. Every wait before the final arrival counts in both. The two
+objectives agree on what a good plan looks like but not on which plan is
+best, and it takes only three agents to separate them.
+
+\begin{example}[Where the objectives disagree]
+\label{ex:ch07-disagree}
+\Cref{fig:ch07-objectives-disagree} shows three agents on an empty
+$4 \times 5$ grid: $a_1$ flies along row~1 from $(1,0)$ to $(1,4)$, $a_2$ down
+column~1 from $(0,1)$ to $(2,1)$, and $a_3$ up column~2 from $(3,2)$ to
+$(0,2)$. Their shortest paths have costs $4$, $2$ and $3$ and collide twice:
+$a_1$ and $a_2$ both reach $(1,1)$ at $t=1$, and $a_1$ and $a_3$ both reach
+$(1,2)$ at $t=2$. Plan~$Y$ lets $a_1$ wait one step at its start; it then
+reaches each crossing one step after the other agent has passed, the costs
+are $5, 2, 3$, and $\sumcost(Y) = 10$, $\makespan(Y) = 5$. Plan~$X$ instead
+lets $a_2$ and $a_3$ each wait once, so that $a_1$ passes first: costs
+$4, 3, 4$, $\sumcost(X) = 11$, $\makespan(X) = 4$. A search of the joint
+state space (\code{optimal\_soc\_bruteforce} and
+\code{optimal\_makespan\_bruteforce} in \code{ch07\_mapf.py}) confirms that
+$10$ and $4$ are the optimal values and that no solution attains both: every
+solution with $\sumcost = 10$ has makespan $5$.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch07/objectives-disagree}
+  \caption{Three agents whose shortest paths cross at $(1,1)$ and $(1,2)$.
+  Plan $Y$ delays the long path once and minimises the sum of costs; plan $X$
+  delays the two short paths and minimises the makespan. No plan achieves
+  $\sumcost = 10$ and $\makespan = 4$ at the same time.}
+  \label{fig:ch07-objectives-disagree}
+\end{figure}
+
+Which objective should a drone swarm use? The sum of costs is the standard
+choice of the MAPF literature and of \cbs (\cref{ch:ch09}), because it
+spreads delays over the agents and because it decomposes over agents, which
+the solvers exploit. The makespan is the natural choice when the mission ends
+only when the last drone has landed. \Cref{ch:ch25} reports both.
+
+\subsection{Feasibility versus optimality}
+
+An instance is \textbf{feasible}\index{MAPF!feasibility} (or solvable) if it
+has at least one solution. Feasibility can fail for simple reasons, such as a
+goal that is unreachable from its start, and for combinatorial ones: two
+agents at the ends of a corridor that must exchange places have no solution
+unless the corridor has a pocket to step into. Optimality asks for the best
+solution with respect to $\sumcost$ or $\makespan$. \Cref{sec:ch07-properties}
+shows that the two questions are of very different difficulty, and
+\cref{sec:ch07-solvers} sorts the solvers by which of them they answer and
+how well.
+
+% ---------------------------------------------------------------------
+\section{The algorithm: conflict detection}
+\label{sec:ch07-detection}
+
+The solvers of \cref{ch:ch08,ch:ch09,ch:ch10,ch:ch11} all contain the same
+subroutine: given a plan, find its first conflict or report that there is
+none.\index{conflict!detection} It is also the validator that you run on any
+plan before you trust it, and the re-check of the drone architecture.
+\Cref{alg:ch07-pairwise} states the direct version.
+
+\begin{algorithm}[htb]
+\caption{First conflict of a plan by pairwise comparison}
+\label{alg:ch07-pairwise}
+\KwIn{plan $\Pi = (\pi_1, \dots, \pi_k)$, each $\pi_i$ a list of $T_i + 1$ vertices}
+\KwOut{the earliest vertex or swapping conflict, or \emph{nil}}
+\Fn{\MapfPosition{$\pi_i$, $t$}}{
+  \lIf{$t \le T_i$}{\KwRet $\pi_i[t]$}
+  \KwRet $\pi_i[T_i]$\tcp*{stay-at-target padding}
+}
+\Fn{\MapfPairwise{$\Pi$}}{
+  $T \gets \max_i T_i$\label{alg:ch07-pairwise:horizon}\;
+  \For{$t \gets 0$ \KwTo $T$}{
+    \ForEach{pair $i < j$}{
+      \If{\MapfPosition{$\pi_i$, $t$} $=$ \MapfPosition{$\pi_j$, $t$}}{\KwRet vertex conflict $\langle a_i, a_j, \pi_i[t], t\rangle$\label{alg:ch07-pairwise:vertex}\;}
+    }
+    \If{$t < T$}{
+      \ForEach{pair $i < j$}{
+        $u \gets$ \MapfPosition{$\pi_i$, $t$}; $v \gets$ \MapfPosition{$\pi_i$, $t+1$}\;
+        \If{$u \ne v$ \KwAnd \MapfPosition{$\pi_j$, $t$} $= v$ \KwAnd \MapfPosition{$\pi_j$, $t+1$} $= u$}{\KwRet swapping conflict $\langle a_i, a_j, u, v, t\rangle$\label{alg:ch07-pairwise:swap}\;}
+      }
+    }
+  }
+  \KwRet \emph{nil}\;
+}
+\end{algorithm}
+
+\paragraph{Walkthrough.}
+The helper \MapfPosition implements the padding of \cref{def:ch07-path}: a
+question about a time beyond the end of a path is answered with the goal.
+This is what makes an agent that has arrived block its cell for everybody who
+comes later, and it is the first thing that home-made detectors get wrong
+(\cref{sec:ch07-implementation}). Line~\ref{alg:ch07-pairwise:horizon} fixes
+the horizon. Scanning further is pointless: after time $T$ no agent moves, so
+no swap can occur, and two agents that share a cell at some $t > T$ already
+shared it at time $T$; since goals are distinct, two parked agents never
+share a cell at all. For each time step the algorithm first looks for vertex
+conflicts (line~\ref{alg:ch07-pairwise:vertex}) and then, unless $t = T$, for
+swaps between $t$ and $t+1$ (line~\ref{alg:ch07-pairwise:swap}). The
+condition $u \ne v$ excludes a pair of waiting agents, which is a vertex
+conflict and has been reported already. Returning at the first hit gives the
+earliest conflict, with ties broken towards vertex conflicts and then towards
+the smallest pair $(i, j)$; dropping the returns and collecting the hits
+instead gives all conflicts in the same order.
+
+\paragraph{Cost.}
+Each time step compares all $k(k-1)/2$ pairs twice, so the running time is
+$\bigO{k^2 T}$. For a solver that calls the detector at every node of a search
+tree this quadratic factor matters, and it is unnecessary: at a fixed time,
+the agents at a vertex $v$ are found by hashing positions, not by comparing
+pairs. \Cref{alg:ch07-hashed} keeps, per time step, a dictionary from vertices
+to the agent seen there, and a second dictionary from directed edges
+$(u, v)$ to the agent traversing them; a swap is a traversal of $(v, u)$ by
+an earlier agent when $(u, v)$ is inserted.
+
+\begin{algorithm}[htb]
+\caption{First conflict of a plan with hash maps}
+\label{alg:ch07-hashed}
+\KwIn{plan $\Pi$ as in \cref{alg:ch07-pairwise}}
+\KwOut{the earliest vertex or swapping conflict, or \emph{nil}}
+\Fn{\MapfHashed{$\Pi$}}{
+  $T \gets \max_i T_i$\;
+  \For{$t \gets 0$ \KwTo $T$}{
+    $\mathit{occupied} \gets$ empty map from vertices to agents\;
+    \For{$i \gets 1$ \KwTo $k$}{
+      $v \gets$ \MapfPosition{$\pi_i$, $t$}\;
+      \lIf{$v \in \mathit{occupied}$}{\KwRet vertex conflict $\langle a_{\mathit{occupied}[v]}, a_i, v, t\rangle$}
+      $\mathit{occupied}[v] \gets i$\label{alg:ch07-hashed:occ}\;
+    }
+    \lIf{$t = T$}{\KwRet \emph{nil}}
+    $\mathit{moving} \gets$ empty map from directed edges to agents\;
+    \For{$i \gets 1$ \KwTo $k$}{
+      $u \gets$ \MapfPosition{$\pi_i$, $t$}; $v \gets$ \MapfPosition{$\pi_i$, $t+1$}\;
+      \If{$u \ne v$}{
+        \lIf{$(v, u) \in \mathit{moving}$}{\KwRet swapping conflict $\langle a_{\mathit{moving}[(v,u)]}, a_i, v, u, t\rangle$}
+        $\mathit{moving}[(u, v)] \gets i$\label{alg:ch07-hashed:mov}\;
+      }
+    }
+  }
+  \KwRet \emph{nil}\;
+}
+\end{algorithm}
+
+\begin{proposition}[Correctness and cost of conflict detection]
+\label{prop:ch07-detection}
+\Cref{alg:ch07-pairwise,alg:ch07-hashed} return \emph{nil} if and only if the
+plan is a solution in the sense of \cref{def:ch07-plan}, and otherwise a
+conflict with the smallest possible time $t$. \Cref{alg:ch07-pairwise} runs
+in $\bigO{k^2 T}$ time; \cref{alg:ch07-hashed} runs in $\bigO{kT}$ expected
+time and uses $\bigO{k}$ extra space.
+\end{proposition}
+\begin{proof}
+Both algorithms test, for each $t \le T$, exactly the conditions of
+\cref{def:ch07-conflicts}(a) and (c) on the padded paths, and the walkthrough
+showed that no conflict of either kind can first occur after $T$. In
+\cref{alg:ch07-hashed} a vertex conflict at $t$ between $a_j$ and $a_i$ with
+$j < i$ is detected when $a_i$ is inserted, because $a_j$ was stored at
+line~\ref{alg:ch07-hashed:occ} earlier in the same step; a swap between $a_j$
+and $a_i$ is detected at the insertion of the later of the two directed
+edges. Each time step performs $\bigO{k}$ dictionary operations of expected
+constant time, and the maps are cleared every step.
+\end{proof}
+
+When several conflicts share a time step, the two versions may report
+different ones; the implementation of \cref{sec:ch07-implementation} breaks
+ties by the smallest agent pair in both, so that they agree, and its self-test
+checks the agreement on random plans.
