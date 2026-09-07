@@ -145,7 +145,7 @@ def low_level(grid: Grid, start: Cell, goal: Cell, cons: Constraints,
         if stats is not None:
             stats.low_level_expanded += 1
         v, t = state
-        if v == goal and t > goal_block:            # goal-occupied-later test
+        if v == goal and t > goal_block:            # goal-stay test
             path = [v]
             while state in parent:
                 state = parent[state]
@@ -465,8 +465,8 @@ EXAMPLE_GOALS = [(4, 1), (2, 2), (4, 0)]
 
 # A tightly coupled instance (Section 9.6): 8 free cells, 3 agents that must
 # shuffle through the single cell (2, 1).  Dijkstra on the joint state space
-# finds the optimal sum of costs 24 in milliseconds; CBS expands tens of
-# thousands of CT nodes without finding a conflict-free node.
+# finds the optimal sum of costs 24 in milliseconds; CBS is still without a
+# conflict-free node after the 2000 CT nodes the self-test allows it.
 COUPLED_MAP = [
     "....",       # y = 2
     "##.#",       # y = 1

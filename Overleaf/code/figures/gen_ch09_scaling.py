@@ -20,7 +20,6 @@ Columns (whitespace separated, one header row), for S in cbs, icbs:
     S_lowexp     mean number of low-level state expansions (solved instances)
     S_time       mean runtime in seconds; an unsolved run counts with the
                  time it used, so this is a lower bound on the true mean
-    S_conflicts  mean number of conflicts among the root's paths
 
 Run from Overleaf/:   python3 code/figures/gen_ch09_scaling.py
 """
@@ -33,7 +32,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from ch09_cbs import all_conflicts, cbs, random_instance, validate  # noqa: E402
+from ch09_cbs import cbs, random_instance, validate  # noqa: E402
 
 AGENTS = (2, 4, 6, 8, 10, 12)
 INSTANCES = 12
@@ -57,7 +56,7 @@ def main() -> None:
                      for _ in range(INSTANCES)]
         row = [k]
         for name, kw in SOLVERS:
-            solved, nodes, lowexp, times, conflicts = [], [], [], [], []
+            solved, nodes, lowexp, times = [], [], [], []
             for grid, starts, goals in instances:
                 res = cbs(grid, starts, goals, time_limit=TIME_LIMIT,
                           node_limit=NODE_LIMIT, **kw)
@@ -68,10 +67,6 @@ def main() -> None:
                     lowexp.append(res.stats.low_level_expanded)
                 solved.append(ok)
                 times.append(res.stats.seconds)
-                if name == "cbs":
-                    root = cbs(grid, starts, goals, node_limit=1)
-                    conflicts.append(len(all_conflicts(root.trace[0]["paths"]))
-                                     if root.trace else 0)
             row += [np.mean(solved),
                     np.mean(nodes) if nodes else float("nan"),
                     max(nodes) if nodes else float("nan"),
@@ -80,8 +75,6 @@ def main() -> None:
             print("k=%2d %-5s success %.2f  nodes %.1f (max %s)  time %.3f s"
                   % (k, name, row[-5], row[-4], row[-3], row[-1]), flush=True)
         rows.append(row)
-    # the root-conflict count is computed once per k (it does not depend on
-    # the solver); append it as the last column
     header = ["k"]
     for name, _ in SOLVERS:
         header += ["%s_success" % name, "%s_nodes" % name, "%s_nodes_max" % name,

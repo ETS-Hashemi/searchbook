@@ -14,6 +14,22 @@ maps every week to the chapters that teach it, and adds study notes, a capstone
 description, a completion checklist and a traceability table. Read it once before you start
 \cref{ch:ch01}, and return to it at the beginning of every week.
 
+\begin{objectives}
+After working through this appendix you will be able to
+\begin{itemize}
+  \item choose a twelve-week route through this book and a weekly rhythm that fits the
+    plan's 6--8 hours of study;
+  \item say, for every week, what to build and how to tell that it works, using the week's
+    ``Done when'' test rather than a feeling of understanding;
+  \item name the four layers of the capstone architecture, the interface of each layer, and
+    the decision logic that switches between them at run time;
+  \item design the capstone experiment matrix, name the metrics to report, and say what each
+    metric hides;
+  \item use the traceability table in both directions: from an algorithm of the plan to its
+    chapter and week, and from a chapter to the depth the plan expects of you there.
+\end{itemize}
+\end{objectives}
+
 % ---------------------------------------------------------------------
 \section{How to use this plan}
 \label{sec:appA-intro}
@@ -44,7 +60,8 @@ reading, and so does this appendix: a good split is at most two hours of reading
 to six hours at the keyboard. Each week has a \emph{coding exercise} and a \emph{milestone}.
 The milestone is a sentence you should be able to say truthfully on the last day of the
 week; if you cannot, spend the first hour of the next week closing the gap rather than
-moving on.
+moving on. Over twelve weeks that is roughly 75--95 hours in total, which is what you
+should budget before you start.
 \index{study load}
 
 \paragraph{A weekly rhythm.}
@@ -203,8 +220,8 @@ background or optional depth.
 The plan groups its algorithms into six families, labeled A to F, and asks for a different
 depth in each: \emph{learn deeply} (A, B, C), \emph{know well} (D, E) and \emph{learn enough
 to integrate} (F). \Cref{fig:appA-timeline} shows how the twelve weeks are distributed over
-the families. Notice that eight of the twelve weeks go to the three ``learn deeply''
-families, and that the capstone gets a full week of its own. If you are short of time, the
+the families. Notice that seven of the twelve weeks -- more than half -- go to the three
+``learn deeply'' families, and that the capstone gets a full week of its own. If you are short of time, the
 places to compress are Week~7 (do DWA \emph{or} APF, not both), Week~8 (use a library for
 \rrtstar) and the MILP part of Week~11 (read \cref{ch:ch22}, do not implement it). Do not
 compress Weeks~1, 4, 6, 9 or 12: each of them builds a layer of the capstone that the later
@@ -217,7 +234,7 @@ weeks assume.
 \caption{The twelve weeks grouped by algorithm family. The length of a bar is the number of
 weeks the plan gives to the family; the label names the chapters read in those weeks
 (\cref{ch:ch01,ch:ch02} are the foundations read in Week~1). Families A--C, which the plan
-asks you to learn deeply, take eight of the twelve weeks; the capstone has a week of its
+asks you to learn deeply, take seven of the twelve weeks (2, 3 and 2); the capstone has a week of its
 own.}
 \label{fig:appA-timeline}
 \end{figure}
@@ -239,10 +256,24 @@ exercise for that week.
 The most expensive mistake in a self-study plan is to carry an unfinished week forward. A
 space-time \astar that mishandles waiting will break the prioritized planner of Week~3,
 the \cbs low level of Week~4 and the replanning layer of Week~12, and each time it will
-look like a new bug. If the milestone sentence is not true on the last day of the week,
+look like a new bug. \Cref{fig:appA-week-dependencies} draws the artifacts that later weeks
+reuse, so that you can see how far a red test travels before it is found. If the milestone sentence is not true on the last day of the week,
 spend the first hours of the next week on it and shorten that week's exercise instead;
 \cref{sec:appA-timeline} names the parts that can be compressed.
 \end{pitfall}
+
+\begin{figure}[htb]
+\centering
+\inputfigure{appA/week-dependencies}
+\caption{What each week hands to the weeks after it. Only the reuse that the week notes
+assert is drawn: the space-time \astar of Week~1 is the low level of Weeks~3, 4 and of the
+replanning layer, the Week-3 checker is the conflict detector of \cbs and of the capstone's
+re-check step, and the Week-6 simulator produces both the failure cases of Week~7 and the
+trajectories that Week~10 learns from. Notice that four arrows leave Week~1 and Week~3: a
+bug carried out of those two weeks reappears three times, which is why
+\cref{sec:appA-timeline} refuses to let you compress them.}
+\label{fig:appA-week-dependencies}
+\end{figure}
 
 \subsection{Week 1: Foundations -- Dijkstra and \astar}
 \label{sec:appA-week01}
@@ -250,8 +281,8 @@ spend the first hours of the next week on it and shorten that week's exercise in
 \noindent\textbf{Load}\ \difficulty{2}\quad\textbf{Read}\ \cref{ch:ch03,ch:ch04}, with
 \cref{ch:ch01,ch:ch02} for the vocabulary and the toolbox.
 
-\textbf{Focus.} Dijkstra's settled-node invariant (a node popped from \Open with the
-smallest $\gcost$ has its final cost), and what the heuristic buys in \astar: an admissible
+\textbf{Focus.} Dijkstra's settled-node invariant on graphs with non-negative edge costs (a
+node popped from \Open with the smallest $\gcost$ has its final cost), and what the heuristic buys in \astar: an admissible
 one makes the first expansion of the goal optimal, a consistent one makes a \Closed set safe.
 Give real time to the space-time state $(v,t)$ with a wait action; it is the low-level search
 of every MAPF solver in Part~III.
@@ -262,7 +293,7 @@ colors cells by their \Open/\Closed status.
 
 \textbf{Done when.} You can state the optimality theorem with its conditions and say what
 breaks when each is dropped; your space-time search waits or detours around a cell reserved
-at a given time; with the zero heuristic both searches expand the same nodes as Dijkstra.
+at a given time; with the zero heuristic both searches expand the same nodes as Dijkstra, up to tie-breaking.
 
 \textbf{Traps.} Unit diagonal cost on an 8-connected grid makes the octile and Euclidean
 heuristics inadmissible; a space-time search without a time bound never terminates when the
@@ -306,8 +337,10 @@ a time budget, which \dstarlite alone does not promise.
 \noindent\textbf{Load}\ \difficulty{2}\quad\textbf{Read}\ \cref{ch:ch07,ch:ch08}.
 
 \textbf{Focus.} The formal problem of \cref{ch:ch07}: agents, time steps, wait actions, the
-conflict types (vertex, edge or swap, following, cycle) and the two objectives (sum of costs,
-makespan); a swap is invisible if you compare positions only. Then \cref{ch:ch08}:
+conflict types (vertex, edge, swapping, following, cycle) and the two objectives (sum of
+costs, makespan). Keep the two edge-like types apart: an edge conflict is the same edge in
+the same direction, a swap is the two agents exchanging ends. A swap is invisible if you
+compare positions only. Then \cref{ch:ch08}:
 prioritized planning as one space-time \astar per agent against a reservation table, fast
 but incomplete and suboptimal in general.
 
@@ -319,8 +352,9 @@ instances (head-on in a corridor, a crossing, an agent parked on another agent's
 solves the well-formed instances; you own an instance that one priority order fails and
 another solves.
 
-\textbf{Traps.} Off-by-one in time (the position at time~0 is the start; a swap compares
-$(u,v)$ at $t$ with $(v,u)$ at $t$); an agent that has arrived stays at its goal and must be
+\textbf{Traps.} Off-by-one in time (the position at time~0 is the start; a swap is
+agent~$i$ moving $u \to v$ while agent~$j$ moves $v \to u$ over the same step
+$t \to t+1$); an agent that has arrived stays at its goal and must be
 reserved there for all later times; a reservation table that stores vertices but not edges.
 
 \textbf{Exercises.} The coding exercises of \cref{ch:ch07,ch:ch08}. Keep the checker: it is
@@ -370,7 +404,7 @@ allows; benchmark both for $w \in \set{1.0, 1.1, 1.5, 2.0}$: success rate under 
 limit, runtime, high-level nodes and sum of costs, over several seeds.
 
 \textbf{Done when.} A plot of cost against runtime as $w$ varies, with $w = 1$ reproducing
-\cbs exactly, and a paragraph that says with numbers what suboptimality buys.
+\cbs's optimal cost, and a paragraph that says with numbers what suboptimality buys.
 
 \textbf{Traps.} Using the current node's $\fcost$ instead of the minimum over \Open as the
 focal bound; taking the returned path cost instead of $\fcost_{\min}$ as the lower bound;
@@ -410,7 +444,7 @@ Week~7 and the capstone reuse it.
 \subsection{Week 7: DWA and Artificial Potential Fields}
 \label{sec:appA-week07}
 \index{study plan!week 07@week 7}
-\noindent\textbf{Load}\ \difficulty{2}\quad\textbf{Read}\ \cref{ch:ch14,ch:ch15}.
+\noindent\textbf{Load}\ \difficulty{1}\quad\textbf{Read}\ \cref{ch:ch14,ch:ch15}.
 
 \textbf{Focus.} DWA searches velocity space: the dynamic window holds the velocities
 reachable within one control interval, admissible velocities are those from which the robot
@@ -582,9 +616,22 @@ plan's specification so that you can check your prototype against it.
 
 \subsection{The four layers}
 \label{sec:appA-layers}
-\Cref{tab:appA-layers} lists the four layers in the plan's words. The numbering is the
-plan's; it is neither the order in which the layers act at run time (that is the decision
-logic below) nor the order in which you build them (that is the schedule).
+\Cref{tab:appA-layers} lists the four layers in the plan's words and
+\cref{fig:appA-architecture} draws them with the data that crosses each interface. The
+numbering is the plan's; it is neither the order in which the layers act at run time (that
+is the decision logic below) nor the order in which you build them (that is the schedule).
+
+\begin{figure}[htb]
+\centering
+\inputfigure{appA/architecture}
+\caption{The four layers of the capstone and the data that crosses each interface. Notice
+that every arrow carries one named object -- time-indexed paths, a predicted trajectory with
+its covariance, a velocity, a repaired path -- which is what makes the layers separable and
+the ``avoidance strategy'' axis of the experiments a switch rather than a rewrite. The
+dashed edge is the one feedback path: a replan invalidates the swarm plan, so Layer~1's
+conflict check runs again.}
+\label{fig:appA-architecture}
+\end{figure}
 
 \begin{table}[htb]
 \centering\small
@@ -596,8 +643,8 @@ chapters that teach each layer and the weeks in which you build it.}
 \textbf{Layer} & \textbf{Job} & \textbf{Chapters} & \textbf{Weeks}\\
 \midrule
 1\ Global swarm planner (\cbs/\ecbs)
-  & Plan nominal, time-indexed paths for the drones under your control. Resolve conflicts among connected swarm members before execution.
-  & \cref{ch:ch09,ch:ch10} & 3--5\\
+  & Plan nominal, time-indexed paths for the drones under your control. Resolve conflicts among connected swarm members before execution. (Week~3 builds the conflict checker it needs.)
+  & \cref{ch:ch09,ch:ch10} & 4--5\\
 \addlinespace
 2\ Prediction layer (Kalman filter / LSTM)
   & Observe an unknown external drone. Estimate its current state and predict a short future trajectory with uncertainty.
@@ -620,6 +667,7 @@ The plan suggests five steps for every controlled drone, at every control cycle.
 \Cref{ch:ch24} turns them into a state machine with explicit triggers (a time to collision
 below a threshold, a reconnection cost above a bound, a violated constraint) and explains
 what happens to the optimality of the \cbs plan once a drone leaves it.
+\Cref{fig:appA-decision-logic} draws the five steps as a flowchart.
 \begin{enumerate}
   \item Follow the nominal \cbs/\ecbs path while no predicted conflict is inside the safety
     horizon.
@@ -632,6 +680,18 @@ what happens to the optimality of the \cbs plan once a drone leaves it.
   \item Re-check inter-agent conflicts after any significant replan.
 \end{enumerate}
 \index{decision logic!capstone}
+
+\begin{figure}[htb]
+\centering
+\inputfigure{appA/decision-logic}
+\caption{The decision logic of the capstone, one pass per control cycle. Notice the three
+triggers on the left: the two diamonds are the only places where a drone leaves or rejoins
+its nominal \cbs/\ecbs path, so they are also the only places to instrument when you count
+replans. The two dashed cuts are the ``avoidance strategy'' axis of the experiment matrix:
+cutting layer~4 leaves the local-only strategy, cutting layer~3 leaves the replan-only
+strategy, and the whole chart is the hybrid.}
+\label{fig:appA-decision-logic}
+\end{figure}
 
 \begin{notebox}{Keep the layers separable}
 Give each layer one entry point: the global planner takes an instance and returns
@@ -646,8 +706,12 @@ disables layer~3, the hybrid uses both.
 \label{sec:appA-experiments}
 \Cref{tab:appA-experiments} lists the factors the plan asks you to vary; \cref{ch:ch25}
 gives the scenario generator and the statistics to report. As a full factorial design the
-five factors have $4 \times 4 \times 4 \times 3 \times 4 = 768$ cells before seeds; you will
-not run all of them. Fix every factor at a default, vary one or two at a time, and let the
+five factors -- four swarm sizes, four intruder counts, four prediction qualities, three
+avoidance strategies and four constraint settings (two formation options crossed with two
+communication options) -- have $4 \times 4 \times 4 \times 3 \times 4 = 768$ cells before
+seeds; you will not run all of them. The swarm-size and intruder-count factors are counted
+with four levels because ``and more if computationally feasible'' and ``multiple crossing
+trajectories'' are levels of their own. Fix every factor at a default, vary one or two at a time, and let the
 research question of \cref{ch:ch24} decide which.
 \index{experiment matrix}
 
@@ -683,6 +747,7 @@ logic of \cref{ch:ch24}, since it counts how often the local layer was not enoug
 them deserve a warning: a collision rate of zero hides near misses, which is what minimum
 separation is for, and a mean computation time hides the cycle that missed its deadline, so
 report the maximum as well.
+\FloatBarrier
 
 % ---------------------------------------------------------------------
 \section{Completion checklist}
@@ -715,6 +780,27 @@ $\square$ & I can evaluate the hybrid system with reproducible metrics and contr
 \bottomrule
 \end{tabular}
 \end{table}
+
+\paragraph{A six-question self-check.}
+The chapters carry the graded exercises; the questions below are the plan's own ``Done
+when'' tests turned into prompts, and you should be able to answer all six from your own
+lab notebook without opening a chapter.
+\begin{enumerate}
+  \item State the optimality theorem of \astar with its conditions, and say what breaks when
+    each condition is dropped (Week~1).
+  \item Show a log in which the path cost after every \dstarlite repair equals the cost of a
+    fresh \astar from the same position (Week~2).
+  \item Give an instance on which one priority order fails and another succeeds, and name
+    the conflict type that appears (Weeks~3).
+  \item Draw the constraint tree of a two-agent instance by hand and match it against your
+    \cbs log (Week~4).
+  \item Show your cost-against-runtime plot as $w$ varies and say in numbers what
+    suboptimality bought (Week~5).
+  \item Name one run of your capstone in which the local layer was not enough, and say which
+    trigger fired and what the replanning count was (Week~12).
+\end{enumerate}
+\index{self-check}
+\FloatBarrier
 
 % ---------------------------------------------------------------------
 \section{Traceability: from the plan to the chapters}
@@ -801,9 +887,11 @@ Consensus / formation control & \priority{Essential} {\scriptsize for formation-
 
 The plan also gives a reading order for the literature, reproduced in
 \cref{tab:appA-reading} together with the chapter that covers each item and the primary
-source to read next to it. The first six items are the plan's highest priority: they are
-the layers of the capstone plus the MAPF definitions that make the conflict re-check
-precise. To read a paper next to its chapter: read the chapter up to the end of its worked
+source to read next to it. The first six items are the plan's highest priority: they are three of
+the four capstone layers -- the global planner (item~3), the local safety layer
+(items~5--6) and the replanning layer (items~1--2) -- plus the MAPF definitions (item~4)
+that make the conflict re-check precise; the prediction layer's sources come later, at
+item~12. To read a paper next to its chapter: read the chapter up to the end of its worked
 example; then read the paper's algorithm section and compare its pseudocode line by line
 with the chapter's; then read the paper's experiments and ask which of its claims your
 implementation of that week reproduces. Item~10 is a book rather than a paper: LaValle's
@@ -835,6 +923,27 @@ anything about configuration spaces, sampling and collision checking that
 \bottomrule
 \end{tabular}
 \end{table}
+\FloatBarrier
+
+\begin{summary}[Appendix summary]
+\begin{itemize}
+  \item The plan builds three abilities and the perception that feeds them: a global planner
+    for planned routes, a local method for surprises, and a replanner for when the local
+    response is not enough.
+  \item The rhythm is 6--8 hours a week -- at most two reading, four to six coding -- and the
+    milestone rule: if the week's sentence is not true on the last day, close the gap in the
+    first hours of the next week instead of moving on.
+  \item If time runs short, compress Week~7 (DWA \emph{or} APF), Week~8 (use a library for
+    \rrtstar) and the MILP part of Week~11. Do not compress Weeks~1, 4, 6, 9 or 12: each
+    builds a layer that the later weeks assume, as \cref{fig:appA-week-dependencies} shows.
+  \item The capstone has four layers -- global swarm planner, prediction, local safety,
+    replanning (\cref{fig:appA-architecture}) -- joined by the five-step decision logic of
+    \cref{fig:appA-decision-logic}, and is measured by the factor matrix of
+    \cref{tab:appA-experiments} and its ten metrics.
+  \item The ten statements of \cref{tab:appA-checklist} are the exit test. Tick a line only
+    when you can do what it says without opening the book.
+\end{itemize}
+\end{summary}
 
 \paragraph{After Week 12.}
 The plan is explicit that the individual algorithms above are established, and that the

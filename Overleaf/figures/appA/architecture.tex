@@ -1,0 +1,40 @@
+% Appendix A -- the four layers of the capstone and the interfaces between them.
+% Blocks are the layers of the capstone table; every arrow carries the data that crosses it.
+\begin{tikzpicture}[x=1cm,y=1cm,font=\footnotesize,
+  lay/.style={rounded corners=3pt,thick,align=center,inner sep=5pt,
+              font=\scriptsize\sffamily,text width=3.0cm},
+  src/.style={sbboxgray,align=center,inner sep=5pt,font=\scriptsize\sffamily,text width=2.3cm},
+  ifc/.style={font=\scriptsize,text=sbGray,align=center,inner sep=2pt,fill=white}]
+
+% ---- inputs
+\node[src] (inst) at (0,5.2)  {MAPF instance\\ map, starts, goals};
+\node[src] (obs)  at (0,2.6)  {Sensor observations\\ of the intruder};
+
+% ---- the four layers, numbered as in the plan
+\node[lay,draw=sbBlue,fill=sbLightBlue]     (l1) at (4.4,5.2)
+  {\textbf{Layer 1}\\ global swarm planner\\ \cbs\ /\ \ecbs};
+\node[lay,draw=sbGray,fill=sbLightGray]     (l2) at (4.4,2.6)
+  {\textbf{Layer 2}\\ prediction\\ Kalman filter / LSTM};
+\node[lay,draw=sbOrange,fill=sbLightOrange] (l3) at (9.0,4.0)
+  {\textbf{Layer 3}\\ local safety layer\\ \orca\ /\ DWA};
+\node[lay,draw=sbGreen,fill=sbLightGreen]   (l4) at (9.0,1.0)
+  {\textbf{Layer 4}\\ replanning layer\\ \dstarlite\ /\ \astar};
+\node[src,draw=sbPurple,fill=sbLightPurple] (out) at (9.0,-1.7)
+  {Command executed this cycle};
+
+% ---- data flow, labelled with the interface of each layer
+\draw[sbflow] (inst) -- (l1);
+\draw[sbflow] (obs)  -- (l2);
+\draw[sbflow] (l1.east) to[out=0,in=170] node[ifc,pos=0.55,above=1pt]
+  {time-indexed\\ paths $\pi_1,\dots,\pi_k$} (l3.west);
+\draw[sbflow] (l2.east) to[out=0,in=190] node[ifc,pos=0.55,below=1pt]
+  {predicted trajectory\\ $+$ covariance} (l3.west);
+\draw[sbflow] (l3) -- node[ifc,right=1pt]
+  {reconnection impossible\\ or too costly:\\ current start state} (l4);
+\draw[sbflow] (l4) -- node[ifc,right=1pt] {repaired path} (out);
+\draw[sbflow,rounded corners=4pt] (l3.south west) -- (7.15,3.4) -- (7.15,-1.7)
+  -- node[ifc,pos=0.45,above] {safe velocity $\vect{v}^{\mathrm{new}}$} (out.west);
+% ---- the feedback edge: a replan invalidates the swarm plan
+\draw[sbflow,dashed,rounded corners=4pt] (l4.east) -- (11.4,1.0) -- (11.4,5.2)
+  -- node[ifc,pos=0.32,rotate=90,anchor=south] {re-check inter-agent conflicts} (l1.east);
+\end{tikzpicture}

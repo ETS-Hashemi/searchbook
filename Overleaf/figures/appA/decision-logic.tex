@@ -1,0 +1,46 @@
+% Appendix A -- the five-step decision logic of the capstone as a flowchart.
+% Two dashed cuts mark the switches that turn the hybrid into the local-only and
+% the replan-only strategy of the experiment matrix.
+\begin{tikzpicture}[x=1cm,y=1cm,font=\footnotesize,
+  logicstep/.style={rounded corners=3pt,thick,align=center,inner sep=5pt,
+               font=\scriptsize\sffamily,text width=4.2cm},
+  test/.style={diamond,aspect=2.4,draw=sbOrange,fill=sbLightOrange,thick,align=center,
+               inner sep=1pt,font=\scriptsize\sffamily,text width=2.5cm},
+  trig/.style={font=\scriptsize,text=sbGray,align=left,text width=3.1cm},
+  lab/.style={font=\scriptsize,text=sbGray,inner sep=2pt,fill=white},
+  cut/.style={draw=sbRed,very thick,dashed},
+  cutlab/.style={font=\scriptsize\sffamily,text=sbRed,align=center,inner sep=2pt}]
+
+\node[logicstep,draw=sbBlue,fill=sbLightBlue]    (s1) at (0,7.4)  {\textbf{1} Follow the nominal \cbs/\ecbs path};
+\node[test]                                 (d1) at (0,5.2)  {risk inside the safety horizon?};
+\node[logicstep,draw=sbOrange,fill=sbLightOrange](s2) at (0,3.0)  {\textbf{2} \orca/DWA: local avoidance velocity};
+\node[logicstep,draw=sbOrange,fill=sbLightOrange](s3) at (0,1.4)  {\textbf{3} Try to reconnect to the nominal path};
+\node[test,draw=sbGreen,fill=sbLightGreen]  (d2) at (0,-0.9) {reconnection acceptable?};
+\node[logicstep,draw=sbGreen,fill=sbLightGreen]  (s4) at (0,-3.1) {\textbf{4} \dstarlite/\astar replan from the current state};
+\node[logicstep,draw=sbBlue,fill=sbLightBlue]    (s5) at (0,-4.9) {\textbf{5} Re-check inter-agent conflicts};
+
+\draw[sbflow] (s1) -- (d1);
+\draw[sbflow] (d1) -- node[lab,right] {yes} (s2);
+\draw[sbflow] (s2) -- (s3);
+\draw[sbflow] (s3) -- (d2);
+\draw[sbflow] (d2) -- node[lab,right] {no} (s4);
+\draw[sbflow] (s4) -- (s5);
+
+% "no risk" and "reconnected" both return to step 1 along the right-hand rail
+\draw[sbflow,rounded corners=4pt] (d1.east) -- node[lab,above,pos=0.25] {no} (4.6,5.2) -- (4.6,7.4) -- (s1.east);
+\draw[sbflow,rounded corners=4pt] (d2.east) -- node[lab,above,pos=0.2] {yes} (5.6,-0.9) -- (5.6,7.9) -- (s1.north);
+\draw[sbflow,rounded corners=4pt] (s5.east) -- (6.6,-4.9) -- (6.6,8.3) -- (0,8.3) -- (s1.north);
+
+% the three triggers, on the left
+\node[trig,anchor=east] at (-3.0,5.2)
+  {\textbf{Trigger 1}\\ the predicted time to collision falls below the safety horizon $\ttc$};
+\node[trig,anchor=east] at (-3.0,-0.9)
+  {\textbf{Trigger 2}\\ reconnection cost above a bound\\[2pt]
+   \textbf{Trigger 3}\\ formation or communication constraint violated};
+
+% the two switches of the "avoidance strategy" axis
+\draw[cut] (-1.05,4.15) -- (1.05,3.85);
+\node[cutlab,anchor=west] at (1.2,4.0) {replan-only:\\ layer 3 off};
+\draw[cut] (-1.05,-2.05) -- (1.05,-2.35);
+\node[cutlab,anchor=west] at (1.2,-2.2) {local-only:\\ layer 4 off};
+\end{tikzpicture}

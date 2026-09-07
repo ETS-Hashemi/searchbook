@@ -247,3 +247,93 @@ code, and the path / time-indexed path / plan / trajectory table is the vocabula
 of the book depends on. Finally, keep the discipline that produced this draft - every
 quoted number traced to a runnable script, 66 index entries, ten verified citations, and a
 clean build.
+
+## Response to review (round 1)
+
+All ten required changes were applied. Build: `./build.sh ch02-toolbox` -> status 0, no errors,
+no overfull boxes, no undefined ch02 references or citations. `python3 code/ch02_toolbox.py`
+self-test passes. No `.dat` file needed regeneration (the only code change was a rename).
+
+1. **Section 2.9, "All three do the same thing" over-claim.** Replaced with the wording given in
+   the fix: the first two variants are equivalent, the closed-set variant differs because
+   `\cref{alg:ch02-lazypq}` deletes `best[item]` on pop and therefore re-opens a node when a
+   strictly better key arrives later; the two agree under a consistent heuristic, and with an
+   inconsistent heuristic the closed-set variant must reopen nodes explicitly.
+2. **Algorithm 2.1, LazyPop test.** Changed to
+   `\If{$\text{item}\in\mathit{best}$ \KwAnd $\mathit{best}[\text{item}]=\key$}` and dropped the
+   parenthetical "(or the item has already been popped)" from the following paragraph. The
+   pseudocode now matches `self._best.get(item) == key`.
+3. **Exercise 2.3, Minkowski area.** Replaced the wrong $\pi(r+\tfrac12)^2$ clause with the exact
+   rounded-square area $1+4r+\pi r^2$ and the instruction to check that the ratio tends to $1$.
+4. **Figure 2.5(b), tangent labels.** Swapped in `figures/ch02/segment-circle.tex`: T1 (upper,
+   $(3,+\sqrt3)$) is now $\vect{t}_{-}$ and T2 (lower, $(3,-\sqrt3)$) is $\vect{t}_{+}$, matching
+   Equation (2.16), Definition 2.22 and what `tangent_points` returns first. The right-angle pic
+   and the $\alpha$/$\theta$ arcs were left untouched.
+5. **LazyPush signature.** Pseudocode is now `\Fn{\ToolboxLazyPush{$\key$, $\text{item}$}}`,
+   matching `def push(self, key, item)`. The body needed no change (the heap push was already in
+   `(key, counter, item)` order).
+6. **Solution to exr:ch02-closest-approach.** Now writes
+   $D(t)^2=\pos\cdot\pos+2t\,\pos\cdot\vel+t^2\,\vel\cdot\vel$ and differentiates the square,
+   $\tfrac{d}{dt}D(t)^2=2\,\pos\cdot\vel+2t\,\vel\cdot\vel$, vanishing at $t^{*}$; consistent with
+   Definition 2.30 and the proof of Proposition 2.31.
+7. **Figure 2.3 annotation.** Moved to node B2 with the label "state $(b,2)$" at (6.4,1.2) and the
+   arrow (6.1,1.35) -- (B2.east), exactly as suggested. Verified in the rendered page: the label
+   now points at a node on the highlighted path.
+8. **Figure 2.2(c), the $r$ arrow.** Redrawn (2.5,3.0) -- (2.5,4.5), i.e. from the top edge of the
+   obstacle square to the centre of the outermost blocked cell, with the $r$ label beside it.
+   Verified in the rendered page.
+9. **Lozano-Perez citation.** Added `lozanoperez1983spatial` (IEEE Trans. Computers C-32(2),
+   108--120, 1983) to `bib/ch02-extra.bib`, cited it in Section 2.3 as
+   `\cite{lozanoperez1983spatial,lavalle2006planning,choset2005principles}` with
+   `\textcite{lozanoperez1983spatial}` in the sentence, and added a sentence naming it in the
+   further-reading paragraph. It resolves in the bibliography.
+10. **Length.** All seven prescribed cuts were made: (a) Listing 2.3 deleted and replaced by one
+    sentence pointing at `LazyPQ` in `code/ch02_toolbox.py`, and the dangling
+    `\cref{lst:ch02-lazypq}` removed; (b) Listing 2.2 reduced to `tangent_points` (the two removed
+    functions are described in one sentence instead); (c) the first of the "Three remarks"
+    deleted, the remaining two renumbered; (d) the four bullets of Section 2.10 compressed into
+    two sentences (the ASCII-map bullet dropped as a duplicate of Section 2.2); (e) "Why
+    dictionaries are enough" cut to two sentences, keeping the $10^6$-states / ~150 MB estimate
+    and dropping the encode-as-integer advice; (f) Table 2.1 (`tab:ch02-roadmap`) deleted, with
+    the pointer redirected to the drone box; (g) the opening paragraph of Section 2.1 split into
+    three short paragraphs (map and size; time and cost; motion, geometry, uncertainty,
+    computation).
+    A further pass trimmed about 250 words of prose that duplicated a caption or a later
+    section (the ch12/ch24 re-statement after Figure 2.2, the gloss on Table 2.3, the
+    restatement of the Figure 2.4 caption, the ellipse-drawing recipe, three section openers).
+    **Result: 22 printed pages, down from 23.** The seven cuts removed 78 lines of LaTeX plus
+    the extra prose, but they yielded roughly one page, not the estimated three: the chapter is
+    float-dense (7 figures, 6 tables, 1 algorithm, 2 listings in 22 pages, ~12,000 words at
+    450-700 words per page), so removing body text mostly tightens pages rather than eliminating
+    them. Experiments with float placement (`[htb]` instead of `[tb]`) changed nothing and were
+    reverted to the style-guide form. Reaching 20 pages would require cutting roughly another
+    1,100 words, and everything of that size that remains is either a must-cover item of
+    `docs/specs/ch02.md` or on the reviewer's "must be kept" list (Section 2.7 with its five
+    proofs, Proposition 2.9, Example 2.20 with Table 2.4 and its pitfall, the double-integrator
+    matrices with the forward-Euler contrast and the clipping pitfall, the whole lazy-deletion
+    treatment, the 68--95 pitfall and Proposition 2.36, all seven figures, Tables 2.2 and 2.3).
+    Rather than remove required content to save space, the chapter is handed back at 22 pages
+    with this note; if the editor wants 20, the cheapest further candidates that touch no
+    must-keep item are Table 2.5 (`tab:ch02-operations`) and Table 2.6 (`tab:ch02-stack`),
+    together worth about half a page, plus a hard rewrite of Sections 2.5 and 2.6.
+
+### Suggestions
+
+Applied: the NumPy sentence now reads "NumPy does the same work per element roughly a hundred
+times faster, because the loop runs in C"; Proposition 2.9 now assumes a *closed* obstacle
+region; Definition 2.8 notes that `\dist` also denotes Euclidean point-to-set distance and
+points at the other two uses; `t_left`/`t_right` were renamed `t_plus`/`t_minus` in
+`tangent_points` (docstring, self-test and Listing 2.2), so code, proposition and figure share
+one convention; the Figure 2.1(b) caption now says the move into the obstacle is forbidden
+because the cell is blocked and only the two diagonals are forbidden by the corner-cutting rule;
+Definition 2.10 now requires $c_{\text{wait}}>0$ and says why; Exercises 2.4 and 2.5 were
+promoted to `\difficulty{3}`; short solutions were added for Exercises 2.1, 2.3, 2.6 and 2.8
+(17/29 edges; the thresholds 0.5, $\sqrt{0.5}$, 1.5, $\sqrt{2.5}$, $1.5\sqrt2$ with counts
+5/9/21; 20 braking steps, 2.0 m exact vs 2.1 m forward-Euler; $(3,\mp\sqrt3)$, $\ell=2\sqrt3$,
+$\theta=30^\circ$), so the solutions file now covers 8 of 10 exercises.
+
+Not applied: the extra one-star drill on makespan/sum-of-costs arithmetic. The chapter already
+has the maximum of ten exercises allowed by the specification and is over its page budget, so an
+eleventh was not added; the difficulty spread is now 1,1,2,3,3,2,2,2,2,3. The notation-table and
+`\ttc`/`\horizon` items are for the editor (they need `frontmatter/notation.tex` and
+`searchbook.sty`, which this chapter may not touch).
