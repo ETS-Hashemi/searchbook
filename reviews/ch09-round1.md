@@ -221,3 +221,138 @@ any pair of constraint sets such that every solution satisfies at least one of t
 legal split. The code, the certification against a joint-space optimum on 65 random
 instances, and the generated scaling experiment are exactly what the Week-4 milestone asks
 for.
+
+## Response to review (round 1)
+
+All eleven required changes were applied. Build: `cd Overleaf && ./build.sh ch09-cbs`
+produces `build/only-ch09-cbs.pdf`, 41 pages, no `!` errors, no undefined
+reference or citation that belongs to Chapter 9, and **no overfull hbox at all**
+(previously 17.35 pt from `figures/ch09/symmetry.tex` and 8.18 pt from
+`figures/ch09/mdd.tex`). `python3 code/ch09_cbs.py` passes in 2.3 s.
+`code/figures/gen_ch09_scaling.py` was re-run and `figures/data/ch09-scaling.dat`
+regenerated. (latexmk still exits 12 because 71 cross-chapter references are
+unresolved in a single-chapter build; the style guide allows those `??`.)
+
+### Required changes
+
+1. **`sec:ch09-complexity`, coupled maze (A).** Done. The sentence now reads
+   "...Dijkstra on the joint state space finds it in 0.01 s, while CBS was still
+   without a conflict-free node after the 2,000 constraint-tree nodes (0.3 s) that
+   the self-test allows it, because ...". These are exactly the numbers printed by
+   `_test_coupled_instance` (`coupled maze: joint-space optimum 24 in 0.012 s;
+   CBS: no answer after 2000 CT nodes (0.31 s)`). No larger run was added, so the
+   self-test stays at 2.3 s. The stale comment at `code/ch09_cbs.py:466-469`
+   ("CBS expands tens of thousands of CT nodes") was rewritten to match.
+
+2. **`sec:ch09-experiment`, low-level expansions per CT node (A).** Done, with the
+   reviewer's wording: "... so it performs many more low-level expansions per
+   constraint-tree node: at k = 12 a solved run costs 23,600 low-level state
+   expansions against 17,700 for plain CBS, although it expands only 92 instead of
+   622 CT nodes; an MDD-based classifier avoids this."
+
+3. **`sec:ch09-example`, leader and follower (A).** Done, and made explicit:
+   "(Agent a_1 follows one step behind a_3 from t = 2 on -- at t = 2 it enters the
+   cell (2,1) that a_3 left at t = 1 -- but following is not a conflict in our
+   model; this is why the one-step delay of a_3 in N_2 makes the two paths
+   coincide.)" Checked against the root paths printed by the code.
+
+4. **`sec:ch09-macbs`, MA-CBS with B = 0 (A).** Done: "With B = 0 every pair is
+   merged at its first conflict, so MA-CBS degenerates to Standley's independence
+   detection~\cite{standley2010finding}: each group of interacting agents is solved
+   by a joint-space A*, while agents that never conflict are still planned alone.
+   With B = infinity it is plain CBS."
+
+5. **`sec:ch09-heuristics`, admissibility of h_CG (A).** Done. `eq:ch09-hcg` now
+   comes first ("Set h_CG(N) = ..."), followed by the reviewer's argument: collect
+   the agents whose cost rises below N; each cardinal conflict forces one of its
+   two endpoints into that set, so the set is a vertex cover and has at least
+   h_CG(N) members, each paying at least one unit; hence every solution below N
+   costs at least N.cost + h_CG(N).
+
+6. **`sec:ch09-problem`, "edge conflict" vs. "swapping conflict" (F).** Done. After
+   the definition on line ~148: "This is the swapping conflict of
+   \cref{def:ch07-conflicts}; the CBS literature calls it an edge conflict because
+   the constraint that forbids it is an edge constraint. The same-direction edge
+   conflict of \cref{ch:ch07} needs no separate test here: by
+   \cref{prop:ch07-hierarchy}(a) it implies a vertex conflict." (Verified that
+   `prop:ch07-hierarchy`(a) is indeed the same-direction implication.) The summary
+   bullet now reads "an edge conflict (the swapping conflict of
+   \cref{def:ch07-conflicts}) is split into the two opposite edge constraints".
+
+7. **Caption of `fig:ch09-idea` (D).** Done: the last sentence is now "The high
+   level then continues with the cheapest node of the whole queue, which may be
+   either child or a node generated elsewhere in the tree."
+
+8. **`figures/ch09/symmetry.tex` overfull box (G).** Done: both scopes are
+   `scale=0.7` and the second is `xshift=6.9cm`. The optional `mdd.tex` fix was
+   applied too (inner `xshift` 6.9 cm -> 6.5 cm). The rebuilt log contains no
+   overfull hbox of any size.
+
+9. **`sec:ch09-implementation`, "Duplicate nodes" attribution (H).** Done, using
+   the reviewer's replacement text; the attribution to Sharon et al. is gone.
+
+10. **"goal-occupied-later test" vs. Chapter 8's "goal-stay test" (F).** Done, by
+    both routes the reviewer offered. The term is now **goal-stay test** everywhere
+    in Chapter 9 (definition site, `alg:ch09-lowlevel` walkthrough, listing caption,
+    the in-listing comment, the pitfall box, the summary bullet and
+    `exr:ch09-coding`), the definition site says "This is the goal-stay test of
+    \cref{ch:ch08}, also called the goal-occupied-later test", and both spellings
+    are indexed (`\index{goal-stay test}` and
+    `\index{goal-occupied-later test}`). The comment in `code/ch09_cbs.py` was
+    changed to `# goal-stay test` so the listing stays verbatim.
+
+11. **ICBS and CBSH expanded at first use (F).** Done: "Their algorithm, improved
+    CBS (ICBS)\index{ICBS}\index{CBS!improved}, therefore splits ..." and "... run
+    the high level as A* (the family is called CBSH, for CBS with heuristics)".
+
+### Suggestions
+
+* **"about 400 lines".** Fixed to "about 600 lines, of which some 110 are the
+  self-tests" (`code/ch09_cbs.py` is 616 lines; the `_test_*` block runs from
+  line 505 to the end, 112 lines).
+* **Dead `S_conflicts` code in `gen_ch09_scaling.py`.** Removed: the docstring
+  line, the `all_conflicts` import, the `conflicts` list and the extra
+  `cbs(..., node_limit=1)` call per instance. The written columns are unchanged.
+* **`sec:ch09-motivation` line 44.** Rewritten to "It keeps both alternatives and
+  always continues with the cheapest world it has ever created."
+* **`figures/ch09/example.tex`.** The two wait markers are now rounded-corner
+  rectangles reading "a_1 waits here, t = 1,2" and "a_2 waits here, t = 0,1"
+  instead of `circle` nodes, and each panel carries the timing the reviewer asked
+  for: which agent is in the crossing cell (2,1) at which time, and each agent's
+  arrival time. The two panels are now distinguishable by their annotations
+  (root: (2,1) at t = 1 by a_2 and a_3, at t = 2 by a_1, arrivals 4/2/4; N_3:
+  t = 1 by a_3, t = 2 by a_2, t = 3 by a_1, arrivals 5/3/4). All numbers checked
+  against the code's printed trace.
+* **`exr:ch09-cardinal`.** Reworded to "Verify, from the child costs listed in
+  \cref{tab:ch09-ct}, that every conflict split in \cref{ex:ch09-crossing} is
+  cardinal", and the h_CG part now carries the hint that the three a_1--a_3
+  conflicts of N_2 may be assumed cardinal.
+* **`sec:ch09-cardinal`.** `\cite{boyarski2015icbs}` attached directly to the
+  "cardinal iff both MDDs have a single cell at level t" equivalence.
+* **`sec:ch09-bypass`.** The missing half-sentence added: "... and has the minimum
+  cost under it, because cost(N'.pi_i) = cost(N.pi_i), which is the minimum under
+  N.C_i".
+* **`\cref{sec:ch04-spacetime}` instead of `\cref{ch:ch04}`.** Done at both places
+  (the low-level introduction and the `alg:ch09-lowlevel` walkthrough); a pointer
+  to `\cref{ch:ch08}` was added where the reservation-table analogy is drawn.
+* **`frontmatter/notation.tex` and a third path style in `searchbook.sty`.** Not
+  applied: both files are outside this chapter's remit. Requested additions are
+  listed in the final report (`pi_i`, `gamma_i`, SoC, `C*`, `<a_i,v,t>`, `N.C`,
+  `N.cost`; and an `sbpathalt2`/`sbpaththird` style so `example.tex` need not
+  improvise `draw=sbGreen,line width=1.6pt`).
+
+### One consequence to flag
+
+Re-running `gen_ch09_scaling.py` changed one row of
+`figures/data/ch09-scaling.dat`: the ICBS entry at k = 10 (success 0.83 -> 0.92,
+mean nodes 48.8 -> 114.5, max 199 -> 771, low-level expansions 5,292 -> 22,468).
+The cause is the 5 s wall-clock cap, which is the only non-deterministic element
+of the experiment: on this machine ICBS now finishes one extra hard instance
+inside the cap. Every other row is bit-identical. The text of
+`sec:ch09-experiment` and the caption of `fig:ch09-scaling` were updated to the
+new numbers ("15, 114 and 92", "66, 771 and 308", "92 % and 75 % for k = 10 and
+12", "divide the node count by two to seven"), a sentence was added explaining
+that a mean over solved instances only is not comparable when the two solvers
+solve different sets, and the caveat paragraph now says that the 5 s cap makes the
+success rates depend a little on the machine. The k = 12 figures quoted in
+required change 2 (23,600 / 17,700 / 92 / 622) are unaffected.

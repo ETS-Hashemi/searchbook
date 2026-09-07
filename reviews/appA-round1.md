@@ -194,3 +194,111 @@ are correct and verifiable (all 15 keys resolve in `references.bib`; Hagberg 200
 Panerati 2021, Rudenko 2020, Rawlings-Mayne-Diehl 2017 and Koenig-Likhachev 2002 were
 checked against their venues and page ranges), there are 29 index entries with proper
 subentries and a `study plan|(`...`|)` range, and the appendix compiles clean at 14 pages.
+
+## Response to review (round 1)
+
+All six required changes are applied. The appendix now builds with status 0, no errors, no
+undefined references of its own and no overfull boxes above 15 pt; it runs from page 19 to
+page 36 of the single-appendix build, 18 pages of the 20-page budget. The appendix has no
+Python file and no `.dat` data (it is a plan, not an algorithm chapter), so there was no
+self-test to re-run and nothing to regenerate; every number quoted in the text was checked
+by hand against the schedule, the figure and the factor table.
+
+**Required 1 — the week count in `sec:appA-timeline` and in the caption of
+`fig:appA-timeline` (category A).** Fixed in both places. The text now reads "Notice that
+seven of the twelve weeks -- more than half -- go to the three ``learn deeply'' families";
+the caption reads "Families A--C, which the plan asks you to learn deeply, take seven of the
+twelve weeks (2, 3 and 2)". The parenthetical spells out the split so the count can be
+checked against the bars (A: weeks 1--2, B: 3--5, C: 6--7).
+
+**Required 2 — edge versus swapping conflict in Week 3 (category A).** The Focus now lists
+"(vertex, edge, swapping, following, cycle)" and adds: "Keep the two edge-like types apart:
+an edge conflict is the same edge in the same direction, a swap is the two agents exchanging
+ends." The Traps sentence now states the swap test as "a swap is agent~$i$ moving $u \to v$
+while agent~$j$ moves $v \to u$ over the same step $t \to t+1$", matching
+`def:ch07-conflicts` and Stern et al. 2019.
+
+**Required 3 — the "first six items" sentence in `sec:appA-reading` (category A).**
+Rewritten exactly as suggested: "they are three of the four capstone layers -- the global
+planner (item 3), the local safety layer (items 5--6) and the replanning layer (items 1--2)
+-- plus the MAPF definitions (item 4) that make the conflict re-check precise; the prediction
+layer's sources come later, at item 12."
+
+**Required 4 — at least four figures (category D).** Three new TikZ figures were added, one
+per file, all using the shared styles and colours, all `\cref`-referenced and captioned with
+what to notice:
+
+* `Overleaf/figures/appA/architecture.tex` -> `fig:appA-architecture`, referenced from
+  `sec:appA-layers` in the sentence that introduces `tab:appA-layers`. The four layers are
+  blocks; every arrow is labelled with the interface of the "Keep the layers separable"
+  notebox (instance -> time-indexed paths $\pi_1,\dots,\pi_k$; observations -> predicted
+  trajectory + covariance; states + predictions -> safe velocity; start state -> repaired
+  path). The single dashed edge is the feedback path from Layer 4 back to Layer 1's conflict
+  re-check.
+* `Overleaf/figures/appA/decision-logic.tex` -> `fig:appA-decision-logic`, referenced from
+  `sec:appA-logic` just before the enumerated five steps. The five steps are boxes, the two
+  branch points are diamonds, the three triggers (time to collision below the safety
+  horizon; reconnection cost above a bound; violated formation/communication constraint) are
+  annotated on the left, and the two switches of the "avoidance strategy" axis are drawn as
+  dashed red cuts: cutting layer 4 leaves local-only, cutting layer 3 leaves replan-only.
+* `Overleaf/figures/appA/week-dependencies.tex` -> `fig:appA-week-dependencies`, referenced
+  from the pitfall "Moving on with a red test". It is the DAG the prose asserts: W1 -> W2,
+  W3, W4, W12; W3 -> W4, W12; W4 -> W5; W6 -> W7, W10; W9 -> W10, W12; W8 -> W12; W5, W7,
+  W10, W11 -> W12. The caption points out that four arrows leave Week 1 and two leave
+  Week 3, which is the reason `sec:appA-timeline` refuses to let those weeks be compressed.
+
+Two style keys had to be renamed because they collide with built-in TikZ keys (`cap` ->
+`capbox`, `step` -> `logicstep`); no shared style file was touched.
+
+**Required 5 — floats leaving their sections (category G).** `\FloatBarrier` was added at
+the end of section A.5 (which was the float that pushed everything down), at the end of
+section A.6 and after `tab:appA-reading` in section A.8. In the rebuilt PDF:
+`fig:appA-architecture` and `fig:appA-decision-logic` are inside A.5 (pages 29 and 31),
+`tab:appA-checklist` sits directly under the A.6 paragraph that introduces it (page 33,
+before A.7 begins) and `tab:appA-reading` sits with the A.8 text that introduces it
+(pages 34--35). No page now carries two adjacent section headings with neither table.
+
+**Required 6 — missing objectives and summary boxes (category F).** An `objectives` box with
+five outcomes was added after the opening paragraph (choose a route and a rhythm that fits
+6--8 hours; say for each week what to build and how to tell it works; name the four layers
+and the decision logic; design the experiment matrix and name the metrics; use the
+traceability table in both directions). A `\begin{summary}[Appendix summary]` was added at
+the end of section A.8, immediately before the "After Week 12" paragraph, with bullets for
+the three-ability core idea, the 6--8 h/week rhythm and the milestone rule, what may be
+compressed (Weeks 7, 8, the MILP part of 11) and what may not (Weeks 1, 4, 6, 9, 12), the
+four layers with pointers to the new figures, and the ten checklist statements as the exit
+test.
+
+### Suggestions
+
+* **Load scale had no light week.** Week 7 is now rated `\difficulty{1}`: its Build step is
+  explicitly "one of the two" methods inside the Week-6 simulator. Week 5 was left at
+  `\difficulty{2}` because its benchmark over several values of $w$ and several seeds is not
+  a light week even when an open implementation is reused. The scale now really runs from 1
+  to 3.
+* **`tab:appA-layers`, layer 1.** The Weeks cell is now "4--5" and the Job cell ends with
+  "(Week 3 builds the conflict checker it needs.)".
+* **Where 768 comes from.** Spelled out in `sec:appA-experiments`: four swarm sizes, four
+  intruder counts, four prediction qualities, three avoidance strategies and four constraint
+  settings (two formation options crossed with two communication options), with a sentence
+  saying that "and more if computationally feasible" and "multiple crossing trajectories"
+  are counted as levels of their own.
+* **Total study load.** Section A.1 now gives it once: "$12 \times 6$ to $12 \times 8$, or
+  72--96 hours in total". (The review suggested 75--95; the exact product is used instead.)
+* **Precision in the week notes.** Week 1 Focus now says the settled-node invariant holds
+  "on graphs with non-negative edge costs"; Week 1 "Done when" adds "up to tie-breaking";
+  Week 5 "Done when" now says $w = 1$ reproduces "\cbs's optimal cost" rather than "\cbs
+  exactly".
+* **Assessment element.** Rather than duplicating chapter exercises, a "six-question
+  self-check" was added at the end of section A.6, drawn from the "Done when" lines of
+  Weeks 1, 2, 3, 4, 5 and 12, as the review proposed.
+* **Book-level items.** The missing Exercises section of `ch04-astar.tex` and the stub state
+  of `ch:ch24` and `ch:ch25` are outside this appendix's files and were left for the
+  book-level pass; the appendix's descriptions of those two chapters were not changed.
+
+Nothing the review asked to keep was touched: the Focus / Build / Done when / Traps /
+Exercises structure, every Traps list, every "Done when" test, the schedule table in the
+plan's words, the traceability table with its priority tags and qualifications, the
+checklist, the reading order, the "After Week 12" directions, the red-test pitfall, the
+oracle notebox, the Week 10 honesty note and the zero-collision-rate warning are all
+unchanged apart from the four wording corrections listed above.
