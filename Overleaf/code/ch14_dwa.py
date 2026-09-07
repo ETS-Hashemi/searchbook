@@ -133,6 +133,12 @@ class DwaParams:
     brake_for_goal: bool = True   # also brake for the goal, not only for obstacles
     hysteresis: float = 0.0   # keep the old command unless the best beats it by this
     smooth: bool = False      # the sigma of Fox et al.: average G over neighbours
+    brake_delay: float = None  # delay before braking can start, used by the
+                               # admissibility test: None = dt, 0 = continuous test
+
+    def __post_init__(self):
+        if self.brake_delay is None:
+            self.brake_delay = self.dt
 
 
 def dynamic_window(v_a, prm):
@@ -222,17 +228,20 @@ def _smooth_scores(cands, prm):
 def evaluate(p, v_a, obstacles, target, prm, goal=None):
     """Score every candidate of the window; returns a list of Candidate."""
     alpha, beta, gamma = prm.weights
+    a_b, delay = prm.a_brake, prm.brake_delay   # braking test parameters
+    d_goal = None if goal is None else float(np.linalg.norm(goal - p))
     out = []
     for v in window_candidates(v_a, prm):
         speed = float(np.linalg.norm(v))
         if speed < 1e-9:
             dist = prm.d_max   # standing still is safe (static obstacles)
         else:
-            dist = free_distance(p, v / speed, obstacles, prm.radius, prm.d_max, v)
-        adm = speed <= admissible_speed(dist, prm.a_brake, prm.dt) + 1e-9
-        if prm.brake_for_goal and goal is not None:
-            d_goal = float(np.linalg.norm(goal - p))
-            adm = adm and speed <= admissible_speed(d_goal, prm.a_brake, prm.dt) + 1e-9
+            dist = free_distance(p, v / speed, obstacles, prm.radius,
+                                 prm.d_max, v)
+        limit = admissible_speed(dist, a_b, delay)
+        if prm.brake_for_goal and d_goal is not None:   # and for the goal
+            limit = min(limit, admissible_speed(d_goal, a_b, delay))
+        adm = speed <= limit + 1e-9
         h = heading_term(p, v, target, prm)
         c = min(dist, prm.d_max) / prm.d_max
         s = speed / prm.v_max
@@ -244,20 +253,15 @@ def evaluate(p, v_a, obstacles, target, prm, goal=None):
 
 
 def dwa_command(p, v_a, obstacles, target, prm, goal=None):
-    """One DWA step: the admissible window velocity with the largest G.
-
-    Returns (v_best, candidates).  If no candidate is admissible (which
-    cannot happen with static obstacles, see the safety theorem) the
-    braking candidate is returned (emergency braking).  With hysteresis
-    the current velocity v_a is kept unless the best candidate beats its
-    score by more than prm.hysteresis.
-    """
+    """One DWA step: the admissible window velocity with the largest G, or
+    the braking candidate if nothing is admissible (emergency braking).
+    Returns (v_best, candidates)."""
     cands = evaluate(p, v_a, obstacles, target, prm, goal)
     adm = [c for c in cands if c.admissible]
     if not adm:
         return braking_candidate(v_a, prm), cands
     best = max(adm, key=lambda c: c.score)
-    if prm.hysteresis > 0.0:
+    if prm.hysteresis > 0.0:   # hysteresis: keep v_a unless clearly beaten
         for c in adm:
             if np.allclose(c.v, v_a) and c.score >= best.score - prm.hysteresis:
                 return c.v, cands
@@ -493,6 +497,19 @@ def _self_test():
     assert run["steps"] == 13, run["steps"]
     print("worked example: chosen command", v, "reached goal after",
           run["steps"], "steps, min clearance %.3f m" % run["min_clearance"])
+
+    # 2b. Why the discrete braking test: 1 m in front of a wall at 2 m/s the
+    #     continuous test of Fox et al. (brake_delay=0) still allows 2 m/s
+    #     and the drone hits the wall; the discrete test keeps it clear.
+    wall = [Box(np.array([1.2, -3.0]), np.array([1.6, 3.0]))]
+    p0, v0, goal = np.array([0.0, 0.0]), np.array([2.0, 0.0]), np.array([10.0, 0.0])
+    run_c = simulate(p0, v0, goal, wall, DwaParams(brake_delay=0.0), max_steps=40)
+    run_d = simulate(p0, v0, goal, wall, DwaParams(), max_steps=40)
+    assert run_c["collided"] and run_c["steps"] == 3, (run_c["collided"], run_c["steps"])
+    assert not run_d["collided"] and run_d["min_clearance"] > 0.0, run_d["min_clearance"]
+    print("wall 1 m ahead at 2 m/s: continuous test collides in step %d, discrete test "
+          "stays %.3f m clear (speeds %s)" % (run_c["steps"], run_d["min_clearance"],
+          ", ".join("%.2f" % np.linalg.norm(c) for c in run_d["cmds"][:6])))
 
     # 3. Every command of every closed-loop run lies in the window and is
     #    admissible (checked inside the loop of several scenes).

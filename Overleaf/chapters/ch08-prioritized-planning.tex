@@ -4,7 +4,7 @@
 \SetKwFunction{PpPlan}{PrioritizedPlanning}
 \SetKwFunction{PpStar}{CooperativeAStar}
 \SetKwFunction{PpReserve}{Reserve}
-\SetKwFunction{PpWellFormed}{WellFormed}
+\SetKwFunction{PpWindowed}{WindowedCooperativeAStar}
 
 \begin{objectives}
 \begin{itemize}
@@ -17,8 +17,8 @@
   \item State and prove the completeness result for well-formed instances.
   \item Implement prioritized planning for two to five agents, create deliberate conflict
         cases, and validate the resulting plans.
-  \item Explain the hierarchical and windowed variants of Cooperative \astar and the idea
-        of priority-based search.
+  \item Explain the hierarchical and windowed variants of Cooperative \astar, choose a
+        priority order with a simple heuristic, and describe priority-based search.
 \end{itemize}
 \end{objectives}
 
@@ -29,9 +29,9 @@
 Picture a warehouse roof with forty inspection drones. Each drone has a start pad and an
 inspection point, and the airspace between them is cut into a grid of cells by the
 support pillars. \Cref{ch:ch07} taught you how to describe this situation as a
-multi-agent path finding (MAPF) instance and how to detect the conflicts of a plan.
-It also warned you that finding an optimal plan is NP-hard. Forty drones is far beyond
-what a joint search over all agents can handle, and even the optimal solvers of
+multi-agent path finding (MAPF)\index{MAPF} instance and how to detect the conflicts of
+a plan. It also warned you that finding an optimal plan is NP-hard. Forty drones is far
+beyond what a joint search over all agents can handle, and even the optimal solvers of
 \cref{ch:ch09,ch:ch10} need time that grows quickly with the number of interacting
 agents. The operator, however, wants the drones in the air within a second.
 
@@ -43,11 +43,12 @@ one against the first two, and so on. Each planning step is a single-agent space
 searches. That is why prioritized planning, introduced by Erdmann and
 Lozano-P\'erez~\cite{erdmann1987multiple} and made popular for grids by Silver's
 \emph{Cooperative \astar}~\cite{silver2005cooperative}, is the workhorse of video-game
-crowds, warehouse robots and large drone swarms. It is also the study-plan's Week~3
+crowds, warehouse robots and large drone swarms. It is also the study plan's Week~3
 exercise (\cref{ch:appA}): implement it for two to five agents and create deliberate
-conflict cases. In the hybrid architecture of \cref{ch:ch24} it appears as a fast
-fallback global planner and as the model for the reservation logic that every later
-layer reuses.
+conflict cases. In the hybrid architecture of \cref{ch:ch24} the global layer is \cbs or
+\ecbs; prioritized planning is the natural fallback when they run out of time, and its
+reservation table is the bookkeeping that a replanning layer needs when one drone has to
+re-route around the frozen plans of all the others.
 
 The price of the speed is that the method is greedy. A drone that is planned early never
 makes room for a drone that is planned late. This chapter shows exactly when that
@@ -61,8 +62,8 @@ or goal, prioritized planning succeeds in every order~\cite{cap2015prioritized}.
 table. \Cref{sec:ch08-problem} fixes the notation and \cref{sec:ch08-algorithm} gives the
 pseudocode of prioritized planning and of Cooperative \astar. \Cref{sec:ch08-example}
 works through a three-agent instance in every one of its six orders.
-\Cref{sec:ch08-properties} collects the properties: incompleteness, suboptimality,
-complexity and the completeness theorem for well-formed instances.
+\Cref{sec:ch08-properties} collects the properties: soundness, incompleteness,
+suboptimality, complexity and the completeness theorem for well-formed instances.
 \Cref{sec:ch08-variants} covers the hierarchical and windowed variants, priority
 ordering heuristics with a small experiment, and priority-based search.
 \Cref{sec:ch08-implementation,sec:ch08-drone} give the implementation notes and the
@@ -87,22 +88,25 @@ two drones cannot swap cells by moving through each other.
 \begin{figure}[tb]
   \centering
   \inputfigure{ch08/idea}
-  \caption{The reservation table as a space-time diagram for a corridor of five cells.
-  Agent~1 (blue) has been planned first: the cells it occupies at each time step are
-  reserved (shaded), and so is its goal cell for all later times. Agent~2 (orange)
-  plans against the table: it must wait at $c_4$ for two steps and let agent~1 pass
-  through the side cell before it can move. The dashed edge shows a swap that the
-  edge reservation forbids.}
+  \caption{Prioritized planning on a $6 \times 5$ grid with two pillars. Left: agent~1
+  is planned first against an empty reservation table and takes a shortest path. Middle:
+  the cells of that path are now reserved at the times agent~1 occupies them (shaded),
+  and agent~2 plans around them. Right: agent~3 plans against both earlier paths; it
+  waits one step before crossing the corridor between the pillars. Notice that the
+  earlier agents never move for the later ones: waits and detours are always paid by
+  whoever comes later in the order.}
   \label{fig:ch08-idea}
 \end{figure}
 
-\Cref{fig:ch08-idea} draws the table as a space-time diagram. Three details matter and
-are easy to get wrong.
+\Cref{fig:ch08-idea} shows the three steps on a small map, and
+\cref{fig:ch08-spacetime} in the worked example draws the table itself as a space-time
+diagram. Three details matter and are easy to get wrong.
 \begin{itemize}
-  \item \textbf{Stay at target.} Under the stay-at-target convention of \cref{ch:ch07},
-        an agent that arrives at its goal at time $T$ remains there for ever. Its goal
-        cell must therefore be reserved for \emph{all} times $t \ge T$, not only for
-        $t = T$. Forgetting this lets a later agent drive through a parked drone.
+  \item \textbf{Stay at target.}\index{stay-at-target} Under the stay-at-target
+        convention of \cref{ch:ch07}, an agent that arrives at its goal at time $T$
+        remains there for ever. Its goal cell must therefore be reserved for \emph{all}
+        times $t \ge T$, not only for $t = T$. Forgetting this lets a later agent drive
+        through a parked drone.
   \item \textbf{Edge reservations.} Two agents that exchange cells between $t$ and $t+1$
         never occupy the same cell at the same time, so vertex reservations alone do not
         catch this swapping conflict. When agent~1 moves from $u$ to $v$ between $t$ and
@@ -120,12 +124,13 @@ and never sees agents $i+1, \dots, k$ at all. This is what makes it fast, and it
 the only reason it can fail.
 \end{keyidea}
 
-Cooperative \astar~\cite{silver2005cooperative} is the name Silver gave to the
-combination of space-time \astar with a reservation table. The word \emph{cooperative}
-is slightly optimistic: only the later agents cooperate, by yielding to the earlier
-ones. Nevertheless, in open maps with few agents this one-sided cooperation is all that
-is needed, and the plans it produces are usually close to optimal. The trouble starts in
-corridors and near goals, as the counterexamples of \cref{sec:ch08-properties} show.
+Cooperative \astar\index{Cooperative A*}~\cite{silver2005cooperative} is the name Silver
+gave to the combination of space-time \astar with a reservation table. The word
+\emph{cooperative} is slightly optimistic: only the later agents cooperate, by yielding
+to the earlier ones. Nevertheless, in open maps with few agents this one-sided
+cooperation is all that is needed, and the plans it produces are usually close to
+optimal. The trouble starts in corridors and near goals, as the counterexamples of
+\cref{sec:ch08-properties} show.
 
 % ---------------------------------------------------------------------
 \section{Problem statement and notation}
@@ -140,10 +145,11 @@ for agent $i$ is a sequence $\pi_i = (\pi_i(0), \pi_i(1), \dots, \pi_i(T_i))$ wi
 $\pi_i(0) = s_i$, $\pi_i(T_i) = g_i$ and consecutive vertices equal or adjacent. The
 agent stays at $g_i$ afterwards, so we define $\pi_i(t) = g_i$ for all $t > T_i$. The
 cost of the path is its arrival time $T_i$ and the cost of a plan is the sum of costs
-$\sumcost = \sum_i T_i$. Two paths $\pi_i$ and $\pi_j$ have a \textbf{vertex
-conflict}\index{conflict!vertex} at time $t$ if $\pi_i(t) = \pi_j(t)$, and a
-\textbf{swapping conflict}\index{conflict!swapping} at time $t$ if $\pi_i(t) = \pi_j(t+1)$
-and $\pi_i(t+1) = \pi_j(t)$. A plan is valid if no pair of paths has a conflict of either
+$\sumcost = \sum_i T_i$\index{sum of costs}; its makespan is $\makespan = \max_i T_i$.
+Two paths $\pi_i$ and $\pi_j$ have a \textbf{vertex conflict}\index{conflict!vertex}
+at time $t$ if $\pi_i(t) = \pi_j(t)$, and a \textbf{swapping
+conflict}\index{conflict!swapping} at time $t$ if $\pi_i(t) = \pi_j(t+1)$ and
+$\pi_i(t+1) = \pi_j(t)$. A plan is valid if no pair of paths has a conflict of either
 kind. Following conflicts, where an agent enters the cell that another agent has just
 left, are allowed, as in the classical setting.
 
@@ -164,9 +170,10 @@ and marks the goal $\pi(T)$ as \textbf{parked}\index{reservation table!parked ag
 from time $T$ on, which stands for the infinite set of entries $\set{(\pi(T), t) : t \ge T}$.
 \end{definition}
 
-A space-time state $(v, t)$ is \textbf{blocked} by $R$ if $(v, t) \in R_V$ or $v$ is
-parked on at a time $\le t$. A move from $u$ to $v$ at time $t$ is blocked if $(v, t+1)$ is
-blocked or $((v, u), t) \in R_E$. Waiting at $u$ is blocked if $(u, t+1)$ is blocked.
+A space-time state $(v, t)$ is \textbf{blocked}\index{reservation table!blocked state}
+by $R$ if $(v, t) \in R_V$ or $v$ is parked on at a time $\le t$. A move from $u$ to $v$
+at time $t$ is blocked if $(v, t+1)$ is blocked or $((v, u), t) \in R_E$. Waiting at
+$u$ is blocked if $(u, t+1)$ is blocked.
 
 \begin{definition}[Priority order and prioritized plan]
 \label{def:ch08-order}
@@ -176,19 +183,26 @@ $\set{1, \dots, k}$; agent $\sigma(1)$ has the highest priority. The
 planning the agents in the order $\sigma(1), \sigma(2), \dots$ where agent $\sigma(j)$
 receives a shortest path that is not blocked by the reservation table containing the
 paths of $\sigma(1), \dots, \sigma(j-1)$. If some agent has no such path, the plan for
-$\sigma$ \emph{fails}.
+$\sigma$ \emph{fails}. Under the \textbf{revised rule}\index{prioritized planning!revised rule}
+of \v{C}\'ap et al.~\cite{cap2015prioritized}, agent $\sigma(j)$ additionally treats
+the start vertices $s_{\sigma(j+1)}, \dots, s_{\sigma(k)}$ of the lower-priority agents
+as static obstacles.
 \end{definition}
 
 The definition makes precise what \emph{greedy} means here: each agent takes a path that
-is optimal for itself given the agents before it, and that path is never revised.
+is optimal for itself given the agents before it, and that path is never revised. The
+revised rule costs nothing in open maps and is the ingredient that makes the
+completeness theorem of \cref{sec:ch08-properties} work: a lower-priority agent that
+has not moved yet can never be run over.
 
 \begin{definition}[Well-formed instance]
 \label{def:ch08-wellformed}
-Let $P = \set{s_1, \dots, s_k, g_1, \dots, g_k}$ be the set of all \textbf{endpoints}.
-An instance is \textbf{well-formed}\index{well-formed instance} if for every agent $i$
-there is a path in $G$ from $s_i$ to $g_i$ that visits no endpoint of $P$ other than
-$s_i$ and $g_i$. In words: every agent can reach its goal without passing through the
-start or goal of any other agent~\cite{cap2015prioritized}.
+Let $P = \set{s_1, \dots, s_k, g_1, \dots, g_k}$ be the set of all
+\textbf{endpoints}\index{endpoint}. An instance is
+\textbf{well-formed}\index{well-formed instance} if for every agent $i$ there is a path
+in $G$ from $s_i$ to $g_i$ that visits no endpoint of $P$ other than $s_i$ and $g_i$. In
+words: every agent can reach its goal without passing through the start or goal of any
+other agent~\cite{cap2015prioritized}.
 \end{definition}
 
 Well-formedness is a property of the map and the endpoints alone; it does not depend on
@@ -210,13 +224,14 @@ no path exists.
 \begin{algorithm}[htb]
 \caption{Prioritized planning}
 \label{alg:ch08-pp}
-\KwIn{graph $G$, agents with starts $s_i$ and goals $g_i$, priority order $\sigma$, horizon $T_{\max}$}
+\KwIn{graph $G$, agents with starts $s_i$ and goals $g_i$, priority order $\sigma$, horizon $T_{\max}$, flag \emph{revised}}
 \KwOut{a conflict-free plan $(\pi_1, \dots, \pi_k)$ or \emph{failure}}
 \Fn{\PpPlan{$G$, $s$, $g$, $\sigma$, $T_{\max}$}}{
   $R \gets (\emptyset, \emptyset)$\tcp*{empty reservation table}
   \For{$j \gets 1$ \KwTo $k$}{
     $i \gets \sigma(j)$\label{alg:ch08-pp:pick}\;
-    $\pi_i \gets$ \PpStar{$G$, $s_i$, $g_i$, $R$, $T_{\max}$}\label{alg:ch08-pp:search}\;
+    \lIf{revised}{$B \gets \set{s_{\sigma(m)} : m > j}$ \KwElse $B \gets \emptyset$\label{alg:ch08-pp:avoid}}
+    $\pi_i \gets$ \PpStar{$G$, $s_i$, $g_i$, $R$, $B$, $T_{\max}$}\label{alg:ch08-pp:search}\;
     \If{$\pi_i = $ failure}{\KwRet{failure}\label{alg:ch08-pp:fail}\;}
     \PpReserve{$R$, $\pi_i$}\label{alg:ch08-pp:reserve}\tcp*{vertices, reverse edges, parked goal}
   }
@@ -227,22 +242,22 @@ no path exists.
 \begin{algorithm}[htb]
 \caption{Cooperative \astar: space-time \astar against a reservation table}
 \label{alg:ch08-ca}
-\KwIn{graph $G$, start $s$, goal $g$, reservation table $R$, horizon $T_{\max}$, heuristic $\hcost$}
+\KwIn{graph $G$, start $s$, goal $g$, reservation table $R$, static obstacles $B$, horizon $T_{\max}$, heuristic $\hcost$}
 \KwOut{a shortest unblocked path from $s$ to $g$ or \emph{failure}}
-\Fn{\PpStar{$G$, $s$, $g$, $R$, $T_{\max}$}}{
+\Fn{\PpStar{$G$, $s$, $g$, $R$, $B$, $T_{\max}$}}{
   $t_g \gets$ last time at which $g$ is reserved in $R$ ($-1$ if never, $\infty$ if parked on)\label{alg:ch08-ca:tg}\;
   \lIf{$t_g = \infty$ \KwOr $(s, 0)$ is blocked}{\KwRet{failure}}
-  \Open $\gets \set{(s, 0)}$ with $\gcost(s, 0) = 0$; \Closed $\gets \emptyset$\;
+  \Open $\gets \set{(s, 0)}$; \Closed $\gets \emptyset$\;
   \While{\Open $\neq \emptyset$}{
-    $(v, t) \gets \argmin_{\text{\Open}} \fcost = \gcost + \hcost(v)$\label{alg:ch08-ca:pop}\;
+    $(v, t) \gets \argmin_{\text{\Open}} \fcost(v, t) = t + \hcost(v)$\label{alg:ch08-ca:pop}\;
     move $(v, t)$ from \Open to \Closed\;
     \If{$v = g$ \KwAnd $t > t_g$}{\KwRet{path reconstructed from parents}\label{alg:ch08-ca:goal}\;}
     \lIf{$t \ge T_{\max}$}{\KwContinue\label{alg:ch08-ca:horizon}}
-    \ForEach{$v' \in \set{v} \cup \Succ(v)$\label{alg:ch08-ca:succ}}{
+    \ForEach{$v' \in \set{v} \cup \Succ(v)$, $v' \notin B$\label{alg:ch08-ca:succ}}{
       \lIf{$(v', t+1)$ is blocked in $R$}{\KwContinue\label{alg:ch08-ca:vertex}}
       \lIf{$v' \ne v$ \KwAnd $((v', v), t) \in R_E$}{\KwContinue\label{alg:ch08-ca:edge}}
       \If{$(v', t+1) \notin$ \Open $\cup$ \Closed}{
-        $\gcost(v', t+1) \gets t+1$; parent$(v', t+1) \gets (v, t)$; insert $(v', t+1)$ into \Open\;
+        parent$(v', t+1) \gets (v, t)$; insert $(v', t+1)$ into \Open\label{alg:ch08-ca:insert}\;
       }
     }
   }
@@ -251,11 +266,13 @@ no path exists.
 \end{algorithm}
 
 \paragraph{Walkthrough of \cref{alg:ch08-pp}.} Line~\ref{alg:ch08-pp:pick} picks the
-next agent in priority order. Line~\ref{alg:ch08-pp:search} runs a full single-agent
-search; the reservation table $R$ is the only channel through which earlier agents
-influence it. If the search fails (line~\ref{alg:ch08-pp:fail}) the whole procedure
-fails: there is no backtracking, no re-ordering and no replanning of earlier agents. The
-callers of \cref{sec:ch08-variants} add restarts with new orders around this loop.
+next agent in priority order. Line~\ref{alg:ch08-pp:avoid} builds the set $B$ of static
+obstacles: empty in Silver's original method, the starts of all lower-priority agents
+under the revised rule. Line~\ref{alg:ch08-pp:search} runs a full single-agent search;
+the reservation table $R$ is the only channel through which earlier agents influence
+it. If the search fails (line~\ref{alg:ch08-pp:fail}) the whole procedure fails: there
+is no backtracking, no re-ordering and no replanning of earlier agents. The callers of
+\cref{sec:ch08-variants} add restarts with new orders around this loop.
 Line~\ref{alg:ch08-pp:reserve} reserves the new path exactly as
 \cref{def:ch08-reservation} says.
 
@@ -265,14 +282,16 @@ higher-priority agent visits $g$. If a higher-priority agent is parked on $g$, t
 is reserved for ever and the search cannot succeed, so the function returns failure
 immediately. The goal test in line~\ref{alg:ch08-ca:goal} accepts $(g, t)$ only if
 $t > t_g$: from then on nobody else will use $g$, so the agent can stay there. Because
-every action costs one, $\gcost(v, t) = t$ and the first time a space-time state is
-generated is also the cheapest, which is why the algorithm never has to update
-$\gcost$ of a state in \Open. Line~\ref{alg:ch08-ca:succ} generates the wait action
-first and then the moves; line~\ref{alg:ch08-ca:vertex} discards successors whose
-target cell is reserved, and line~\ref{alg:ch08-ca:edge} discards moves that would swap
-with a reserved move. The horizon test in line~\ref{alg:ch08-ca:horizon} stops the
-search from waiting for ever: without it, a blocked agent would generate
-$(s, 1), (s, 2), \dots$ without end. A safe choice of $T_{\max}$ is discussed in
+every action costs one, the cost so far of a state $(v, t)$ is simply $t$, which is why
+the key in line~\ref{alg:ch08-ca:pop} is $t + \hcost(v)$ and why the first time a
+space-time state is generated is also the cheapest: no state in \Open ever needs its
+cost updated (line~\ref{alg:ch08-ca:insert}). Line~\ref{alg:ch08-ca:succ} generates the
+wait action first and then the moves, skipping the static obstacles in $B$;
+line~\ref{alg:ch08-ca:vertex} discards successors whose target cell is reserved, and
+line~\ref{alg:ch08-ca:edge} discards moves that would swap with a reserved move. The
+horizon test in line~\ref{alg:ch08-ca:horizon} stops the search from waiting for ever:
+without it, a blocked agent would generate $(s, 1), (s, 2), \dots$ without end. A safe
+choice of $T_{\max}$, and a trick that removes the need for it, are discussed in
 \cref{sec:ch08-implementation}.
 
 The heuristic $\hcost$ must be admissible for the static single-agent problem; the
@@ -280,3 +299,150 @@ Manhattan distance is the usual first choice on 4-connected grids
 (\cref{ch:ch04}). Reservations only remove states, so a heuristic that is admissible
 without reservations is admissible with them, and \cref{alg:ch08-ca} returns a path
 that is shortest among all unblocked paths whose arrival time is at most $T_{\max}$.
+Ties between states with equal $\fcost$ are broken towards the larger $t$, the
+tie-breaking rule of \cref{ch:ch04}, and then in order of generation, so that the
+search prefers to keep moving rather than to wait.
+
+% ---------------------------------------------------------------------
+\section{A worked example}
+\label{sec:ch08-example}
+
+\begin{example}[Three agents and a short corridor]
+\label{ex:ch08-three}
+\Cref{fig:ch08-example} shows a $3 \times 7$ grid. Cells are written $(r, c)$ with the
+row $r \in \set{0, 1, 2}$ counted from the top and the column $c \in \set{0, \dots, 6}$
+from the left, as in \cref{ch:ch07}. The middle row is blocked except for its three
+open cells $(1,0)$, $(1,3)$ and $(1,6)$, so the map consists of two corridors joined at
+both ends and in the middle. Agent~1 flies along the bottom corridor from $s_1 = (2,0)$
+to $g_1 = (2,6)$, agent~2 along the top corridor from $s_2 = (0,0)$ to $g_2 = (0,6)$,
+and agent~3 crosses from $s_3 = (0,3)$ down through the middle opening to
+$g_3 = (2,3)$. Alone, the agents need $6$, $6$ and $2$ steps; the sum $14$ is a lower
+bound on every valid plan. The instance is not well-formed: every path of agent~3 ends
+on the bottom corridor, which agent~1 cannot avoid.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch08/example}
+  \caption{\Cref{ex:ch08-three} in two priority orders. Small numbers are arrival times.
+  (a) In the order $(1,2,3)$ the two corridor agents take their straight paths; agent~3
+  reaches its goal at $t = 2$, but must step back up at $t = 3$ to let agent~1 pass
+  underneath and returns at $t = 4$ (dashed). (b) In the order $(3,1,2)$ agent~3 parks
+  on the bottom corridor at $t = 2$, agent~1 must take the top corridor ($10$ steps),
+  and agent~2 has to dodge into $(1,3)$ at $t = 5$ to let agent~1 through before it can
+  follow it to its goal ($9$ steps).}
+  \label{fig:ch08-example}
+\end{figure}
+
+\paragraph{Building the table.} Take the order $(1,2,3)$. Agent~1 plans against an
+empty table and gets the straight path $\pi_1(t) = (2, t)$ for $t = 0, \dots, 6$. Its
+reservation adds the seven vertex entries $((2,t), t)$, the six move entries
+$(((2,t), (2,t+1)), t)$ for $t = 0, \dots, 5$, and parks $(2,6)$ from $t = 6$ on. Agent~2
+then plans against this table. Nothing in it touches the top corridor, so it gets
+$\pi_2(t) = (0, t)$ and reserves the corresponding entries. \Cref{tab:ch08-table} lists
+the table that agent~3 now faces. Only three of its entries matter for agent~3, all in
+column $c = 3$: the vertices $(2,3)$ and $(0,3)$ are taken at $t = 3$, and the move
+$(2,2) \to (2,3)$ at $t = 2$ forbids the reverse move at that time. The goal-stay time
+of agent~3 is $t_g = 3$, the last time at which $(2,3)$ is reserved.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The reservation table of \cref{ex:ch08-three} after agents~1 and~2 have been
+  planned in the order $(1,2,3)$. The third row lists the entries that affect agent~3.}
+  \label{tab:ch08-table}
+  \begin{tabular}{@{}lL{5.2cm}L{4.6cm}l@{}}
+  \toprule
+  Agent & Vertex entries $R_V$ & Move entries $R_E$ & Parked \\
+  \midrule
+  1 & $((2,t), t)$ for $t = 0, \dots, 6$ & $(((2,t),(2,t{+}1)), t)$ for $t = 0, \dots, 5$ & $(2,6)$ from $t = 6$ \\
+  2 & $((0,t), t)$ for $t = 0, \dots, 6$ & $(((0,t),(0,t{+}1)), t)$ for $t = 0, \dots, 5$ & $(0,6)$ from $t = 6$ \\
+  \midrule
+  seen by 3 & $((2,3), 3)$, $((0,3), 3)$ & $(((2,2),(2,3)), 2)$: no move $(2,3) \to (2,2)$ at $t = 2$ & $t_g = 3$ \\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Running Cooperative \astar for agent~3.} \Cref{tab:ch08-trace} traces
+\cref{alg:ch08-ca} for agent~3 with the Manhattan heuristic, and
+\cref{fig:ch08-spacetime} draws the same search as a space-time diagram of column
+$c = 3$. The first two expansions go straight down. At step~3 the search pops
+$((2,3), 2)$: the goal, but too early, because $t = 2 \le t_g = 3$. Its three
+successors show all three kinds of blocking at once: waiting at $(2,3)$ until $t = 3$
+is a vertex conflict with agent~1, moving left to $(2,2)$ would swap with agent~1's
+move $(2,2) \to (2,3)$, and only moving up to $(1,3)$ and right to $(2,4)$ survive.
+Steps~4 and~5 pop the two remaining states with $\fcost = 3$ and find them blocked as
+well (moving up from $(1,3)$ at $t = 2$ runs into agent~2 at $(0,3)$). Step~6 expands
+$((1,3), 3)$, and step~7 pops $((2,3), 4)$ with $t = 4 > t_g$: the goal test succeeds.
+The path is $(0,3), (1,3), (2,3), (1,3), (2,3)$ with cost $4$, two more than the
+undisturbed $2$, and the sum of costs of the order $(1,2,3)$ is $6 + 6 + 4 = 16$.
+
+\begin{table}[tb]
+  \centering\footnotesize
+  \caption{Trace of \cref{alg:ch08-ca} for agent~3 of \cref{ex:ch08-three} in the order
+  $(1,2,3)$, produced by \code{code/ch08\_prioritized.py}. Generated successors are
+  space-time states at time $t+1$; V marks a vertex reservation, E a swap with a
+  reserved move. Ties in $\fcost$ are broken towards the larger $t$.}
+  \label{tab:ch08-trace}
+  \begin{tabular}{@{}rlcccll@{}}
+  \toprule
+  Step & Expanded $(v, t)$ & $t$ & $\hcost$ & $\fcost$ & Generated & Blocked \\
+  \midrule
+  1 & $((0,3), 0)$ & 0 & 2 & 2 & $(0,3)$ wait, $(1,3)$, $(0,2)$, $(0,4)$ & -- \\
+  2 & $((1,3), 1)$ & 1 & 1 & 2 & $(1,3)$ wait, $(0,3)$, $(2,3)$ & -- \\
+  3 & $((2,3), 2)$ & 2 & 0 & 2 & $(1,3)$, $(2,4)$ & $(2,3)$ wait: V, $(2,2)$: E \\
+  4 & $((1,3), 2)$ & 2 & 1 & 3 & $(1,3)$ wait & $(0,3)$: V, $(2,3)$: V \\
+  5 & $((0,3), 1)$ & 1 & 2 & 3 & $(0,3)$ wait, $(0,4)$ & $(0,2)$: V \\
+  6 & $((1,3), 3)$ & 3 & 1 & 4 & $(1,3)$ wait, $(0,3)$, $(2,3)$ & -- \\
+  7 & $((2,3), 4)$ & 4 & 0 & 4 & goal: $t = 4 > t_g = 3$ & \\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch08/spacetime}
+  \caption{The reservation table of \cref{tab:ch08-table} restricted to column $c = 3$,
+  drawn in space-time: one row per cell, one column per time step. Shaded squares are
+  entries of $R_V$ (agent~2 at $(0,3)$ and agent~1 at $(2,3)$, both at $t = 3$), the
+  arrows below the diagram are agent~1's moves through $(2,3)$. The green path is the
+  one agent~3 finds; the dashed red arrows are the successors that the table forbids at
+  $t = 2$. From $t = 4$ on agent~3 is parked at its goal (light green).}
+  \label{fig:ch08-spacetime}
+\end{figure}
+
+\paragraph{All six orders.} \Cref{tab:ch08-orders} gives the result of
+\cref{alg:ch08-pp} for every permutation. Whenever agent~3 is planned last or second,
+the plan costs $16$, which is also the optimal sum of costs of the instance (the code
+checks this with a brute-force search over the joint space of the three agents). The
+orders that start with agent~3 are a different story. Agent~3 plans alone, takes two
+steps down and parks on the bottom corridor at $t = 2$ for ever. In the order
+$(3,1,2)$, agent~1 must now go around through the top corridor: up to $(0,0)$, right
+along row~$0$, and down through $(1,6)$, which takes $10$ steps and reserves the top
+corridor at the very times agent~2 wants to use it. Agent~2 follows agent~1 to $(0,3)$,
+waits there while agent~1 catches up, steps aside into $(1,3)$ at $t = 5$, lets
+agent~1 pass, and follows it to $(0,6)$, arriving at $t = 9$ just after agent~1 has left
+towards its own goal. The sum of costs is $10 + 9 + 2 = 21$, five more than optimal,
+because a two-step agent was allowed to cut the corridor that a six-step agent needed.
+In the order $(3,2,1)$ it is even worse: agent~2 parks on $(0,6)$ at $t = 6$, so the
+detour through the top corridor is closed as well, and agent~1 has no path at all. The
+same happens in the order $(2,3,1)$. Two of the six orders fail, one is expensive, three
+are optimal, and nothing in the instance tells you in advance which is which.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Sum of costs of the prioritized plan of \cref{ex:ch08-three} for every
+  priority order (from \code{code/ch08\_prioritized.py}). The optimal sum of costs is
+  $16$, and the lower bound from independent shortest paths is $14$.}
+  \label{tab:ch08-orders}
+  \begin{tabular}{@{}lcccll@{}}
+  \toprule
+  Order & $T_1$ & $T_2$ & $T_3$ & $\sumcost$ & What happens \\
+  \midrule
+  $(1,2,3)$ & 6 & 6 & 4 & 16 & agent~3 steps aside once \\
+  $(1,3,2)$ & 6 & 6 & 4 & 16 & as above; agent~2 is unaffected \\
+  $(2,1,3)$ & 6 & 6 & 4 & 16 & as above \\
+  $(2,3,1)$ & -- & 6 & 2 & failure & both corridors closed for agent~1 \\
+  $(3,1,2)$ & 10 & 9 & 2 & 21 & agent~1 detours, agent~2 dodges and waits \\
+  $(3,2,1)$ & -- & 6 & 2 & failure & both corridors closed for agent~1 \\
+  \bottomrule
+  \end{tabular}

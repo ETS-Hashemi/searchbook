@@ -45,7 +45,7 @@ which it could no longer stop before the nearest obstacle, simulates the
 short trajectory of each remaining candidate, scores the candidates by
 heading, clearance and speed, and executes the winner for one interval before
 starting over. DWA was developed for the wheeled robot RHINO, which drove
-through crowded rooms with a laser scanner and sonar as its only knowledge of
+through crowded rooms with its range sensors as its only knowledge of
 the world, and it has been the default local planner of many mobile-robot
 navigation stacks since.
 
@@ -60,17 +60,14 @@ plan (\cref{ch:appA}) is precisely to know when such local methods work and
 when they fail, and this chapter and the next (\cref{ch:ch15}) are built
 around that question.
 
-\Cref{sec:ch14-intuition} gives the idea and \cref{sec:ch14-problem} the
-definitions: velocity space, rollouts, the three restrictions and the
-objective, in the differential-drive form of the original paper and in the
-drone form used afterwards. \Cref{sec:ch14-algorithm} gives the pseudocode,
-\cref{sec:ch14-example} runs it by hand with every number taken from
-\code{ch14\_dwa.py}, \cref{sec:ch14-properties} proves what DWA guarantees and
-shows what it does not, \cref{sec:ch14-tuning} studies the weights in a
-generated experiment, \cref{sec:ch14-variants} collects the remedies and
-compares DWA with \orca and potential fields, and
-\cref{sec:ch14-implementation,sec:ch14-drone} cover the implementation and
-the drone system.
+\Cref{sec:ch14-intuition,sec:ch14-problem} give the idea and the definitions,
+\cref{sec:ch14-algorithm,sec:ch14-example} the pseudocode and a worked
+example with every number taken from \code{ch14\_dwa.py},
+\cref{sec:ch14-properties} what DWA guarantees and what it does not,
+\cref{sec:ch14-tuning,sec:ch14-variants} the weights, the remedies and the
+comparison with \orca and potential fields, and
+\cref{sec:ch14-implementation,sec:ch14-drone} the implementation and the
+drone system.
 
 % ---------------------------------------------------------------------
 \section{The idea in plain words}
@@ -299,14 +296,18 @@ or, solving the quadratic for the speed,
   \norm{\vel} \le v_{\mathrm{adm}}(\dist) = -a_b\dt + \sqrt{a_b^2\dt^2 + 2\,a_b\,\dist}.
   \label{eq:ch14-vadm}
 \end{equation}
-For $\dt \to 0$ this is the condition of \cref{eq:ch14-Va}. For the drone of
-\cref{sec:ch14-example}, with $a_b = 2$~m/s$^2$ and $\dt = 0.25$~s at
-$0.608$~m from an obstacle, \cref{eq:ch14-Va} allows $1.56$~m/s while
-\cref{eq:ch14-vadm} allows $1.14$~m/s. The difference is not academic: the
-first version of \code{ch14\_dwa.py} used \cref{eq:ch14-Va} and drove the
-drone into the obstacle within a few steps. \Cref{sec:ch14-properties}
-proves that \cref{eq:ch14-vadm} is enough, and all code and numbers in this
-chapter use it.
+For $\dt \to 0$ this is the condition of \cref{eq:ch14-Va}. With
+$a_b = 2$~m/s$^2$ and $\dt = 0.25$~s, at $0.608$~m from an obstacle
+\cref{eq:ch14-Va} allows $1.56$~m/s and \cref{eq:ch14-vadm} $1.14$~m/s. The
+difference is not academic, because braking in a digital loop also proceeds
+in steps: a drone at $2$~m/s that loses $a_b\dt = 0.5$~m/s per step covers
+$0.5 + 0.375 + 0.25 + 0.125 = 1.25$~m before it stands still, not the $1$~m
+of \cref{eq:ch14-braking}. One metre in front of a wall, \cref{eq:ch14-Va}
+still allows $2$~m/s and the drone hits the wall in step~3;
+\cref{eq:ch14-vadm} allows $1.56$~m/s, so the drone brakes and turns aside
+$6$~cm short of the wall. The self-test of \code{ch14\_dwa.py} flies both
+versions. \Cref{sec:ch14-properties} proves that \cref{eq:ch14-vadm} is
+enough, and all code and numbers in this chapter use it.
 
 \begin{definition}[Dynamic window]
 \label{def:ch14-window}
@@ -460,7 +461,7 @@ parameters.
 \KwIn{position $\pos$, current velocity $\vel_a$, target point $\vect{t}$, obstacles, parameters of \cref{tab:ch14-parameters}}
 \KwOut{the velocity command for the next interval}
 \Fn{\DwaCommand{$\pos$, $\vel_a$, $\vect{t}$, obstacles}}{
-  $\vect{lo} \gets \max(\vel_a - a_{\max}\dt,\ -v_{\max})$; $\vect{hi} \gets \min(\vel_a + a_{\max}\dt,\ v_{\max})$\tcp*{window $V_d$, per axis}\label{alg:ch14-command:window}
+  $\vect{lo} \gets \max(\vel_a - a_{\max}\dt,\ -v_{\max})$; $\vect{hi} \gets \min(\vel_a + a_{\max}\dt,\ v_{\max})$\tcp*{window $V_d$}\label{alg:ch14-command:window}
   $C \gets$ grid points $\vel_a + \Delta v\,(i_1, \dots, i_{\dim})$, $\abs{i_k} \le a_{\max}\dt/\Delta v$, inside $[\vect{lo}, \vect{hi}]$ and with $\norm{\vel} \le v_{\max}$\label{alg:ch14-command:grid}\;
   $\vel_b \gets \vel_a \cdot \max\bigl(0,\ 1 - a_b\dt/\norm{\vel_a}\bigr)$; add $\vel_b$ to $C$\tcp*{braking candidate, always in $V_d$}\label{alg:ch14-command:brake}
   $G^* \gets -\infty$; $\vel^* \gets \vel_b$\;
@@ -507,8 +508,9 @@ Line~\ref{alg:ch14-command:rollout} is the rollout: for the drone a single
 ray cast, for the differential drive a march along the arc of
 \cref{eq:ch14-arc}. Line~\ref{alg:ch14-command:admissible} is the discrete
 admissibility test \cref{eq:ch14-braking-discrete}; the code also applies it
-to the distance to the goal, so that the drone brakes for the goal as it
-would for a wall and does not orbit it. Line~\ref{alg:ch14-command:score}
+to the distance to the goal (\code{brake\_for\_goal}), so that the drone
+brakes for the goal as it would for a wall and neither overshoots nor orbits
+it. Line~\ref{alg:ch14-command:score}
 evaluates \cref{eq:ch14-G} without smoothing, and
 line~\ref{alg:ch14-command:argmax} keeps the best; ties are broken by grid
 order.
@@ -557,7 +559,7 @@ $-0.5 + \sqrt{0.25 + 4 \cdot 0.608} = 1.138$~m/s: keeping $(1.0, 0)$ is
 admissible (braking distance $0.25 + 0.25 = 0.5 \le 0.608$), but
 $(1.25, 0)$ is not ($0.3125 + 0.39 = 0.70 > 0.608$). All ten candidates with
 $v_x \ge 1.25$ except $(1.25, 0.5)$ are inadmissible: their rays hit the
-disc within $0.6$ to $0.8$~m. Sixteen candidates survive; six of them, those
+disc within $0.6$ to $0.8$~m. Sixteen candidates survive; five of them, those
 that steer clear of the disc at moderate speed, see no obstacle at all
 within $d_{\max}$ and have $\dist = 3$.
 
@@ -674,7 +676,7 @@ by a safety margin, or the smoothing $\sigma$ all widen the berth.
 \end{table}
 
 % ---------------------------------------------------------------------
-\section{Properties: safety, feasibility, and what DWA does not guarantee}
+\section{Properties: safety, feasibility, locality}
 \label{sec:ch14-properties}
 
 \subsection{Safety with respect to static obstacles}
@@ -988,10 +990,9 @@ scene in 2D and 3D and reaches the goal in $17$ and $16$ steps.
 \"Ogren and Leonard~\cite{ogren2005convergent} showed that a DWA-like scheme
 can be made \emph{convergent}, that is, provably reach the goal, by taking the
 objective from a control Lyapunov function and treating the window as the
-constraint set of a receding-horizon controller; this is the bridge to the
-MPC of \cref{ch:ch21}. Related curvature-space methods and surveys of local
-planners are found in \cite{siciliano2016handbook} and
-\cite{choset2005principles}.
+constraint set of a receding-horizon controller, the bridge to the MPC of
+\cref{ch:ch21}. Surveys of local planners are found in
+\cite{siciliano2016handbook} and \cite{choset2005principles}.
 
 \begin{table}[tb]
   \centering\small
@@ -999,7 +1000,7 @@ planners are found in \cite{siciliano2016handbook} and
   obstacles, $N_c$ the number of DWA candidates, $n$ the number of \orca
   half-planes.}
   \label{tab:ch14-comparison}
-  \begin{tabular}{@{}L{2.2cm}L{3.6cm}L{3.6cm}L{3.6cm}@{}}
+  \begin{tabular}{@{}L{2.0cm}L{4.1cm}L{4.1cm}L{4.1cm}@{}}
   \toprule
    & DWA (this chapter) & \orca (\cref{ch:ch13}) & Potential fields (\cref{ch:ch15})\\
   \midrule
@@ -1027,9 +1028,7 @@ quality: a narrow admissible corridor between two inadmissible regions can
 fall between grid points, and the drone then stops in front of a gap it could
 pass. Keep $2n+1 \ge 5$ and refine the grid near the boundary of the
 admissible set if narrow passages matter. The grid is centred on $\vel_a$ on
-purpose, so that ``keep the current velocity'' is always a candidate; make
-sure that $a_{\max}\dt \ge \Delta v$, otherwise the window contains nothing
-else and the drone can never change its velocity (\cref{exr:ch14-window}).
+purpose, so that ``keep the current velocity'' is always a candidate.
 
 \paragraph{Cost of rollouts and free-distance queries.}
 For discs and boxes the ray cast is exact and costs $\bigO{M}$; it is the
@@ -1044,19 +1043,12 @@ distances, the drone is merely timid, but not overestimated ones. Inflating
 boxes as boxes, as the code does, is conservative at the corners.
 
 \paragraph{The global path as heading reference.}
-Keep the global path as a polyline, project the current position onto it, and
-take the point at arc length $L$ beyond the projection as the target of the
-heading term (\code{lookahead\_point()} in the code). When an avoidance
-manoeuvre pushes the drone off the path the projection follows, so the drone
-reconnects further along instead of backtracking; if the path is replanned
-(\cref{ch:ch05}), replace the polyline, DWA has no state to update.
-
-\paragraph{Goal approach.}
-Apply the braking test to the distance to the goal as well
-(\code{brake\_for\_goal} in the code), so that fast candidates become
-inadmissible near the goal and the drone stops inside the tolerance instead
-of overshooting and turning around. Without it the heading term alone makes
-the drone orbit the goal.
+Keep the path as a polyline, project the current position onto it and take
+the point at arc length $L$ beyond the projection as the target
+(\code{lookahead\_point()}). The projection follows a drone that has been
+pushed off the path, so it reconnects further along instead of backtracking;
+if the path is replanned (\cref{ch:ch05}), replace the polyline: DWA has no
+state to update.
 
 \begin{lstlisting}[caption={The window, the braking candidate and the candidate grid (from \code{code/ch14\_dwa.py}).},label={lst:ch14-window}]
 def dynamic_window(v_a, prm):
@@ -1095,29 +1087,33 @@ def window_candidates(v_a, prm):
 \end{lstlisting}
 
 \Cref{lst:ch14-window} builds the candidate set of
-lines~\ref{alg:ch14-command:window}--\ref{alg:ch14-command:brake}; the
-admissible speed of \cref{eq:ch14-vadm} is the function
-\code{admissible\_speed} with arguments \code{dist}, \code{a\_brake} and
-\code{dt}; its default \code{dt=0} gives the continuous formula of Fox et al. \Cref{lst:ch14-dist} scores the candidates and picks the command.
-The free-distance function called on line~10 of \cref{lst:ch14-dist} ray-casts
-against discs and boxes, and switches to the relative-velocity ray when a
-disc carries a velocity.
+lines~\ref{alg:ch14-command:window}--\ref{alg:ch14-command:brake}.
+\Cref{lst:ch14-dist} scores the candidates and picks the command: the
+admissible speed of \cref{eq:ch14-vadm} is \code{admissible\_speed(dist,
+a\_brake, dt)}, called with the delay \code{prm.brake\_delay}, which equals
+$\dt$ unless it is set to $0$ to reproduce the continuous test of Fox et al.\
+(the self-test does so for the wall of \cref{sec:ch14-restrictions}). The
+free-distance function on line~12 ray-casts against discs and boxes and
+switches to the relative-velocity ray when a disc carries a velocity.
 
 \begin{lstlisting}[caption={Scoring and selection (from \code{code/ch14\_dwa.py}).},label={lst:ch14-dist}]
 def evaluate(p, v_a, obstacles, target, prm, goal=None):
     """Score every candidate of the window; returns a list of Candidate."""
     alpha, beta, gamma = prm.weights
+    a_b, delay = prm.a_brake, prm.brake_delay   # braking test parameters
+    d_goal = None if goal is None else float(np.linalg.norm(goal - p))
     out = []
     for v in window_candidates(v_a, prm):
         speed = float(np.linalg.norm(v))
         if speed < 1e-9:
             dist = prm.d_max   # standing still is safe (static obstacles)
         else:
-            dist = free_distance(p, v / speed, obstacles, prm.radius, prm.d_max, v)
-        adm = speed <= admissible_speed(dist, prm.a_brake, prm.dt) + 1e-9
-        if prm.brake_for_goal and goal is not None:
-            d_goal = float(np.linalg.norm(goal - p))
-            adm = adm and speed <= admissible_speed(d_goal, prm.a_brake, prm.dt) + 1e-9
+            dist = free_distance(p, v / speed, obstacles, prm.radius,
+                                 prm.d_max, v)
+        limit = admissible_speed(dist, a_b, delay)
+        if prm.brake_for_goal and d_goal is not None:   # and for the goal
+            limit = min(limit, admissible_speed(d_goal, a_b, delay))
+        adm = speed <= limit + 1e-9
         h = heading_term(p, v, target, prm)
         c = min(dist, prm.d_max) / prm.d_max
         s = speed / prm.v_max
@@ -1129,20 +1125,15 @@ def evaluate(p, v_a, obstacles, target, prm, goal=None):
 
 
 def dwa_command(p, v_a, obstacles, target, prm, goal=None):
-    """One DWA step: the admissible window velocity with the largest G.
-
-    Returns (v_best, candidates).  If no candidate is admissible (which
-    cannot happen with static obstacles, see the safety theorem) the
-    braking candidate is returned (emergency braking).  With hysteresis
-    the current velocity v_a is kept unless the best candidate beats its
-    score by more than prm.hysteresis.
-    """
+    """One DWA step: the admissible window velocity with the largest G, or
+    the braking candidate if nothing is admissible (emergency braking).
+    Returns (v_best, candidates)."""
     cands = evaluate(p, v_a, obstacles, target, prm, goal)
     adm = [c for c in cands if c.admissible]
     if not adm:
         return braking_candidate(v_a, prm), cands
     best = max(adm, key=lambda c: c.score)
-    if prm.hysteresis > 0.0:
+    if prm.hysteresis > 0.0:   # hysteresis: keep v_a unless clearly beaten
         for c in adm:
             if np.allclose(c.v, v_a) and c.score >= best.score - prm.hysteresis:
                 return c.v, cands
@@ -1175,7 +1166,7 @@ step, and the only candidate left is $\vel_a$ itself: the drone keeps its
 velocity whatever happens. Even with a fine grid, a drone at $v_{\max}$ needs
 $v_{\max}/(a_{\max}\dt)$ steps to stop, four steps or one second in the
 examples, which is why the braking test looks $v\dt + v^2/(2a_b)$ ahead and
-not one step. Check $a_{\max}\dt \ge \Delta v$ at start-up, and size
+not one step. Check $a_{\max}\dt \ge \Delta v$ at start-up (\cref{exr:ch14-window}), and size
 $a_{\max}$ by what the velocity controller really delivers, not by the
 datasheet.
 \end{pitfall}

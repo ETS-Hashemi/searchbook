@@ -1,0 +1,38 @@
+% Chapter 22: MAPF as an integer program: one unit flow per agent on the
+% time-expanded graph of a 4-cycle (a 2x2 grid of cells), T = 2.
+\begin{tikzpicture}[x=2.6cm,y=1.15cm,
+  tv/.style={circle,draw=sbGray,fill=white,thick,minimum size=15pt,inner sep=0pt,font=\scriptsize},
+  te/.style={draw=black!30,thin},
+  flowA/.style={draw=sbAgentA,line width=1.8pt,-{Stealth[length=5pt]}},
+  flowB/.style={draw=sbAgentB,line width=1.8pt,-{Stealth[length=5pt]}},
+  bad/.style={draw=sbRed,line width=1.2pt,dashed,-{Stealth[length=5pt]}}]
+  % rows: cells a, b, d, c of a 2x2 grid in cycle order; columns: t = 0, 1, 2
+  \foreach \t in {0,1,2} {
+    \node[sbannot] at (\t,3.75) {$t=\t$};
+    \foreach \v/\r in {a/3,b/2,d/1,c/0} {\node[tv] (\v\t) at (\t,\r) {$\v$};}
+  }
+  \foreach \v in {a,b,d,c} {\node[sbannot,anchor=east] at (-0.25,\v) {};}
+  % all edges of the time-expanded graph: wait edges and moves along the cycle
+  \foreach \t/\s in {0/1,1/2} {
+    \foreach \v in {a,b,d,c} {\draw[te] (\v\t) -- (\v\s);}
+    \foreach \u/\v in {a/b,b/d,d/c} {\draw[te] (\u\t) -- (\v\s); \draw[te] (\v\t) -- (\u\s);}
+    \draw[te] (c\t) to[bend left=25] (a\s);
+    \draw[te] (a\t) to[bend left=25] (c\s);
+  }
+  % the two flows
+  \draw[flowA] (a0) -- (b1);
+  \draw[flowA] (b1) -- (d2);
+  \draw[flowB] (d0) -- (c1);
+  \draw[flowB] (c1) to[bend left=25] (a2);
+  \node[sbagentA,anchor=east] at (-0.12,3) {1};
+  \node[sbagentB,anchor=east] at (-0.12,1) {2};
+  \node[sbannot,anchor=west,text=sbAgentA] at (2.12,1) {goal of 1};
+  \node[sbannot,anchor=west,text=sbAgentB] at (2.12,3) {goal of 2};
+  % a forbidden alternative for agent 2: it would share (b,1) with agent 1
+  \draw[bad] (d0) -- (b1);
+  \node[sbannot,text=sbRed,anchor=west,align=left] at (0.55,2.55) {capacity one:\\ $\sum_i f^i_{(b,1)}\le 1$};
+  % the swap that the anti-swap constraint forbids
+  \node[sbannot,anchor=north,align=center] at (1.5,-0.35)
+    {anti-swap: $f^1_{(b,1)\to(d,2)}+f^2_{(d,1)\to(b,2)}\le 1$ for every edge and step};
+  \node[sbannot,anchor=west,align=left] at (2.35,2) {grid cells\\ $a$ -- $b$ -- $d$ -- $c$ -- $a$};
+\end{tikzpicture}
