@@ -256,9 +256,7 @@ $1$ to it. A diagonal move on an 8-connected grid costs $\sqrt{2}$: the octile
 and Euclidean distances assign $\sqrt{2}$, the Chebyshev distance $1$, but the
 Manhattan distance assigns $2 > \sqrt{2}$. \Cref{tab:ch04-heuristics} summarises
 the result. The Manhattan distance is the classic example of a heuristic that is
-perfect for one grid and wrong for another: in the self-test of
-\code{ch04\_astar.py}, \astar with the Manhattan heuristic on 8-connected random
-grids returns a path longer than optimal on 6 of 40 instances.
+perfect for one grid and wrong for another.
 
 \begin{table}[tb]
   \centering\small
@@ -322,7 +320,7 @@ is $1$ for plain \astar; \cref{sec:ch04-variants} discusses $w > 1$.
 \label{alg:ch04-astar}
 \KwIn{graph $G = (V, E)$ with costs $c$, start $s$, goal test, heuristic $\hcost$, weight $w \ge 1$ ($w = 1$ for \astar)}
 \KwOut{a cheapest path from $s$ to a goal, or \emph{failure}}
-\Fn{\AstarSearch{$G$, $s$, $\hcost$, $w$}}{
+\Fn{\AstarSearch{$G$, $s$, $\mathit{isGoal}$, $\hcost$, $w$}}{
   $\gcost(s) \gets 0$; parent$(s) \gets$ \KwNil; $\gcost(n) \gets \infty$ for all other nodes (implicitly)\;
   \Open $\gets$ priority queue holding $s$ with key $(w\,\hcost(s),\, 0)$; \Closed $\gets \emptyset$\label{alg:ch04-astar:init}\;
   \While{\Open $\ne \emptyset$}{
@@ -414,11 +412,12 @@ frontier has $\fcost = 11$. The search passes the first wall at $(2, 4)$ and,
 led by the decreasing $\hcost$, dives down the column $x = 3$ as far as
 $(3, 1)$, where the second wall stops it: the three cells $(3, 3), (3, 2),
 (3, 1)$ below the junction at $(3, 4)$ are a dead end that the Manhattan
-distance cannot foresee. The cell $(3, 1)$ is reached one pop after $(0, 4)$,
-because both carry $\fcost = 13$ and $11$ respectively; the expansion order is
-$\dots, (3, 4), (3, 3), (3, 2), (0, 4), (3, 1), (3, 5), \dots$. Only after these does the frontier reach $\fcost = 13$, and the search
-crosses the top row $(3, 5), (4, 5), (5, 5)$ and descends to the goal, which is
-popped at step~21 with $\gcost = 13$. At that moment three cells with
+distance cannot foresee. The cell $(0,4)$ carries $\fcost = 11$ and $(3,1)$
+carries $\fcost = 13$, so $(0,4)$ is popped first and $(3,1)$ one pop later; the
+expansion order is $\dots, (3, 4), (3, 3), (3, 2), (0, 4), (3, 1), (3, 5),
+\dots$. From $(3,1)$ on the frontier is at $\fcost = 13$: the search crosses the
+top row $(3, 5), (4, 5), (5, 5)$ and descends to the goal, which is popped at
+step~21 with $\gcost = 13$. At that moment three cells with
 $\fcost = 13$ but smaller $\gcost$ are still in \Open together with $(3, 0)$ at
 $\fcost = 15$; none of them is ever expanded. Dijkstra's algorithm needs 26
 expansions for the same instance, and \astar with ties broken towards the
@@ -673,7 +672,10 @@ exponential number, and the heuristic is what decides whether the search is
 practical. Pearl~\cite[ch.~6]{pearl1984heuristics} makes this precise: \astar
 still expands exponentially many nodes unless the error of the heuristic grows
 more slowly than the true cost, roughly $\hcost^*(n) - \hcost(n) =
-\bigO{\log \hcost^*(n)}$; a constant \emph{relative} error is not enough.
+\bigO{\log \hcost^*(n)}$; a constant \emph{relative} error is not enough, since
+a heuristic with $\hcost = (1-\epsilon)\hcost^*$ still gives exponentially many
+expansions --- which is why \cref{sec:ch04-variants} buys speed by giving up
+optimality rather than by sharpening $\hcost$.
 The grids of this book are explicit and small enough that this does not bite,
 but the space-time graphs of \cref{sec:ch04-spacetime} and the constraint
 trees of \cref{ch:ch09} are where it starts to.
@@ -866,11 +868,11 @@ seconds, when a neighbour flies through it; a corridor may be usable in one
 direction only, because a drone is coming the other way. The planner that
 resolves such interactions is a \textbf{multi-agent path finding}
 (MAPF)\index{MAPF (multi-agent path finding)} algorithm, and the standard
-formulation is the one of Stern et al.~\cite{stern2019mapf}: agents move on a
-shared graph in discrete time steps, each agent may move to a neighbour or wait,
-and no two agents may occupy the same vertex at the same time step or swap
-places along an edge. \Cref{ch:ch08,ch:ch09,ch:ch10} build three planners on top
-of that formulation. All three share one component, and it is an \astar search:
+formulation is the one of Stern et al.~\cite{stern2019mapf}, stated in full in
+\cref{ch:ch07}: agents move on a shared graph in discrete time steps, each agent
+may move to a neighbour or wait, and no two agents may occupy the same vertex at
+the same time step or swap places along an edge.
+\Cref{ch:ch08,ch:ch09,ch:ch10} build three planners on top of it. All three share one component, and it is an \astar search:
 plan for \emph{one} agent, in time, subject to a list of forbidden
 $(\text{cell}, \text{time})$ and $(\text{edge}, \text{time})$ pairs. That search
 is \textbf{space-time \astar}\index{A*!space-time}\index{space-time A*}, the
@@ -880,8 +882,11 @@ subject of this section.
 
 \begin{definition}[Time-expanded graph and space-time state]
 \label{def:ch04-spacetime}
-Let $G = (V, E)$ be the grid graph of \cref{def:ch02-grid}. A \textbf{space-time
-state}\index{state!space-time} is a pair $(v, t)$ with $v \in V$ and
+Recall the space-time state and the time-expanded graph of
+\cref{def:ch02-space-time-state,def:ch02-time-expanded-graph}; here every
+action, move or wait, costs one time step, so time and cost coincide. Let
+$G = (V, E)$ be the grid graph of \cref{def:ch02-grid}. A \textbf{space-time
+state}\index{space-time state} is a pair $(v, t)$ with $v \in V$ and
 $t \in \{0, 1, 2, \dots\}$: the agent is in cell $v$ at time step $t$. From
 $(v, t)$ the agent may
 either \textbf{wait}\index{wait action}, reaching $(v, t+1)$, or move along an
@@ -926,7 +931,10 @@ $a$ to move from $u$ to $v$ between time steps $t$ and $t+1$. A path
 $\pi = (\pi_0, \pi_1, \dots, \pi_T)$ of agent $a$, with $\pi_0$ its start and
 $\pi_T$ its goal, \textbf{respects} a set of constraints if $\langle a, \pi_t,
 t\rangle$ is in none of them for $0 \le t \le T$ and $\langle a, \pi_t,
-\pi_{t+1}, t\rangle$ is in none of them for $0 \le t < T$.
+\pi_{t+1}, t\rangle$ is in none of them for $0 \le t < T$. By the stay-at-goal
+convention of \cref{def:ch02-time-indexed-path} the agent still occupies
+$\gamma = \pi_T$ at every $t > T$, so a path that respects the constraints must
+also avoid $\langle a, \gamma, t\rangle$ for every $t > T$.
 \end{definition}
 
 A single-agent search only ever sees the constraints of its own agent, so the
@@ -972,7 +980,8 @@ another agent is parked on it). A state $(\gamma, t)$ is a
 
 With this test the returned path $\pi$ can be extended by waiting at $\gamma$ for
 ever without violating a constraint, which is what \cref{def:ch04-constraints}
-demands of a MAPF solution. The value $t_\gamma$ is computed once, before the
+demands of a MAPF solution by the stay-at-goal convention of
+\cref{def:ch02-time-indexed-path}. The value $t_\gamma$ is computed once, before the
 search, by \code{last\_blocked\_time()}. If $t_\gamma = \infty$ the instance is
 unsolvable and the search reports failure without expanding anything.
 
@@ -997,10 +1006,13 @@ Because waiting is always possible, the time-expanded graph is infinite, and an
 unsolvable instance would make the search run for ever. Cutting the search at an
 arbitrary horizon is not safe either: it can report failure on an instance that
 has a solution one step later. The following bound is both safe and easy to
-compute. Write $H$ for the largest time step that appears in any constraint
-($H = -1$ if there is none) and $D$ for the largest number of moves from any
-cell to $\gamma$ in the grid in which the parked cells of the table are treated
-as walls.
+compute. Write $H$ for the last time step at which the table blocks anything:
+the largest $t$ of a vertex constraint, the largest $t+1$ of an edge constraint,
+and the time from which each parked agent occupies its cell ($H = -1$ if the
+table is empty). This is what \code{ReservationTable.horizon()} computes. Write
+$D$ for the largest number of moves from any cell to $\gamma$ --- among the
+cells from which $\gamma$ is reachable at all --- in the grid in which the
+parked cells of the table are treated as walls.
 
 \begin{proposition}[A sufficient time horizon]
 \label{thm:ch04-horizon}
@@ -1017,7 +1029,8 @@ complete, and it terminates on every instance.
 \begin{proof}
 Let $\pi$ be a solution and suppose it arrives after $T_{\max}$. No vertex or
 edge constraint is active at a time step larger than $H$, so from time $H+1$ on
-the only forbidden cells are the parked ones, which are forbidden for ever. Let
+the only forbidden cells are the parked ones; every parked agent has arrived by
+time $H$, so from $H+1$ on those cells are blocked for ever. Let
 $v = \pi_{H+1}$ be the cell of the agent at time $H+1$. The suffix of $\pi$ from
 $H+1$ is a walk from $v$ to $\gamma$ that avoids the parked cells, so $\gamma$ is
 reachable from $v$ in the reduced grid and a shortest such route has at most $D$
@@ -1081,7 +1094,7 @@ exactly the room in which the search does its work.
 \end{proof}
 
 A cell with $\hcost(v) = \infty$ cannot reach the goal at all and is never
-generated. The consistency of $\hcost$ means the search inherits
+generated. By \cref{thm:ch04-static} the search inherits
 \cref{thm:ch04-consistent}: expansions come out in non-decreasing order of
 $\fcost = t + \hcost(v)$, and no state is expanded twice.
 
@@ -1166,7 +1179,9 @@ two paths in the time-expanded graph and \cref{tab:ch04-spacetime} the trace.
   is the one removed by the vertex constraint; it lies on the dashed path of
   cost~2, which is therefore no longer available. Grey states are the four the
   search expands, with their $\fcost = t + \hcost(v)$; the cheapest remaining
-  path (solid) waits once and costs~3.}
+  path (solid) waits once and costs~3. The states of the top and bottom rows,
+  such as $((0,0),1)$ and $((0,2),1)$ in \cref{tab:ch04-spacetime}, exist too
+  but are never expanded, so the drawing omits them.}
   \label{fig:ch04-spacetime}
 \end{figure}
 
@@ -1184,7 +1199,7 @@ two paths in the time-expanded graph and \cref{tab:ch04-spacetime} the trace.
   \midrule
   1 & $((0,1),0)$ & 0 & 2 & 2 & $((0,0),1){:}4$, $((0,1),1){:}3$, $((0,2),1){:}4$\\
   2 & $((0,1),1)$ & 1 & 2 & 3 & $((1,1),2){:}3$, $((0,1),2){:}4$, $((0,0),1){:}4$, $((0,2),1){:}4$, $((0,0),2){:}5$, $((0,2),2){:}5$\\
-  3 & $((1,1),2)$ & 2 & 1 & 3 & $((2,1),3){:}3$, $((1,1),3){:}4$, and the six entries of step~2 that are still open\\
+  3 & $((1,1),2)$ & 2 & 1 & 3 & $((2,1),3){:}3$, $((1,1),3){:}4$, $((0,1),3){:}5$, $((1,0),3){:}5$, $((1,2),3){:}5$, and the five entries of step~2 that are still open\\
   4 & $((2,1),3)$ & 3 & 0 & 3 & goal state, $t = 3 > t_\gamma = -1$: return the path\\
   \bottomrule
   \end{tabular}
@@ -1205,8 +1220,8 @@ A $5 \times 2$ map has a corridor along $y = 0$ and a single free cell $(2, 1)$
 above it, a passing bay. Agent~1 flies from $(0,0)$ to $(4,0)$ and is planned
 first; its path $(0,0), (1,0), (2,0), (3,0), (4,0)$ goes into the reservation
 table, together with the reversed edges and the permanent block of $(4,0)$ from
-$t = 4$. Agent~2 has to fly from $(3,0)$ to $(0,0)$, which alone takes 3 steps.
-Under the table, space-time \astar returns
+$t = 4$. Agent~2 has to fly from $(3,0)$ to $(0,0)$, which on the empty corridor takes
+3 steps. Under the table, space-time \astar returns
 \[
   (3,0),\ (2,0),\ (2,1),\ (2,0),\ (1,0),\ (0,0),
 \]
@@ -1215,7 +1230,9 @@ back into the corridor behind it. No sequence of waits in the corridor itself
 would work, because the reversed-edge constraints forbid the head-on swap. If
 agent~2 instead starts at $(4,0)$, no path exists at all --- agent~1 parks on
 that cell --- and the search proves it in finite time, six expansions, thanks to
-\cref{thm:ch04-horizon}. That failure is not a bug in the search but the known
+\cref{thm:ch04-horizon}: here $H = 4$ and $D = 3$, so $T_{\max} = 8$. Every
+number in this example is asserted by the self-test of
+\code{ch04\_astar.py}. That failure is not a bug in the search but the known
 incompleteness of prioritized planning, and it is the reason \cref{ch:ch09}
 searches over constraints instead of fixing an order.
 \end{example}

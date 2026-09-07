@@ -208,7 +208,9 @@ so `figures/data/ch10-benchmark.dat` is unchanged and every number in the text s
    rather than the suggested $1.78$: at $1.78$ the "2" is printed on the dashed goal circle of B,
    whose radius is 8 pt about $(1.5,0.5)$; $1.86$ clears the circle and the cross marker while
    staying inside column 1 and keeping the offset perpendicular to B's travel, as in
-   `example-instance.tex`. Verified on the rendered page. The caption now states the convention
+   `example-instance.tex`, and the `tB` style now carries `fill=white,inner sep=0.5pt` so the "2"
+   is not crossed by the dashed goal circle of B (the same masking convention as the annotation
+   nodes of `figures/ch09/tree.tex`). Verified on the rendered page at 400 dpi. The caption now states the convention
    after the first sentence: "Small numbers give the time at which a cell is reached; B is at
    $(1,1)$ at $t = 1$ and parks at $(2,1)$ from $t = 2$."
 

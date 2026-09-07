@@ -456,7 +456,7 @@ underconsistent, key $[4;4]$. $(2,1)$ still has $S$'s side as predecessor and ke
 $\rhs=2$. $(3,0)$ and $(3,2)$ had $\rhs=4$ through $(3,1)$; now their only finite
 predecessor is gone, $\rhs=\infty=\gcost$, and they \emph{leave} the queue. The middle
 panel of \cref{fig:ch05-lpastar-example} shows this state: two underconsistent cells,
-eight queued cells, and every $\gcost$-value untouched.
+eight further queued cells, and every $\gcost$-value untouched.
 
 \paragraph{The repair.}
 \Cref{tab:ch05-lpastar-repair} traces the second call. The two underconsistent cells
@@ -650,7 +650,7 @@ new keys changes no comparison among them.
   $u$ (old entry) & 4 & 6 & 4 & $[10;4]$ & $[8;4]$ & $[10;4]$\\
   $v$ (new entry) & 6 & -- & 3 & $[9;6]$ / $[11;6]$ & $[9;6]$ & $[11;6]$\\
   \midrule
-  popped first & & & & $v$ (no $k_m$) & $u$ & $u$\\
+  popped first & & & & $v$, from the stored keys & $u$ & $u$\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -674,7 +674,7 @@ Koenig and Likhachev \cite{koenig2002dstarlite}. Compared with \lpastar, read
 $\Succ$ for $\Pred$ and vice versa, note the $k_m$ term in the key, the reinsert check,
 and the main loop that moves the robot.
 
-\begin{algorithm}[htb]
+\begin{algorithm}[!htbp]
 \caption{\dstarlite, final version \cite{koenig2002dstarlite}}
 \label{alg:ch05-dstarlite}
 \KwIn{graph $G$, costs $c$, robot position $s_{\mathrm{start}}$, goal $s_{\mathrm{goal}}$, heuristic $\hcost(\cdot,\cdot)$ consistent w.r.t.\ the start}
@@ -796,13 +796,14 @@ remaining gap cell $(3,4)$.
   \caption{\dstarlite on \cref{ex:ch05-dstarlite}. Numbers are $\gcost$-values (goal
   distances); blank cells were never touched. Left: the initial search from $T$ and the
   planned path. Middle: the robot (blue disc) has moved two steps and $(3,3)$ becomes
-  blocked; orange cells are the ones \protect\DslUpdateVertex made inconsistent, the old path is
+  blocked; orange cells are the ones \protect\DslUpdateVertex made inconsistent (the
+  third changed vertex, the gap cell $(3,4)$, simply leaves the queue), the old path is
   dashed. Right: after the repair, with the cells expanded by the repair shaded and the
   new path; the robot's traversed route is drawn in orange.}
   \label{fig:ch05-dstarlite-example}
 \end{figure}
 
-\begin{table}[tb]
+\begin{table}[htbp]
   \centering\small
   \caption{Events of \cref{ex:ch05-dstarlite}. ``Updated'' counts the vertices whose
   $\rhs$-value or queue membership changed in \protect\DslUpdateVertex, ``Exp.'' the vertex
@@ -822,7 +823,7 @@ remaining gap cell $(3,4)$.
   \end{tabular}
 \end{table}
 
-\begin{table}[tb]
+\begin{table}[htbp]
   \centering\footnotesize
   \caption{The repair in \cref{ex:ch05-dstarlite}: \protect\DslComputeShortestPath after $(3,3)$
   was blocked, with the robot at $(2,3)$ and $k_m=2$. Keys are
@@ -899,6 +900,7 @@ $(2,4)\to(3,4)\to(4,4)\to(4,3)\to(4,2)\to(5,2)\to T$ with no further changes and
 the goal at $t=9$.
 
 % ---------------------------------------------------------------------
+\FloatBarrier
 \section{Properties: correctness, optimality, complexity}
 \label{sec:ch05-properties}
 
@@ -961,7 +963,7 @@ An overconsistent expansion of $u$ sets $\gcost(u)=\rhs(u)$ with key
 $[\gcost(u)+\hcost(s_{\mathrm{start}},u)+k_m;\,\gcost(u)]$. Any vertex $s'$ expanded
 afterwards has a key at least as large, so $\gcost(s') + \hcost(s_{\mathrm{start}},s') \ge
 \gcost(u) + \hcost(s_{\mathrm{start}},u)$. The consistency condition of
-\cref{sec:ch05-dstarlite}, applied to the edge $(u,s')$ with $u \in \Pred(s')$, reads
+\cref{sec:ch05-reverse}, applied to the edge $(u,s')$ with $u \in \Pred(s')$, reads
 $\hcost(s_{\mathrm{start}},s') \le \hcost(s_{\mathrm{start}},u) + c(u,s')$, hence
 $c(u,s') + \gcost(s') \ge \gcost(u)$: no later expansion can lower
 $\rhs(u)$ below $\gcost(u)$, so $u$ is never popped as overconsistent again in this
@@ -980,8 +982,9 @@ worked examples and \cref{fig:ch05-experiment} show. Second, the bound does not 
 \dstarlite is always cheaper than \astar: if a change invalidates most of the stored
 values, \dstarlite may expand vertices twice and pay for queue maintenance that \astar
 does not need (see the pitfall in \cref{sec:ch05-implementation}). The key modifier
-adds no expansions at all; its only cost is at most one extra pop-and-reinsert per
-queue entry that was inserted before a move. Third, the theorem compares with \astar
+adds no expansions at all; within one call of \DslComputeShortestPath its only cost is
+at most one extra pop-and-reinsert per queue entry that was inserted before a move
+(across several calls an entry can be reinserted once per increase of $k_m$). Third, the theorem compares with \astar
 \emph{with the same tie-breaking}.\index{tie-breaking!in D* Lite} The second key
 component orders vertices with equal $k_1$ by increasing $\gcost$; on a grid, where many
 cells share the same $\fcost$-value, this expands the whole band of cells with
@@ -1072,8 +1075,9 @@ to repair a robot's path incrementally as its sensors revealed unknown terrain, 
 its Focussed variant \cite{stentz1995focussed} added a heuristic. It works backward from the goal, like
 \dstarlite, but propagates cost changes with \textsc{Raise} and \textsc{Lower} states
 and a set of case distinctions that are hard to get right. \dstarlite computes the same
-paths, is provably at least as efficient in expansions, and fits on half a page; this is
-why it replaced \dstar in practice \cite{koenig2005fast}.\index{D*!original (Stentz)}
+paths, expands no more vertices than \dstar in the experiments of
+\textcite{koenig2005fast}, and fits on half a page; this is
+why it replaced \dstar in practice.\index{D*!original (Stentz)}
 
 \paragraph{Anytime \dstar.}
 \cref{ch:ch06} presents \arastar, which finds a path quickly with an inflated heuristic

@@ -252,3 +252,100 @@ their difficulty spread, and the solutions file - I checked its numbers against 
 them holds, including the 4x4 Manhattan-trap instance and the ring-map counterexample for the horizon.
 Finally, keep `code/ch04_astar.py` unchanged: it is complete, fast, and its self-test asserts the
 chapter's numbers rather than merely running.
+
+## Response to review (round 2)
+
+All seven required changes are applied; the numbers were re-verified by running
+`code/ch04_astar.py` before and after. Build status 0, no errors, no undefined
+ch04 references, no overfull box above 15 pt; chapter body unchanged at 24 pages.
+`python3 code/ch04_astar.py` prints `ch04_astar: all self-tests passed`. The code
+was not touched, so no `.dat` file needed regenerating.
+
+**Required 1 — the definition of `H` in `sec:ch04-horizon` (category A). Done.**
+The definition now reads: "Write `H` for the last time step at which the table
+blocks anything: the largest `t` of a vertex constraint, the largest `t+1` of an
+edge constraint, and the time from which each parked agent occupies its cell
+(`H = -1` if the table is empty). This is what `ReservationTable.horizon()`
+computes." The proof of `thm:ch04-horizon` gained the missing clause: "the only
+forbidden cells are the parked ones; every parked agent has arrived by time `H`,
+so from `H+1` on those cells are blocked for ever." The claim at the end of the
+subsection that `eq:ch04-horizon` is what `default_horizon()` returns is now
+true as written and was left alone. Re-verified against the code: mini example
+`H = 1`, `D = 3`, `T_max = 5`; corridor agent 2 `H = 4`, `D = 3`, `T_max = 8`.
+The solutions file is now consistent with the chapter, including
+`exr:ch04-horizon(d)` (`H = 0` for the agent parked from `t = 0`) and
+`exr:ch04-spacetime(d)` (`H = 2`). While rewriting the sentence I also folded in
+suggestion 2: `D` is now defined "among the cells from which `gamma` is
+reachable at all", which is what `max(reach.values())` computes.
+
+**Required 2 — row 3 of `tab:ch04-spacetime` (category A). Done.**
+Re-ran `space_time_astar(grid, s, z, cons, record_open=True)`; the Open snapshot
+after step 3 has exactly the ten entries the reviewer lists. Row 3's last column
+now reads `((2,1),3):3, ((1,1),3):4, ((0,1),3):5, ((1,0),3):5, ((1,2),3):5, and
+the five entries of step 2 that are still open`. The other three rows reproduce
+unchanged from the code and were not touched.
+
+**Required 3 — the `f` values in `sec:ch04-example` (category A). Done.**
+Re-ran the worked example: `f(0,4) = 4 + 7 = 11` at expansion 14 and
+`f(3,1) = 10 + 3 = 13` at expansion 15, with the goal popped at step 21 with
+`g = 13`. The self-contradictory sentence was replaced by the reviewer's text
+verbatim.
+
+**Required 4 — `def:ch04-constraints` says nothing about `t > T` (category C). Done.**
+Appended to the definition: "By the stay-at-goal convention of
+`def:ch02-time-indexed-path` the agent still occupies `gamma = pi_T` at every
+`t > T`, so a path that respects the constraints must also avoid
+`<a, gamma, t>` for every `t > T`." The goal-stay argument in
+`sec:ch04-goalstay` now rests on something the referenced definition states.
+
+**Required 5 — duplicated Chapter 2 concepts and a split index entry (category F). Done.**
+`def:ch04-spacetime` now opens with "Recall the space-time state and the
+time-expanded graph of `\cref{def:ch02-space-time-state,def:ch02-time-expanded-graph}`;
+here every action, move or wait, costs one time step, so time and cost
+coincide."; `\index{state!space-time}` became `\index{space-time state}`, which
+merges with the Chapter 2 entry; and `sec:ch04-goalstay` now names the
+convention ("by the stay-at-goal convention of
+`\cref{def:ch02-time-indexed-path}`"). Both Chapter 2 references resolve in the
+build.
+
+**Required 6 — missing forward reference to `ch:ch07` (category F). Done.**
+The opening paragraph of `sec:ch04-spacetime` now reads "the standard
+formulation is the one of Stern et al. [stern2019mapf], stated in full in
+`\cref{ch:ch07}`: ..." and the next sentence is "`\Cref{ch:ch08,ch:ch09,ch:ch10}`
+build three planners on top of it."
+
+**Required 7 — the "6 of 40 instances" experiment stated twice (category G). Done.**
+The running-text copy after `thm:ch04-metric` is gone; that paragraph now ends
+"...perfect for one grid and wrong for another." The pitfall box two paragraphs
+later carries the experiment, and "6 of 40" now occurs exactly once in the
+chapter.
+
+**Suggestions.** All seven applied, each in one clause. (1) The sentence after
+`thm:ch04-static` now reads "By `\cref{thm:ch04-static}` the search inherits
+`\cref{thm:ch04-consistent}`", so the proposition is cited. (2) Folded into
+required change 1 above. (3) `alg:ch04-astar`'s signature is now
+`AStar(G, s, isGoal, h, w)`, matching its `\KwIn` (the costs `c` stay inside
+`G`, as `\KwIn` already says). (4) The complexity paragraph now names the
+contrast case: "a heuristic with `h = (1-eps) h*` still gives exponentially many
+expansions --- which is why `\cref{sec:ch04-variants}` buys speed by giving up
+optimality rather than by sharpening `h`." (5) `ex:ch04-corridor` says agent 2's
+trip "on the empty corridor takes 3 steps" and the example now closes with
+"Every number in this example is asserted by the self-test of
+`ch04_astar.py`." (6) The corridor failure now carries its horizon: "six
+expansions, thanks to `\cref{thm:ch04-horizon}`: here `H = 4` and `D = 3`, so
+`T_max = 8`" --- both re-verified against `default_horizon()`. (7)
+`fig:ch04-spacetime`'s caption gained "The states of the top and bottom rows,
+such as `((0,0),1)` and `((0,2),1)` in `\cref{tab:ch04-spacetime}`, exist too but
+are never expanded, so the drawing omits them."
+
+**What was kept.** Untouched: the whole proof architecture
+(`thm:ch04-invariant` stated once for an arbitrary node and carrying
+optimality, no-re-expansion and the weighted-A* bound; `thm:ch04-consistent`,
+`thm:ch04-surely`, `thm:ch04-dominance`, `thm:ch04-metric`), `tab:ch04-heuristics`
+and its pitfall box, the worked example and all ten rows of `tab:ch04-trace`
+including the re-relaxation of `(0,2)` in step 5, the tie-breaking 39-versus-400
+and random-grid experiments and `figures/ch04/expansions.tex`, the six
+implementation paragraphs, all three pitfall boxes, `ex:ch04-corridor`,
+`lst:ch04-spacetime`, the ten exercises, the solutions and glossary files, and
+`code/ch04_astar.py`. No required content was removed to save space; the only
+deletion is the duplicated sentence required change 7 asks for.
