@@ -1,1 +1,73 @@
 % Solutions/hints for ch22 exercises (assembled into Appendix C)
+
+\begin{solution}{exr:ch22-lp}
+The vertices are $(0,0)$, $(4,0)$, $(4,1.5)$, $(2.5,3.75)$ and $(0,2.5)$
+with objective values $0$, $4$, $7$, $10$ and $5$; the LP optimum is
+$(2.5,3.75)$ with value $10$. Branching on $x$ first: the child $x \le 2$
+has the LP optimum $(2,3.5)$ with bound $9$ (at $x = 2$ the row $-x + 2y
+\le 5$ gives $y \le 3.5$); the child $x \ge 3$ has the LP optimum $(3,3)$
+with value $9$, which is integral and becomes the incumbent. The first
+child's bound $9$ is not better than the incumbent, so it is pruned: three
+nodes. Branching on $y$ first: the child $y \le 3$ has the optimum $(3,3)$,
+value $9$, integral; the child $y \ge 4$ needs $x \ge 3$ from $-x + 2y \le
+5$ and $x \le 7/3$ from $3x + 2y \le 15$, so it is infeasible: again three
+nodes. Both trees prove that the integer optimum is $9$, one below the LP
+bound $10$.
+\end{solution}
+
+\begin{solution}{exr:ch22-margin}
+With $v_{\max} = 3$~m/s and $\dt = 0.5$~s, $\delta = v_{\max}\dt/2 =
+0.75$~m and the sampled separation must be $d_{\min} + v_{\max}\dt =
+2.5$~m. The inflation must be applied on all four sides because the
+proposition bounds the $\infty$-distance to the nearest sample in every
+direction, and a drone skimming the top edge can dip below it between two
+samples just as one passing the left edge can drift right. The self-test
+of \code{ch22\_milp.py} solves the safe instance: fuel $16.78$~m/s instead
+of $12.02$ (a price of $40\,\%$ for a guarantee), about $2$~s and $48$
+nodes, no penetration of the original block between samples and a
+continuous-time minimum separation of $4.08$~m, far above the required
+$1$~m because the margins assume top speed in the worst direction at every
+step. Inflating the block only, with $d_{\min} = 1$~m at the samples, gives
+a plan whose separation between samples drops to $0.06$~m: both margins
+are needed.
+\end{solution}
+
+\begin{solution}{exr:ch22-mapfilp}
+Agent~1 has one binary per edge of the time-expanded graph: from each
+state $(v,t)$ with $t < 2$ there is a wait edge and one move edge per
+neighbour on the cycle, so $4 \cdot 3 \cdot 2 = 24$ binaries per agent.
+Flow conservation at $(a,0)$: $f^1_{(a,0)\to(a,1)} + f^1_{(a,0)\to(b,1)}
++ f^1_{(a,0)\to(c,1)} = 1$; at $(b,1)$: outgoing minus incoming equals
+$0$; at $(d,2)$: incoming equals $1$. Capacity of $(b,1)$:
+$f^1_{(a,0)\to(b,1)} + f^1_{(b,0)\to(b,1)} + f^1_{(d,0)\to(b,1)} +
+(\text{the same for agent }2) \le 1$. Anti-swap on $\set{a,b}$ at $t = 0$:
+$f^1_{(a,0)\to(b,1)} + f^1_{(b,0)\to(a,1)} + f^2_{(a,0)\to(b,1)} +
+f^2_{(b,0)\to(a,1)} \le 1$. The drawn flows use $(a,0)\to(b,1)\to(d,2)$ and
+$(d,0)\to(c,1)\to(a,2)$: every state is entered at most once and no edge is
+used in both directions. The dashed alternative $(d,0)\to(b,1)$ makes the
+capacity row of $(b,1)$ equal to $2$. On the $32 \times 32$ grid every
+state has five outgoing edges (four moves and a wait), so there are $20
+\cdot 60 \cdot 1024 \cdot 5 \approx 6.1 \cdot 10^6$ binaries, $1024 \cdot
+60 \approx 6.1 \cdot 10^4$ capacity rows and about $2 \cdot 1024 \cdot 60
+\approx 1.2 \cdot 10^5$ anti-swap rows (one per undirected grid edge and
+step).
+\end{solution}
+
+\begin{solution}{exr:ch22-coding}
+Hints. (a)~Build \code{Instance(vehicles=[Vehicle((1,1),(9,7)),
+Vehicle((1,4),(9,4)), Vehicle((1,7),(9,1))], obstacles=[(4,6,2,6)],
+horizon=12, dt=0.5, a\_max=2, v\_max=3, d\_min=1, workspace=(0,10,0,8))}
+and pass it to \code{solve\_instance}; the fuel model has $3$ obstacle
+groups and $3$ pair groups per step, hence $4 \cdot 12 \cdot 6 = 288$
+binaries. Expect the solver to need far longer than for two drones and set
+a time limit. (b)~A separation constraint is active at step $k$ when
+\code{check\_solution}-style distances give $\norm{\pos^i_k -
+\pos^j_k}_\infty = d_{\min}$ within $10^{-6}$. (c)~With the limit the
+status is $1$ and \code{sol.gap} holds the relative gap; the scaling
+experiment of the chapter obtained gaps below $10\,\%$ after $30$~s for
+this instance. (d)~Fix the bound of the binary
+\code{model.cpair((0, 1), k, 0)} to $1$ for all $k$ before calling
+\code{model.solve}, which forbids ``drone~1 to the right of drone~2'', and
+compare \code{sol.nodes} and \code{sol.solve\_time}; the optimum must not
+change if the mirror image of the optimal plan was feasible.
+\end{solution}
