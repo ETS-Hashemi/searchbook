@@ -835,10 +835,10 @@ The header names the movement model of the single-agent benchmark
 and the width, and the word \code{map}. Then follow \code{height} lines of
 \code{width} characters, the first line being the top row of the map. A dot
 is a free cell; \code{@} and \code{T} are obstacles (\code{T} stands for
-trees on the game maps). The older single-agent maps also contain \code{G}
-and \code{S} for passable ground and swamp and \code{O} and \code{W} for
-out-of-bounds and water; our parser accepts \code{.}, \code{G} and \code{S}
-as free and treats every other character as blocked. The cell in row $y$ and
+trees on the game maps). The older single-agent maps also use \code{G} and
+\code{S} (passable) and \code{O} and \code{W} (blocked); our parser accepts
+\code{.}, \code{G} and \code{S} as free and treats every other character as
+blocked. The cell in row $y$ and
 column $x$ of the file is our vertex $(r, c) = (y, x)$.
 
 \paragraph{The scenario format.}\index{scenario file (.scen)@scenario file (\code{.scen})}
@@ -865,10 +865,9 @@ evenly over the distance buckets of the single-agent benchmark.
 \paragraph{Map families.}
 \Cref{tab:ch07-maps} lists the families of maps in the benchmark with
 examples and with what makes each of them hard. The names encode the size
-and, for the random and maze maps, the obstacle density or the corridor
-width. The set of maps has grown since the benchmark was published; take the
-current list from the website, and name the exact maps and scenarios in any
-result you report.
+and, for random and maze maps, the obstacle density or corridor width; the
+set of maps has grown since 2019, so take the current list from the website
+and name the exact maps and scenarios in any result you report.
 
 \begin{table}[tb]
   \centering\small
@@ -1014,9 +1013,7 @@ must be answered with the goal cell, as \MapfPosition does, and every solver
 must treat a parked agent's goal as blocked for all later times: this is the
 goal-stay handling of space-time \astar in \cref{ch:ch04} and the reason why
 the reservation tables of \cref{ch:ch08} reserve a goal cell ``until
-infinity''. The same convention makes the horizon $T$ of
-\cref{alg:ch07-pairwise} sufficient: beyond $T$ nothing moves, and two
-parked agents never share a cell because goals are distinct.
+infinity''.
 \end{pitfall}
 
 \begin{pitfall}[Off-by-one in time]
@@ -1044,8 +1041,7 @@ same $2 \times 2$ block cross in its centre without sharing a vertex or an
 edge, so a detector for diagonal moves needs a third test for crossing
 diagonals. On a lattice flown by drones of finite size, even following
 around a corner can bring two agents closer than the cell side
-(\cref{exr:ch07-separation}). The conflict types of \cref{def:ch07-conflicts}
-are the classical ones; which pairs of moves are physically safe is a
+(\cref{exr:ch07-separation}). Which pairs of moves are physically safe is a
 property of the vehicle and of the graph, and it must be decided before the
 detector is written.
 \end{pitfall}
@@ -1280,15 +1276,15 @@ answer change if following conflicts are forbidden as well?
 
 \begin{exercise}[\difficulty{3} Coding]
 \label{exr:ch07-coding}
-(a) Without looking at \code{ch07\_mapf.py}, implement a plan validator and
-both conflict detectors of \cref{sec:ch07-detection}; test them on the cases
-of \cref{exr:ch07-conflict-cases} and on \cref{ex:ch07-grid}, and check
-that the two detectors agree on random plans. (b) Write the \code{.map} and
+(a) Implement a plan validator and both conflict detectors of
+\cref{sec:ch07-detection} without looking at \code{ch07\_mapf.py}; test them
+on \cref{exr:ch07-conflict-cases,ex:ch07-grid} and check that they agree on
+random plans. (b) Write the \code{.map} and
 \code{.scen} parsers, download \code{random-32-32-20} with its scenario
 \code{random-1}, and for the first $k = 10, 20, \dots, 100$ agents count
 the conflicts of the naive plan and time both detectors. (c) Extend the detector to 8-connected
-grids with a test for crossing diagonals, and show a plan that the
-4-connected detector accepts although two agents collide physically.
+grids with a test for crossing diagonals, and exhibit a plan that the
+4-connected detector accepts although two agents collide.
 (d) The coding exercise of Week~3 (\cref{ch:appA}): write a first
 prioritized planner for two to five agents that plans the agents in index
 order with the space-time \astar of \cref{ch:ch04}, turning every planned

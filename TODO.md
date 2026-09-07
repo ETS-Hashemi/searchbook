@@ -54,7 +54,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [~] 2.06 Ch 6 Anytime Search: ARA* (and Anytime D* pointer) — [~] author running (relaunched after container restart); text 4 lines so far, 0 figure files, code present
 
 ### Part III — Multi-Agent Path Finding
-- [~] 2.07 Ch 7 The MAPF Problem (conflict types, objectives, complexity, benchmarks) — [~] author running (relaunched after container restart); text 4 lines so far, 8 figure files, code present
+- [~] 2.07 Ch 7 The MAPF Problem (conflict types, objectives, complexity, benchmarks) — drafted on Fable (20 pp, compiles); Opus review in progress
 - [~] 2.08 Ch 8 Prioritized Planning and Space-Time A* (reservation tables, Cooperative A*, incompleteness) — partial draft (282 lines, ends mid-chapter); needs completion
 - [ ] 2.09 Ch 9 Conflict-Based Search (constraint tree, high/low level, optimality, ICBS improvements)
 - [ ] 2.10 Ch 10 Bounded-Suboptimal Search: ECBS (focal search, bounds, benchmarks vs CBS)

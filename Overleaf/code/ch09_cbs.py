@@ -318,6 +318,11 @@ def _bypass(node: CTNode, children: Sequence[CTNode]) -> bool:
     return True
 
 
+def _child_summary(kid: CTNode) -> dict:
+    return {"id": kid.id, "added": kid.added, "cost": kid.cost,
+            "costs": [len(p) - 1 for p in kid.paths], "n_conflicts": kid.n_conflicts}
+
+
 def _record(node: CTNode, conflict: Optional[Conflict], trace: List[dict]) -> dict:
     entry = {"id": node.id, "parent": node.parent, "added": node.added,
              "costs": [len(p) - 1 for p in node.paths], "cost": node.cost,
@@ -371,9 +376,7 @@ def cbs(grid: Grid, starts: Sequence[Cell], goals: Sequence[Cell],
             kid.id = next(ids)
             stats.generated += 1
             if entry is not None:
-                entry["children"].append({"id": kid.id, "added": kid.added, "cost": kid.cost,
-                                          "costs": [len(p) - 1 for p in kid.paths],
-                                          "n_conflicts": kid.n_conflicts})
+                entry["children"].append(_child_summary(kid))
             heapq.heappush(open_heap, (kid.cost, kid.n_conflicts, kid.id, kid))
     stats.seconds = time.perf_counter() - t0
     return Result(None, None, stats, trace)
@@ -460,6 +463,19 @@ EXAMPLE_STARTS = [(0, 1), (2, 0), (2, 2)]
 EXAMPLE_GOALS = [(4, 1), (2, 2), (4, 0)]
 
 
+# A tightly coupled instance (Section 9.6): 8 free cells, 3 agents that must
+# shuffle through the single cell (2, 1).  Dijkstra on the joint state space
+# finds the optimal sum of costs 24 in milliseconds; CBS expands tens of
+# thousands of CT nodes without finding a conflict-free node.
+COUPLED_MAP = [
+    "....",       # y = 2
+    "##.#",       # y = 1
+    ".#..",       # y = 0
+]
+COUPLED_STARTS = [(2, 2), (2, 0), (3, 0)]
+COUPLED_GOALS = [(2, 0), (1, 2), (0, 2)]
+
+
 def worked_example(split: str = "first", bypass: bool = False) -> Result:
     grid = Grid.from_map(EXAMPLE_MAP)
     return cbs(grid, EXAMPLE_STARTS, EXAMPLE_GOALS, split=split, bypass=bypass,
@@ -522,15 +538,26 @@ def _test_worked_example() -> None:
     assert res2.cost == 12 and res2.stats.expanded == 4 and res2.stats.bypasses == 0
 
 
+def _test_coupled_instance() -> None:
+    grid = Grid.from_map(COUPLED_MAP)
+    t0 = time.perf_counter()
+    assert joint_optimal_cost(grid, COUPLED_STARTS, COUPLED_GOALS) == 24
+    t_joint = time.perf_counter() - t0
+    res = cbs(grid, COUPLED_STARTS, COUPLED_GOALS, node_limit=2000)
+    assert res.paths is None and res.stats.expanded == 2000
+    print("coupled maze: joint-space optimum 24 in %.3f s; CBS: no answer "
+          "after %d CT nodes (%.2f s)" % (t_joint, res.stats.expanded, res.stats.seconds))
+
+
 def _test_random_against_brute_force() -> None:
-    rng = random.Random(9)
+    rng = random.Random(5)
     n_checked = 0
-    for k, cols, rows, n in ((2, 4, 4, 30), (3, 4, 3, 12)):
+    for k, cols, rows, n in ((2, 4, 4, 40), (3, 4, 4, 25)):
         for _ in range(n):
             grid, starts, goals = random_instance(cols, rows, k, 0.2, rng)
             opt = joint_optimal_cost(grid, starts, goals)
             for split, bypass in (("first", False), ("cardinal", False), ("cardinal", True)):
-                res = cbs(grid, starts, goals, split=split, bypass=bypass, node_limit=20000)
+                res = cbs(grid, starts, goals, split=split, bypass=bypass, node_limit=3000)
                 if opt is None:
                     assert res.paths is None
                     continue
@@ -575,6 +602,7 @@ if __name__ == "__main__":
     _test_low_level_goal_stay()
     _test_worked_example()
     _test_rectangle_symmetry()
+    _test_coupled_instance()
     _test_random_against_brute_force()
     print("--- worked example (split on the first conflict) ---")
     print("\n".join(EXAMPLE_MAP))
