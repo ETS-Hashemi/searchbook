@@ -14,9 +14,9 @@
 \begin{itemize}
   \item Explain why a turning intruder and a range--bearing sensor break the linear Kalman filter of \cref{ch:ch18}, and write down the coordinated-turn and range--bearing models with their Jacobians.
   \item Run one step of the extended Kalman filter (EKF) by hand: linearise, predict, wrap the bearing innovation, update; and say where the linearisation error comes from.
-  \item Construct the $2n+1$ sigma points and weights of the unscented transform, propagate them through a nonlinear function, and recombine mean, covariance and cross-covariance into the unscented Kalman filter (UKF).
+  \item Construct the $2n+1$ sigma points and weights of the unscented transform and recombine them into the unscented Kalman filter (UKF).
   \item Implement the bootstrap particle filter with systematic resampling, compute the effective sample size, and recognise degeneracy and sample impoverishment.
-  \item Choose between EKF, UKF and particle filter for a given intruder model and sensor, and hand their output, including a multimodal particle cloud, to the prediction-aware planner of \cref{ch:ch24}.
+  \item Choose between EKF, UKF and particle filter for a given intruder model and sensor, and hand their output, including a multimodal particle cloud, to the planner of \cref{ch:ch24}.
 \end{itemize}
 \end{objectives}
 
@@ -62,28 +62,27 @@ cover properties, variants, implementation and the place in the drone system.
 \section{The idea in plain words}
 \label{sec:ch19-intuition}
 
-Every filter step takes a Gaussian belief, pushes it through a function and
-describes the result by a mean and a covariance. As long as the function is
-affine, $\vect{y} = \mat{A}\state + \vect{b}$, the result is Gaussian with
-mean $\mat{A}\vect{\mu} + \vect{b}$ and covariance $\mat{A}\mat{\Sigma}\mat{A}\T$
-(\cref{ch:ch02}), and the Kalman filter is exact. As soon as the function
-bends, the output is no longer Gaussian: push a Gaussian in range and bearing
-through the polar-to-Cartesian map and you get a \emph{banana}, a curved
-region that no ellipse describes well (\cref{fig:ch19-idea}). The three
-filters are three approximations of that banana. The EKF replaces the bent
-function by its tangent at the current estimate; it costs one Jacobian per
-step, and the more the function curves within the width of the belief, the
-larger the error. The UKF keeps the true function and changes the
-representation of the input: $2n+1$ \emph{sigma points} whose sample mean and
-covariance are exactly those of the belief are mapped through the true
-function, and mean and covariance are read off the images; no derivative is
-needed, and the mean is correct up to the second-order Taylor term, precisely
-the term the EKF drops. The particle filter represents the belief by many
-random samples with weights, moves every sample through the true function
-with its own noise and re-weights the samples by how well they explain the
-measurement; nothing forces the result to be an ellipse, so the belief can be
-curved, skewed or split in two, and the price is the number of samples.
-\index{linearisation error}\index{banana distribution}
+Every filter step pushes a Gaussian belief through a function and describes
+the result by a mean and a covariance. For an affine function, $\vect{y} =
+\mat{A}\state + \vect{b}$, the result is Gaussian with mean $\mat{A}\vect{\mu}
++ \vect{b}$ and covariance $\mat{A}\mat{\Sigma}\mat{A}\T$ (\cref{ch:ch02}),
+and the Kalman filter is exact. As soon as the function bends, the output is
+no longer Gaussian: push a Gaussian in range and bearing through the
+polar-to-Cartesian map and you get a \emph{banana}, a curved region that no
+ellipse describes well (\cref{fig:ch19-idea}). The three filters are three
+approximations of that banana. The EKF replaces the bent function by its
+tangent at the current estimate: one Jacobian per step, and an error that
+grows with the curvature of the function within the width of the belief. The
+UKF keeps the true function and changes the representation of the input:
+$2n+1$ \emph{sigma points} whose mean and covariance are exactly those of the
+belief are mapped through the function, and mean and covariance are read off
+the images; no derivative is needed, and the mean is correct up to the
+second-order Taylor term, precisely the term the EKF drops. The particle
+filter represents the belief by many weighted random samples, moves each
+through the true function with its own noise and re-weights it by how well
+it explains the measurement; nothing forces the result to be an ellipse, so
+the belief can be curved, skewed or split in two, and the price is the
+number of samples.\index{linearisation error}\index{banana distribution}
 
 \begin{figure}[tb]
   \centering
@@ -92,10 +91,10 @@ curved, skewed or split in two, and the price is the number of samples.
   nonlinear function $f$ into the curved true output distribution (shaded
   banana). (a) The EKF moves the ellipse with the tangent at the mean; the
   ellipse sits on the image of the mean, not on the mean of the banana, and
-  its ends miss the curved tails. (b) The UKF pushes $2n+1$ sigma points
-  through the true $f$ and fits an ellipse to the images; the fitted mean
-  lies inside the banana. (c) The particle filter pushes a cloud of random
-  samples through $f$ and keeps the cloud as the belief, curvature included.}
+  cannot bend. (b) The UKF pushes $2n+1$ sigma points through the true $f$
+  and fits an ellipse to the images; the fitted mean lies inside the banana.
+  (c) The particle filter pushes a cloud of random samples through $f$ and
+  keeps the cloud as the belief, curvature included.}
   \label{fig:ch19-idea}
 \end{figure}
 
@@ -151,12 +150,11 @@ which pushes yesterday's posterior through the motion model and then applies
 Bayes' rule (\cref{ch:ch02}) with the likelihood $p(\meas_k \mid \state_k) =
 \Normal(\meas_k; h(\state_k), \mat{R}_k)$. For linear-Gaussian models both
 steps have closed forms; for the models below they do not, and each filter
-replaces them by an approximation: a linearisation, a set of sigma points or
-a set of samples. We write $\partial g/\partial\state$ for the
-\textbf{Jacobian}\index{Jacobian} of $g$, the matrix of partial derivatives
-$\partial g_i/\partial x_j$, which gives the best affine approximation
-$g(\state + \vect{d}) \approx g(\state) + \frac{\partial g}{\partial
-\state}(\state)\,\vect{d}$.
+replaces them by a linearisation, a set of sigma points or a set of samples.
+We write $\partial g/\partial\state$ for the \textbf{Jacobian}\index{Jacobian}
+of $g$, the matrix of partial derivatives $\partial g_i/\partial x_j$, which
+gives the best affine approximation $g(\state + \vect{d}) \approx g(\state) +
+\frac{\partial g}{\partial\state}(\state)\,\vect{d}$.
 
 \subsection{The coordinated-turn model}
 \label{sec:ch19-ct}
@@ -201,10 +199,9 @@ through $v\sin\psi$, $v\cos\psi$ and the division by $\omega$ (Bar-Shalom,
 Li and Kirubarajan~\cite{barshalom2001estimation} write it with Cartesian
 velocities; the polar form has the more compact Jacobian and delivers the
 speed and heading the avoidance layer wants). Real intruders change speed
-and turn rate. We model a random
-longitudinal acceleration $a_k \sim \Normal(0, \sigma_a^2)$ and a random turn
-acceleration $\gamma_k \sim \Normal(0, \sigma_\gamma^2)$, constant during the
-step, so that
+and turn rate. We model a random longitudinal acceleration $a_k \sim
+\Normal(0, \sigma_a^2)$ and a random turn acceleration $\gamma_k \sim
+\Normal(0, \sigma_\gamma^2)$, constant during the step, so that
 \begin{equation}
   \vect{w}_k = \mat{G}(\state)\begin{pmatrix} a_k\\ \gamma_k\end{pmatrix},
   \quad
@@ -566,11 +563,11 @@ ambiguity, a particle filter that keeps several hypotheses alive.
 \label{sec:ch19-ut}
 
 Julier and Uhlmann~\cite{julier1997new,julier2004unscented} start from one
-observation: it is easier to approximate a probability distribution than to
-approximate an arbitrary nonlinear function. Instead of replacing $f$ by its
-tangent, keep $f$ and replace the Gaussian by a small set of points that carry
-its mean and covariance exactly, push the \emph{points} through the true $f$,
-and read mean and covariance off the images.
+observation: it is easier to approximate a probability distribution than an
+arbitrary nonlinear function. Instead of replacing $f$ by its tangent, keep
+$f$ and replace the Gaussian by a small set of points that carry its mean and
+covariance exactly, push the \emph{points} through the true $f$, and read
+mean and covariance off the images.
 
 \begin{definition}[Sigma points and weights]
 \label{def:ch19-sigma}
@@ -593,7 +590,7 @@ points}\index{sigma points} and their weights are
   \label{eq:ch19-sigma}
 \end{equation}
 where $W^{(m)}$ weights the mean and $W^{(c)}$ the covariance; the weights
-$W^{(m)}$ sum to one, $W^{(c)}$ to $1 - \alpha^2 + \beta + 1$.
+$W^{(m)}$ sum to one.
 \end{definition}
 
 The points sit on the principal axes of the ellipse, $\sqrt{n + \lambda} =
@@ -642,8 +639,7 @@ transform at work: five points, five evaluations of the polar-to-Cartesian
 map, and the mean lands inside the banana. \Cref{sec:ch19-properties} proves
 why: the images of $\bar{\state} \pm \vect{l}_i$ contain the curvature of
 $g$ along each axis, and the symmetric weights add it up to exactly the
-second-order term $\tfrac12 \sum_{ij} P_{ij}\,\partial^2 g/\partial x_i
-\partial x_j$ that the EKF drops.
+second-order term that the EKF drops.
 
 \subsection{The filter}
 
@@ -651,11 +647,11 @@ The UKF replaces the two linearisations of the EKF by two unscented
 transforms and the product $\mat{P}_k^-\mat{H}_k\T$ by the cross-covariance
 $\mat{C}_k = \mat{P}_{xz}$ between the state and the predicted measurement:
 in the linear case $\mat{P}_{xz} = \mat{P}_k^-\mat{H}_k\T$ exactly, so the
-Kalman gain $\Kgain_k = \mat{P}_k^-\mat{H}_k\T\mat{S}_k\inv$ becomes
-$\Kgain_k = \mat{C}_k\mat{S}_k\inv$ and the covariance update $(\mat{I} -
-\Kgain_k\mat{H}_k)\mat{P}_k^- = \mat{P}_k^- - \Kgain_k\mat{S}_k\Kgain_k\T$
-needs no $\mat{H}_k$ at all. \Cref{alg:ch19-ukf} gives the version for
-additive noise, which is the one that fits \cref{eq:ch19-model}.
+gain becomes $\Kgain_k = \mat{C}_k\mat{S}_k\inv$ and the covariance update
+$(\mat{I} - \Kgain_k\mat{H}_k)\mat{P}_k^- = \mat{P}_k^- -
+\Kgain_k\mat{S}_k\Kgain_k\T$ needs no $\mat{H}_k$ at all. \Cref{alg:ch19-ukf}
+gives the version for additive noise, which is the one that fits
+\cref{eq:ch19-model}.
 
 \begin{algorithm}[htb]
 \caption{One step of the unscented Kalman filter (additive noise)}
@@ -705,58 +701,48 @@ Run \cref{alg:ch19-ukf} on \cref{ex:ch19-ekf}. With $n = 5$, $\alpha = 1$,
 $\kappa = 0$ we get $\lambda = 0$, $W_0^{(m)} = 0$, $W_0^{(c)} = 2$ and
 $W_i^{(m)} = W_i^{(c)} = 0.1$ for $i \ge 1$. Since $\mat{P}_{k-1}$ is
 diagonal, each sigma point differs from the mean in one component by
-$\sqrt{5} \approx 2.236$ standard deviations: $4.472\,\mathrm{m}$ in $x$ or
-$y$, $2.236\,\mathrm{m/s}$ in $v$, $0.447\,\mathrm{rad}$ in $\psi$ and
-$0.224\,\mathrm{rad/s}$ in $\omega$ (\cref{tab:ch19-sigma}). The centre
-image is the EKF prediction, $(-109.851, -5.489)$. The two heading points,
-$i = 4$ and $i = 9$, straddle the arc, and their average $x$ is $-108.882$,
-almost a metre east of the centre image, because the arc bends and the
-chord lies inside it. The weighted mean of all images, $\hat{\state}_k^- =
-(-109.641, -5.456, 10, -2.8416, 0.3)$, is $0.21\,\mathrm{m}$ east of the EKF
-prediction: the second-order term $\tfrac12 P_{\psi\psi}\,\partial^2
-x'/\partial\psi^2 = \tfrac12 \cdot 0.04 \cdot 9.85 = 0.197\,\mathrm{m}$,
-plus a little from the $\omega$ points. The covariance also changes shape
-slightly ($\sigma_x = 2.355$ against $2.306$, $\sigma_y = 2.810$ against
-$2.854$).
+$\sqrt{5} \approx 2.236$ standard deviations (\cref{tab:ch19-sigma}). The
+centre image is the EKF prediction, $(-109.851, -5.489)$. The two heading
+points straddle the arc, and their average $x$ is $-108.882$, almost a metre
+east of the centre image, because the arc bends and the chord lies inside
+it. The weighted mean of all images, $\hat{\state}_k^- = (-109.641, -5.456,
+10, -2.8416, 0.3)$, is $0.21\,\mathrm{m}$ east of the EKF prediction: the
+second-order term $\tfrac12 P_{\psi\psi}\,\partial^2 x'/\partial\psi^2 =
+\tfrac12 \cdot 0.04 \cdot 9.85 = 0.197\,\mathrm{m}$, plus a little from the
+$\omega$ points. The covariance also changes shape slightly ($\sigma_x =
+2.355$ against $2.306$, $\sigma_y = 2.810$ against $2.854$). The update
+redraws eleven points around $\hat{\state}_k^-$, maps them through $h$ and
+obtains the predicted measurement $(109.81, -3.0918)$, the innovation
+$(1.69, -0.0713)$ after wrapping, and the gain from the cross-covariance.
+The result (\cref{tab:ch19-ekf-trace}) lies within $0.11\,\mathrm{m}$ of the
+EKF's: on this step the two filters agree because the heading uncertainty
+($0.2\,\mathrm{rad}$) is small compared with the curvature of the arc. The
+next section shows what happens when the belief is wide compared with the
+bend.
 
 \begin{table}[tb]
   \centering\small
   \caption{The sigma points of the UKF prediction in \cref{ex:ch19-ekf}
-  ($n = 5$, $\alpha = 1$, $\beta = 2$, $\kappa = 0$, so $\lambda = 0$,
-  $W_0^{(m)} = 0$, $W_0^{(c)} = 2$, $W_i = 0.1$) and the position of their
-  images under $f$. Each point differs from the mean in one component by
-  $\sqrt{5}$ standard deviations. The images of the two heading points
-  ($i = 4, 9$) straddle the arc; their average lies $0.97\,\mathrm{m}$ east
-  of the image of the mean, and the UKF prediction ends $0.21\,\mathrm{m}$
-  east of the EKF's.}
+  ($n = 5$, $\alpha = 1$, $\beta = 2$, $\kappa = 0$: $\lambda = 0$,
+  $W_0^{(m)} = 0$, $W_0^{(c)} = 2$, $W_i = 0.1$). Each pair $\mathcal{X}_i$,
+  $\mathcal{X}_{i+5}$ perturbs one component of the mean by $\pm\sqrt{5}$
+  standard deviations; the last two columns give the position of the images
+  under $f$. The images of the heading pair ($i = 4$) straddle the arc, and
+  their average lies $0.97\,\mathrm{m}$ east of the image of the mean.}
   \label{tab:ch19-sigma}
-  \begin{tabular}{@{}crrrrrrr@{}}
+  \begin{tabular}{@{}clcc@{}}
   \toprule
-  $i$ & $x$ [m] & $y$ [m] & $v$ [m/s] & $\psi$ [rad] & $\omega$ [rad/s] & $x'$ [m] & $y'$ [m]\\
+  $i$ & Perturbation & Image of $\mathcal{X}_i$ ($+$) & Image of $\mathcal{X}_{i+5}$ ($-$)\\
   \midrule
-  0 & $-100.000$ & $-4.000$ & $10.000$ & $3.142$ & $0.300$ & $-109.851$ & $-5.489$\\
-  1 & $-95.528$ & $-4.000$ & $10.000$ & $3.142$ & $0.300$ & $-105.379$ & $-5.489$\\
-  2 & $-100.000$ & $0.472$ & $10.000$ & $3.142$ & $0.300$ & $-109.851$ & $-1.017$\\
-  3 & $-100.000$ & $-4.000$ & $12.236$ & $3.142$ & $0.300$ & $-112.053$ & $-5.822$\\
-  4 & $-100.000$ & $-4.000$ & $10.000$ & $3.589$ & $0.300$ & $-108.238$ & $-9.602$\\
-  5 & $-100.000$ & $-4.000$ & $10.000$ & $3.142$ & $0.524$ & $-109.549$ & $-6.559$\\
-  6 & $-104.472$ & $-4.000$ & $10.000$ & $3.142$ & $0.300$ & $-114.323$ & $-5.489$\\
-  7 & $-100.000$ & $-8.472$ & $10.000$ & $3.142$ & $0.300$ & $-109.851$ & $-9.961$\\
-  8 & $-100.000$ & $-4.000$ & $7.764$ & $3.142$ & $0.300$ & $-107.648$ & $-5.156$\\
-  9 & $-100.000$ & $-4.000$ & $10.000$ & $2.694$ & $0.300$ & $-109.526$ & $-1.082$\\
-  10 & $-100.000$ & $-4.000$ & $10.000$ & $3.142$ & $0.076$ & $-109.990$ & $-4.382$\\
+  0 & none: $(-100, -4, 10, 3.142, 0.3)$ & $(-109.851, -5.489)$ & \\
+  1 & $x \pm 4.472$ & $(-105.379, -5.489)$ & $(-114.323, -5.489)$\\
+  2 & $y \pm 4.472$ & $(-109.851, -1.017)$ & $(-109.851, -9.961)$\\
+  3 & $v \pm 2.236$ & $(-112.053, -5.822)$ & $(-107.648, -5.156)$\\
+  4 & $\psi \pm 0.447$ & $(-108.238, -9.602)$ & $(-109.526, -1.082)$\\
+  5 & $\omega \pm 0.224$ & $(-109.549, -6.559)$ & $(-109.990, -4.382)$\\
   \bottomrule
   \end{tabular}
 \end{table}
-
-The update redraws eleven points around $\hat{\state}_k^-$, maps them
-through $h$ and obtains the predicted measurement $(109.81, -3.0918)$, the
-innovation $(1.69, -0.0713)$ after wrapping, and the gain from the
-cross-covariance. The result (\cref{tab:ch19-ekf-trace}) lies within
-$0.11\,\mathrm{m}$ of the EKF's: on this step the two filters agree because
-the heading uncertainty ($0.2\,\mathrm{rad}$) is small compared with the
-curvature of the arc. The next section shows what happens when the belief
-is wide compared with the bend.
 
 \subsection{EKF, UKF and particle filter on a turning target}
 \label{sec:ch19-ukf-compare}
@@ -858,10 +844,10 @@ cannot be. The particle filter drops the Gaussian.
 A \textbf{particle set}\index{particle filter!particle set} is a collection
 $\{(\state^{(i)}, w^{(i)})\}_{i=1}^N$ of states, the \textbf{particles},
 with non-negative weights summing to one. It represents the distribution
-$\sum_i w^{(i)}\,\delta(\state - \state^{(i)})$, so that the expectation of
-any $g$ is approximated by $\E[g(\state)] \approx \sum_i w^{(i)}
-g(\state^{(i)})$; the estimate is the weighted mean $\hat{\state} = \sum_i
-w^{(i)}\state^{(i)}$ and the weighted covariance.
+$\sum_i w^{(i)}\,\delta(\state - \state^{(i)})$, so that $\E[g(\state)]
+\approx \sum_i w^{(i)} g(\state^{(i)})$ for any $g$; the estimate is the
+weighted mean $\hat{\state} = \sum_i w^{(i)}\state^{(i)}$ and the weighted
+covariance.
 \end{definition}
 
 The weights come from \textbf{importance sampling}\index{importance
@@ -874,8 +860,8 @@ Smith~\cite{gordon1993novel}, also called \textbf{sequential importance
 resampling}\index{sequential importance resampling} (SIR)
 \cite{arulampalam2002tutorial}: each particle is moved through $f$ with its
 own draw of the process noise, which samples $p(\state_k \mid
-\state_{k-1}^{(i)})$, and then the weight is multiplied by the likelihood of
-the new measurement,
+\state_{k-1}^{(i)})$, and its weight is multiplied by the likelihood of the
+new measurement,
 \begin{equation}
   \state_k^{(i)} = f(\state_{k-1}^{(i)}) + \vect{w}_k^{(i)},\quad
   \vect{w}_k^{(i)} \sim \Normal(\vect{0}, \mat{Q}_k), \qquad
@@ -916,15 +902,15 @@ all the weight (\cref{exr:ch19-ess}). When $N_{\mathrm{eff}}$ falls below a
 threshold $N_{\mathrm{thr}}$, typically $N/2$, the filter
 \textbf{resamples}\index{resampling}: it draws $N$ particles from the
 current set with probabilities $w^{(i)}$, with replacement, and gives the
-copies equal weights $1/N$. Heavy particles are duplicated, light ones
-disappear, and the set again represents the same distribution with its
-weight spread evenly. Drawing $N$ times independently (multinomial
-resampling) costs $\bigO{N\log N}$ and adds unnecessary randomness;
+copies equal weights $1/N$; heavy particles are duplicated, light ones
+disappear, and the set represents the same distribution with its weight
+spread evenly. Drawing $N$ times independently (multinomial resampling)
+costs $\bigO{N\log N}$ and adds unnecessary randomness;
 \textbf{systematic resampling}\index{systematic resampling}
 \cite{kitagawa1996monte,arulampalam2002tutorial}, \cref{alg:ch19-resample},
-uses a single uniform draw and a grid of $N$ evenly spaced points walked
-along the cumulative weights, in $\bigO{N}$ time and with the smallest
-variance of the standard schemes.
+uses one uniform draw and a grid of $N$ evenly spaced points walked along
+the cumulative weights, in $\bigO{N}$ time and with the smallest variance
+of the standard schemes.
 
 \begin{algorithm}[htb]
 \caption{Systematic resampling}
@@ -1081,8 +1067,8 @@ probabilities $0.68$ and $0.28$, each with its own predicted path;
 \section{Properties: accuracy, convergence and cost}
 \label{sec:ch19-properties}
 
-None of the three filters is optimal for a nonlinear model; each is an
-approximation of the Bayes filter, and what can be proved is how good the
+None of the three filters is optimal for a nonlinear model; each
+approximates the Bayes filter, and what can be proved is how good the
 approximation is and what it costs.
 
 \begin{proposition}[The EKF and the second-order term]
@@ -1130,9 +1116,8 @@ odd terms cancel between $\bar{\state} + \vect{l}_i$ and $\bar{\state} -
 \vect{l}_i$, the constant term is weighted by $\sum_i W_i^{(m)} = 1$, and the
 quadratic terms give $\frac{1}{2(n+\lambda)}\sum_{i=1}^n \vect{l}_i\T
 \nabla^2 g\,\vect{l}_i = \frac{1}{2(n+\lambda)}\tr\bigl(\nabla^2 g\,
-\mat{L}\mat{L}\T\bigr) = \frac12\tr(\nabla^2 g\,\mat{P})$, which is the
-second-order term of \cref{eq:ch19-second-order} (for each component of
-$g$).
+\mat{L}\mat{L}\T\bigr) = \frac12\tr(\nabla^2 g\,\mat{P})$, the second-order
+term of \cref{eq:ch19-second-order} (for each component of $g$).
 \end{proof}
 
 The covariance is also correct through second order, with $\beta$ tuning
@@ -1172,11 +1157,10 @@ independent of $N$, such that
 \end{theorem}
 \begin{proof}[Proof sketch]
 Each step is a sampling operation (prediction and resampling) or a
-reweighting, and each contributes an error of order $1/\sqrt{N}$ in the
-mean square that is propagated by the next step; the constants compound
-over time. See Crisan and Doucet~\cite{crisan2002survey} for the theorem
-and Doucet, de Freitas and Gordon~\cite{doucet2001sequential} for the
-framework.
+reweighting, and each contributes a mean-square error of order $1/N$ that
+the next step propagates; the constants compound over time. See Crisan and
+Doucet~\cite{crisan2002survey} for the theorem and Doucet, de Freitas and
+Gordon~\cite{doucet2001sequential} for the framework.
 \end{proof}
 
 The theorem is reassuring and misleading at once: the rate $1/\sqrt{N}$
@@ -1307,7 +1291,6 @@ step, a hundred times faster than a Python loop over particles. Keep
 log-weights, normalise with the log-sum-exp trick, and detect a dead cloud
 (all log-weights $-\infty$) explicitly, restarting the weights flat rather
 than dividing by zero.\index{particle filter!vectorisation}
-
 \Cref{lst:ch19-ut} is the unscented transform of the chapter code;
 \cref{lst:ch19-pf} the resampling and the update of the particle filter.
 
@@ -1465,11 +1448,11 @@ chapter completes Week~9; its coding exercise is \cref{exr:ch19-coding}.
 
 \paragraph{Further reading.}
 Thrun, Burgard and Fox~\cite{thrun2005probabilistic} develop the Bayes
-filter, the EKF, the UKF and the particle filter in the same notation as
-this chapter; S\"arkk\"a~\cite{sarkka2013bayesian} is the concise
-mathematical treatment, with smoothing. The unscented transform is due to
-Julier and Uhlmann~\cite{julier1997new,julier2004unscented}, the parameters
-$\alpha$, $\beta$, $\kappa$ and the square-root form to Wan and van der
+filter, the EKF, the UKF and the particle filter in the notation of this
+chapter; S\"arkk\"a~\cite{sarkka2013bayesian} is the concise mathematical
+treatment, with smoothing. The unscented transform is due to Julier and
+Uhlmann~\cite{julier1997new,julier2004unscented}, the parameters $\alpha$,
+$\beta$, $\kappa$ and the square-root form to Wan and van der
 Merwe~\cite{wan2000unscented}. The bootstrap filter is Gordon, Salmond and
 Smith~\cite{gordon1993novel}; Arulampalam et
 al.~\cite{arulampalam2002tutorial} is the standard tutorial with systematic

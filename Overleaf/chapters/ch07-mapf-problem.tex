@@ -9,10 +9,10 @@
 \begin{objectives}
 \begin{itemize}
   \item State the classical multi-agent path finding problem exactly: graph, agents, discrete synchronous time, move and wait actions, time-indexed paths and plans, and the stay-at-target convention.
-  \item Recognise the five kinds of conflict of Stern et al.\ (vertex, edge, swapping, following, cycle), know which two this book forbids and why, and detect them by hand in a table of paths.
-  \item Compute the sum of costs and the makespan of a plan, explain why the two objectives can disagree, and state what is known about the complexity of feasibility and of optimality.
-  \item Read and write instances in the \code{.map} and \code{.scen} formats of the standard benchmark and name the solver families that the following chapters develop.
-  \item Implement a plan validator and a conflict detector in \python, in $\bigO{k^2T}$ and in $\bigO{kT}$ time, and use it to build deliberate conflict cases.
+  \item Recognise the five conflict types of Stern et al.\ (vertex, edge, swapping, following, cycle), know which two this book forbids and why, and find them by hand in a table of paths.
+  \item Compute the sum of costs and the makespan of a plan, explain why the two can disagree, and state what is known about the complexity of feasibility and of optimality.
+  \item Read the \code{.map} and \code{.scen} formats of the standard benchmark and name the solver families that the following chapters develop.
+  \item Implement a plan validator and conflict detectors in $\bigO{k^2T}$ and $\bigO{kT}$ time in \python, and use them to build deliberate conflict cases.
 \end{itemize}
 \end{objectives}
 
@@ -104,7 +104,7 @@ literature distinguishes.
 
 \begin{figure}[tb]
   \centering
-  \inputfigure{ch07/conflict-types}
+  \resizebox{\textwidth}{!}{\inputfigure{ch07/conflict-types}}
   \caption{The conflict types of Stern et al.\ \cite{stern2019mapf} between
   time $t$ and $t+1$. (a)~Two agents enter the same vertex. (b)~Two agents
   traverse the same edge in the same direction, which means they already
@@ -247,21 +247,21 @@ $m \ge 3$.
 
 \paragraph{What this book forbids.}
 Following \textcite{stern2019mapf}, \emph{classical} MAPF forbids vertex and
-swapping conflicts and allows following and cycle conflicts. Vertex conflicts
-are collisions by definition. Swapping conflicts are collisions too: two
-agents that exchange the endpoints of an edge in one step pass through each
-other in the middle of it. Edge conflicts need no rule of their own, because
-by \cref{prop:ch07-hierarchy}(a) they are already vertex conflicts. Following
+swapping conflicts and allows following and cycle conflicts. Vertex
+conflicts are collisions by definition, and so are swaps: two agents that
+exchange the endpoints of an edge in one step pass through each other in its
+middle. Edge conflicts need no rule of their own, because by
+\cref{prop:ch07-hierarchy}(a) they are already vertex conflicts. Following
 is allowed because synchronous unit-speed motion keeps the follower one full
 edge behind the leader at every instant, and forbidding it would rule out
-convoys through a corridor and the plan of \cref{sec:ch07-example}. Cycle
-conflicts are allowed for the same reason: a rotation on a fully occupied
-cycle keeps every agent one edge from its neighbours. Some hardware disagrees
-with both choices, for example robots that need a free cell ahead before they
-start moving, or drones so large that following around a corner brings them
-too close (\cref{exr:ch07-separation}); such systems add following conflicts
-to the forbidden list and pay with longer plans.
-\Cref{tab:ch07-conflict-summary} sums up the rules.
+convoys through a corridor and the plan of \cref{sec:ch07-example}; a
+rotation on a fully occupied cycle keeps the same distance, so cycle
+conflicts are allowed too. Some hardware disagrees, for example robots that
+need a free cell ahead before they start moving, or drones so large that
+following around a corner brings them too close
+(\cref{exr:ch07-separation}); such systems add following conflicts to the
+forbidden list and pay with longer plans. \Cref{tab:ch07-conflict-summary}
+sums up the rules.
 
 \begin{table}[tb]
   \centering\small
@@ -325,7 +325,7 @@ solution with $\sumcost = 10$ has makespan $5$.
 
 \begin{figure}[tb]
   \centering
-  \inputfigure{ch07/objectives-disagree}
+  \resizebox{\textwidth}{!}{\inputfigure{ch07/objectives-disagree}}
   \caption{Three agents whose shortest paths cross at $(1,1)$ and $(1,2)$.
   Plan $Y$ delays the long path once and minimises the sum of costs; plan $X$
   delays the two short paths and minimises the makespan. No plan achieves
@@ -390,20 +390,20 @@ plan before you trust it, and the re-check of the drone architecture.
 \paragraph{Walkthrough.}
 The helper \MapfPosition implements the padding of \cref{def:ch07-path}: a
 question about a time beyond the end of a path is answered with the goal.
-This is what makes an agent that has arrived block its cell for everybody who
-comes later, and it is the first thing that home-made detectors get wrong
+This is what makes an arrived agent block its cell for everybody who comes
+later, and it is the first thing that home-made detectors get wrong
 (\cref{sec:ch07-implementation}). Line~\ref{alg:ch07-pairwise:horizon} fixes
-the horizon. Scanning further is pointless: after time $T$ no agent moves, so
+the horizon, and scanning further is pointless: after $T$ no agent moves, so
 no swap can occur, and two agents that share a cell at some $t > T$ already
-shared it at time $T$; since goals are distinct, two parked agents never
-share a cell at all. For each time step the algorithm first looks for vertex
-conflicts (line~\ref{alg:ch07-pairwise:vertex}) and then, unless $t = T$, for
-swaps between $t$ and $t+1$ (line~\ref{alg:ch07-pairwise:swap}). The
-condition $u \ne v$ excludes a pair of waiting agents, which is a vertex
-conflict and has been reported already. Returning at the first hit gives the
-earliest conflict, with ties broken towards vertex conflicts and then towards
-the smallest pair $(i, j)$; dropping the returns and collecting the hits
-instead gives all conflicts in the same order.
+shared it at $T$; since goals are distinct, two parked agents never share a
+cell. For each time step the algorithm first looks for vertex conflicts
+(line~\ref{alg:ch07-pairwise:vertex}) and then, unless $t = T$, for swaps
+between $t$ and $t+1$ (line~\ref{alg:ch07-pairwise:swap}); the condition
+$u \ne v$ excludes a pair of waiting agents, which is a vertex conflict
+reported already. Returning at the first hit gives the earliest conflict,
+with ties broken towards vertex conflicts and then towards the smallest pair
+$(i, j)$; collecting the hits instead of returning gives all conflicts in
+the same order.
 
 \paragraph{Cost.}
 Each time step compares all $k(k-1)/2$ pairs twice, so the running time is
@@ -462,11 +462,6 @@ and $a_i$ is detected at the insertion of the later of the two directed
 edges. Each time step performs $\bigO{k}$ dictionary operations of expected
 constant time, and the maps are cleared every step.
 \end{proof}
-
-When several conflicts share a time step, the two versions may report
-different ones; the implementation of \cref{sec:ch07-implementation} breaks
-ties by the smallest agent pair in both, so that they agree, and its self-test
-checks the agreement on random plans.
 
 % ---------------------------------------------------------------------
 \section{A worked example}
@@ -587,11 +582,10 @@ $a_3$ enters $(1,1)$ as $a_1$ leaves it, a convoy of three. Classical MAPF
 allows all of them, and \code{validate\_plan} accepts the plan. Its costs are
 $5$, $3$ and $4$, so $\sumcost = 12$ and $\makespan = 5$: coordination costs
 five extra time steps in total and two extra steps of mission time compared
-with the lower bounds $7$ and $3$. The reason is easy to see. Both $a_1$ and
-$a_2$ need the whole top row and one of them must step aside; the only side
-cells are $(1,1)$ and $(1,3)$, and $(1,3)$ is useless because whoever hides
-there has to come back through $(0,3)$, where $a_1$ parks. So the pocket
-$(1,1)$ must be used, and $a_3$ has to clear it first. The brute-force
+with the lower bounds $7$ and $3$. The price is unavoidable: $a_1$ and
+$a_2$ must pass each other, the only side cells of the top row are $(1,1)$
+and $(1,3)$, and $(1,3)$ is a dead end because $a_1$ parks at $(0,3)$; so the
+pocket $(1,1)$ must be used, and $a_3$ has to clear it first. The brute-force
 searches of the joint state space in \code{ch07\_mapf.py} confirm that no
 solution has $\sumcost < 12$ or $\makespan < 5$, so this plan is optimal for
 both objectives at once; \cref{ex:ch07-disagree} showed that this is a
@@ -633,12 +627,9 @@ maximum.
 \end{proof}
 
 The first two bounds are the values of the naive plan\index{naive plan!lower
-bound}, and they are the starting point of every optimal solver: the root of
-the constraint tree of \cbs (\cref{ch:ch09}) is the naive plan, the bound is
-what \ecbs (\cref{ch:ch10}) compares its solutions against, and the gap
-between the bound and the optimal cost is the price of coordination. In
-\cref{ex:ch07-grid} that gap is $5$ for the sum of costs and $2$ for the
-makespan.
+bound}, the root of the constraint tree of \cbs (\cref{ch:ch09}) and the
+yardstick of \ecbs (\cref{ch:ch10}); the gap between them and the optimal
+cost is the price of coordination, $5$ and $2$ in \cref{ex:ch07-grid}.
 
 \subsection{Feasibility is easy}
 
@@ -673,19 +664,19 @@ vertices, reports the unsolvable ones, and builds a solution in polynomial
 time~\cite{dewilde2014push}.
 \end{proof}
 
-Two remarks put the theorem in perspective. First, solvable does not mean
-easy to see. Two agents at the ends of a corridor that must exchange places
-have no solution however many empty cells the corridor contains, because on
-a path graph the left-to-right order of the agents can only change through a
-swap (\cref{exr:ch07-corridor}); a single pocket cell makes the instance
-solvable. With exactly one empty vertex, the classic case is the
+Two remarks put the theorem in perspective. First, decidable does not mean
+solvable: two agents at the ends of a corridor that must exchange places have
+no solution however many empty cells the corridor contains, because on a
+path graph their left-to-right order can only change through a swap
+(\cref{exr:ch07-corridor}), and a single pocket cell makes the instance
+solvable. With exactly one empty vertex the classic case is the
 15-puzzle\index{15-puzzle}, where half of all arrangements of the tiles are
-unreachable; the decision procedure of Kornhauser et al.\ is a generalisation
-of that parity argument to arbitrary graphs. Second, the solutions of the
-theorem are long, $\bigO{\abs{V}^3}$ moves executed largely one at a time,
-and nobody would fly them. Feasibility tells you that a solution exists and
-that a planner which fails on a solvable instance, as prioritized planning
-does in \cref{ch:ch08}, is failing for reasons of its own.
+unreachable; the decision procedure of Kornhauser et al.\ generalises that
+parity argument to arbitrary graphs. Second, the solutions of the theorem
+are long, $\bigO{\abs{V}^3}$ moves executed largely one at a time, and
+nobody would fly them. What feasibility buys is a certificate: a planner that
+fails on a solvable instance, as prioritized planning does in
+\cref{ch:ch08}, is failing for reasons of its own.
 
 \subsection{Optimality is hard}
 
@@ -728,12 +719,11 @@ close to the naive lower bound, so a search that starts from the naive plan
 and adds one constraint at a time has little ground to cover; that is \cbs.
 And a solution that is a few per cent more expensive than the optimum is
 often good enough, which is what bounded-suboptimal solvers such as \ecbs
-exploit. The alternative of searching the joint state space directly, with
-one state per configuration of all $k$ agents, is optimal but hopeless
-beyond a handful of agents: the joint space has $\abs{V}^k$ configurations,
-and the brute-force searches used to verify \cref{ex:ch07-grid} explore
-$14^3 = 2\,744$ of them per time step for three agents on fourteen free
-cells, but would face $14^{10}$ for ten.\index{joint state space}
+exploit. Searching the joint state space directly, with one state per
+configuration of all $k$ agents, is optimal but hopeless beyond a handful of
+agents: it has $\abs{V}^k$ configurations, $14^3 = 2\,744$ per time step
+for the three agents on fourteen free cells of \cref{ex:ch07-grid}, but
+$14^{10}$ for ten.\index{joint state space}
 
 % ---------------------------------------------------------------------
 \section{Solver families}
@@ -749,7 +739,7 @@ quality and in what they pay for it~\cite{stern2019mapf,felner2017search}.
 
 \begin{figure}[tb]
   \centering
-  \inputfigure{ch07/solver-families}
+  \resizebox{\textwidth}{!}{\inputfigure{ch07/solver-families}}
   \caption{Five families of MAPF solvers, ordered from the strongest to the
   weakest guarantee on solution quality. The chapters in brackets treat the
   algorithms in this book; the other names are pointers to the literature.}
@@ -775,51 +765,41 @@ quality and in what they pay for it~\cite{stern2019mapf,felner2017search}.
   \end{tabularx}
 \end{table}
 
-\paragraph{Optimal search-based solvers.}
-\cbs~\cite{sharon2015cbs}\index{CBS!as solver family} searches a tree of
-constraints: it plans every agent alone, finds the first conflict with the
-detector of \cref{sec:ch07-detection}, and branches by forbidding one of the
-two agents the conflicting vertex or edge at that time. \mstar searches the
-joint space but couples only the agents that actually conflict, and
-ICTS\index{ICTS} enumerates vectors of path costs in increasing order and
-checks whether the paths of those costs can be combined. All three are
-optimal and complete, and all three are exponential in the worst case, as
-\cref{thm:ch07-nphard} demands.
-
-\paragraph{Bounded-suboptimal solvers.}
-\ecbs~\cite{barer2014ecbs} relaxes \cbs with focal search on both levels and
-returns a solution of cost at most $w$ times the optimum for a chosen
-$w \ge 1$, typically $w = 1.1$ to $1.5$; EECBS~\cite{li2021eecbs} adds
-better lower bounds and heuristics. For a drone swarm this is the family to
-start from: a few per cent of extra flight time buys an order of magnitude
-in the number of agents.
-
-\paragraph{Unbounded-suboptimal solvers.}
-Prioritized planning\index{prioritized planning} \cite{silver2005cooperative}
-fixes an order of the agents and plans each with space-time \astar while
-treating the paths of the earlier agents as moving obstacles. It is fast and
-simple, but it can fail on solvable instances and its plans can be far from
-optimal; \cref{ch:ch08} shows both with counterexamples. Push-and-Swap and
+\paragraph{What the families do.}
+The optimal search-based solvers pay for optimality with exponential
+worst-case time, as \cref{thm:ch07-nphard} demands, and differ in what they
+search: \cbs~\cite{sharon2015cbs}\index{CBS!as solver family} a tree of
+constraints, branching on the first conflict that the detector of
+\cref{sec:ch07-detection} reports; \mstar the joint space, coupling only the
+agents that actually conflict; ICTS\index{ICTS} the vectors of path costs in
+increasing order. \ecbs~\cite{barer2014ecbs} relaxes \cbs with focal search
+and returns a solution of cost at most $w$ times the optimum for a chosen
+$w \ge 1$, typically $1.1$ to $1.5$; for a drone swarm this is the family to
+start from, because a few per cent of extra flight time buys an order of
+magnitude in the number of agents. Prioritized
+planning\index{prioritized planning}~\cite{silver2005cooperative} fixes an
+order of the agents and plans each with space-time \astar around the paths
+of the earlier ones; it is fast and simple, but it can fail on solvable
+instances and its plans can be far from optimal, as \cref{ch:ch08} shows
+with counterexamples. Push-and-Swap and
 Push-and-Rotate~\cite{luna2011push,dewilde2014push}\index{Push-and-Rotate}
-are rule-based: they move agents to their goals one by one and resolve
+are rule-based: they move the agents to their goals one by one and resolve
 blockages with local manoeuvres, and Push-and-Rotate is the complete
 algorithm behind \cref{thm:ch07-feasible}.
 
-\paragraph{Reduction-based solvers.}
-Fix a makespan bound $B$, encode ``is there a solution with
-$\makespan \le B$?'' as a Boolean formula or an integer program with one
-variable per agent, vertex and time step, hand it to a SAT or ILP solver, and
-increase $B$ until the answer is yes. The first yes is makespan-optimal by
-construction. \cref{ch:ch22} shows the integer-programming
-encoding~\cite{yu2016optimal}.
-
-\paragraph{Learned solvers.}
-PRIMAL~\cite{sartoretti2019primal} trains a decentralised policy by
-imitation of an optimal solver and by reinforcement learning; each agent
+\paragraph{Reductions and learning.}
+Reduction-based solvers fix a makespan bound $B$, encode ``is there a
+solution with $\makespan \le B$?'' as a Boolean formula or an integer
+program with one variable per agent, vertex and time step, hand it to a SAT
+or ILP solver, and increase $B$ until the answer is yes; the first yes is
+makespan-optimal by construction, and \cref{ch:ch22} shows the
+integer-programming encoding~\cite{yu2016optimal}. Learned solvers such as
+PRIMAL~\cite{sartoretti2019primal} train a decentralised policy by imitation
+of an optimal solver and by reinforcement learning, so that each agent
 chooses its next move from a local observation. Such policies scale and
-react, but they guarantee nothing, neither completeness nor collision
-freedom, so a plan they produce must pass the validator of this chapter and
-a classical solver must be ready as a fallback.
+react, but they guarantee neither completeness nor collision freedom, so a
+plan they produce must pass the validator of this chapter and a classical
+solver must stand by as a fallback.
 
 % ---------------------------------------------------------------------
 \section{Benchmarks and instance files}
@@ -862,14 +842,18 @@ as free and treats every other character as blocked. The cell in row $y$ and
 column $x$ of the file is our vertex $(r, c) = (y, x)$.
 
 \paragraph{The scenario format.}\index{scenario file (.scen)@scenario file (\code{.scen})}
-After the line \code{version 1}, every line describes one agent with the nine
-fields of \cref{tab:ch07-scen}. The coordinates are given as $x$ (column)
-first and $y$ (row) second, the opposite of our $(r, c)$; transposing them is
-the most common bug in home-made parsers, and it goes unnoticed on square
-maps until an agent starts inside a wall. The last field is the length of
-the agent's shortest path as computed by the benchmark's own tools; treat it
-as informative only and recompute distances with your own search. An
-\emph{instance} is made from a scenario by taking its first $k$ agents. The
+After the line \code{version 1}, every line describes one agent by nine
+fields: a bucket number (a distance group of the single-agent benchmark,
+ignored by MAPF solvers), the name of the map file, its width and height,
+the start $s_x, s_y$, the goal $g_x, g_y$, and the length of the agent's
+shortest path as computed by the benchmark's own tools, which you should
+treat as informative only. The coordinates are $x$ (column) first and $y$
+(row) second, the opposite of our $(r, c)$: the first agent of
+\cref{lst:ch07-files} starts in cell $(0,0)$ and its goal $(3, 2)$ is the
+cell $(r, c) = (2, 3)$. Transposing $x$ and $y$ is the most common bug in
+home-made parsers, and it goes unnoticed on square maps until an agent
+starts inside a wall. An \emph{instance} is made from a scenario by taking
+its first $k$ agents. The
 standard protocol runs a solver with a time limit (one minute is common) for
 $k = 10, 20, 30, \dots$ and reports the \textbf{success rate}\index{success rate}, the
 fraction of the scenarios of a map solved within the limit, as a function of
@@ -877,26 +861,6 @@ $k$. Every map comes with two families of scenarios, \code{random-1} to
 \code{random-25}, whose starts and goals are drawn uniformly, and
 \code{even-1} to \code{even-25}, whose start--goal distances are spread
 evenly over the distance buckets of the single-agent benchmark.
-
-\begin{table}[tb]
-  \centering\small
-  \caption{The fields of a \code{.scen} line, with the values of the first
-  agent of \cref{lst:ch07-files}, whose start $(x, y) = (0, 0)$ is the cell
-  $(0, 0)$ and whose goal $(3, 2)$ is the cell $(r, c) = (2, 3)$.}
-  \label{tab:ch07-scen}
-  \begin{tabular}{@{}lll@{}}
-  \toprule
-  Field & Meaning & Example\\
-  \midrule
-  bucket & distance group of the single-agent benchmark; ignored by MAPF solvers & \code{0}\\
-  map & name of the \code{.map} file & \code{small.map}\\
-  width, height & size of the map; must match the header of the map file & \code{4}, \code{3}\\
-  $s_x$, $s_y$ & start column and start row & \code{0}, \code{0}\\
-  $g_x$, $g_y$ & goal column and goal row & \code{3}, \code{2}\\
-  length & shortest single-agent path length reported by the benchmark; recompute it & \code{5}\\
-  \bottomrule
-  \end{tabular}
-\end{table}
 
 \paragraph{Map families.}
 \Cref{tab:ch07-maps} lists the families of maps in the benchmark with
@@ -933,10 +897,9 @@ and unit speed, and its time steps are synchronous. It is the right tool for
 comparing MAPF solvers with each other, which is how \cref{ch:ch08} to
 \cref{ch:ch11} use it, and the wrong tool for predicting how a swarm of
 drones will behave: it says nothing about altitude, kinematics, sensing or
-intruders. Results also depend strongly on the family, on $k$ and on the
-time limit, so a success rate quoted without all three is meaningless.
-\Cref{ch:ch25} builds the drone-specific scenarios on top of these files
-rather than instead of them.
+intruders, and a success rate quoted without the map, $k$ and the time
+limit is meaningless. \Cref{ch:ch25} builds the drone-specific scenarios on
+top of these files rather than instead of them.
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
@@ -1036,29 +999,11 @@ stays on free cells and moves at most one cell per step, and only then runs
 the detector; an illegal path would otherwise produce misleading conflicts.
 Use it as an oracle for every solver you write, including those of the next
 four chapters: a solver that reports a solution which the validator rejects
-has a bug, however plausible its plan looks. \Cref{lst:ch07-scen} is the
-scenario parser; note the swap of $x$ and $y$ in its last line. The
+has a bug, however plausible its plan looks. The
 brute-force searches \code{optimal\_soc\_bruteforce} and
 \code{optimal\_makespan\_bruteforce} explore the joint state space and are
 meant for verifying tiny instances such as \cref{ex:ch07-grid}, nothing
 larger.
-
-\begin{lstlisting}[caption={Parsing a \code{.scen} file into $(r,c)$ cells (from \code{code/ch07\_mapf.py}).},label={lst:ch07-scen}]
-def parse_scen(text: str) -> List[Tuple[Cell, Cell]]:
-    """Parse a .scen file into (start, goal) pairs as (row, col) cells.
-
-    Each line is: bucket  map  width  height  sx  sy  gx  gy  length,
-    where x is the column and y is the row.
-    """
-    pairs: List[Tuple[Cell, Cell]] = []
-    for ln in text.splitlines():
-        words = ln.split()
-        if not words or words[0].lower().startswith("version"):
-            continue
-        sx, sy, gx, gy = (int(w) for w in words[4:8])
-        pairs.append(((sy, sx), (gy, gx)))
-    return pairs
-\end{lstlisting}
 
 \begin{pitfall}[Agents that have arrived still block their cell]
 The most common detector bug is to compare paths only up to the shorter
@@ -1081,11 +1026,10 @@ the sum of costs depend on how many trailing waits a solver happens to store.
 A swap between $t$ and $t+1$ is indexed by $t$, the time before the move;
 the same conflict written with $t+1$ points a solver's constraint at the
 wrong time step. Vertex conflicts are checked for $t = 0, \dots, T$ but
-swaps only for $t = 0, \dots, T-1$, since no move starts at $T$. Finally, a
-conflict at $t = 0$ is impossible in a legal plan because starts are
-distinct, yet a validator must check it anyway: a solver that returns a
-path starting at the wrong cell is exactly the kind of bug it exists to
-catch.
+swaps only for $t = 0, \dots, T-1$, since no move starts at $T$. A conflict at
+$t = 0$ is impossible in a legal plan because starts are distinct, yet a
+validator must check it anyway: a path that starts at the wrong cell is
+exactly the kind of bug it exists to catch.
 \end{pitfall}
 
 \begin{pitfall}[Edge conflicts are more than swaps]
@@ -1167,11 +1111,9 @@ dictionary lookup.
 \paragraph{Lifelong missions.}
 Delivery and inspection missions are lifelong: a drone that reaches its
 target receives the next one. Lifelong MAPF~\cite{ma2017lifelong}\index{lifelong MAPF},
-introduced for warehouse pick-up and delivery, replaces the single goal of
-\cref{def:ch07-instance} by a stream of goals and re-plans in a rolling
-window, so the stay-at-target convention is relaxed to ``stay until the next
-task''. \cref{ch:ch08} touches windowed planning, and the replanning loop of
-\cref{ch:ch24} is a lifelong problem in disguise.
+introduced for warehouse pick-up and delivery, replaces the single goal by a
+stream of goals and re-plans in a rolling window (\cref{ch:ch08} touches
+windowed planning), so stay-at-target becomes ``stay until the next task''.
 
 \paragraph{Why classical MAPF remains the right abstraction.}
 Given all this, why not plan drones directly in continuous space and time?
@@ -1185,13 +1127,13 @@ local layers of \cref{ch:ch24} preserve while they adapt speeds and
 trajectories. The guarantees, completeness and optimality within a factor
 $w$, are proved at the discrete level and survive as long as the cell side,
 the time step and the safety margins are chosen so that the drone model of
-\cref{ch:ch02} can execute every move and every hover; the geometry of
-\cref{exr:ch07-separation} is the kind of check this requires. The discrete
-plan is also what the detector re-checks after the local layer has changed a
-route, and it is what makes results comparable on the benchmark of
-\cref{sec:ch07-benchmarks}. Continuous-time solvers push the boundary, but
-they keep the structure of \cbs and the conflict types of this chapter; they
-change what a conflict is geometrically, not what a solver does with it.
+\cref{ch:ch02} can execute every move and every hover
+(\cref{exr:ch07-separation} is the kind of check this requires). The
+discrete plan is also what the detector re-checks after the local layer has
+changed a route, and what makes results comparable on the benchmark.
+Continuous-time solvers push the boundary, but they keep the structure of
+\cbs and the conflict types of this chapter; they change what a conflict is
+geometrically, not what a solver does with it.
 
 \begin{dronebox}
 In the four-layer architecture of \cref{ch:ch24}, the global layer solves a
@@ -1216,31 +1158,29 @@ represent and detect MAPF conflicts correctly, which
 \section{Summary}
 \begin{summary}
 \begin{itemize}
-  \item A classical MAPF instance is $\langle G, s, g\rangle$: an undirected graph, $k$ agents with distinct starts and distinct goals, discrete synchronous time, and unit-cost move and wait actions. A plan is one time-indexed path per agent, a table with agents as rows and time steps as columns.
-  \item Stay-at-target: an agent that has arrived keeps its goal cell for ever and blocks it; the cost of a path is the time of its final arrival, and trailing waits at the goal are free.
-  \item Of the five conflict types of Stern et al., classical MAPF forbids vertex and swapping conflicts (edge conflicts are vertex conflicts in disguise) and allows following and cycle conflicts.
-  \item $\sumcost(\Pi) = \sum_i \cost(\pi_i)$ and $\makespan(\Pi) = \max_i \cost(\pi_i)$; both are bounded below by the naive plan of independent shortest paths, and $\makespan \le \sumcost \le k\,\makespan$. The two objectives can disagree already for three agents.
-  \item Conflict detection over the padded paths costs $\bigO{k^2 T}$ pairwise and $\bigO{kT}$ expected with hash maps; scanning up to the horizon $T$ suffices.
-  \item Feasibility is polynomial when the graph is connected and two vertices are empty; optimality is NP-hard for both objectives. Solver families trade this hardness for guarantees: optimal (\cbs, \mstar), bounded-suboptimal (\ecbs), unbounded (prioritized planning, Push-and-Rotate), reduction-based (SAT, ILP) and learned.
-  \item Instances come as \code{.map} files (\code{.} free, \code{@} and \code{T} blocked) and \code{.scen} files ($x$ = column, $y$ = row); the first $k$ agents of a scenario form an instance, and success rate against $k$ is the standard measure.
-  \item Drones fly on 3D lattices with kinematic post-processing or continuous-time variants, but the classical problem remains the right abstraction: it holds the combinatorial core and the guarantees.
+  \item A classical MAPF instance is $\langle G, s, g\rangle$: an undirected graph, $k$ agents with distinct starts and distinct goals, discrete synchronous time, and unit-cost move and wait actions. A plan is one time-indexed path per agent: a table with agents as rows and time steps as columns.
+  \item Stay-at-target: an arrived agent keeps its goal cell for ever and blocks it; a path costs the time of its final arrival, and trailing waits at the goal are free.
+  \item Classical MAPF forbids vertex and swapping conflicts (edge conflicts are vertex conflicts in disguise) and allows following and cycle conflicts.
+  \item $\sumcost = \sum_i \cost(\pi_i)$ and $\makespan = \max_i \cost(\pi_i)$; the naive plan bounds both from below, $\makespan \le \sumcost \le k\,\makespan$, and three agents suffice for the two objectives to disagree.
+  \item Conflict detection over the padded paths up to the horizon $T$ costs $\bigO{k^2 T}$ pairwise and $\bigO{kT}$ expected with hash maps.
+  \item Feasibility is polynomial on a connected graph with two empty vertices; optimality is NP-hard for both objectives. The optimal, bounded-suboptimal, unbounded, reduction-based and learned solver families trade this hardness for guarantees in different ways.
+  \item Instances come as \code{.map} files (\code{.} free, \code{@} and \code{T} blocked) and \code{.scen} files ($x$ = column, $y$ = row); the first $k$ agents of a scenario form an instance. Drones add 3D lattices, kinematics and continuous time, but the classical problem keeps the combinatorial core and the guarantees.
 \end{itemize}
 \end{summary}
 
 \paragraph{Further reading.}
-The definitions of this chapter follow Stern et al.~\cite{stern2019mapf},
-which also introduces the benchmark and surveys the variants; read it in
-full. Felner et al.~\cite{felner2017search} survey the search-based optimal
-solvers and their open problems, and Sharon et al.~\cite{sharon2015cbs} is
-the reference for \cbs, the solver of \cref{ch:ch09}. Complexity: Surynek
-\cite{surynek2010optimization} and Yu and LaValle~\cite{yu2013structure} for
-hardness, Kornhauser et al.~\cite{kornhauser1984pebble} for pebble motion
-and de Wilde et al.~\cite{dewilde2014push} for the complete polynomial
-algorithm. Silver~\cite{silver2005cooperative} is the origin of cooperative
-\astar and of the reservation table of \cref{ch:ch08}. For drones,
-H\"onig et al.~\cite{honig2016mapf,honig2018trajectory} on kinematic
-constraints, Andreychuk et al.~\cite{andreychuk2019ccbs} on continuous time
-and Ma et al.~\cite{ma2017lifelong} on lifelong MAPF.
+Stern et al.~\cite{stern2019mapf} is the source of the definitions and of
+the benchmark and surveys the variants; read it in full. Felner et
+al.~\cite{felner2017search} survey the search-based optimal solvers, and
+Sharon et al.~\cite{sharon2015cbs} is the reference for \cbs
+(\cref{ch:ch09}). Complexity: Surynek~\cite{surynek2010optimization} and Yu
+and LaValle~\cite{yu2013structure} for hardness, Kornhauser et
+al.~\cite{kornhauser1984pebble} and de Wilde et al.~\cite{dewilde2014push}
+for feasibility. Silver~\cite{silver2005cooperative} is the origin of
+cooperative \astar (\cref{ch:ch08}). For drones: H\"onig et
+al.~\cite{honig2016mapf,honig2018trajectory} on kinematic constraints,
+Andreychuk et al.~\cite{andreychuk2019ccbs} on continuous time and Ma et
+al.~\cite{ma2017lifelong} on lifelong MAPF.
 
 % ---------------------------------------------------------------------
 \section{Exercises}
@@ -1281,9 +1221,10 @@ case. (b) Suppose all $k$ shortest paths have the same length $L$ and some
 solution has makespan $L$. Show that a solution is optimal for the sum of
 costs if and only if it is optimal for the makespan. (c) \Cref{ex:ch07-disagree}
 has costs $4$, $2$, $3$ in the naive plan and optimal values $\sumcost = 10$
-and $\makespan = 4$. Use \cref{thm:ch07-bounds} to explain, without any
-search, why no solution can have $\sumcost = 9$ and why $\makespan = 4$ forces
-at least two agents to be delayed.
+and $\makespan = 4$. Use \cref{thm:ch07-bounds} and the fact that the shortest paths of $a_1$
+and $a_2$ are unique to explain, without any search, why no solution can
+have $\sumcost = 9$ and why $\makespan = 4$ forces at least two agents to
+be delayed.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
@@ -1344,9 +1285,8 @@ both conflict detectors of \cref{sec:ch07-detection}; test them on the cases
 of \cref{exr:ch07-conflict-cases} and on \cref{ex:ch07-grid}, and check
 that the two detectors agree on random plans. (b) Write the \code{.map} and
 \code{.scen} parsers, download \code{random-32-32-20} with its scenario
-\code{random-1}, build instances with the first $k = 10, 20, \dots, 100$
-agents, plan every agent alone, count the conflicts of the naive plan and
-time both detectors as $k$ grows. (c) Extend the detector to 8-connected
+\code{random-1}, and for the first $k = 10, 20, \dots, 100$ agents count
+the conflicts of the naive plan and time both detectors. (c) Extend the detector to 8-connected
 grids with a test for crossing diagonals, and show a plan that the
 4-connected detector accepts although two agents collide physically.
 (d) The coding exercise of Week~3 (\cref{ch:appA}): write a first
@@ -1355,7 +1295,7 @@ order with the space-time \astar of \cref{ch:ch04}, turning every planned
 path into vertex constraints, reverse-edge constraints and a blocked goal for
 the later agents; validate every plan with your detector, compare its sum
 of costs on \cref{ex:ch07-grid} with the optimum $12$, and show that on the
-corridor with one pocket of \cref{exr:ch07-corridor} the planner fails for
-one order of the two agents and succeeds for the other. \cref{ch:ch08}
-develops this planner properly.
+corridor with one pocket of \cref{exr:ch07-corridor} it fails for one order
+of the two agents and succeeds for the other (\cref{ch:ch08} develops this
+planner properly).
 \end{exercise}

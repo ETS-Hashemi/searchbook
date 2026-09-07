@@ -1,4 +1,1311 @@
 \chapter{Conflict-Based Search}
 \label{ch:ch09}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode are prefixed with "Cbs" to stay unique
+% across the book.
+\SetKwFunction{CbsHighLevel}{CBS}
+\SetKwFunction{CbsLowLevel}{CbsLowLevel}
+\SetKwFunction{CbsFirstConflict}{FirstConflict}
+\SetKwFunction{CbsSplit}{Split}
+
+\begin{objectives}
+\begin{itemize}
+  \item Explain the two-level idea of conflict-based search: a high-level best-first search over a binary \emph{constraint tree} and a low-level single-agent space-time \astar under constraints, and say why this beats search in the joint state space for loosely coupled teams.
+  \item Define constraints, constraint-tree nodes, conflicts and the split rule exactly, and trace \cbs by hand on a small instance, drawing the constraint tree with its costs.
+  \item Prove that \cbs is complete on solvable instances and returns a plan with the minimum sum of costs, and explain what its running time depends on.
+  \item Implement \cbs from scratch in \python, certify its optimality against a brute-force search on tiny instances, and test it on 2, 4 and 8 agents.
+  \item Recognise the classic implementation mistakes, and know the improvements (cardinal conflicts, bypass, high-level heuristics, symmetry breaking) that turn textbook \cbs into a practical solver.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch09-motivation}
+
+Twelve delivery drones share the airspace over a city block. Their routes
+have been reduced, as in \cref{ch:ch02}, to a grid of cells at a fixed
+altitude, with buildings as obstacles and a time step of a few seconds.
+Each drone alone is easy to route: \astar from \cref{ch:ch04} finds its
+shortest path in milliseconds. The difficulty is that the twelve shortest
+paths cross. Two drones want the same crossing cell at the same time; a
+third flies up a street while a fourth flies down it. The multi-agent path
+finding (MAPF) problem of \cref{ch:ch07} asks for twelve paths without any
+vertex or edge conflict, and, because every second of flight costs battery,
+for paths whose \emph{sum of costs} is as small as possible.
+
+\Cref{ch:ch07} showed that the obvious exact method, \astar in the joint
+state space, does not scale: with five actions per drone (four moves and a
+wait), a joint state has $5^{12} \approx 2.4 \times 10^{8}$ successors, and
+the number of joint states is $\abs{V}^{12}$. \Cref{ch:ch08} showed the
+opposite trade-off: prioritized planning plans the drones one after another
+against a reservation table, is very fast, but can fail on solvable instances
+and returns no guarantee on the cost of its plans. Conflict-based search
+(\cbs)\index{conflict-based search}\index{CBS} by Sharon, Stern, Felner and
+Sturtevant~\cite{sharon2012cbs,sharon2015cbs} sits between these two
+extremes. It plans every drone alone, exactly as prioritized planning does,
+but when two paths conflict it does not pick a winner: it tries \emph{both}
+ways of resolving the conflict, by forbidding one drone or the other from the
+contested cell at the contested time, and it continues with whichever
+alternative is cheaper. The result is a plan that is provably optimal and a
+search that pays only for the conflicts it actually meets, not for the number
+of drones. \cbs and its bounded-suboptimal sibling \ecbs (\cref{ch:ch10}) are
+the standard optimal and near-optimal MAPF solvers today and the basis of most
+of the research literature since 2012.
+
+In the four-layer hybrid architecture of \cref{ch:ch24}, \cbs is the
+\emph{global swarm planner}: before take-off it computes the nominal
+time-indexed route of every drone, and these routes are what the prediction,
+local-avoidance and replanning layers later protect and repair. Whenever a
+drone has been pushed off its route by an intruder and replans locally, the
+architecture re-validates the new route against the routes of the other
+drones with exactly the conflict check that \cbs uses at every node. This
+chapter is Week~4 of the study plan (\cref{ch:appA}): its coding milestone is
+a working optimal \cbs solver, written from scratch and tested on two, four
+and eight agents.
+
+The chapter proceeds as follows. \Cref{sec:ch09-intuition} gives the
+two-level idea, \cref{sec:ch09-problem} the exact definitions of constraints
+and constraint-tree nodes, and \cref{sec:ch09-algorithm} the pseudocode of
+both levels with a walkthrough. \Cref{sec:ch09-example} runs \cbs by hand on
+a crossing of two flight corridors and draws the whole constraint tree.
+\Cref{sec:ch09-properties} proves completeness and optimality and discusses
+what the running time depends on. \Cref{sec:ch09-variants} presents the
+improvements that make \cbs practical and an experiment on random grids,
+\cref{sec:ch09-implementation} the \python implementation and its pitfalls,
+and \cref{sec:ch09-drone} the place of \cbs in the drone system.
+
+% ---------------------------------------------------------------------
+\section{The idea in plain words}
+\label{sec:ch09-intuition}
+
+Imagine the drones planned in separate rooms, each unaware of the others.
+Every drone comes back with its own shortest route. Now lay the routes on one
+map and look for the first moment at which two drones, say $a_1$ and $a_2$,
+occupy the same cell $v$ at the same time $t$. Somebody has to give way, and
+we do not know who should. \cbs refuses to guess. It creates two
+\emph{worlds}: in the first world a single new rule says ``$a_1$ may not be
+at $v$ at time $t$'', in the second world the rule says the same about $a_2$.
+In each world only the drone that received the rule goes back to its room and
+replans; everybody else keeps their route. A rule can only make a route
+longer or leave it unchanged, so each world is at least as expensive as its
+parent.
+
+\cbs keeps all worlds it has created in a priority queue, ordered by the sum
+of the route costs, and always examines the cheapest one. If the cheapest
+world has no conflict, its routes are the answer, and they are optimal: every
+other world costs at least as much, and adding rules never makes a world
+cheaper. If the cheapest world still has a conflict, it is split again, the
+two new worlds inherit all rules of their parent plus one, and the queue is
+consulted again. The set of worlds forms a binary tree, the
+\textbf{constraint tree}\index{constraint tree} (CT), whose root is the world
+without rules. \Cref{fig:ch09-idea} shows the first split.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch09/idea}
+  \caption{The two-level idea. Left: planned alone, two shortest paths meet
+    in cell $v$ at time $t$. Right: the high level splits the conflict into
+    two children; each child adds one constraint and replans only the
+    constrained agent with the low level. The high level expands the cheaper
+    child first.}
+  \label{fig:ch09-idea}
+\end{figure}
+
+\begin{keyidea}
+\cbs separates \emph{who yields} from \emph{how to yield}. The high level
+decides who yields by searching a binary tree of constraint sets best-first
+on the sum of costs; the low level decides how to yield by running
+single-agent space-time \astar under the constraints of one agent. Every
+split keeps at least one optimal solution, and costs never decrease down the
+tree, so the first conflict-free node popped is optimal.\index{CBS!key idea}
+\end{keyidea}
+
+Two features of this idea deserve emphasis, because they explain when \cbs
+works well. First, the tree grows with the number of \emph{conflicts}, not
+with the number of agents: ten drones that never meet cost ten single-agent
+searches and one node. Second, the high level never looks inside a route. It
+only asks the low level for the cheapest route under a list of forbidden
+(cell, time) pairs, which is precisely the space-time \astar of
+\cref{ch:ch04}. Any single-agent planner that returns optimal paths under
+such constraints can serve as the low level, which is why \cbs generalises
+easily to other graphs, action sets and cost functions.
+
+% ---------------------------------------------------------------------
+\section{Problem statement and notation}
+\label{sec:ch09-problem}
+
+We use the MAPF model of \cref{ch:ch07} (after Stern et al.~\cite{stern2019mapf}).
+A graph $G = (V, E)$, in this chapter a 4-connected grid, is shared by $k$
+agents $a_1, \dots, a_k$ with distinct starts $s_i$ and distinct goals
+$\gamma_i$. Time is discrete. In one time step an agent moves along an edge
+or waits in its cell. A \textbf{path} $\pi_i$ of agent $a_i$ is a sequence of
+cells $\pi_i[0] = s_i, \pi_i[1], \dots, \pi_i[T_i] = \gamma_i$ with
+consecutive cells equal or adjacent; the agent stays at $\gamma_i$ for all
+$t \ge T_i$, so $\pi_i[t]$ is defined for every $t \ge 0$. Its \textbf{cost}
+$\cost(\pi_i) = T_i$ is the time of the final arrival at the goal, and the
+\textbf{sum of costs}\index{sum of costs} of a plan $\Pi = (\pi_1, \dots, \pi_k)$
+is $\sumcost(\Pi) = \sum_{i=1}^{k} \cost(\pi_i)$. Two agents have a
+\textbf{vertex conflict} $\langle a_i, a_j, v, t\rangle$ if
+$\pi_i[t] = \pi_j[t] = v$, and an \textbf{edge conflict} (a swap)
+$\langle a_i, a_j, u, v, t\rangle$ if $\pi_i[t] = u$, $\pi_i[t+1] = v$,
+$\pi_j[t] = v$ and $\pi_j[t+1] = u$.\index{conflict!vertex}\index{conflict!edge}
+Note that conflicts are checked for all $t$, including times after one of
+the agents has arrived: a parked drone still occupies its goal cell. A
+\textbf{solution} is a plan without conflicts; an \textbf{optimal} solution
+minimises $\sumcost$, and $C^*$ denotes its cost.
+
+\begin{definition}[Constraints]
+\label{def:ch09-constraint}
+A \textbf{vertex constraint}\index{constraint!vertex} $\langle a_i, v, t\rangle$
+forbids agent $a_i$ to occupy cell $v$ at time $t$. An \textbf{edge
+constraint}\index{constraint!edge} $\langle a_i, u, v, t\rangle$ forbids
+$a_i$ to move from $u$ at time $t$ to $v$ at time $t+1$. A path $\pi_i$
+\textbf{respects} a set $\mathcal{C}_i$ of constraints on $a_i$ if it
+violates none of them, where a vertex constraint $\langle a_i, v, t\rangle$
+with $v = \gamma_i$ and $t \ge \cost(\pi_i)$ counts as violated, because the
+agent is parked at $\gamma_i$ at that time.
+\end{definition}
+
+\begin{definition}[Constraint-tree node]
+\label{def:ch09-ctnode}
+A node $N$ of the \textbf{constraint tree}\index{constraint tree!node} is a
+triple $N = (N.\mathcal{C}, N.\pi, N.\cost)$ where $N.\mathcal{C} =
+(N.\mathcal{C}_1, \dots, N.\mathcal{C}_k)$ assigns a set of constraints to
+every agent, $N.\pi = (N.\pi_1, \dots, N.\pi_k)$ assigns to every agent a
+path of \emph{minimum cost among the paths that respect}
+$N.\mathcal{C}_i$, and $N.\cost = \sum_i \cost(N.\pi_i)$. The \textbf{root}
+$R$ has $R.\mathcal{C}_i = \emptyset$ for every agent, so $R.\pi_i$ is an
+unconstrained shortest path. A node is a \textbf{goal node} if $N.\pi$ has
+no conflict. Every non-goal node has two \textbf{children}, obtained by
+splitting one of its conflicts as follows:
+\begin{equation}
+\label{eq:ch09-split}
+\CbsSplit\bigl(\langle a_i, a_j, v, t\rangle\bigr) = \set{\langle a_i, v, t\rangle,\ \langle a_j, v, t\rangle},
+\qquad
+\CbsSplit\bigl(\langle a_i, a_j, u, v, t\rangle\bigr) = \set{\langle a_i, u, v, t\rangle,\ \langle a_j, v, u, t\rangle}.
+\end{equation}
+The child that receives constraint $\kappa$ on agent $a_i$ has
+$N'.\mathcal{C}_i = N.\mathcal{C}_i \cup \set{\kappa}$, the same constraint
+sets as $N$ for all other agents, and the same paths as $N$ except
+$N'.\pi_i$, which is recomputed.\index{conflict!splitting}
+\end{definition}
+
+The wording ``minimum cost among the paths that respect $N.\mathcal{C}_i$''
+is the heart of the definition. It makes $N.\cost$ a quantity that the low
+level can compute exactly, and it is what turns $N.\cost$ into a lower bound
+on every solution that obeys $N$'s constraints (\cref{sec:ch09-properties}).
+The problem the low level solves is therefore:
+
+\begin{definition}[The low-level problem]
+\label{def:ch09-lowlevel}
+Given an agent $a_i$ and a finite set $\mathcal{C}_i$ of constraints on it,
+find a path from $s_i$ to $\gamma_i$ of minimum cost that respects
+$\mathcal{C}_i$, or report that none exists.
+\end{definition}
+
+This is the constrained space-time \astar of \cref{ch:ch04} with the
+constraint set in the role of the reservation table. Three details of that
+search matter enough to repeat them here. The state is a pair $(v, t)$; a
+successor $(v', t+1)$ with $v' \in \set{v} \cup \Succ(v)$ is generated only
+if neither $\langle a_i, v', t+1\rangle$ nor $\langle a_i, v, v', t\rangle$
+is in $\mathcal{C}_i$. The heuristic is the static shortest-path distance
+$d_i(v)$ to $\gamma_i$, computed once per agent by a backward breadth-first
+search (or Dijkstra, \cref{ch:ch03}); it is consistent, so no state is
+expanded twice. And the goal test is not ``$v = \gamma_i$'' but ``$v =
+\gamma_i$ and $t > t_\gamma$'', where\index{goal-occupied-later test}
+\begin{equation}
+\label{eq:ch09-tgamma}
+t_\gamma = \max\set{t : \langle a_i, \gamma_i, t\rangle \in \mathcal{C}_i}
+\quad (t_\gamma = -1 \text{ if no constraint mentions } \gamma_i),
+\end{equation}
+because a path that ends at time $t \le t_\gamma$ would park the agent on
+its goal at the forbidden time. Since $\gcost(v,t) = t$ in space-time, the
+search key is simply $\fcost(v,t) = t + d_i(v)$.
+
+% ---------------------------------------------------------------------
+\section{The algorithm}
+\label{sec:ch09-algorithm}
+
+\Cref{alg:ch09-cbs} is the high level and \cref{alg:ch09-lowlevel} the low
+level. Together they are a complete description of \cbs as published by
+Sharon et al.~\cite{sharon2015cbs}; the only freedom left is which conflict
+to split when a node has several, and how to break ties in \Open.
+
+\begin{algorithm}[htb]
+\caption{Conflict-based search: the high level}
+\label{alg:ch09-cbs}
+\KwIn{graph $G$; agents $a_1, \dots, a_k$ with starts $s_i$ and goals $\gamma_i$}
+\KwOut{a conflict-free plan $\Pi = (\pi_1, \dots, \pi_k)$ of minimum sum of costs, or \emph{failure}}
+\Fn{\CbsHighLevel{$G$, $s_{1..k}$, $\gamma_{1..k}$}}{
+  \ForEach{agent $a_i$}{$R.\mathcal{C}_i \gets \emptyset$; $R.\pi_i \gets$ \CbsLowLevel{$a_i$, $\emptyset$}\label{alg:ch09-cbs:root}\;}
+  \lIf{some $R.\pi_i$ is failure}{\KwRet failure \tcp*[f]{an agent cannot reach its goal at all}}
+  $R.\cost \gets \sum_i \cost(R.\pi_i)$; \Open $\gets \set{R}$\label{alg:ch09-cbs:open}\;
+  \While{\Open $\neq \emptyset$}{
+    $N \gets$ pop the node with the smallest $N.\cost$ from \Open (ties: fewer conflicts first)\label{alg:ch09-cbs:pop}\;
+    $c \gets$ \CbsFirstConflict{$N.\pi$}\label{alg:ch09-cbs:validate}\;
+    \lIf{$c =$ \KwNil}{\KwRet $N.\pi$ \tcp*[f]{goal node: conflict-free, hence optimal}\label{alg:ch09-cbs:goal}}
+    \ForEach{constraint $\kappa \in$ \CbsSplit{$c$} \emph{(\cref{eq:ch09-split})}}{\label{alg:ch09-cbs:split}
+      $a_i \gets$ the agent named in $\kappa$\;
+      $N' \gets$ a copy of $N$; $N'.\mathcal{C}_i \gets N.\mathcal{C}_i \cup \set{\kappa}$\label{alg:ch09-cbs:child}\;
+      $N'.\pi_i \gets$ \CbsLowLevel{$a_i$, $N'.\mathcal{C}_i$}\tcp*{replan only the constrained agent}\label{alg:ch09-cbs:replan}
+      \If{$N'.\pi_i \neq$ failure}{
+        $N'.\cost \gets \sum_j \cost(N'.\pi_j)$; insert $N'$ into \Open\label{alg:ch09-cbs:push}\;
+      }
+    }
+  }
+  \KwRet failure\;
+}
+\end{algorithm}
+
+\begin{algorithm}[htb]
+\caption{The low level: space-time \astar for one agent under its constraints}
+\label{alg:ch09-lowlevel}
+\KwIn{agent $a_i$ with start $s_i$ and goal $\gamma_i$; constraint set $\mathcal{C}_i$; static distances $d_i(v)$ to $\gamma_i$}
+\KwOut{a minimum-cost path from $s_i$ to $\gamma_i$ that respects $\mathcal{C}_i$, or \emph{failure}}
+\Fn{\CbsLowLevel{$a_i$, $\mathcal{C}_i$}}{
+  $t_\gamma \gets$ largest $t$ with $\langle a_i, \gamma_i, t\rangle \in \mathcal{C}_i$, or $-1$\label{alg:ch09-lowlevel:tgamma}\;
+  $T_{\max} \gets H + 1 + D$, with $H$ the largest time in $\mathcal{C}_i$ (or $-1$) and $D = \max_v d_i(v)$\label{alg:ch09-lowlevel:horizon}\;
+  $\gcost(s_i, 0) \gets 0$; \Open $\gets \set{(s_i, 0)}$ with key $(d_i(s_i), 0)$; \Closed $\gets \emptyset$\;
+  \While{\Open $\neq \emptyset$}{
+    $(v, t) \gets$ pop the state with the smallest key $(\fcost, -\gcost)$ from \Open\label{alg:ch09-lowlevel:pop}\;
+    \lIf{$(v, t) \in$ \Closed}{\KwContinue}
+    add $(v, t)$ to \Closed\;
+    \lIf{$v = \gamma_i$ \KwAnd $t > t_\gamma$}{\KwRet the path read off the parent pointers\label{alg:ch09-lowlevel:goal}}
+    \lIf{$t \ge T_{\max}$}{\KwContinue\label{alg:ch09-lowlevel:cut}}
+    \ForEach{$v' \in \set{v} \cup \Succ(v)$ with $(v', t+1) \notin$ \Closed}{\label{alg:ch09-lowlevel:succ}
+      \lIf{$\langle a_i, v', t+1\rangle \in \mathcal{C}_i$ \KwOr $\langle a_i, v, v', t\rangle \in \mathcal{C}_i$}{\KwContinue\label{alg:ch09-lowlevel:forbid}}
+      \If{$t + 1 < \gcost(v', t+1)$}{
+        $\gcost(v', t+1) \gets t + 1$; parent$(v', t+1) \gets (v, t)$\;
+        push $(v', t+1)$ into \Open with key $(t + 1 + d_i(v'),\, -(t+1))$\label{alg:ch09-lowlevel:push}\;
+      }
+    }
+  }
+  \KwRet failure\;
+}
+\end{algorithm}
+
+\subsection{The high level, line by line}
+\label{sec:ch09-highlevel}
+
+Line~\ref{alg:ch09-cbs:root} builds the root: one unconstrained low-level
+search per agent. If an agent cannot reach its goal even alone, no plan
+exists and \cbs stops at once. Line~\ref{alg:ch09-cbs:open} puts the root
+into \Open, a priority queue keyed on $N.\cost$.\index{CBS!high level}
+
+Line~\ref{alg:ch09-cbs:pop} is the best-first choice: the node with the
+smallest sum of costs is expanded. Among nodes of equal cost, expanding the
+one with fewer conflicts first is the tie-breaking rule that Sharon et
+al.\ recommend~\cite{sharon2015cbs}; a node without conflicts is a goal
+node, and one with few conflicts is likely to be close to one. The
+tie-breaking rule affects only the effort, not the answer.
+
+Line~\ref{alg:ch09-cbs:validate} \emph{validates} the node: it scans the
+$k$ paths, time step by time step, for the earliest vertex or edge conflict
+(\cref{ch:ch07} gives the pairwise detection routine). The scan runs up to
+the largest path length and treats every agent as parked at its goal after
+its arrival. If no conflict exists, line~\ref{alg:ch09-cbs:goal} returns the
+paths: the node is a goal node, and \cref{sec:ch09-properties} proves that
+it is optimal. Otherwise the earliest conflict $c$ is split.
+
+Lines~\ref{alg:ch09-cbs:split}--\ref{alg:ch09-cbs:push} generate the two
+children. Each child copies the parent, so it inherits \emph{all} constraints
+of the parent, and adds the single constraint $\kappa$ to the set of the
+agent named in it (line~\ref{alg:ch09-cbs:child}). Only that agent is
+replanned (line~\ref{alg:ch09-cbs:replan}): the other $k-1$ paths still
+respect their unchanged constraint sets and are still of minimum cost, so
+recomputing them would only waste time and could, with different
+tie-breaking inside the low level, return different but equally good paths
+and confuse a trace. If the low level fails, the child is discarded: no path
+of $a_i$ satisfies its constraints, so no solution exists below that child.
+Otherwise the child's cost is recomputed and the child joins \Open
+(line~\ref{alg:ch09-cbs:push}).
+
+Note what is \emph{not} in the loop. There is no closed list: the constraint
+tree is a tree, and two nodes with the same constraint sets are possible but
+rare (\cref{sec:ch09-implementation}). There is no goal test at generation
+time: a child may be conflict-free but must wait in \Open until it is the
+cheapest, because a cheaper node may still lead to a cheaper solution. And
+there is no explicit stopping rule for unsolvable instances: if the instance
+has no solution but every agent can reach its goal alone, the loop runs for
+ever, generating ever more expensive nodes (\cref{sec:ch09-properties}).
+
+\subsection{The low level, line by line}
+\label{sec:ch09-lowlevel}
+
+\Cref{alg:ch09-lowlevel} is \cref{ch:ch04}'s space-time \astar written
+against a constraint set.\index{CBS!low level} Line~\ref{alg:ch09-lowlevel:tgamma}
+computes $t_\gamma$ of \cref{eq:ch09-tgamma}, the last time at which the goal
+is forbidden. Line~\ref{alg:ch09-lowlevel:horizon} fixes the time horizon:
+after the last constrained time $H$ the search is unconstrained, and from
+any cell the goal is then at most $D$ steps away, so an optimal path never
+needs more than $H + 1 + D$ steps. The horizon keeps the search finite when
+no path exists, for instance when the constraints seal the agent in. (For
+an edge constraint $\langle a_i, u, v, t\rangle$ the relevant time is
+$t + 1$.)
+
+Line~\ref{alg:ch09-lowlevel:pop} pops the state with the smallest
+$\fcost = t + d_i(v)$, with ties broken towards the larger $t$ (the
+``deeper'' state), exactly as in \cref{ch:ch04}. Line~\ref{alg:ch09-lowlevel:goal}
+is the goal test with the goal-occupied-later rule; a path that reaches
+$\gamma_i$ at a time $t \le t_\gamma$ is not accepted, and the search
+continues, typically by waiting somewhere and re-entering the goal later, or
+by leaving the goal and coming back. Line~\ref{alg:ch09-lowlevel:succ}
+generates the wait action and the moves; line~\ref{alg:ch09-lowlevel:forbid}
+drops the successors that a vertex or edge constraint forbids. Everything
+else is plain \astar with a consistent heuristic: because $d_i$ is
+consistent, a state is expanded once, and the first path that passes the
+goal test is a minimum-cost path among those that respect $\mathcal{C}_i$.
+
+% ---------------------------------------------------------------------
+\section{A worked example}
+\label{sec:ch09-example}
+
+\begin{example}[Two flight corridors that cross]
+\label{ex:ch09-crossing}
+\Cref{fig:ch09-example} (left) shows a $5 \times 3$ grid in which a
+horizontal corridor (row~1) and a vertical corridor (column~2) cross in the
+cell $(2,1)$; the four dark cells are buildings. Three drones fly:
+$a_1$ from $(0,1)$ to $\gamma_1 = (4,1)$ along the horizontal corridor,
+$a_2$ from $(2,0)$ up to $\gamma_2 = (2,2)$, and $a_3$ from $(2,2)$ down
+through the crossing and then east to $\gamma_3 = (4,0)$. Cells are written
+$(x, y)$ with $x$ the column and $y$ the row, $y$ growing upwards.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch09/example}
+  \caption{The worked example. Left: the root of the constraint tree, in
+    which every drone flies its own shortest path; $a_2$ and $a_3$ both want
+    the crossing cell $(2,1)$ at $t = 1$ (hatched). Right: the optimal plan
+    returned in node $N_3$, in which $a_2$ waits one step at its start and
+    $a_1$ waits one step at $(1,1)$; the sum of costs rises from $10$ to
+    $12$.}
+  \label{fig:ch09-example}
+\end{figure}
+
+\paragraph{The root.} Every number below is produced by
+\code{code/ch09\_cbs.py}, which prints this trace when run. Planned alone,
+the drones take
+\[
+R.\pi_1 = (0,1),(1,1),(2,1),(3,1),(4,1), \quad
+R.\pi_2 = (2,0),(2,1),(2,2), \quad
+R.\pi_3 = (2,2),(2,1),(3,1),(4,1),(4,0),
+\]
+with costs $4$, $2$ and $4$, so $R.\cost = 10$. Validation finds exactly one
+conflict: $a_2$ and $a_3$ are both in $(2,1)$ at $t = 1$, the vertex
+conflict $\langle a_2, a_3, (2,1), 1\rangle$. (Agent $a_3$ follows one step
+behind $a_1$ from $t=2$ on, but following is not a conflict in our model.)
+The root is split into $N_1$ with the constraint $\langle a_2, (2,1), 1\rangle$
+and $N_2$ with $\langle a_3, (2,1), 1\rangle$.
+
+\paragraph{Depth one.} In $N_1$ only $a_2$ is replanned. The cheapest path
+that is not in $(2,1)$ at $t=1$ waits one step: $N_1.\pi_2 =
+(2,0),(2,0),(2,1),(2,2)$, cost $3$, so $N_1.\cost = 11$. But now $a_2$ is in
+the crossing at $t = 2$, exactly when $a_1$ arrives there: $N_1$ has the
+single conflict $\langle a_1, a_2, (2,1), 2\rangle$. In $N_2$ only $a_3$ is
+replanned; it waits one step at its start, $N_2.\pi_3 =
+(2,2),(2,2),(2,1),(3,1),(4,1),(4,0)$, cost $5$, and $N_2.\cost = 11$ as
+well. This node is worse than it looks: $a_2$ now moves up into $(2,2)$ at
+$t=1$ while $a_3$ moves down into $(2,1)$, an edge conflict
+$\langle a_2, a_3, (2,1)\to(2,2), 1\rangle$, and from $t=2$ on $a_3$ occupies
+the same cells as $a_1$ at the same times, three more vertex conflicts.
+\Open now holds $N_1$ and $N_2$, both of cost $11$; the tie-breaking rule
+picks $N_1$ (one conflict) before $N_2$ (four).
+
+\paragraph{Depth two.} $N_1$ is split on $\langle a_1, a_2, (2,1), 2\rangle$.
+Child $N_3$ adds $\langle a_1, (2,1), 2\rangle$: $a_1$ waits once at
+$(1,1)$, $N_3.\pi_1 = (0,1),(1,1),(1,1),(2,1),(3,1),(4,1)$, cost $5$, total
+$12$, and the three paths are conflict-free. Child $N_4$ adds
+$\langle a_2, (2,1), 2\rangle$ to $a_2$'s set, which now holds two
+constraints; $a_2$ waits twice, cost $4$, total $12$, also conflict-free.
+Both children go into \Open. The high level next pops $N_2$, because its
+cost $11$ is still smaller than $12$: \emph{a conflict-free node is not
+returned until it is the cheapest node in} \Open. $N_2$ is split on its
+edge conflict into $N_5$ (constraint $\langle a_2, (2,1)\to(2,2), 1\rangle$,
+cost $12$, five conflicts) and $N_6$ ($\langle a_3, (2,2)\to(2,1), 1\rangle$,
+cost $12$, two conflicts). Now \Open holds $N_3, N_4, N_5, N_6$, all of cost
+$12$; $N_3$ has no conflict and was generated first, so it is popped,
+validated, and returned. \Cref{fig:ch09-tree} draws the tree and
+\cref{tab:ch09-ct} lists every node; \cref{tab:ch09-timeline} shows the
+returned plan.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch09/tree}
+  \caption{The constraint tree of \cref{ex:ch09-crossing}. Every child adds
+    exactly one constraint to its parent's sets ($+$) and replans one agent.
+    Costs never decrease downwards. Nodes $N_4$, $N_5$ and $N_6$ were
+    generated but never expanded; $N_4$ is a second optimal solution.}
+  \label{fig:ch09-tree}
+\end{figure}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The constraint-tree nodes of \cref{ex:ch09-crossing} in the order
+    of generation. A child inherits its parent's constraints and adds the one
+    listed. ``Conflicts'' is the number of conflicts among the node's paths;
+    the last column names the conflict that is split when the node is expanded.}
+  \label{tab:ch09-ct}
+  \begin{tabular}{@{}llccccl@{}}
+  \toprule
+  Node & Constraint added & $\cost(\pi_1)$ & $\cost(\pi_2)$ & $\cost(\pi_3)$ & Total / conflicts & Expansion \\
+  \midrule
+  $N_0$ (root) & none & 4 & 2 & 4 & 10 / 1 & 1st: split $\langle a_2,a_3,(2,1),1\rangle$\\
+  $N_1$ ($\leftarrow N_0$) & $\langle a_2,(2,1),1\rangle$ & 4 & 3 & 4 & 11 / 1 & 2nd: split $\langle a_1,a_2,(2,1),2\rangle$\\
+  $N_2$ ($\leftarrow N_0$) & $\langle a_3,(2,1),1\rangle$ & 4 & 2 & 5 & 11 / 4 & 3rd: split $\langle a_2,a_3,(2,1)\!\to\!(2,2),1\rangle$\\
+  $N_3$ ($\leftarrow N_1$) & $\langle a_1,(2,1),2\rangle$ & 5 & 3 & 4 & 12 / 0 & 4th: goal node, returned\\
+  $N_4$ ($\leftarrow N_1$) & $\langle a_2,(2,1),2\rangle$ & 4 & 4 & 4 & 12 / 0 & left in \Open (also optimal)\\
+  $N_5$ ($\leftarrow N_2$) & $\langle a_2,(2,1)\!\to\!(2,2),1\rangle$ & 4 & 3 & 5 & 12 / 5 & left in \Open\\
+  $N_6$ ($\leftarrow N_2$) & $\langle a_3,(2,2)\!\to\!(2,1),1\rangle$ & 4 & 2 & 6 & 12 / 2 & left in \Open\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The plan returned in $N_3$: the cell of every drone at every
+    time step. $a_3$ passes the crossing first, $a_2$ follows, and $a_1$
+    crosses last; after its arrival a drone stays at its goal.}
+  \label{tab:ch09-timeline}
+  \begin{tabular}{@{}lcccccc@{}}
+  \toprule
+  $t$ & 0 & 1 & 2 & 3 & 4 & 5\\
+  \midrule
+  $a_1$ & $(0,1)$ & $(1,1)$ & $(1,1)$ wait & $(2,1)$ & $(3,1)$ & $(4,1)$ goal\\
+  $a_2$ & $(2,0)$ & $(2,0)$ wait & $(2,1)$ & $(2,2)$ goal & $(2,2)$ & $(2,2)$\\
+  $a_3$ & $(2,2)$ & $(2,1)$ & $(3,1)$ & $(4,1)$ & $(4,0)$ goal & $(4,0)$\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{What the example shows.} \cbs expanded $4$ nodes, generated
+$7$, and called the low level $9$ times (three times for the root, once per
+child); the optimal cost is $12$, which the brute-force search over the joint
+state space in \code{ch09\_cbs.py} confirms. Four lessons are worth
+recording. (i)~Resolving one conflict can create another: the wait of $a_2$
+in $N_1$ produced the conflict with $a_1$, a drone that was not involved at
+the root. (ii)~Constraints accumulate: $N_4$ holds two constraints on $a_2$,
+and its path respects both. (iii)~The whole subtree below $N_2$, in which
+$a_3$ yields, costs at least $12$; \cbs generated its two children but never
+had to expand them, because $N_3$ was found at the same cost first, and it
+never had to look deeper, because costs cannot decrease. (iv)~Two optimal
+solutions exist ($N_3$ and $N_4$); which one is returned depends only on
+tie-breaking. Finally, every conflict split here was \emph{cardinal}: both
+children were more expensive than their parent. \Cref{sec:ch09-variants}
+explains why this is the case one wants, and why the variant that splits
+cardinal conflicts first produces the same tree on this instance.
+
+% ---------------------------------------------------------------------
+\section{Properties: correctness, optimality, complexity}
+\label{sec:ch09-properties}
+
+Throughout this section the graph is finite, every agent can reach its
+goal alone, and the low level is \cref{alg:ch09-lowlevel}, which returns a
+minimum-cost path respecting its constraints whenever one exists
+(\cref{ch:ch04}, together with the horizon argument of
+\cref{sec:ch09-lowlevel}). Two lemmas carry the entire theory.
+
+\begin{lemma}[A split loses no solution]
+\label{thm:ch09-split}
+Let $N$ be a constraint-tree node whose paths have a conflict $c$ between
+$a_i$ and $a_j$, and let $N_i'$ and $N_j'$ be the two children obtained by
+splitting $c$. Every solution $\Pi$ whose paths respect the constraints of
+$N$ respects the constraints of $N_i'$ or those of $N_j'$ (or both).
+\end{lemma}
+\begin{proof}
+Suppose $c = \langle a_i, a_j, v, t\rangle$ is a vertex conflict. If
+$\pi_i[t] = v$ and $\pi_j[t] = v$, then $\Pi$ has a vertex conflict at
+$(v,t)$ and is not a solution. Hence $\pi_i[t] \neq v$ or $\pi_j[t] \neq v$.
+In the first case $\pi_i$ respects $\langle a_i, v, t\rangle$, the only
+constraint of $N_i'$ that is not already a constraint of $N$, so $\Pi$
+respects all constraints of $N_i'$; in the second case the same holds for
+$N_j'$. (The convention that a parked agent occupies its goal is used here:
+if $\pi_i$ has arrived at $\gamma_i = v$ before $t$, then $\pi_i[t] = v$ and
+$\Pi$ violates the constraint, exactly as it would conflict in reality.) If
+$c = \langle a_i, a_j, u, v, t\rangle$ is an edge conflict, the children
+forbid $a_i$ to move $u \to v$ and $a_j$ to move $v \to u$ at time $t$. A
+solution cannot make both moves, because that is an edge conflict, so it
+respects at least one of the two constraints. \qedhere
+\end{proof}
+
+\begin{lemma}[The cost of a node is a lower bound]
+\label{thm:ch09-lowerbound}
+Let $N$ be a constraint-tree node and $\Pi$ any plan whose paths respect the
+constraints of $N$. Then $\sumcost(\Pi) \ge N.\cost$. In particular, every
+descendant $N'$ of $N$ satisfies $N'.\cost \ge N.\cost$: costs never decrease
+along a branch of the tree.
+\end{lemma}
+\begin{proof}
+By \cref{def:ch09-ctnode}, $N.\pi_i$ has minimum cost among the paths of
+$a_i$ that respect $N.\mathcal{C}_i$, and $\pi_i$ is such a path, so
+$\cost(\pi_i) \ge \cost(N.\pi_i)$ for every $i$; summing over $i$ gives the
+first claim. For the second, the constraint sets of a descendant contain
+those of $N$, so $N'.\pi$ respects the constraints of $N$, and the first
+claim applies with $\Pi = N'.\pi$. \qedhere
+\end{proof}
+
+\begin{lemma}[Invariant of the high level]
+\label{thm:ch09-invariant}
+Suppose the instance is solvable and let $\Pi^*$ be an optimal solution,
+$C^* = \sumcost(\Pi^*)$. At the start of every iteration of the loop of
+\cref{alg:ch09-cbs}, \Open contains a node $N$ whose constraints are all
+respected by $\Pi^*$, and every such node has $N.\cost \le C^*$.
+\end{lemma}
+\begin{proof}
+The bound $N.\cost \le C^*$ is \cref{thm:ch09-lowerbound} applied to
+$\Pi = \Pi^*$. For the existence, argue by induction over the iterations.
+Initially \Open holds the root, which has no constraints. Consider an
+iteration that pops a node $N$. If $N$ is not one of the nodes respected by
+$\Pi^*$, those nodes stay in \Open. If it is, and it is a goal node, the
+algorithm returns and there is no next iteration. Otherwise $N$ has a
+conflict $c$, and by \cref{thm:ch09-split} $\Pi^*$ respects the constraints
+of at least one child $N'$. The path $\pi_i^*$ of the agent constrained in
+$N'$ respects $N'.\mathcal{C}_i$, so a path exists and the low level does
+not fail; $N'$ is generated and inserted into \Open. \qedhere
+\end{proof}
+
+\begin{theorem}[Optimality of \cbs]
+\label{thm:ch09-optimal}
+If \cref{alg:ch09-cbs} returns a plan $\Pi$, then $\Pi$ is a solution and
+$\sumcost(\Pi) = C^*$.\index{CBS!optimality}
+\end{theorem}
+\begin{proof}
+The plan is returned at line~\ref{alg:ch09-cbs:goal} only after
+line~\ref{alg:ch09-cbs:validate} found no conflict, so $\Pi$ is a solution
+and $\sumcost(\Pi) \ge C^*$. Let $N$ be the node that was popped; $N.\cost =
+\sumcost(\Pi)$. At that moment \Open contained, by
+\cref{thm:ch09-invariant}, a node of cost at most $C^*$, and $N$ was a node
+of minimum cost in \Open, so $N.\cost \le C^*$. Hence
+$\sumcost(\Pi) = C^*$. \qedhere
+\end{proof}
+
+\begin{theorem}[Completeness of \cbs on solvable instances]
+\label{thm:ch09-complete}
+If the instance has a solution, \cref{alg:ch09-cbs} terminates and returns
+one.\index{CBS!completeness}
+\end{theorem}
+\begin{proof}
+Let $C^*$ be the optimal cost. We first show that only finitely many
+constraint-tree nodes have cost at most $C^*$. Let $N$ be such a node. By
+\cref{thm:ch09-lowerbound} all its ancestors have cost at most $C^*$ too.
+Every constraint on the branch from the root to $N$ was created by splitting
+a conflict of some ancestor $M$ at a time $t$; at that time at least one of
+the two agents had not yet arrived (two parked agents cannot share a cell,
+because goals are distinct, and an edge conflict involves two moving
+agents), so $t \le \max_i \cost(M.\pi_i) \le M.\cost \le C^*$. Moreover the
+constraint was not already in $M$'s sets, because $M$'s path violated it
+while respecting $M$'s constraints. The constraints along the branch are
+therefore distinct elements of the finite set of constraints with time at
+most $C^* + 1$, whose size is at most $\Delta = k\,(\abs{V} + 2\abs{E})\,(C^* + 2)$.
+So the depth of $N$ is at most $\Delta$, and since every node has at most
+two children, there are fewer than $2^{\Delta + 1}$ nodes of cost at most
+$C^*$.
+
+Now run the algorithm. By \cref{thm:ch09-invariant}, \Open is never empty,
+so the loop can only end by returning at line~\ref{alg:ch09-cbs:goal}.
+Every popped node has minimum cost in \Open and \Open always contains a
+node of cost at most $C^*$, so every popped node has cost at most $C^*$.
+Each node is popped at most once, and there are finitely many nodes of cost
+at most $C^*$, so the loop performs finitely many iterations and must
+return. By \cref{thm:ch09-optimal} the returned plan is an optimal solution.
+\qedhere
+\end{proof}
+
+\begin{remark}[Unsolvable instances]
+\label{rem:ch09-unsolvable}
+If every agent can reach its goal alone but no conflict-free plan exists
+(two agents in a corridor that must swap, for instance), the invariant
+fails and \cbs keeps generating ever more expensive nodes for ever. Sharon
+et al.~\cite{sharon2015cbs} state completeness for solvable instances only.
+In practice one imposes a limit on time or on the number of expanded nodes,
+or first runs a complete polynomial-time solver such as Push-and-Rotate
+(\cref{ch:ch11}) to decide solvability and to obtain an upper bound on
+$C^*$, beyond which the constraint tree need not be explored.
+\end{remark}
+
+\subsection{What the running time depends on}
+\label{sec:ch09-complexity}
+
+One iteration of the high level costs one validation, $\bigO{k^2 T}$ for
+paths of length up to $T$ when done pairwise (or $\bigO{kT}$ with a hash
+table of occupied cells per time step), plus two low-level searches, each
+$\bigO{\abs{V}\,T_{\max} \log(\abs{V}\,T_{\max})}$ for the space-time
+\astar. The total time is this per-node cost multiplied by the number of
+expanded constraint-tree nodes, and that number is the crux. The proof of
+\cref{thm:ch09-complete} bounds it by $2^{\Delta + 1}$, where $\Delta$ counts
+the constraints that could appear; in words, \emph{the effort of \cbs is
+exponential in the number of conflicts it has to resolve, and only
+polynomial in the number of agents for a fixed number of conflicts}.
+Sharon et al.~\cite{sharon2015cbs} phrase the same conclusion as a
+comparison with \astar on the joint state space (with the operator
+decomposition and independence detection of Standley~\cite{standley2010finding},
+see \cref{ch:ch11}): joint-space search is exponential in $k$ regardless of
+how the agents interact, \cbs is exponential in the depth of the constraint
+tree regardless of $k$.\index{CBS!complexity}
+
+\paragraph{Corridors against open rooms.} Which of the two is better on a
+given instance depends on how many alternative paths a conflict leaves open.
+Consider first a \emph{bottleneck}: two agents that must pass, one after the
+other, through a gap of one cell (\cref{exr:ch09-handtree}). Each agent has
+a single shortest path, one constraint delays one agent by one step, and
+the constraint tree has three nodes; joint-space \astar, in contrast, has to
+explore the product of the two agents' approaches to the gap. \cbs wins
+easily, and the more free space surrounds the bottleneck, the larger its
+advantage. Now consider an \emph{open room}: two agents cross an obstacle-free
+rectangle in perpendicular directions. Both have many shortest paths of
+equal cost, and, as \cref{sec:ch09-symmetry} and \cref{exr:ch09-rectangle}
+show, every pair of them conflicts. A constraint on one shortest path
+merely diverts the agent to another shortest path that conflicts again at a
+different cell, at the same cost, so the constraint tree fills a whole level
+of equal-cost nodes before the cost can rise by one. On the $5 \times 5$
+room of \cref{fig:ch09-symmetry} the self-test of \code{ch09\_cbs.py}
+records $15$ expanded nodes for a single cost increase with only two agents;
+the number grows exponentially with the size of the rectangle, whereas
+joint-space \astar simply steps around the encounter. The worst case for
+\cbs is a small, crowded map in which agents must shuffle past each other.
+The self-test contains a $4 \times 3$ maze with $8$ free cells and three
+agents whose optimal sum of costs is $24$: Dijkstra on the joint state space
+finds it in $0.01$~s, while \cbs had expanded $60\,000$ constraint-tree
+nodes after $13$~s without finding a conflict-free node, because every extra
+unit of cost can be spent as a wait of one step by one of several agents
+at one of several times, and each of these choices is a separate branch.
+\Cref{tab:ch09-compare} summarises the comparison; the improvements of
+\cref{sec:ch09-variants} attack precisely the open-room and corridor cases.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Exact and heuristic MAPF solvers seen so far. ``Effort grows
+    with'' names the quantity that drives the exponential part of the
+    running time.}
+  \label{tab:ch09-compare}
+  \begin{tabular}{@{}lccll@{}}
+  \toprule
+  Method & Complete & Optimal & Effort grows with & Best on\\
+  \midrule
+  Joint-space \astar (\cref{ch:ch07,ch:ch11}) & \checkmark & \checkmark & number of agents $k$ & few, tightly coupled agents\\
+  Prioritized planning (\cref{ch:ch08}) & no & no & nothing exponential & many agents, sparse interaction, no guarantees\\
+  \cbs (this chapter) & solvable & \checkmark & depth of the constraint tree & many agents with few, local conflicts\\
+  \ecbs (\cref{ch:ch10}) & solvable & $w$-bounded & depth, but far fewer nodes & the same, at larger scale\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{Variants and extensions}
+\label{sec:ch09-variants}
+
+Plain \cbs, as defined so far, is a clean algorithm but a slow solver: on
+open maps it spends most of its time generating equal-cost nodes that
+resolve nothing. The improvements below, all of which keep optimality,
+attack this waste at four points: \emph{which} conflict to split, whether
+to split at all, how to \emph{guide} the high level, and how to recognise
+whole families of conflicts at once. The bounded-suboptimal relaxation of
+\cbs, \ecbs, is the subject of \cref{ch:ch10}.
+
+\subsection{Cardinal, semi-cardinal and non-cardinal conflicts}
+\label{sec:ch09-cardinal}
+
+\begin{definition}[Conflict types]
+\label{def:ch09-cardinal}
+Let $c$ be a conflict of node $N$ and let $N_i'$ and $N_j'$ be the children
+that splitting $c$ would produce. The conflict is
+\textbf{cardinal}\index{conflict!cardinal} if $N_i'.\cost > N.\cost$ and
+$N_j'.\cost > N.\cost$, \textbf{semi-cardinal}\index{conflict!semi-cardinal}
+if exactly one child is more expensive than $N$, and
+\textbf{non-cardinal}\index{conflict!non-cardinal} if neither is.
+\end{definition}
+
+Boyarski et al.~\cite{boyarski2015icbs} observed that the order in which
+conflicts are split changes the size of the tree dramatically, and that
+splitting a non-cardinal conflict is almost always wasted work: both
+children keep the parent's cost, so \Open receives two nodes that are as
+good as their parent and still have conflicts, and the level of equal-cost
+nodes doubles. Splitting a cardinal conflict, in contrast, raises the cost in
+both children, so the search makes progress towards $C^*$ with every split.
+Their algorithm, ICBS, therefore splits a cardinal conflict if the node has
+one, else a semi-cardinal one, else any conflict. \Cref{tab:ch09-conflict-types}
+summarises the three cases; in \cref{ex:ch09-crossing} every split was
+cardinal, which is why ICBS builds the same tree there.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The three conflict types of ICBS and what a split achieves.}
+  \label{tab:ch09-conflict-types}
+  \begin{tabular}{@{}llll@{}}
+  \toprule
+  Type & Children's costs & MDD test at level $t$ & Split it? \\
+  \midrule
+  cardinal & both $> N.\cost$ & single cell in both MDDs & yes, first: the cost rises\\
+  semi-cardinal & exactly one $> N.\cost$ & single cell in one MDD & second choice\\
+  non-cardinal & both $= N.\cost$ & alternatives in both MDDs & avoid; try a bypass\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+Recognising the type without generating the children uses the
+\textbf{multi-valued decision diagram}\index{MDD} (MDD) of an agent,
+introduced by Sharon et al.\ for the increasing cost tree
+search~\cite{sharon2013icts}: for agent $a_i$ with current cost $c =
+\cost(N.\pi_i)$, the MDD is the layered graph whose level $t$ contains every
+cell that lies at time $t$ on \emph{some} path of cost $c$ from $s_i$ to
+$\gamma_i$ respecting $N.\mathcal{C}_i$. Building it costs one breadth-first
+search forwards and one backwards in space-time. A vertex conflict at
+$(v, t)$ is cardinal exactly when $v$ is the only cell at level $t$ of both
+MDDs, semi-cardinal when it is the only cell in one of them, and
+non-cardinal otherwise; edge conflicts are classified in the same way on
+the MDD edges. \Cref{fig:ch09-mdd} shows both situations: the corridor
+agents of the worked example have chain-shaped MDDs, so their conflict is
+cardinal, whereas two agents crossing an open room have wide MDDs, and all
+their conflicts are non-cardinal, the reason for the exponential trees of
+\cref{sec:ch09-complexity}.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch09/mdd}
+  \caption{Multi-valued decision diagrams. Left: at the root of
+    \cref{ex:ch09-crossing} the MDDs of $a_2$ and $a_3$ are chains that
+    share the cell $(2,1)$ at level $1$, so the conflict there is cardinal.
+    Right: in an open $3 \times 3$ room the MDDs of two crossing agents are
+    wide; the shared cells (red) have alternatives on both sides, so every
+    conflict is non-cardinal and a split does not raise the cost.}
+  \label{fig:ch09-mdd}
+\end{figure}
+
+\subsection{Bypassing a conflict}
+\label{sec:ch09-bypass}
+
+The second ICBS idea handles the non-cardinal conflicts that remain.
+Suppose node $N$ is expanded and one of its children, say $N'$, has the same
+cost as $N$ but fewer conflicts. Instead of inserting both children, ICBS
+\emph{adopts} the paths of $N'$ into $N$ ($N.\pi \gets N'.\pi$) and puts $N$
+back into \Open; no split takes place. This is the
+\textbf{bypass}\index{bypass}\index{CBS!bypass}: the agent found an
+alternative path of the same cost that avoids the conflict, so the tree need
+not record the choice. The modified $N$ is still a valid constraint-tree
+node in the sense of \cref{def:ch09-ctnode}, because $N'.\pi_i$ respects
+$N.\mathcal{C}_i$ (it respects the larger set $N'.\mathcal{C}_i$) and has the
+minimum cost under it; hence \cref{thm:ch09-split,thm:ch09-lowerbound} and
+the optimality proof are untouched. If no child qualifies, $N$ is split as
+usual. Bypasses are cheap, because the children had to be generated anyway,
+and on open maps they remove most non-cardinal conflicts without growing
+the tree.
+
+\subsection{Meta-agent \cbs}
+\label{sec:ch09-macbs}
+
+When two agents keep conflicting, a long chain of one-cell constraints is
+a poor way to coordinate them. Meta-agent \cbs (MA-CBS)\index{meta-agent
+CBS}\index{CBS!meta-agent} by Sharon et al.~\cite{sharon2015cbs} counts, for
+every pair of agents, the conflicts split between them along the current
+branch; when the count exceeds a bound $B$, the two agents are
+\emph{merged} into a meta-agent that the low level plans jointly, in the
+joint space of the pair, with the operator-decomposition \astar of
+Standley~\cite{standley2010finding}. The node is then replanned with the
+meta-agent under the union of the two agents' external constraints, and the
+tree continues to branch on conflicts between (meta-)agents. With $B = 0$
+everything is merged at once and MA-CBS is joint-space \astar; with $B =
+\infty$ it is plain \cbs. The bound therefore interpolates between the two
+regimes of \cref{sec:ch09-complexity}: small $B$ for tightly coupled
+groups in crowded rooms, large $B$ for loosely coupled swarms in corridors.
+
+\subsection{Admissible heuristics for the high level}
+\label{sec:ch09-heuristics}
+
+The high level of \cref{alg:ch09-cbs} orders nodes by $N.\cost$ alone,
+which is $\gcost$ without an $\hcost$: it is uniform-cost search over the
+constraint tree. Felner et al.~\cite{felner2018adding} showed how to add an
+admissible heuristic and run the high level as \astar (the family is called
+CBSH)\index{CBSH}\index{CBS!high-level heuristic}. The quantity to estimate
+is how much more cost any solution below $N$ must pay, and cardinal
+conflicts provide a lower bound. Build the \textbf{conflict graph} of $N$:
+one vertex per agent and one edge per cardinal conflict. Every solution
+below $N$ resolves every cardinal conflict, and resolving one forces at
+least one of its two agents to pay at least one extra unit (that is what
+cardinal means, in unit-cost grids). A set of agents that covers every edge
+of the conflict graph must therefore pay at least its size, so
+\begin{equation}
+\label{eq:ch09-hcg}
+h_{\mathrm{CG}}(N) = \text{size of a minimum vertex cover of the conflict graph of } N
+\end{equation}
+is admissible, and the high level can expand nodes in order of
+$N.\cost + h_{\mathrm{CG}}(N)$. Minimum vertex cover is NP-hard in general,
+but conflict graphs have few edges and a small branch-and-bound solves them
+in microseconds. At the root of \cref{ex:ch09-crossing} the conflict graph
+has the single edge $a_2 a_3$, so $h_{\mathrm{CG}}(N_0) = 1$ and the root's
+key is $11$; in $N_1$ the conflict $\langle a_1, a_2, (2,1), 2\rangle$ is
+cardinal, so $N_1$ has key $12$, the same as $N_2$ (cost $11$ plus one
+cardinal edge) and the same as $N_3$ (cost $12$, no conflict). A tie-break
+towards fewer conflicts then pops $N_3$ before $N_2$, and CBSH expands three
+nodes instead of four. Later work strengthened the heuristic with
+dependency graphs (an edge whenever the pair's MDDs admit no conflict-free
+joint path) and weighted dependency graphs (the edge weight is the pair's
+true extra cost, and a minimum weighted vertex cover is
+taken)~\cite{li2019improved}; these are the heuristics of today's
+reference implementations.
+
+\subsection{Symmetry breaking: rectangles and corridors}
+\label{sec:ch09-symmetry}
+
+The exponential trees of \cref{sec:ch09-complexity} come from
+\emph{symmetries}: families of shortest paths that are interchangeable for
+the cost but conflict pairwise, so that one-cell constraints exclude them
+one at a time. Li et al.~\cite{li2019symmetry} identified the most common
+one on grids, the \textbf{rectangle symmetry}\index{symmetry!rectangle}
+(\cref{fig:ch09-symmetry}, left): two agents whose shortest paths cross an
+obstacle-free rectangle in perpendicular directions, each moving
+monotonically towards its goal. \Cref{exr:ch09-rectangle} asks you to prove
+that every shortest path of one agent conflicts with every shortest path of
+the other. \textbf{Rectangle reasoning} detects such a pair from the MDDs
+and the start--goal bounding boxes, and replaces the two one-cell
+constraints of the split by two \textbf{barrier constraints}: the first
+child forbids $a_1$ from every cell of the rectangle's exit border at the
+time at which a shortest path would reach it, the second child does the
+same for $a_2$. The barriers are a valid split in the sense of
+\cref{thm:ch09-split}, since no solution can send both agents across the
+rectangle at shortest-path speed, so optimality is preserved, and a whole
+exponential family of conflicts is resolved by one split.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch09/symmetry}
+  \caption{Two symmetries. Left: rectangle symmetry in an open $5 \times 5$
+    room; one of the $5$ shortest paths of $a_1$ and one of the $10$ of
+    $a_2$ are drawn, and every pair meets in the shaded rectangle. Right:
+    corridor symmetry; $a_1$ and $a_2$ enter a corridor of length $5$ from
+    opposite ends, one must wait outside until the other has come through,
+    and plain \cbs turns each possible waiting time into a branch.}
+  \label{fig:ch09-symmetry}
+\end{figure}
+
+The mirror image of the open room is the \textbf{corridor
+symmetry}\index{symmetry!corridor} (\cref{fig:ch09-symmetry}, right): two
+agents traverse a corridor of degree-two cells in opposite directions. One
+of them must wait outside until the other has left, so the optimal cost
+exceeds the root cost by roughly the length of the corridor, and every
+intermediate cost level is filled with equal-cost nodes that differ only in
+where and how long the agents wait. \textbf{Corridor reasoning}, introduced
+with several related techniques by Li et al.~\cite{li2020pairwise}, computes
+for each agent the earliest time at which it can leave the corridor if the
+other agent goes first, and splits with two \emph{range constraints}: the
+first child forbids $a_1$ from the far end of the corridor at all times up
+to that bound, the second child forbids $a_2$ symmetrically. The same paper
+treats the \emph{target symmetry}, in which an agent parked at its goal
+blocks a corridor that another agent must use later, the situation of
+\cref{exr:ch09-goalstay}. All these techniques share one principle, which
+is also the principle behind barrier constraints and MA-CBS: \emph{any pair
+of constraint sets such that every solution satisfies at least one of them
+is a legal split}. \Cref{thm:ch09-split} is the only property a split has to
+satisfy.
+
+\subsection{An experiment on random grids}
+\label{sec:ch09-experiment}
+
+\Cref{fig:ch09-scaling} shows how \cbs scales on random $8 \times 8$ grids
+with $15\,\%$ obstacles as the number of agents grows from $2$ to $12$. For
+each $k$ the script \code{code/figures/gen\_ch09\_scaling.py} draws $12$
+instances with random distinct starts and goals and runs two solvers from
+\code{ch09\_cbs.py} on each, with a limit of $5$~s and $20\,000$ expanded
+nodes per run: plain \cbs (split the earliest conflict, ties on fewer
+conflicts) and \cbs with cardinal conflicts first and the bypass, labelled
+ICBS. The success rate is the fraction of instances solved within the
+limits; the node counts are averaged over the solved instances only.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch09/scaling}
+  \caption{\cbs on random $8 \times 8$ grids ($15\,\%$ obstacles, $12$
+    instances per $k$, $5$~s and $20\,000$ CT nodes per run). Left: fraction
+    of instances solved. Right: mean and maximum number of expanded
+    constraint-tree nodes on the solved instances, logarithmic scale. Both
+    curves grow exponentially with $k$ on this small map, because the number
+    of conflicts does; cardinal-first splitting and bypasses divide the node
+    count by three to seven and raise the success rate.}
+  \label{fig:ch09-scaling}
+\end{figure}
+
+Up to six agents every instance is solved in a few milliseconds, with
+$1.3$, $4.0$ and $7.8$ expanded nodes on average for $k = 2, 4, 6$. From
+eight agents on the tree explodes on some instances: plain \cbs solves
+$92\,\%$ of the instances with $k = 8$, $75\,\%$ with $k = 10$ and $58\,\%$
+with $k = 12$, and the mean number of expanded nodes on the solved instances
+grows to $55$, $241$ and $622$, with maxima of $441$, $1\,061$ and $2\,398$.
+The gap between mean and maximum is the signature of \cref{sec:ch09-complexity}:
+most instances are loosely coupled and cheap, a few contain a crowded room
+or a corridor and dominate the running time. Cardinal-first splitting with
+bypasses cuts the mean node count to $15$, $49$ and $92$ for $k = 8, 10,
+12$ and the maxima to $66$, $199$ and $308$; it solves all instances with
+$k = 8$ and $83\,\%$ and $75\,\%$ for $k = 10$ and $12$. Its price is
+visible in the low-level statistics: to classify a conflict, our
+implementation generates the two children of every candidate conflict in
+time order until it finds a cardinal one, so it performs more low-level
+expansions per constraint-tree node ($23\,600$ against $17\,700$ on average
+at $k = 12$); an MDD-based classifier avoids this. Twelve instances per
+setting make the success rates coarse (one instance is $8\,\%$), and the
+absolute times are those of pure \python, but the shape of the curves is
+the one reported by Sharon et al.\ and Boyarski et al.\ on benchmark maps:
+the number of agents that \cbs handles is set by the number of conflicts on
+the map, and the ICBS improvements move the wall by a few agents. Larger
+teams need the bounded-suboptimal \ecbs of \cref{ch:ch10}.
+
+% ---------------------------------------------------------------------
+\section{Implementation notes}
+\label{sec:ch09-implementation}
+
+\code{code/ch09\_cbs.py} implements everything in this chapter in about
+$400$ lines: the grid and the backward breadth-first distances, the low
+level, conflict detection, the high level with the tie-breaking on
+conflicts, the cardinal-first and bypass options, a brute-force optimal
+solver on the joint state space for certification, and the worked example.
+\Cref{lst:ch09-lowlevel} is the low level and \cref{lst:ch09-highlevel} the
+body of the high level. The remarks below are the decisions that matter.
+
+\paragraph{Constraint sets.} A node stores one immutable set of vertex
+constraints $(v, t)$ and one of edge constraints $(u, v, t)$ per agent.
+Immutability (\code{frozenset}) makes ``a child inherits all constraints of
+its parent and adds one'' a single union, and it makes aliasing bugs
+impossible: a child can never modify its parent's sets. For very deep trees
+one stores only the added constraint and a parent pointer, and rebuilds the
+set on demand, or uses a persistent set structure; the same applies to the
+$k$ paths, of which only one differs from the parent.
+
+\paragraph{The heuristic of the low level.} The static distances $d_i(v)$
+to $\gamma_i$ are computed once per agent by a backward breadth-first
+search and shared by every low-level call for that agent; the distances
+also give $D$ for the horizon and tell at once whether an agent can reach
+its goal at all. With a consistent heuristic no state is expanded twice, so
+the closed set is a plain \code{set} of $(v, t)$ pairs.
+
+\paragraph{Which conflict to split.} The default is the earliest conflict
+in time, the choice of Sharon et al.: resolving an early conflict changes
+the paths from that time on and often removes later conflicts as a side
+effect, whereas resolving a late conflict first is frequently undone by the
+resolution of an earlier one. The option \code{split="cardinal"} implements
+ICBS's preference by generating the children of the conflicts in time
+order and stopping at the first cardinal one; the generated children are
+reused when the node is expanded. This is exact but costs extra low-level
+searches (\cref{sec:ch09-experiment}); a production solver classifies
+conflicts with MDDs instead.
+
+\paragraph{Tie-breaking.} The heap key is
+$(N.\cost,\ \text{number of conflicts},\ \text{node id})$. Fewer conflicts
+first is the rule of \cref{alg:ch09-cbs}; the id makes the order
+deterministic (first generated, first expanded), which the worked example
+and the self-test rely on. Preferring \emph{deeper} nodes among equal keys
+is another common choice: it dives towards a goal node instead of sweeping
+a level.
+
+\paragraph{Duplicate nodes.} Two branches can reach the same constraint
+sets, for instance by splitting two independent conflicts in the two
+possible orders. Sharon et al.\ describe duplicate detection by hashing the
+constraint sets, and report that it rarely pays because such coincidences
+are uncommon; the implementation here does not detect duplicates, and the
+proofs of \cref{sec:ch09-properties} do not need it.
+
+\paragraph{Validation and limits.} Conflict detection walks the time axis
+once, comparing every pair of agents, and treats an agent as parked at its
+goal after its arrival; on large teams a dictionary from cells to agents per
+time step replaces the pairwise loop. The solver takes a time limit and a
+node limit and returns \code{None} when it hits one, which is the only way
+to stop on an unsolvable instance (\cref{rem:ch09-unsolvable}). The
+function \code{validate} re-checks a returned plan independently (start,
+goal, adjacency of consecutive cells, obstacles, conflicts); running it on
+every answer during development catches most bugs of the kinds described in
+the pitfalls below.
+
+\begin{lstlisting}[caption={The low level: space-time \astar under constraints, with the goal-occupied-later test and the horizon $T_{\max} = H + 1 + D$ (from \code{code/ch09\_cbs.py}).},label={lst:ch09-lowlevel}]
+def low_level(grid: Grid, start: Cell, goal: Cell, cons: Constraints,
+              dist: Dict[Cell, int], stats: Optional[Stats] = None) -> Optional[Path]:
+    """Space-time A* for one agent: a shortest path from ``start`` to
+    ``goal`` that respects ``cons``; ``dist`` are true distances to the goal.
+    The agent may finish at (goal, t) only if no vertex constraint touches
+    the goal at a time >= t, because it stays at the goal for ever after."""
+    if stats is not None:
+        stats.low_level_calls += 1
+    if start not in dist:
+        return None
+    goal_block = max((t for v, t in cons.vertex if v == goal), default=-1)
+    horizon = cons.last_time() + 1 + max(dist.values())     # T_max = H + 1 + D
+    counter = itertools.count()
+    g = {(start, 0): 0}
+    parent: Dict[Tuple[Cell, int], Tuple[Cell, int]] = {}
+    open_heap = [(dist[start], 0, next(counter), (start, 0))]
+    closed = set()
+    while open_heap:
+        f, neg_g, _, state = heapq.heappop(open_heap)
+        if state in closed:
+            continue
+        closed.add(state)
+        if stats is not None:
+            stats.low_level_expanded += 1
+        v, t = state
+        if v == goal and t > goal_block:            # goal-occupied-later test
+            path = [v]
+            while state in parent:
+                state = parent[state]
+                path.append(state[0])
+            return path[::-1]
+        if t >= horizon:
+            continue
+        for w in grid.neighbours(v) + [v]:           # moves and the wait action
+            nxt = (w, t + 1)
+            if nxt in closed or nxt in cons.vertex or (v, w, t) in cons.edge:
+                continue
+            if t + 1 < g.get(nxt, float("inf")):
+                g[nxt] = t + 1
+                parent[nxt] = state
+                heapq.heappush(open_heap, (t + 1 + dist[w], -(t + 1), next(counter), nxt))
+    return None
+\end{lstlisting}
+
+\begin{lstlisting}[caption={The body of the high level \code{cbs()}: root, best-first loop on the sum of costs, split, replan of one agent, optional bypass (from \code{code/ch09\_cbs.py}; \code{\_make\_child} unions the parent's constraints with the new one and calls \code{low\_level} for that agent only).},label={lst:ch09-highlevel}]
+    t0, stats, trace, ids = time.perf_counter(), Stats(), [], itertools.count()
+    dists = [grid.distances(g) for g in goals]         # one BFS per agent
+    paths = [low_level(grid, s, g, Constraints(), d, stats)
+             for s, g, d in zip(starts, goals, dists)]  # root: no constraints
+    if any(p is None for p in paths):
+        return Result(None, None, stats)
+    root = CTNode(tuple(Constraints() for _ in starts), paths,
+                  sum_of_costs(paths), len(all_conflicts(paths)), next(ids))
+    open_heap = [(root.cost, root.n_conflicts, root.id, root)]
+    stats.generated = 1
+    while open_heap:
+        _, _, _, node = heapq.heappop(open_heap)     # lowest cost, fewest conflicts
+        stats.expanded += 1
+        conflict, kids = _choose_conflict(node, split, grid, starts, goals, dists, stats)
+        entry = _record(node, conflict, trace) if keep_trace else None
+        if conflict is None:                          # goal node: conflict-free
+            stats.seconds = time.perf_counter() - t0
+            return Result(node.paths, node.cost, stats, trace)
+        if (time_limit is not None and time.perf_counter() - t0 > time_limit) or \
+           (node_limit is not None and stats.expanded >= node_limit):
+            break
+        children = []
+        for kid, (agent, extra) in zip(kids, conflict.constraints()):
+            if kid is None and split == "first":     # replan only that agent
+                kid = _make_child(node, agent, extra, grid, starts, goals, dists, stats)
+            if kid is not None:
+                children.append(kid)
+        if bypass and _bypass(node, children):
+            stats.bypasses += 1
+            if entry is not None:
+                entry["bypass"] = True
+            heapq.heappush(open_heap, (node.cost, node.n_conflicts, node.id, node))
+            continue
+        for kid in children:
+            kid.id = next(ids)
+            stats.generated += 1
+            if entry is not None:
+                entry["children"].append(_child_summary(kid))
+            heapq.heappush(open_heap, (kid.cost, kid.n_conflicts, kid.id, kid))
+    stats.seconds = time.perf_counter() - t0
+    return Result(None, None, stats, trace)
+\end{lstlisting}
+
+\begin{pitfall}[Replan only the constrained agent, and do replan it]
+The child of a split must (a)~inherit \emph{every} constraint of its parent,
+(b)~add exactly one, and (c)~recompute the path of the constrained agent and
+no other. Forgetting (a), for instance by building the child's set from the
+new constraint alone, lets the agent walk back into a cell it was forbidden
+earlier on the branch, and the tree loops through the same conflicts.
+Forgetting (c) by copying the parent's path list by reference, or by
+replanning the wrong agent of the pair, produces a node whose paths violate
+its own constraints; the node's cost is then wrong, and \cref{thm:ch09-lowerbound}
+fails, so the returned plan may be suboptimal or conflicting. Replanning
+\emph{all} agents is not wrong but wastes $k-1$ searches per node and, with
+low-level tie-breaking, can shuffle paths that had no reason to change.
+Immutable constraint sets and an independent \code{validate} of every
+returned plan make all three mistakes visible at once.
+\end{pitfall}
+
+\begin{pitfall}[A parked drone still occupies its goal]
+Two places must know that an agent stays at its goal for ever. The conflict
+check must compare agents beyond the end of the shorter path, treating the
+arrived agent as sitting on its goal cell; otherwise a drone flying through
+another's goal after its arrival is never reported and the plan is invalid.
+And the low level must apply the goal-occupied-later test
+(line~\ref{alg:ch09-lowlevel:goal}): a constraint $\langle a_i, \gamma_i, t\rangle$
+with $t$ later than the agent's arrival is only satisfied by a path that
+arrives after $t$ or leaves and comes back. A low level that accepts the
+first arrival returns the parent's path unchanged, the child has the same
+conflict as the parent, and the high level splits the same conflict for
+ever.
+\end{pitfall}
+
+\begin{pitfall}[An unbounded time horizon]
+Space-time has infinitely many states, because waiting is always possible.
+If the constraints seal an agent in, a low level without a horizon runs for
+ever, expanding $(v, t)$ for larger and larger $t$; the same happens when a
+constraint forbids the goal at a time that no path can avoid. The horizon
+$T_{\max} = H + 1 + D$ of line~\ref{alg:ch09-lowlevel:horizon} keeps every
+low-level call finite without excluding any optimal constrained path. The
+high level has the corresponding problem on unsolvable instances
+(\cref{rem:ch09-unsolvable}); always run it with a time or node limit.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{Where this fits in the drone system}
+\label{sec:ch09-drone}
+\begin{dronebox}
+\cbs is the global swarm planner, the first of the four layers of the
+hybrid architecture in \cref{ch:ch24}. Before take-off it receives the
+inflated occupancy grid of \cref{ch:ch02}, one start and one goal cell per
+drone, and a time step chosen so that a drone crosses one cell per step at
+cruise speed, and it returns the nominal time-indexed routes
+$\pi_1, \dots, \pi_k$, conflict-free and of minimum total flight time. In
+three dimensions nothing changes except the successor function of the low
+level (a 6-connected grid of altitude layers). The routes are what the
+other layers work with: the prediction layer (\cref{ch:ch18,ch:ch20})
+watches for intruders that were not in the plan, the local layer
+(\cref{ch:ch13,ch:ch14}) lets a drone deviate from its route to avoid them,
+and the replanning layer (\cref{ch:ch05}) repairs the deviated drone's
+route, using the routes of the other drones as constraints in exactly the
+form of the low level here. After any such repair the architecture runs the
+conflict check of line~\ref{alg:ch09-cbs:validate} on the updated plan: if
+the repaired route conflicts with another drone, the affected pair is
+re-planned with \cbs on the constraints in force, and only then is the new
+plan released. The optimality guarantee of \cref{thm:ch09-optimal} holds
+for the nominal plan; after deviations, the re-check is what preserves
+conflict-freedom. When more than a dozen drones interact, the global planner
+is \ecbs (\cref{ch:ch10}) with the same two levels. This chapter is Week~4
+of the study plan (\cref{ch:appA}): its milestone is the solver of
+\cref{exr:ch09-coding}.
+\end{dronebox}
+
+% ---------------------------------------------------------------------
+\section{Summary}
+\begin{summary}
+\begin{itemize}
+  \item \cbs solves MAPF optimally with two levels: the high level searches a binary \emph{constraint tree} best-first on the sum of costs, the low level plans one agent with space-time \astar under that agent's constraints.
+  \item A node holds constraint sets, one minimum-cost path per agent that respects them, and the sum of the path costs. The root has no constraints. A node whose paths are conflict-free is a goal node.
+  \item A conflict $\langle a_i, a_j, v, t\rangle$ is split into two children, one adding $\langle a_i, v, t\rangle$ and one adding $\langle a_j, v, t\rangle$; an edge conflict is split into the two opposite edge constraints. Only the constrained agent is replanned; constraints accumulate down the tree.
+  \item Every solution satisfies at least one of the two constraints of a split (\cref{thm:ch09-split}), and a node's cost lower-bounds every solution below it (\cref{thm:ch09-lowerbound}); hence the first conflict-free node popped is optimal (\cref{thm:ch09-optimal}) and \cbs terminates on solvable instances (\cref{thm:ch09-complete}).
+  \item The effort is exponential in the number of conflicts that must be resolved, not directly in the number of agents: \cbs excels at bottlenecks and corridors with few alternatives and suffers in open rooms and crowded mazes, where joint-space search can be better.
+  \item The low level must obey the constraints \emph{and} the goal-occupied-later test, and needs the horizon $T_{\max} = H + 1 + D$; a parked agent still conflicts.
+  \item ICBS splits cardinal conflicts first (identified with MDDs) and bypasses non-cardinal ones; MA-CBS merges agents that conflict repeatedly; CBSH adds admissible high-level heuristics such as the conflict-graph vertex cover; rectangle and corridor reasoning replace one-cell constraints by barrier and range constraints. All keep optimality because they are legal splits.
+  \item In the drone system \cbs computes the nominal time-indexed routes before flight, and its conflict check re-validates every repaired route.
+\end{itemize}
+\end{summary}
+
+\paragraph{Further reading.}
+The original conference paper~\cite{sharon2012cbs} and the journal
+version~\cite{sharon2015cbs} contain the algorithm, the proofs, MA-CBS and
+the corridor-versus-room analysis. ICBS is due to Boyarski et
+al.~\cite{boyarski2015icbs}, the MDD to the increasing cost tree
+search~\cite{sharon2013icts}, high-level heuristics to Felner et
+al.~\cite{felner2018adding} and Li et al.~\cite{li2019improved}, and
+symmetry reasoning to Li et al.~\cite{li2019symmetry,li2020pairwise}. The
+MAPF definitions and benchmark instances follow Stern et
+al.~\cite{stern2019mapf}; the joint-space baseline with operator
+decomposition and independence detection is Standley's~\cite{standley2010finding}.
+The bounded-suboptimal variants start with Barer et al.~\cite{barer2014ecbs}
+and are the subject of \cref{ch:ch10}.
+
+% ---------------------------------------------------------------------
+\section{Exercises}
+\label{sec:ch09-exercises}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch09-constraints}
+In node $N_2$ of \cref{ex:ch09-crossing} the paths are $\pi_1 =
+(0,1),(1,1),(2,1),(3,1),(4,1)$, $\pi_2 = (2,0),(2,1),(2,2)$ and $\pi_3 =
+(2,2),(2,2),(2,1),(3,1),(4,1),(4,0)$. List all four conflicts of this node
+(type, agents, cells, time) and, for each, the two constraints that
+\cref{eq:ch09-split} would generate. Which of them does \cref{alg:ch09-cbs}
+split, and why?
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch09-handtree}
+Consider the $3 \times 3$ grid in which the cells $(0,1)$ and $(2,1)$ are
+blocked, so that the only way from the bottom row to the top row is through
+the gap $(1,1)$. Agent $a_1$ flies from $(0,0)$ to $(2,2)$ and $a_2$ from
+$(2,0)$ to $(0,2)$. Build the constraint tree by hand: give the root paths
+and cost, the first conflict, the two children with their paths and costs,
+and the returned plan. How does the size of this tree compare with the
+number of joint states that \astar in the joint space would have to
+consider?
+\end{exercise}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch09-goalstay}
+In the map of \cref{ex:ch09-crossing} let $a_1$ fly from $(0,1)$ to
+$(4,1)$ as before, and let a second agent $a_2$ fly from $(0,0)$ to $(4,0)$,
+which forces it through the whole horizontal corridor and through $a_1$'s
+goal cell $(4,1)$ at $t = 5$, after $a_1$ has arrived at $t = 4$. Explain why
+the root has a conflict, what constraint each child receives, and what the
+low level does with the constraint $\langle a_1, (4,1), 5\rangle$ in
+particular. What would happen if the low level accepted the first arrival
+at the goal?
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch09-proof-lb}
+(a) \Cref{alg:ch09-cbs} splits the earliest conflict. Show, using only
+\cref{thm:ch09-split,thm:ch09-lowerbound}, that \cbs stays optimal and
+complete if it splits \emph{any} conflict of the node, for instance the
+last one or a random one. (b) Show that discarding a child whose low-level
+search fails (line~\ref{alg:ch09-cbs:replan}) never discards a solution.
+(c) Give an instance in which the choice of the conflict changes the number
+of expanded nodes.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch09-cardinal}
+Classify every conflict split in \cref{tab:ch09-ct} as cardinal,
+semi-cardinal or non-cardinal, using the costs of the children. Then draw
+the MDD of $a_1$ at the root and explain why the conflict
+$\langle a_1, a_2, (2,1), 2\rangle$ of $N_1$ is cardinal although $a_1$'s
+corridor is three cells wide at $x = 2$. Finally compute
+$h_{\mathrm{CG}}$ of \cref{eq:ch09-hcg} for $N_0$, $N_1$ and $N_2$.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch09-rectangle}
+In \cref{fig:ch09-symmetry} (left), $a_1$ flies from $(0,2)$ to $(4,3)$ and
+$a_2$ from $(1,1)$ to $(3,4)$ on an obstacle-free $5 \times 5$ grid. Count
+the shortest paths of each agent, and prove that every pair of shortest
+paths has a vertex conflict. Hint: at time $t$ both agents are on the
+anti-diagonal $x + y = 2 + t$; compare the $x$-coordinates. Conclude a lower
+bound on the optimal sum of costs.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch09-makespan}
+Suppose the high level orders the constraint tree by the makespan
+$\max_i \cost(N.\pi_i)$ instead of the sum of costs, with the low level
+unchanged. Is the returned plan makespan-optimal? Prove your answer by
+adapting \cref{thm:ch09-lowerbound,thm:ch09-optimal}, and name one
+practical difference from the sum-of-costs version.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch09-memory}
+A constraint-tree node in \code{ch09\_cbs.py} stores $k$ paths of up to $T$
+cells and $k$ constraint sets. Estimate the memory of a tree with $10^5$
+generated nodes for $k = 20$ and $T = 60$. Then design a node that stores
+only the replanned path, the added constraint and a parent pointer, and
+give the cost of reconstructing the $k$ paths and the constraint sets of a
+node at depth $d$.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch09-coding}
+The Week~4 exercise of the study plan. Implement \cbs from scratch for a
+4-connected grid: a low level with vertex and edge constraints, the
+goal-occupied-later test and the horizon; conflict detection with parked
+agents; and the high level with a heap keyed on the sum of costs. Reproduce
+the tree of \cref{tab:ch09-ct}. Then test it on random $8 \times 8$ grids
+with $2$, $4$ and $8$ agents, report the number of expanded nodes and the
+running time, and certify optimality on tiny instances against a
+brute-force search over the joint state space (as \code{ch09\_cbs.py}
+does). Validate every returned plan independently.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch09-icbs-coding}
+Extend your solver from \cref{exr:ch09-coding} with cardinal-first
+splitting and the bypass, first by generating both children of each
+candidate conflict as \code{ch09\_cbs.py} does, then with MDDs built by two
+breadth-first searches in space-time. Reproduce \cref{fig:ch09-scaling},
+add a curve for the MDD-based classifier, and report how the number of
+low-level expansions per constraint-tree node changes.
+\end{exercise}
