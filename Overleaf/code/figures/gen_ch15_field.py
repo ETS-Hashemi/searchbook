@@ -23,6 +23,8 @@ Files written into figures/data/ (whitespace separated, one header row):
     ch15-basin-stuck.dat    x y        starts that end in the local minimum
     ch15-basin-traj.dat     x y        eleven trajectories, separated by nan rows
     ch15-basin-escape.dat   x y        one trapped start rescued by random-walk escapes
+    ch15-swarm.dat          x y        six drones on a ring swapping places, with
+                                       inter-agent repulsion (nan rows separate them)
 
 Run from Overleaf/:   python3 code/figures/gen_ch15_field.py
 """
@@ -30,14 +32,15 @@ import os
 import sys
 
 import numpy as np
+from dataclasses import replace
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from ch15_potential_fields import (  # noqa: E402
     ApfParams, BASIN_GOAL, BASIN_OBS, CORRIDOR_GOAL, DISC, GOAL, attractive_potential,
     basin_experiment, basin_starts, corridor, corridor_case, gnron_case,
-    local_minimum_case, min_clearance, repulsive_potential, simulate, total_force,
-    total_potential, worked_example)
+    local_minimum_case, min_clearance, repulsive_potential, simulate, simulate_swarm,
+    total_force, total_potential, worked_example)
 
 OUT = os.path.join(os.path.dirname(HERE), "..", "figures", "data")
 U_CLIP = 40.0
@@ -135,7 +138,7 @@ def main():
         rows.append((x, max(min(fx, 8.0), -8.0), u))
     write("nopassage-profile", "x Fx U", rows)
 
-    # basin experiment: 441 starts, two discs with a 0.8 gap
+    # basin experiment: 441 starts, two overlapping discs (one peanut-shaped obstacle)
     starts = basin_starts()
     plain = basin_experiment(escape=False, prm=prm)
     walk = basin_experiment(escape=True, prm=prm)
@@ -154,6 +157,17 @@ def main():
     esc = simulate(starts[pick], BASIN_GOAL, BASIN_OBS, prm, escape=True,
                    rng=np.random.default_rng(15))
     write("basin-escape", "x y", thin(esc["path"], 6))
+
+    # swarm: six drones on a ring of radius 3 swap to the opposite points
+    ang = np.linspace(0.0, 2 * np.pi, 6, endpoint=False)
+    ring = np.stack([3 * np.cos(ang), 3 * np.sin(ang)], axis=1)
+    sw = simulate_swarm(ring, -ring, [], replace(prm, dt=0.02), k_agent=1.0)
+    rows = []
+    for i in range(6):
+        rows.extend(tuple(q) for q in thin(sw["history"][:, i], 10))
+        rows.append((np.nan, np.nan))
+    write("swarm", "x y", rows)
+    print("swarm: min separation %.3f over %d steps" % (sw["min_separation"], len(sw["history"]) - 1))
 
     print("worked example forces:")
     for name, r in table.items():

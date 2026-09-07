@@ -388,7 +388,7 @@ def basin_starts(nx=21, ny=21):
 
 
 def basin_experiment(escape=False, prm=None, seed=15):
-    """441 starts in front of two discs with a 0.8-wide passage."""
+    """441 starts in front of two overlapping discs (one peanut-shaped obstacle)."""
     prm = ApfParams() if prm is None else prm
     return simulate_many(basin_starts(), BASIN_GOAL, BASIN_OBS, prm, escape=escape,
                          rng=np.random.default_rng(seed))
