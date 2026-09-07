@@ -176,6 +176,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 13 | 13:20–13:40 | finishers for Ch 3, 4, 5, 8 and author for Ch 7 all terminated (4x HTTP 500, 1x out of usage credits) | no file damage; drafts intact |
 | 14 | 13:50 | fixed two build blockers myself: tcolorbox titles containing commas (global, `searchbook.sty`) and the missing `figures/ch08/idea.tex` | full book compiles: 168 pp, 0 errors |
 | 15 | 13:55 | 8.2/8.3 produced `Overleaf/searchbook.pdf` and `Overleaf/searchbook-overleaf.zip` (202 files) from the current state | delivered |
+| 20 | 02:27 | user: 35% of weekly Fable limit used in a day. All Fable workflows stopped. New cost-reduced loop (docs/workflows/chapter-loop.js): every agent on Opus, chapters capped at 12-16 pages, at most 2 review rounds (3rd only after a Major verdict) | Ch 10 done; Ch 11, 19, 20 drafted (to be completed on Opus) |
 | 18 | 02:15 | status check: Ch 10, 11, 19, 20 being written by the workflows (1.5-2k lines each, in compile-fix); the five standalone authors for Ch 6, 7, 8, 9, 12 died silently at 01:11 with no text | user chose model split: Fable authors, Opus reviews/revisions |
 | 19 | 02:16 | workflow scripts patched (review/revise -> Opus); journals monitored to stop/resume each workflow right after its current authors finish; third workflow prepared for Ch 6, 7, 8, 9, 12 | in progress |
 | 16 | 14:05 | model switched to Fable 5.1; ultracode on. Specs for Ch 9-25 written (docs/specs/). Authors launched for Ch 6, 7, 8, 9, 12 | running |
