@@ -36,7 +36,8 @@ the milestone of Week~11 of the study plan (\cref{ch:appA}) states the
 problem exactly: constraints must be enforced explicitly, not repaired after
 they have been violated.
 
-The reactive methods of Part~IV do part of this job. \orca (\cref{ch:ch13})
+The reactive methods of Part~IV do part of this job. Optimal reciprocal
+collision avoidance (\orca, \cref{ch:ch13})
 and the dynamic window approach (\cref{ch:ch14}) choose one velocity for the
 next step, and they are fast and robust. But they look one step or one fixed
 time $\ttc$ ahead, they treat one constraint at a time, and they know nothing
@@ -55,7 +56,8 @@ mature \cite{mayne2000constrained,rawlings2017mpc}, and its computational core,
 a quadratic program, is a solved problem \cite{boyd2004convex}.
 
 In the hybrid architecture of \cref{ch:ch24}, MPC is the tracker that sits
-between the planners and the flight controller: it follows the \cbs path,
+between the planners and the flight controller: it follows the
+conflict-based search (\cbs) path of \cref{ch:ch09},
 takes the \orca velocity as its reference when the safety layer is active,
 and is the one component that can promise, before the fact, that the
 formation and communication constraints will hold. This chapter builds it
@@ -155,9 +157,10 @@ and in three dimensions the same blocks appear with $3\times3$ identities. The
 physical limits $\norm{\acc}\le a_{\max}$ and $\norm{\vel}\le v_{\max}$ are
 discs, which are convex but not linear. Throughout this chapter we replace
 them by the per-axis boxes $\abs{u_{k,i}}\le a_{\max}$ and $\abs{v_{k,i}}\le
-v_{\max}$, which are linear; if you need the disc exactly, use a box of
-half-width $a_{\max}/\sqrt{2}$ (which lies inside the disc) or the inscribed
-polygon of \cref{thm:ch21-polygon} below. Time is indexed by $k$
+v_{\max}$, which are linear; if you need the disc or ball exactly, use the
+largest box inside it, of half-width $a_{\max}/\sqrt{n}$ (and
+$v_{\max}/\sqrt{n}$ for the velocity), or the inscribed polygon of
+\cref{thm:ch21-polygon} below. Time is indexed by $k$
 \emph{within} the horizon ($k=0$ is now, $k=N$ is the end of the window) and
 by $t$ in the closed loop.
 
@@ -220,7 +223,10 @@ before it fits into a convex program.
 \centering\small
 \caption{The constraints of a swarm drone, whether they are convex in the
 drone's own positions, how they enter the quadratic program, and whether they
-are usually hard or soft. The predicted positions of others
+are usually hard or soft. The last column is the recommendation of
+\cref{sec:ch21-constraints}, not a description of every implementation:
+\code{ch21\_mpc.py} attaches slacks to the avoidance rows only and keeps the
+keep-in rows of \cref{eq:ch21-qp-constraints} hard. The predicted positions of others
 ($\hat{\vect{o}}_k$, $\pos_k^{j}$) are data from the prediction layer or from
 the neighbour's communicated plan.}
 \label{tab:ch21-constraints}
@@ -231,8 +237,8 @@ Constraint & Form & Convex & In the QP & Hard/soft\\
 Input limit & $\abs{u_{k,i}}\le a_{\max}$ & yes & box on $\mat{U}$ & hard\\
 Velocity limit & $\abs{v_{k,i}}\le v_{\max}$ & yes & box on $\mat{S}_u^{v}\mat{U}$ & hard\\
 Avoidance & $\norm{\pos_k-\hat{\vect{o}}_k}\ge r_k$ & no & half-plane per step, \cref{def:ch21-halfplane} & soft\\
-Formation & $\norm{\pos_k^{i}-\pos_k^{j}-\vect{d}_{ij}}\le e_{\max}$ & yes & polygon, \cref{thm:ch21-polygon} & soft\\
-Communication & $\norm{\pos_k^{i}-\pos_k^{j}}\le R_{\mathrm{comm}}$ & yes & polygon, \cref{thm:ch21-polygon} & soft\\
+Formation & $\norm{\pos_k^{i}-\pos_k^{j}-\vect{d}_{ij}}\le e_{\max}$ & yes & polygon, $M=8$, \cref{thm:ch21-polygon} & soft\\
+Communication & $\norm{\pos_k^{i}-\pos_k^{j}}\le R_{\mathrm{comm}}$ & yes & polygon, $M=8$, \cref{thm:ch21-polygon} & soft\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -397,7 +403,9 @@ the problem: the only decision variables are the $nN$ inputs, and the states
 are affine functions of them. We write $\mat{S}_x^{p}$, $\mat{S}_x^{v}$,
 $\mat{S}_u^{p}$, $\mat{S}_u^{v}$ for the rows that produce the positions and
 the velocities, and $\mat{S}_{u,k}^{p}$ for the $n$ rows that produce
-$\pos_k$.
+$\pos_k$. One warning on the fonts: $\mat{X}$ and $\mat{U}$ are stacked
+\emph{vectors} printed in the same bold as the matrices, whereas the calligraphic
+$\mathcal{X}$ of \cref{def:ch21-ocp} is the geofence, a set.
 
 \subsection{The quadratic program}
 \label{sec:ch21-qp}
@@ -447,14 +455,19 @@ $b_k=\vect{n}_k\T\bigl((\mat{S}_x\state_0)^{p}_k-\hat{\vect{o}}_k\bigr)-r_k$,
 and the $-\mat{I}$ next to it subtracts the slack $s_k$, so that the row
 reads $\vect{n}_k\T(\pos_k-\hat{\vect{o}}_k)\ge r_k-s_k$. The last block is
 $\vect{s}\ge\vect{0}$. For a hard avoidance constraint delete the slack
-column and the last block. Because $\bar{\mat{R}}\succ\mat{0}$ and $w_2>0$,
+column and the last block. Written this way the keep-in rows are hard, which
+is what the book's code does; softening them is the same construction as for
+avoidance (append a $-\mat{I}$ slack column and a non-negativity block, and add
+$w_1s+w_2s^2$ to the cost), and \cref{exr:ch21-coding} asks you to do it. Because $\bar{\mat{R}}\succ\mat{0}$ and $w_2>0$,
 $\mat{H}$ is positive definite, the program is strictly convex, and its
 minimiser is unique.
 
 The size of the program is what makes MPC practical. For the planar drone
-with $N=15$ there are $30$ inputs and $15$ slacks, and with one intruder
-$30+30+15+15=90$ constraint rows; \cref{sec:ch21-implementation} reports the
-solve times.
+with $N=15$ and one intruder the hard program has $30$ variables (the inputs)
+and $30+30+15=75$ rows: the input box, the velocity box, and one avoidance
+half-plane per step. Softening the avoidance rows adds $15$ slacks and their
+$15$ non-negativity rows, so $45$ variables and $90$ rows;
+\cref{sec:ch21-implementation} reports the solve times.
 
 \subsection{Solving the quadratic program}
 \label{sec:ch21-solver}
@@ -473,7 +486,9 @@ such as the alternating direction method of multipliers (ADMM)
 \cite{boyd2011admm} take many cheap steps, each a matrix--vector product,
 and they warm-start well. The book uses a small dense ADMM solver written in
 NumPy, the iteration of the OSQP solver \cite{stellato2020osqp}, for four
-reasons: it is thirty lines that you can read in full; it needs no library;
+reasons: its iteration is twenty lines that you can read in full (the solver
+around it, with scaling, restart and polishing, is some seventy-five); it
+needs no library;
 the shifted previous plan is a warm start it can use; and it detects an
 infeasible program instead of looping forever. For a real vehicle you would
 call OSQP itself, or a general nonlinear solver such as
@@ -486,7 +501,7 @@ constraints, but the algorithm is the same.
 \KwIn{$\mat{H}$, $\vect{f}$, $\mat{G}$, $\vect{l}$, $\vect{u}$; warm start $\vect{z}$, $\vect{y}$; penalty $\rho$, regularisation $\sigma$, relaxation $\alpha$, tolerance $\eps$}
 \KwOut{minimiser $\vect{z}$, multipliers $\vect{y}$, status}
 \Fn{\MpcAdmm{$\mat{H},\vect{f},\mat{G},\vect{l},\vect{u},\vect{z},\vect{y}$}}{
-  scale every row of $\mat{G}$ and of $\vect{l},\vect{u}$ to unit norm\label{alg:ch21-admm:scale}\;
+  scale every row of $\mat{G}$ and of $\vect{l},\vect{u}$ to unit infinity norm\label{alg:ch21-admm:scale}\;
   $\vect{w}\gets\Pi_{[\vect{l},\vect{u}]}(\mat{G}\vect{z})$; $\mat{K}\gets\mat{H}+\sigma\mat{I}+\rho\mat{G}\T\mat{G}$, factorised once\label{alg:ch21-admm:factor}\;
   \For{$i=1,2,\dots,i_{\max}$}{
     $\tilde{\vect{z}}\gets\mat{K}\inv\bigl(\sigma\vect{z}-\vect{f}+\mat{G}\T(\rho\vect{w}-\vect{y})\bigr)$\label{alg:ch21-admm:linsys}\;
@@ -504,7 +519,9 @@ constraints, but the algorithm is the same.
 \end{algorithm}
 
 \Cref{alg:ch21-admm} works with a copy $\vect{w}$ of $\mat{G}\vect{z}$ that
-is forced into the box $[\vect{l},\vect{u}]$ and a vector of
+is forced into the box $[\vect{l},\vect{u}]$ by the componentwise projection
+$\Pi_{[\vect{l},\vect{u}]}(\vect{a})=\min(\max(\vect{a},\vect{l}),\vect{u})$,
+and a vector of
 \textbf{Lagrange multipliers}\index{Lagrange multiplier} $\vect{y}$ that
 pushes the two copies together. Line~\ref{alg:ch21-admm:linsys} minimises
 the cost plus a quadratic penalty for the disagreement between $\mat{G}\vect{z}$
@@ -521,7 +538,10 @@ rows are equilibrated. The two residuals in the stopping test are the
 \textbf{primal residual}\index{residual!primal} (are the constraints
 satisfied?) and the \textbf{dual residual}\index{residual!dual} (is the
 gradient of the cost balanced by the constraint forces?); at a solution both
-are zero. ADMM converges to a modest accuracy quickly and to a high accuracy
+are zero; the code tests them every ten iterations against the mixed tolerance
+$\eps_{\mathrm{abs}}+\eps_{\mathrm{rel}}\sigma$, where $\sigma$ is the largest
+of the terms that make up the residual being tested. ADMM converges to a
+modest accuracy quickly and to a high accuracy
 slowly, so line~\ref{alg:ch21-admm:polish} \textbf{polishes}\index{polishing}
 the answer: it reads the \textbf{active set}\index{active set} (the rows
 whose multiplier is non-zero) off $\vect{y}$ and solves the
@@ -529,7 +549,10 @@ equality-constrained problem on those rows exactly, which makes the active
 constraints hold to machine precision. Finally, if the program is infeasible
 the multipliers grow along a direction $\delta\vect{y}$ with
 $\mat{G}\T\delta\vect{y}=\vect{0}$ and
-$\vect{u}\T\delta\vect{y}^{+}+\vect{l}\T\delta\vect{y}^{-}<0$, which is a
+$\vect{u}\T\delta\vect{y}^{+}+\vect{l}\T\delta\vect{y}^{-}<0$, where
+$\delta\vect{y}^{+}=\max(\delta\vect{y},\vect{0})$ and
+$\delta\vect{y}^{-}=\min(\delta\vect{y},\vect{0})$ are the positive and
+negative parts, which is a
 certificate that no $\vect{z}$ satisfies the bounds \cite{stellato2020osqp};
 line~\ref{alg:ch21-admm:infeasible} checks for it, so that a hard constraint
 that cannot be met is reported rather than iterated on forever.
@@ -644,10 +667,12 @@ and hard avoidance constraints. The simulation runs for $8$~s
 
 \begin{table}[tb]
 \centering\small
-\caption{Trace of \cref{alg:ch21-loop} on \cref{ex:ch21-crossing}, every
-half second: state, applied input, separation from the intruder, tracking
-error, the horizon steps $k$ whose avoidance constraint is active, and the
-largest multiplier. All numbers are printed by \code{ch21\_mpc.py}.}
+\caption{Trace of \cref{alg:ch21-loop} on \cref{ex:ch21-crossing}: every half
+second from $t=2$~s to $t=5$~s, then every second (the first two seconds are
+identical to the row $t=2.0$, all inputs zero). State, applied input,
+separation from the intruder, tracking error, the horizon steps $k$ whose
+avoidance constraint is active, and the largest multiplier. All numbers are
+printed by \code{ch21\_mpc.py}.}
 \label{tab:ch21-trace}
 \begin{tabular}{@{}rrrrrrrrrll@{}}
 \toprule
@@ -704,11 +729,10 @@ steps are usually active at once ($12$ and $13$, $7$ and $8$): the plan
 touches the disc along a short arc, not at a point, because the half-planes of
 neighbouring steps are nearly parallel and the drone slides along the disc
 for two steps. Second, the multipliers stay between $14$ and $19$ while the
-constraint is active. This number is the price, in units of the cost, of one
-more metre of clearance, and it is the number that decides how large the slack
-weight $w_1$ of a soft constraint must be (\cref{thm:ch21-exact}): with
-$w_1=50$ the soft controller reproduces this trajectory to the millimetre,
-with $w_1=1$ it cuts into the disc (\cref{sec:ch21-tuning}).
+constraint is active, and the largest over the whole run is $18.7$. This
+number is the price, in units of the cost, of one more metre of clearance, and
+it is the number that decides how large the slack weight $w_1$ of a soft
+constraint must be (\cref{thm:ch21-exact}, \cref{sec:ch21-tuning}).
 
 % ---------------------------------------------------------------------
 \section{Properties: stability, feasibility and cost}
@@ -728,6 +752,11 @@ $\mat{Q},\mat{R}\succ\mat{0}$, the terminal cost $V_f(\state)=\state\T\mat{P}\st
 and constraint sets $\state_k\in\mathcal{X}$, $\ctrl_k\in\mathcal{U}$ that contain
 the origin. Write $V_N(\state)$ for the optimal cost of \cref{eq:ch21-ocp}
 from the state $\state$ (the \textbf{value function}\index{value function}).
+For this section we let the stage sum start at $k=0$, that is
+$J=\sum_{k=0}^{N-1}\ell(\state_k,\ctrl_k)+V_f(\state_N)$; because $\state_0$
+is fixed data, the extra term $\state_0\T\mat{Q}\state_0$ is a constant and the
+minimiser of \cref{eq:ch21-ocp} is unchanged, but the bookkeeping of the proof
+below becomes the familiar one.
 Two \textbf{terminal ingredients}\index{terminal set}\index{model predictive control!terminal ingredients}
 turn MPC into a provably stable controller:
 \begin{enumerate}[label=(\roman*)]
@@ -918,7 +947,7 @@ With $N=20$ the controller sees the intruder $2$~s ahead and reduces its
 speed gently to $0.76$~m/s; with $N=10$ it reacts later and brakes to
 $0.56$~m/s; with $N=5$ it notices the conflict only $0.5$~s before it, brakes
 almost to a standstill ($0.22$~m/s) and needs longer to recover (RMS error
-$0.227$~m against $0.208$~m for $N\ge10$). All three keep the separation at
+$0.227$~m against $0.207$ to $0.209$~m for $N\ge10$). All three keep the separation at
 $1.000$~m, because the hard constraint is feasible in each case; with $N=3$
 it is not, and \cref{sec:ch21-experiment} shows what happens then.
 Panel~(b) varies the slack weight with soft constraints and $N=15$. With
@@ -1125,9 +1154,12 @@ why the solver resets the multipliers once if it has not converged after
 $2\,500$ iterations.
 
 \paragraph{Solve time.}
-With $30$ inputs, $15$ slacks and $90$ rows, one step of the planar example
-takes about $1.3$~ms on average and under $10$~ms at worst in NumPy on a
-laptop, an order of magnitude below a $\dt$ of $0.1$~s. Row scaling and
+With $30$ variables and $75$ rows (the hard program of
+\cref{ex:ch21-crossing}; $45$ variables and $90$ rows once the avoidance rows
+are softened), one step of the planar example takes a few milliseconds in
+NumPy on a laptop: about $1.3$~ms on average and under $10$~ms at worst on the
+machine that produced the numbers of this chapter. The figure is hardware
+dependent, but it is an order of magnitude below a $\dt$ of $0.1$~s. Row scaling and
 polishing are not optional: without scaling the same problems take thousands
 of iterations, and without polishing the active constraint holds only to
 $10^{-4}$ relative accuracy. Compute $\mat{S}_x$, $\mat{S}_u$ and
@@ -1224,10 +1256,9 @@ prediction changes abruptly.
 
 \begin{pitfall}[Hard constraints that become infeasible]
 A hard avoidance, formation or communication constraint promises what the
-drone cannot always deliver: an intruder detected at $1.2$~m in
-\cref{sec:ch21-experiment} makes the program infeasible on nine consecutive
-steps, and a hard-constrained controller then does whatever its fallback
-says. Keep the drone's own input and velocity bounds hard, make every
+drone cannot always deliver; the late-detection experiment of
+\cref{sec:ch21-experiment} is the standard case, and a hard-constrained
+controller then does whatever its fallback says. Keep the drone's own input and velocity bounds hard, make every
 constraint that depends on another agent soft with an exact penalty, and log
 the slacks: a non-zero slack is the event you want to count in
 \cref{ch:ch25}.
@@ -1257,8 +1288,9 @@ sensible minimum at $\dt=0.1$~s.
 
 \begin{dronebox}
 In the hybrid architecture of \cref{ch:ch24}, MPC is the constraint-enforcing
-tracker of each drone. Its reference is the time-indexed \cbs or \ecbs path of
-the global planner (\cref{ch:ch09,ch:ch10}), converted into a trajectory as
+tracker of each drone. Its reference is the time-indexed path of the global
+planner: \cbs (\cref{ch:ch09}) or its bounded-suboptimal variant enhanced
+\cbs (\ecbs, \cref{ch:ch10}), converted into a trajectory as
 in \cref{ch:ch02}; while the local safety layer is active, the \orca velocity
 of \cref{ch:ch13} replaces the path as the reference for the next steps, and
 the MPC turns that velocity into accelerations that respect $a_{\max}$,
@@ -1330,10 +1362,13 @@ quadrotor trajectory generation beyond the double integrator.
 \begin{exercise}[\difficulty{1}]
 \label{exr:ch21-receding}
 Explain in your own words why applying only $\ctrl_0^{*}$ and re-solving at
-the next step turns an open-loop plan into a feedback controller. Then run the
-code with all $N$ inputs of one plan applied in open loop while a constant
-wind adds $0.3$~m/s$^2$ to the plant, and compare the final error with the
-receding-horizon controller.
+the next step turns an open-loop plan into a feedback controller. Then measure
+the difference: run \code{simulate(\dots, wind=(0.0,0.3))}, which adds a
+constant $0.3$~m/s$^2$ to the plant but not to the model, and compare the
+tracking error with the same run in open loop, in which the plan is solved
+once and its stored inputs $\ctrl_0^{*},\dots,\ctrl_{N-1}^{*}$ are applied one
+after another (two lines inside \code{simulate}: keep the first \code{info["U"]}
+and index it with the step counter instead of calling \code{mpc.step} again).
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]

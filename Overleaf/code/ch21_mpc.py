@@ -377,7 +377,8 @@ class MPC:
         res = solve_qp(H, f, G, l_vec, u_vec, z0, y0)
         solve_time = time.perf_counter() - t0
         info = dict(status=res.status, iterations=res.iterations, polished=res.polished,
-                    solve_time=solve_time, n_rows=G.shape[0], n_vars=nz)
+                    solve_time=solve_time, n_rows=G.shape[0], n_vars=nz,
+                    guess=X_guess.reshape(N, self.nx))
         if not res.status.startswith("solved"):
             self.U_prev, self.y_prev = U_guess, None
             info.update(plan=X_guess.reshape(N, self.nx), slack=np.zeros(n_avoid),
@@ -437,11 +438,14 @@ class Follower(NamedTuple):
 
 
 def simulate(mpc: MPC, x0, ref, intruder=None, T=8.0, r_safe=1.0, followers=(),
-             cov_growth=None):
+             cov_growth=None, wind=None):
     """Run the closed loop; return a dict of per-step records.
 
     cov_growth = (Sigma0, Sigma_v): the predicted intruder position at step k
     gets covariance Sigma0 + (k dt)^2 Sigma_v (used with mpc.kappa > 0).
+    wind: a constant acceleration (n,) added to the plant but not to the model,
+    i.e. an unmodelled disturbance the receding horizon has to reject
+    (exercise 21.1).
     """
     mpc.reset()
     for fo in followers:
@@ -453,7 +457,9 @@ def simulate(mpc: MPC, x0, ref, intruder=None, T=8.0, r_safe=1.0, followers=(),
     rec = {k: [] for k in ("t", "x", "u", "sep", "err", "status", "iters", "time",
                            "slack", "active", "mult", "form_err", "dist")}
     rec["pred"] = []
+    rec["guess"] = []
     rec["polished"] = []
+    w_wind = np.zeros(mpc.nu) if wind is None else np.asarray(wind, dtype=float)
     for i in range(steps):
         t = i * dt
         Xref = stack_reference(ref, t, N, dt)
@@ -481,6 +487,7 @@ def simulate(mpc: MPC, x0, ref, intruder=None, T=8.0, r_safe=1.0, followers=(),
         rec["active"].append(info["active"])
         rec["mult"].append(float(np.max(info["multipliers"])) if len(info["multipliers"]) else 0.0)
         rec["pred"].append(info["plan"].copy())
+        rec["guess"].append(info["guess"].copy())
         rec["polished"].append(bool(info["polished"]))
         plan_pos = info["plan"][:, :n]
         ferr, fdist = [], []
@@ -494,7 +501,7 @@ def simulate(mpc: MPC, x0, ref, intruder=None, T=8.0, r_safe=1.0, followers=(),
             xf[j] = mpc.A @ xf[j] + mpc.B @ uf
         rec["form_err"].append(ferr)
         rec["dist"].append(fdist)
-        x = mpc.A @ x + mpc.B @ u
+        x = mpc.A @ x + mpc.B @ (u + w_wind)
     for k in ("t", "x", "u", "sep", "err", "iters", "time", "slack", "mult", "form_err", "dist"):
         rec[k] = np.array(rec[k])
     return rec
@@ -544,10 +551,16 @@ def worked_example(verbose=True, N=15):
         # first step at which the avoidance constraint is active
         first = next((i for i, a in enumerate(rec["active"]) if a), None)
         if first is not None:
-            print("constraint first active at t=%.1f (steps %s), plan point sep=%.3f" % (
-                rec["t"][first], rec["active"][first],
-                float(np.linalg.norm(rec["pred"][first][rec["active"][first][0] - 1, :2]
-                                     - intr.position(rec["t"][first] + rec["active"][first][0] * mpc.dt)))))
+            kact = rec["active"][first][0]
+            t_act = rec["t"][first] + kact * mpc.dt
+            print("constraint first active at t=%.1f (steps %s), guess point sep=%.3f,"
+                  " plan point sep=%.3f" % (
+                      rec["t"][first], rec["active"][first],
+                      float(np.linalg.norm(rec["guess"][first][kact - 1, :2]
+                                           - intr.position(t_act))),
+                      float(np.linalg.norm(rec["pred"][first][kact - 1, :2]
+                                           - intr.position(t_act)))))
+            print("largest multiplier over the run: %.2f" % float(np.max(rec["mult"])))
         print("min speed vx = %.3f at t=%.1f ; max speed vx = %.3f at t=%.1f" % (
             rec["x"][:, 2].min(), rec["t"][rec["x"][:, 2].argmin()],
             rec["x"][:, 2].max(), rec["t"][rec["x"][:, 2].argmax()]))

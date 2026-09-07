@@ -240,3 +240,130 @@ the prediction-aware constraints of Chapter 24. Keep the proofs as they stand
 argument are both correct and short), the `Q(x)`-at-the-right-point pitfall, the Joseph
 form in `alg:ch19-ekf`, and the decision guide "which filter for which intruder model",
 which is what a reader will actually come back to.
+
+---
+
+## Response to review (round 1)
+
+All eight required changes are applied. Build: `cd Overleaf && ./build.sh ch19-nonlinear-filters`
+returns **status 0**, no `!` errors, no overfull box wider than 15 pt (three remain at
+13.4, 7.8 and 4.8 pt). `python3 code/ch19_nonlinear_filters.py` passes all self-tests in
+0.2 s. `code/figures/gen_ch19_compare.py`, `gen_ch19_linearisation.py` and
+`gen_ch19_particles.py` were re-run; no `.dat` file changed, because the only code edits
+were cosmetic (line lengths) and a print-label offset.
+
+### Required changes
+
+1. **`sec:ch19-ukf-compare`, "Four things to notice", third item — self-contradiction.**
+   Fixed as suggested. The clause now reads "the poor start is survived by *both Gaussian
+   filters* in every run ... and one of its hundred runs never recovers", so it agrees with
+   the `0/0/1` in `tab:ch19-rmse`. "hundred" is exact: `RUNS = 100` in
+   `code/figures/gen_ch19_compare.py`.
+
+2. **`sec:ch19-resampling` — the variance claim for systematic resampling.**
+   Replaced with the reviewer's wording: O(N) time, counts obeying `thm:ch19-systematic`,
+   variance far below multinomial's in practice, but no general guarantee and a dependence
+   on particle order, contrasted with stratified resampling (now defined and indexed), which
+   provably never does worse than multinomial. Douc, Cappé and Moulines, ISPA 2005, is cited;
+   I am certain of authors, title, venue and year, so the entry was added to
+   `Overleaf/bib/ch19-extra.bib` (`douc2005comparison`, no page numbers) rather than guessed
+   at. The neighbouring multinomial sentence now also carries the parenthesis the suggestions
+   asked for: O(N log N) with one binary search per draw, O(N) with sorted uniforms.
+
+3. **`figures/ch19/particles.tex` — legend covering the whole map.**
+   The legend is out of the plotting area, below the axis (`at={(0.5,-0.24)}, anchor=north,
+   draw=none`). `axis equal image` is gone, `height=6.5cm`, `xmin=-40, xmax=40`, and the grey
+   band and the "no measurements" node were moved to match the new x limits (the node now
+   sits above the band, at `(39,76)`, in empty space). Two further occlusions the fix
+   exposed were repaired: the white "building" label sat exactly on the purple UKF mean, so
+   it moved to the bottom of the rectangle, and the UKF-mean square is now 3 pt with a white
+   edge so that it reads against the dark obstacle fill. In the right panel `ymax` went to
+   1.2 so the "no measurements" label is no longer clipped, and "threshold N/2" got a white
+   background. **Verified in the rebuilt PDF:** all three clouds (blue k=7, the two-lobe
+   orange k=15, green k=20), the obstacle rectangle, its label, the three true-position
+   crosses and the purple square are visible and unoccluded.
+   *Deviation:* `legend columns=2`, not 3 — six entries in three columns overflow a
+   `0.40\textwidth` axis.
+
+4. **`figures/ch19/linearisation.tex` — clipped, squashed panels and legends on the cloud.**
+   `xmin=-70, xmax=70, ymin=55, ymax=118`, `height=6.5cm`, `axis equal image` dropped,
+   legends below the axes in two columns. All three ellipses (EKF ±60, MC ±56.9, UT ±57.3)
+   and the arc tips now fit. The 4.4 m offset is annotated explicitly, but drawn clear of the
+   markers: two dotted guides run from the two means out to x = 24, where a red double arrow
+   and a white-backed "4.4 m" label sit. Because the axes are no longer to the same scale,
+   the caption now says so and says why. The caption also states the transform's parameters
+   (n = 2, alpha = 1, beta = 2, kappa = 1, lambda = 1, points at sqrt(3) sd) and notes that
+   the chapter's default elsewhere is kappa = 0 — the third suggestion.
+
+5. **Timings quoted three times, not matching the script.**
+   Taken the second of the two offered routes. Absolute numbers now appear **once**, in the
+   "Cost per step" paragraph of `sec:ch19-properties`, as "about 0.26 ms (EKF), 0.46 ms (UKF)
+   and 1.2 ms (particle filter, N = 2000) ... on the machine used for `tab:ch19-rmse`", with
+   the explicit caveat that absolute times move with the machine and the ratios do not. The
+   other two places give ratios only: "roughly 1.8 times an EKF step ... roughly 4.5 times"
+   in `sec:ch19-ukf-compare`, and `1x / 1.8x / 4.5x` in the "Cost per step" row of
+   `tab:ch19-comparison` (its caption changed to match). A fourth occurrence the review did
+   not list, in the "Vectorising the particle filter" paragraph, now says "about a
+   millisecond". On this machine the generator prints EKF 0.269, UKF 0.470, PF 1.208 ms and a
+   twelve-repeat re-measurement gives 0.264 / 0.460 / 1.162 ms (ratios 1.74 and 4.40); the
+   reviewer's machine printed 0.258 / 0.458 / 1.175 (1.78 and 4.55). Both round to
+   0.26 / 0.46 / 1.2 ms and to "roughly 1 : 1.8 : 4.5", which is why the ratio form was
+   chosen.
+
+6. **`figures/ch19/compare.tex` — legends over the sensor and over the error peaks.**
+   Right panel: legend moved below the axis (`at={(0.5,-0.26)}, anchor=north,
+   legend columns=4`), and the two turn labels moved to the top of the axis
+   (`rel axis cs:0,0.98`, `anchor=north west`) with a white background, so they sit above the
+   curves; `ymax=8` keeps the grey curve's 7.05 m peak inside.
+   *Deviation, left panel:* the review suggested `at={(0.97,0.03)}, anchor=south east`, but
+   that corner is **not** empty — the true path starts at (120, -94) and climbs the right
+   edge, so a south-east legend would sit on it. The only empty corner is the south-west one
+   (no data point has y < -40 except at x ~ 120), and the legend went there. The sensor
+   marker and its "sensor" label are now clear, which was the point of the item.
+
+7. **Running-head collision (`sec:ch19-properties`).**
+   `\section[Properties and cost]{Properties: accuracy, convergence and cost}`. The document
+   is `oneside`, so `\leftmark` and `\rightmark` share one line on every page; I gave short
+   marks to the three other heads that would be at risk after renumbering to 19 as well:
+   `\section[Where this fits]{...}`, `\section[Why this matters]{...}` and
+   `\section[Problem and notation]{...}`. The longest surviving pair is
+   "Chapter NN. Nonlinear Filtering: EKF, UKF and Particle Filters" against
+   "NN.5 The unscented Kalman filter", which leaves a clear gap in the rebuilt PDF; one extra
+   digit in the chapter number does not close it. The chapter title itself was left long, so
+   the table of contents keeps the full title.
+
+8. **`lst:ch19-pf` wrapping and lost indentation.**
+   `code/ch19_nonlinear_filters.py` edited: the "optional jitter of the copies" comment is
+   now a line of its own above the `if`, the roughening update goes through a temporary
+   (`jitter = self.rng.normal(size=self.X.shape)`), and the two long docstrings and the
+   `isfinite` / `log-sum-exp` comments in the same excerpt were shortened. Every line of the
+   excerpt is now at most 77 characters; the listing wraps at about 80. The listing in the
+   chapter was re-extracted from the file programmatically, so it is verbatim. Self-test
+   re-run and passing. Verified on the rendered page: no line wraps, all Python indentation
+   intact.
+
+### Suggestions
+
+Applied: the real reason for the 95.6 m mean (independence plus
+E[sin phi] = exp(-sigma_phi^2/2)), with the arc kept as intuition; the clause saying the UT
+is conservative here, not exact, so 91.6 % is not "better" than 86.5 %; the transform's
+parameters in the `fig:ch19-linearisation` caption; "to first order in Delta t" for
+`eq:ch19-ct-noise`, with the coupling of gamma named; the rounding guard in
+`alg:ch19-resample` (as `i < N` in the while test, which is the correct guard for the
+incremental cumulative sum the pseudocode uses — "c_N <- 1" belongs to the code's
+precomputed `cumsum`, not to that loop, so it is stated as a comment line instead); the
+missing 4 % in `sec:ch19-pf-example`; the multinomial O(N) parenthesis; the enumerate offset
+in `gen_ch19_particles.py` (the slice now starts at `k_last`, so the printed k values are
+8...20 and agree with `occlusion_example()`); `exr:ch19-occlusion` promoted to
+`\difficulty{3}`, so the spread is 1, 2, 1, 2, 2, 2, 3, 3; and hints/solutions added for the
+four exercises that had none (`exr:ch19-wrapping`, `exr:ch19-banana`, `exr:ch19-occlusion`,
+`exr:ch19-coding`) — the banana solution carries the hand computation and lands on 95.60 m
+from both the exact formula and the five sigma points.
+
+Not applied: the optional trims. They are explicitly optional, and two of the three touch
+material the review's own "what must be kept" paragraph protects; the brief forbids removing
+content to save space. The chapter body is 21 pages in the single-chapter build.
+
+Passed on: the notation-table and ch18 item is not this chapter's file. Symbol list for
+whoever owns those: x, z, x_hat_k^-, P_k^-, y_k, S_k, K_k, F_k, H_k, Q_k, R_k, N_eff,
+X_i, W^(m), W^(c), lambda, alpha, beta, kappa, wrap, and the wrapped-difference operator.
