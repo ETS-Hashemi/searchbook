@@ -169,3 +169,111 @@ tie-breaking. Keep §1.8 in full: the `.map`/`.scen` walkthrough, the `x`/`y` ve
 warning and the map-family table are practical knowledge that no other textbook writes down. And
 keep `exr:ch07-separation` with its `l/sqrt(2)` solution - it is the bridge from the discrete
 model to the drone hardware and it is derived, not asserted.
+
+## Response to review (round 1)
+
+All eight required changes were applied. The chapter builds with status 0, no
+errors and no overfull boxes above 15 pt; `code/ch07_mapf.py` still passes its
+self-test (the code was not modified, so `figures/data/ch07-conflict-growth.dat`
+did not need regenerating) and every number quoted in the text still matches the
+code output (naive plan 3/3/1 with SoC 7 and MS 3, solution 5/3/4 with SoC 12 and
+MS 5, and 10/4/11 in `ex:ch07-disagree`).
+
+**A1 — cycle conflict allowed and forbidden at the same time.**
+`def:ch07-conflicts`(e) is now stated for $m \ge 3$. `prop:ch07-hierarchy`(b)
+reads "the degenerate case $m = 2$ of the rotation pattern of
+\cref{def:ch07-conflicts}(e) is exactly the swapping conflict, which is why the
+cycle conflict is defined for $m \ge 3$"; (c) now applies to every cycle conflict
+and no longer needs the "$m \ge 3$" qualifier. The caption of
+`fig:ch07-conflict-types` reads "allows (d), and (e) for $m \ge 3$", the table
+row is "cycle ($m \ge 3$)", the summary bullet names the rotation of $m \ge 3$
+agents and calls $m = 2$ the forbidden swap, and the glossary entry *Cycle
+conflict* says the same. The solution to `exr:ch07-classify`(b) was rewritten the
+same way ("the degenerate case $m = 2$ of the rotation pattern, which is why
+cycle conflicts are defined for $m \ge 3$").
+
+**A2 — distinctness in item (e).** Item (e) now requires the agents to "stand on
+$m$ pairwise distinct vertices $\pi_{i_1}[t], \dots, \pi_{i_m}[t]$", with the
+clause "Distinctness costs nothing: two of these vertices that coincide are
+already a vertex conflict at time $t$". The proof of (c) now cites the definition
+for distinctness and otherwise reads as before.
+
+**A3 — separation between integer times.** The paragraph now reads "keeps the
+follower one full edge behind the leader at every integer time; between integer
+times two agents in distinct cells stay at least $\ell/\sqrt{2}$ apart on a
+lattice of cell side $\ell$, a bound attained exactly when the follower turns a
+corner (\cref{exr:ch07-separation})", and the cycle sentence is "a rotation on a
+fully occupied cycle has the same geometry and the same bound, so cycle conflicts
+are allowed too". The "Why" column of `tab:ch07-conflict-summary` was corrected
+in the same way ("one edge apart at every integer time"), and the glossary entry
+*Following conflict* now says "at every integer time".
+
+**A4 — the false dead end at (1,3).** Replaced with the reviewer's wording: "an
+agent that ducks into $(1,3)$ can return to the top row only through $(0,3)$,
+which $a_1$ occupies from $t = 3$ on, or by the detour through row 2 and the
+pocket $(1,1)$; so the pocket $(1,1)$ must be used, and $a_3$ has to clear it
+first". The rest of the worked example is untouched.
+
+**A5 — glossary entry *Horizon of a plan*.** Now: "The largest time index
+$T=\max_i T_i$ that any path of the plan mentions explicitly; no vertex or
+swapping conflict can first appear after it."
+
+**F6 — acronyms.** First uses are now "conflict-based search (\cbs,
+\cref{ch:ch09})", "enhanced CBS (\ecbs, \cref{ch:ch10})", "the increasing cost
+tree search (ICTS)" and "a SAT or integer-linear-programming (ILP) solver".
+
+**H7 — duplicate BibTeX key.** `sharon2013icts` was deleted from
+`bib/ch07-extra.bib` and replaced by a comment. **Note for the editor: ch07 cites
+`sharon2013icts` (table of solver families and the ICTS sentence); the entry is
+supplied by `bib/ch09-extra.bib`.**
+
+**G8 — length.** `fig:ch07-solver-families` was cut (the table carries family,
+guarantee, representatives and use case) and the two Section 1.7 paragraphs were
+merged into one, "What the families search", which keeps only what the table does
+not carry: what each family searches, plus the ICTS and ILP expansions. "Why
+classical MAPF remains the right abstraction" is now four sentences and "A
+caveat" two. Beyond the reviewer's list, the Python transcription of
+`alg:ch07-hashed` was deleted (it duplicated the pseudocode; the two paragraphs
+about deterministic tie-breaking and the swap test were kept and now refer to
+`first_conflict_hashed` in the code file), `sum_of_costs`/`makespan` were dropped
+from `lst:ch07-costs`, and roughly forty sentences were tightened throughout
+(roadmap, walkthrough, NP-hardness proof idea, feasibility sketch, three
+dimensions, kinematics, dronebox, summary bullets). The definitions, the worked
+example, the benchmark section, the map-family table, the three pitfall boxes,
+`prop:ch07-hierarchy`, `fig:ch07-conflict-growth` and `exr:ch07-separation` were
+all preserved.
+
+Result: the chapter body went from 20 pages (PDF 13–32 in the round-1 build) to
+**19 pages** (PDF 13–31), not 18. The remaining page is not prose: the last page
+carries only about 1700 characters, and a further round of sentence-level
+tightening (about 1000 characters) moved the last page by only 150 characters,
+because the chapter is float-bound, not text-bound — 6 figures, 3 tables, 2
+algorithms, 2 listings and 7 boxes occupy roughly 4.2 of the 19 pages. Reaching
+18 would require deleting two more floats, and the only unprotected candidates
+left are `fig:ch07-lattice` (the 3D flight lattice, the drone section's only
+figure) and `lst:ch07-costs` (the stay-at-target `position`/`path_cost` code that
+the pitfall box and the glossary refer to). Both were tried and then restored:
+each on its own does not save a page, and cutting both to gain one page seemed a
+worse chapter than being one page over. Float placement was also loosened from
+`[tb]` to `[!htb]` to pack the pages tighter, which did not change the count.
+
+**Suggestions.** Applied: `exr:ch07-objectives`(c) now says "the shortest paths of
+all three agents are unique"; `exr:ch07-horizon`(a) is restated in the two steps
+the reviewer describes (padded plans, then legal plans); `exr:ch07-coding` was
+split into a detector/validator exercise and a new prioritized-planning exercise
+`exr:ch07-prioritized` (nine exercises now, and the dronebox cites both);
+solutions were added for `exr:ch07-objectives`(b), `exr:ch07-horizon`(b) and
+`exr:ch07-corridor`(a) (seven of nine exercises now have solutions); the ninth
+`.scen` field is now described as a floating-point octile distance ("4.82843
+rather than the 4-connected integer of \cref{lst:ch07-files}, so parse it as a
+float or skip it"); the reduction-based row cites
+`surynek2010optimization`, "surveyed in \cite{felner2017search}";
+`thm:ch07-bounds` was renamed `prop:ch07-bounds` (five uses updated);
+`def:ch07-instance` no longer calls a four-component object a triple ("is written
+$\langle G, s, g\rangle$ and consists of an undirected graph $G$, a number $k$ of
+agents, and two maps"). Not applied: the Banfi, Basilico and Amigoni citation for
+hardness on 4-connected grids (the entry could not be verified from here, and the
+reviewer asked for it only if verifiable); and the notation table, which lives in
+`frontmatter/notation.tex` and is outside this chapter's files — the symbols
+$\pi_i$, $\pi_i[t]$, $\Pi$, $T_i$, $T$, $k$, $\cost(\pi_i)$, SoC and MS should be
+added there in Phase 1.

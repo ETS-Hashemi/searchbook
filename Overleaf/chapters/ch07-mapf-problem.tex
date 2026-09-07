@@ -100,7 +100,7 @@ literature distinguishes.
 
 \begin{figure}[!htb]
   \centering
-  \resizebox{0.86\textwidth}{!}{\inputfigure{ch07/conflict-types}}
+  \resizebox{0.80\textwidth}{!}{\inputfigure{ch07/conflict-types}}
   \caption{The conflict types of Stern et al.\ \cite{stern2019mapf} between
   time $t$ and $t+1$. (a)~Two agents enter the same vertex. (b)~Two agents
   traverse the same edge in the same direction, which means they already
@@ -113,11 +113,10 @@ literature distinguishes.
 
 \begin{keyidea}
 A MAPF plan is a table of positions, one row per agent and one column per
-time step, in which an agent that has reached its goal keeps its goal cell in
+time step, in which an agent that has reached its goal keeps that cell in
 every later column. The plan is valid when every row is a legal path and no
 two rows share a cell in a column or swap two cells between consecutive
-columns. Everything else, including how good a plan is and how to find one,
-is built on this table.
+columns. Everything else is built on this table.
 \end{keyidea}
 
 % ---------------------------------------------------------------------
@@ -327,7 +326,7 @@ solution with $\sumcost = 10$ has makespan $5$.
 
 \begin{figure}[!htb]
   \centering
-  \resizebox{0.86\textwidth}{!}{\inputfigure{ch07/objectives-disagree}}
+  \resizebox{0.80\textwidth}{!}{\inputfigure{ch07/objectives-disagree}}
   \caption{Three agents whose shortest paths cross at $(1,1)$ and $(1,2)$.
   Plan $Y$ delays the long path once and minimises the sum of costs; plan $X$
   delays the two short paths and minimises the makespan. No plan achieves
@@ -409,7 +408,7 @@ conflicts in the same order.
 Each time step compares all $k(k-1)/2$ pairs twice, so the running time is
 $\bigO{k^2 T}$. For a solver that calls the detector at every node of a search
 tree this quadratic factor matters, and it is unnecessary: the agents at a
-vertex $v$ are found by hashing positions, not by comparing pairs.
+vertex are found by hashing positions, not by comparing pairs.
 \Cref{alg:ch07-hashed} keeps, per time step, a dictionary from vertices
 to the agent seen there, and a second dictionary from directed edges
 $(u, v)$ to the agent traversing them; a swap is a traversal of $(v, u)$ by
@@ -999,9 +998,9 @@ drones, and none of them changes the definitions of this chapter.
 \paragraph{Three dimensions.}
 The graph becomes a 3D lattice\index{lattice!3D}
 (\cref{fig:ch07-lattice}): the vertices are the centres of cubic cells of
-side $\ell$, an agent has six move actions ($\pm x$, $\pm y$, $\pm z$) and
-the wait action, which for a drone means hovering and costs energy like any
-other step. Nothing in \cref{def:ch07-instance,def:ch07-conflicts} refers to
+side $\ell$, an agent has six move actions ($\pm x$, $\pm y$, $\pm z$) and the wait
+action, which for a drone means hovering and costs energy like any other
+step. Nothing in \cref{def:ch07-instance,def:ch07-conflicts} refers to
 the dimension, and neither does the detector: the implementation of
 \cref{sec:ch07-implementation} only needs a hashable cell and a neighbour
 function that returns six neighbours instead of four. The cell side is
@@ -1017,10 +1016,9 @@ objectives of \cref{def:ch07-objectives} then sum edge costs.
   \centering
   \resizebox{0.55\textwidth}{!}{\inputfigure{ch07/lattice}}
   \caption{A $3 \times 3 \times 3$ block of a 3D flight lattice. A vertex is
-  the centre of a cubic cell, a drone has six move actions and a wait
-  (hover) action, and the cell side $\ell$ is chosen from the drone size and
-  the safety margin. Everything in this chapter applies unchanged; only the
-  neighbour function differs.}
+  the centre of a cubic cell, a drone has six move actions and a wait (hover)
+  action, and the cell side $\ell$ is chosen from the drone size and the
+  safety margin; only the neighbour function differs from the 2D case.}
   \label{fig:ch07-lattice}
 \end{figure}
 
@@ -1073,15 +1071,14 @@ classical MAPF instance on the flight lattice with \cbs or \ecbs
 \cref{sec:ch07-intuition}: one time-indexed route per drone, with
 stay-at-target describing a drone that hovers or lands at its target. The
 prediction layer (\cref{ch:ch18,ch:ch20}) and the local layer
-(\cref{ch:ch13,ch:ch14}) know nothing about MAPF; each sees the nominal
-route of its own drone and the intruders around it. Whenever the local layer
-has deviated from a route or the replanning layer (\cref{ch:ch05}) has
-computed a new one, the changed route is re-checked against the routes of
-the other drones with the detector of \cref{sec:ch07-detection}, and a
-conflict triggers a new MAPF solve for the affected agents. The sum of costs
-and the makespan are two of the metrics of \cref{ch:ch25}. This chapter is
-Week~3 of the study plan (\cref{ch:appA}); its milestone is that you can
-represent and detect MAPF conflicts correctly, which
+(\cref{ch:ch13,ch:ch14}) know nothing about MAPF; each sees the nominal route
+of its own drone and the intruders around it. Whenever the local layer has
+deviated from a route or the replanning layer (\cref{ch:ch05}) has computed a
+new one, the changed route is re-checked against the others with the detector
+of \cref{sec:ch07-detection}, and a conflict triggers a new MAPF solve for the
+affected agents. The sum of costs and the makespan are two of the metrics of
+\cref{ch:ch25}. This chapter is Week~3 of the study plan (\cref{ch:appA}); its
+milestone is that you can represent and detect MAPF conflicts correctly, which
 \cref{exr:ch07-conflict-cases,exr:ch07-coding,exr:ch07-prioritized} test.
 \end{dronebox}
 
@@ -1089,13 +1086,13 @@ represent and detect MAPF conflicts correctly, which
 \section{Summary}
 \begin{summary}
 \begin{itemize}
-  \item A classical MAPF instance is $\langle G, s, g\rangle$: an undirected graph, $k$ agents with distinct starts and distinct goals, discrete synchronous time, and unit-cost move and wait actions. A plan is one time-indexed path per agent: a table with agents as rows and time steps as columns.
+  \item A classical MAPF instance is $\langle G, s, g\rangle$: an undirected graph, $k$ agents with distinct starts and distinct goals, discrete synchronous time, unit-cost move and wait actions. A plan is one time-indexed path per agent, a table with agents as rows and time steps as columns.
   \item Stay-at-target: an arrived agent keeps its goal cell for ever and blocks it; a path costs the time of its final arrival, and trailing waits at the goal are free.
   \item Classical MAPF forbids vertex and swapping conflicts (edge conflicts are vertex conflicts in disguise) and allows following conflicts and cycle conflicts, the rotation of $m \ge 3$ agents on a fully occupied cycle; the degenerate case $m = 2$ of that rotation is the forbidden swap.
   \item $\sumcost = \sum_i \cost(\pi_i)$ and $\makespan = \max_i \cost(\pi_i)$; the naive plan bounds both from below, $\makespan \le \sumcost \le k\,\makespan$, and three agents suffice for the two objectives to disagree.
   \item Conflict detection over the padded paths up to the horizon $T$ costs $\bigO{k^2 T}$ pairwise and $\bigO{kT}$ expected with hash maps.
-  \item Feasibility is polynomial on a connected graph with two empty vertices; optimality is NP-hard for both objectives. The optimal, bounded-suboptimal, unbounded, reduction-based and learned solver families trade this hardness for guarantees in different ways.
-  \item Instances come as \code{.map} files (\code{.} free, \code{@} and \code{T} blocked) and \code{.scen} files ($x$ = column, $y$ = row); the first $k$ agents of a scenario form an instance. Drones add 3D lattices, kinematics and continuous time, but the classical problem keeps the combinatorial core and the guarantees.
+  \item Feasibility is polynomial on a connected graph with two empty vertices; optimality is NP-hard for both objectives, and the five solver families trade that hardness for guarantees in different ways.
+  \item Instances come as \code{.map} files (\code{.} free, \code{@} and \code{T} blocked) and \code{.scen} files ($x$ = column, $y$ = row); the first $k$ agents of a scenario form an instance. Drones add 3D lattices, kinematics and continuous time, but the classical problem keeps the combinatorial core.
 \end{itemize}
 \end{summary}
 
@@ -1201,13 +1198,13 @@ this does not contradict \cref{thm:ch07-feasible}, and what Push-and-Rotate
 
 \begin{exercise}[\difficulty{3}]
 \label{exr:ch07-separation}
-Two drones fly on a 2D lattice with cell side $\ell$. Within a time step
-each drone either hovers or moves along one edge at constant speed. Show
-that any plan without vertex and swapping conflicts keeps the two drones at
-least $\ell/\sqrt{2}$ apart at every instant, that the bound is attained by
-a following move around a corner, and derive the cell side needed to keep
-two drones of diameter $d$ at least $m$ apart at all times. How does the
-answer change if following conflicts are forbidden as well?
+Two drones fly on a 2D lattice with cell side $\ell$; within a time step each
+either hovers or moves along one edge at constant speed. Show that any plan
+without vertex and swapping conflicts keeps them at least $\ell/\sqrt{2}$
+apart at every instant, that the bound is attained by a following move around
+a corner, and derive the cell side needed to keep two drones of diameter $d$
+at least $m$ apart at all times. How does the answer change if following
+conflicts are forbidden as well?
 \end{exercise}
 
 \begin{exercise}[\difficulty{3} Coding]
