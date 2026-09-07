@@ -51,26 +51,28 @@ def simulate_trajectory(rng, cls, n_steps=T_OBS + T_PRED):
 
     The drone flies at constant speed with heading theta; the turn rate
     omega_t is zero (straight), constant (gentle turn) or a short burst
-    (evasive manoeuvre).  Returns ``(positions, onset)`` with ``onset = -1``
-    unless ``cls == 2``.
+    (evasive manoeuvre).  Returns ``(positions, onset, rate)``: the onset step
+    of the manoeuvre (-1 unless ``cls == 2``) and the signed turn rate.
     """
     speed = rng.uniform(1.5, 4.0)
     theta = rng.uniform(-math.pi, math.pi)
     pos = rng.uniform(-10.0, 10.0, size=2)
     omega = np.zeros(n_steps)
-    onset = -1
+    onset, rate = -1, 0.0
     if cls == 1:                                   # gentle, constant turn
-        omega[:] = rng.choice([-1.0, 1.0]) * rng.uniform(*TURN_RATE)
+        rate = rng.choice([-1.0, 1.0]) * rng.uniform(*TURN_RATE)
+        omega[:] = rate
     elif cls == 2:                                 # evasive: sharp burst
         onset = int(rng.integers(*EVASIVE_ONSET))
         duration = int(rng.integers(*EVASIVE_DURATION))
-        omega[onset:onset + duration] = rng.choice([-1.0, 1.0]) * rng.uniform(*EVASIVE_RATE)
+        rate = rng.choice([-1.0, 1.0]) * rng.uniform(*EVASIVE_RATE)
+        omega[onset:onset + duration] = rate
     traj = np.zeros((n_steps, 2))
     for t in range(n_steps):
         traj[t] = pos
         pos = pos + speed * DT * np.array([math.cos(theta), math.sin(theta)])
         theta += omega[t] * DT
-    return traj, onset
+    return traj, onset, rate
 
 
 def generate_dataset(n, rng, noise=0.05, mix=(0.4, 0.3, 0.3)):
@@ -79,16 +81,16 @@ def generate_dataset(n, rng, noise=0.05, mix=(0.4, 0.3, 0.3)):
     Keys: ``clean`` (n, T_OBS+T_PRED, 2) noise-free positions, ``obs``
     (n, T_OBS, 2) observed positions with Gaussian noise of std ``noise``,
     ``future`` (n, T_PRED, 2) ground-truth future, ``cls`` (n,) class id,
-    ``onset`` (n,) manoeuvre onset step (-1 if none).
+    ``onset`` (n,) manoeuvre onset step (-1 if none), ``rate`` (n,) turn rate.
     """
     cls = rng.choice(3, size=n, p=np.asarray(mix, dtype=float))
     clean = np.zeros((n, T_OBS + T_PRED, 2))
-    onset = np.full(n, -1)
+    onset, rate = np.full(n, -1), np.zeros(n)
     for k in range(n):
-        clean[k], onset[k] = simulate_trajectory(rng, int(cls[k]))
+        clean[k], onset[k], rate[k] = simulate_trajectory(rng, int(cls[k]))
     obs = clean[:, :T_OBS] + noise * rng.standard_normal((n, T_OBS, 2))
     return {"clean": clean, "obs": obs, "future": clean[:, T_OBS:],
-            "cls": cls, "onset": onset}
+            "cls": cls, "onset": onset, "rate": rate}
 
 
 def subset_mask(data, name):
@@ -232,6 +234,16 @@ def collision_rate(pred, others, d_min):
     (N, M, T, 2) holds the trajectories of M other agents per scene."""
     d = np.linalg.norm(np.asarray(pred)[:, None] - np.asarray(others), axis=-1)
     return float(np.mean(np.any(d < d_min, axis=(1, 2))))
+
+
+def calibration(means, covs, gt, p=0.95):
+    """Fraction of ground-truth positions inside the p-probability ellipse of
+    the predicted Gaussian, per horizon step (length T).  ``covs`` may be
+    (N, T, 2, 2) or (T, 2, 2) (shared by all trajectories)."""
+    covs = np.broadcast_to(covs, np.shape(means) + (2,))
+    resid = np.asarray(gt) - np.asarray(means)
+    maha2 = np.einsum("nti,ntij,ntj->nt", resid, np.linalg.inv(covs), resid)
+    return np.mean(maha2 <= chi2_radius(p) ** 2, axis=0)
 
 
 # ---------------------------------------------------------------------------
@@ -433,11 +445,18 @@ class Seq2SeqPredictor:
                 u = mu
         return np.stack(outs, axis=1), hs, caches
 
-    def loss_and_grads(self, x, y):
-        """Teacher-forced forward pass, loss, and gradients by BPTT."""
+    def loss_and_grads(self, x, y, teacher_forcing=False):
+        """Forward pass, loss, and gradients by backpropagation through time.
+
+        With ``teacher_forcing=True`` the decoder is fed the true displacements
+        and no gradient flows through its inputs; otherwise it is fed its own
+        predicted means, exactly as at prediction time, and the gradient also
+        flows back through the fed-back predictions.
+        """
         B, T = y.shape[0], y.shape[1]
         h, c, enc_caches = self.encode(x)
-        outs, hs, dec_caches = self.decode(x[:, -1], h, c, T, self.baseline(x), y_true=y)
+        outs, hs, dec_caches = self.decode(x[:, -1], h, c, T, self.baseline(x),
+                                           y_true=y if teacher_forcing else None)
         mu = outs[:, :, :2]
         if self.gaussian:
             log_sigma = outs[:, :, 2:]
@@ -460,11 +479,15 @@ class Seq2SeqPredictor:
         gdec = {"W": grads["dec.W"], "b": grads["dec.b"]}
         dh_next = np.zeros((B, self.n_hidden))
         dc_next = np.zeros((B, self.n_hidden))
+        du_next = np.zeros((B, 2))                         # d loss / d (fed-back input)
         for k in reversed(range(T)):                       # decoder BPTT
-            grads["W_out"] += d_out[:, k].T @ hs[k]
-            grads["b_out"] += d_out[:, k].sum(axis=0)
-            dh = d_out[:, k] @ self.W_out + dh_next
-            _, dh_next, dc_next = self.dec.backward(dh, dc_next, dec_caches[k], gdec)
+            d_out_k = d_out[:, k].copy()
+            if not teacher_forcing:
+                d_out_k[:, :2] += du_next                  # through u_{k+1} = mu_k
+            grads["W_out"] += d_out_k.T @ hs[k]
+            grads["b_out"] += d_out_k.sum(axis=0)
+            dh = d_out_k @ self.W_out + dh_next
+            du_next, dh_next, dc_next = self.dec.backward(dh, dc_next, dec_caches[k], gdec)
         for t in reversed(range(x.shape[1])):              # encoder BPTT
             _, dh_next, dc_next = self.enc.backward(dh_next, dc_next, enc_caches[t], genc)
         return float(loss), grads
@@ -559,12 +582,13 @@ def clip_gradients(grads, max_norm=5.0):
 
 
 def train_predictor(model, train, val, epochs=60, batch_size=64, lr=5e-3,
-                    lr_final=5e-4, patience=10, mode="frame", rng=None,
-                    verbose=False):
-    """Mini-batch training with Adam, teacher forcing, a geometric learning
-    rate decay from ``lr`` to ``lr_final`` over ``epochs``, and early stopping
-    on the validation ADE (free-running rollout, in metres).  Restores the
-    best parameters and returns the training history."""
+                    lr_final=5e-4, patience=10, mode="frame", tf_epochs=0,
+                    rng=None, verbose=False):
+    """Mini-batch training with Adam, a geometric learning-rate decay from
+    ``lr`` to ``lr_final`` over ``epochs``, teacher forcing during the first
+    ``tf_epochs`` epochs and free-running training afterwards, and early
+    stopping on the validation ADE (free-running rollout, in metres).
+    Restores the best parameters and returns the training history."""
     rng = np.random.default_rng(1) if rng is None else rng
     x_tr, y_tr, _ = prepare_sequences(train, mode)
     opt = Adam(model.params(), lr=lr)
@@ -578,7 +602,8 @@ def train_predictor(model, train, val, epochs=60, batch_size=64, lr=5e-3,
         losses = []
         for start in range(0, n, batch_size):
             idx = order[start:start + batch_size]
-            loss, grads = model.loss_and_grads(x_tr[idx], y_tr[idx])
+            loss, grads = model.loss_and_grads(x_tr[idx], y_tr[idx],
+                                               teacher_forcing=epoch < tf_epochs)
             clip_gradients(grads)
             opt.step(grads)
             losses.append(loss)
@@ -645,6 +670,10 @@ def positional_encoding(n_positions, d):
     pe[:, 0::2] = np.sin(angle)
     pe[:, 1::2] = np.cos(angle)[:, :pe[:, 1::2].shape[1]]
     return pe
+
+
+TOY_AGENTS_POS = np.array([[0.0, 0.0], [8.0, -2.0], [3.0, 3.0], [-6.0, -5.0]])
+TOY_AGENTS_VEL = np.array([[2.0, 0.0], [-1.75, 1.25], [1.5, 1.5], [0.0, 1.0]])
 
 
 def toy_agent_attention(pos, vel, tau=2.0, ell=2.0):
@@ -739,7 +768,7 @@ def evaluate(pred, data, name="all"):
 
 
 def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
-                   n_hidden=32, epochs=60, verbose=True):
+                   n_hidden=32, epochs=40, verbose=True):
     """Generate the data, tune the baselines on the validation split, train
     the LSTMs and evaluate everything on the test split.
 
@@ -771,14 +800,14 @@ def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
 
     # -- learned models --------------------------------------------------------
     models, histories, covs = {}, {}, {"KF (tuned)": kf_covs}
-    settings = (("LSTM-NLL", True, "frame"), ("LSTM-MSE", False, "frame"),
-                ("LSTM-abs", True, "absolute"))
-    for name, gaussian, mode in settings:
+    settings = (("LSTM-NLL", True, "frame", 0), ("LSTM-MSE", False, "frame", 0),
+                ("LSTM-abs", True, "absolute", 0), ("LSTM-TF", True, "frame", epochs))
+    for name, gaussian, mode, tf_epochs in settings:
         t0 = time.time()
         absolute = mode == "absolute"
         model = Seq2SeqPredictor(n_hidden, gaussian, residual=not absolute,
                                  cumulative=not absolute, rng=np.random.default_rng(seed + 1))
-        hist = train_predictor(model, train, val, epochs=epochs, mode=mode,
+        hist = train_predictor(model, train, val, epochs=epochs, mode=mode, tf_epochs=tf_epochs,
                                rng=np.random.default_rng(seed + 2), verbose=False)
         means, cov, _ = predict_lstm(model, test, mode)
         preds[name], models[name], histories[name] = means, model, hist
@@ -794,7 +823,9 @@ def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
                                  rng=np.random.default_rng(seed + 3))
     extra = {"minADE_20": min_ade_k(samples, test["future"]),
              "minFDE_20": min_fde_k(samples, test["future"]),
-             "miss_rate": {name: miss_rate(p, test["future"], 1.0) for name, p in preds.items()}}
+             "miss_rate": {name: miss_rate(p, test["future"], 1.0) for name, p in preds.items()},
+             "calibration": {name: calibration(preds[name], covs[name], test["future"], 0.95)
+                             for name in ("KF (tuned)", "LSTM-NLL")}}
     return {"train": train, "val": val, "test": test, "preds": preds, "metrics": metrics,
             "settings": {"k_cv": k_cv, "k_ca": k_ca, "q_kf": q_kf, "noise": noise},
             "histories": histories, "models": models, "covs": covs, "extra": extra,
@@ -817,24 +848,27 @@ def print_results(res):
     ex = res["extra"]
     print("LSTM-NLL minADE_20 = %.3f, minFDE_20 = %.3f" % (ex["minADE_20"], ex["minFDE_20"]))
     print("miss rate (FDE > 1 m): " + ", ".join("%s %.3f" % kv for kv in ex["miss_rate"].items()))
+    for name, cal in ex["calibration"].items():
+        print("fraction of true positions inside the 95%% ellipse, %s: h=4 %.3f, h=8 %.3f, h=12 %.3f"
+              % (name, cal[3], cal[7], cal[11]))
 
 
 # ---------------------------------------------------------------------------
 # Self-test
 # ---------------------------------------------------------------------------
-def _gradient_check(model, x, y, n_checks=12, rng=None):
+def _gradient_check(model, x, y, n_checks=12, rng=None, teacher_forcing=False):
     """Compare BPTT gradients with central finite differences."""
     rng = np.random.default_rng(0) if rng is None else rng
-    _, grads = model.loss_and_grads(x, y)
+    _, grads = model.loss_and_grads(x, y, teacher_forcing)
     worst = 0.0
     for name, p in model.params().items():
         flat = p.reshape(-1)
         for idx in rng.choice(flat.size, size=min(n_checks, flat.size), replace=False):
             old = flat[idx]
             flat[idx] = old + 1e-5
-            lp, _ = model.loss_and_grads(x, y)
+            lp, _ = model.loss_and_grads(x, y, teacher_forcing)
             flat[idx] = old - 1e-5
-            lm, _ = model.loss_and_grads(x, y)
+            lm, _ = model.loss_and_grads(x, y, teacher_forcing)
             flat[idx] = old
             num = (lp - lm) / 2e-5
             ana = grads[name].reshape(-1)[idx]
@@ -888,10 +922,10 @@ def _self_test():
     # 4. BPTT gradients agree with finite differences (both losses)
     small = generate_dataset(6, rng, noise=0.05)
     x, y, _ = prepare_sequences(small)
-    for gaussian in (True, False):
+    for gaussian, teacher_forcing in ((True, False), (False, False), (True, True)):
         m = Seq2SeqPredictor(n_hidden=4, gaussian=gaussian, rng=np.random.default_rng(3))
         m.W_out = rng.standard_normal(m.W_out.shape) * 0.3       # non-trivial output layer
-        err = _gradient_check(m, x, y, rng=rng)
+        err = _gradient_check(m, x, y, rng=rng, teacher_forcing=teacher_forcing)
         assert err < 1e-6, "gradient check failed: %.2e" % err
 
     # 5. the agent frame is invertible and puts the last heading on +x
@@ -902,18 +936,22 @@ def _self_test():
     d = to_frame(data["obs"][:, -3:], origin, R)
     assert np.allclose(d[:, -1], 0.0) and np.all(d[:, 0, 0] < 0) and np.allclose(d[:, 0, 1], 0.0)
 
-    # 6. training decreases the loss and improves the validation ADE
-    train = generate_dataset(240, rng, noise=0.05)
-    val = generate_dataset(60, rng, noise=0.05)
-    model = Seq2SeqPredictor(n_hidden=8, gaussian=True, rng=np.random.default_rng(5))
-    hist = train_predictor(model, train, val, epochs=12, patience=12, rng=np.random.default_rng(6))
+    # 6. training decreases the loss and beats the baseline it starts from
+    train = generate_dataset(600, rng, noise=0.05)
+    val = generate_dataset(100, rng, noise=0.05)
+    model = Seq2SeqPredictor(n_hidden=16, gaussian=True, rng=np.random.default_rng(5))
+    hist = train_predictor(model, train, val, epochs=15, lr=1e-2, lr_final=2e-3,
+                           patience=15, rng=np.random.default_rng(6))
     assert hist["train_loss"][-1] < hist["train_loss"][0]
-    assert min(hist["val_ade"]) < hist["val_ade"][0]
     means, covs, samples = predict_lstm(model, val, n_samples=3, rng=rng)
-    assert means.shape == (60, T_PRED, 2) and covs.shape == (60, T_PRED, 2, 2)
-    assert samples.shape == (60, 3, T_PRED, 2)
+    assert ade(means, val["future"]) < ade(predict_cv(val["obs"], k=T_OBS - 1), val["future"])
+    assert means.shape == (100, T_PRED, 2) and covs.shape == (100, T_PRED, 2, 2)
+    assert samples.shape == (100, 3, T_PRED, 2)
     assert np.all(np.linalg.eigvalsh(covs) > 0)
     assert np.all(np.diff(np.trace(covs, axis1=2, axis2=3), axis=1) > 0)
+    cal = calibration(means, covs, val["future"], 0.95)
+    assert cal.shape == (T_PRED,) and np.all(cal >= 0.0) and np.all(cal <= 1.0)
+    assert np.allclose(calibration(means, covs, means, 0.95), 1.0)
 
     # 7. attention rows are probability vectors; identical keys give uniform weights
     Q, K, V = rng.standard_normal((3, 4)), rng.standard_normal((5, 4)), rng.standard_normal((5, 2))
@@ -930,8 +968,7 @@ def _self_test():
     assert out_mh.shape == (5, dmodel) and w_mh.shape == (heads, 5, 5)
     pe = positional_encoding(T_OBS, dmodel)
     assert np.all(np.abs(pe) <= 1.0) and len({tuple(np.round(r, 6)) for r in pe}) == T_OBS
-    pos = np.array([[0.0, 0.0], [3.0, 0.5], [-4.0, 0.0], [0.0, 8.0]])
-    vel = np.array([[2.0, 0.0], [-1.5, 0.0], [1.0, 0.0], [0.0, -1.0]])
+    pos, vel = TOY_AGENTS_POS, TOY_AGENTS_VEL
     w_ag, _ = toy_agent_attention(pos, vel)
     assert np.allclose(w_ag.sum(axis=1), 1.0)
     x_ext = pos + 2.0 * vel
@@ -965,4 +1002,6 @@ if __name__ == "__main__":
         assert met["LSTM-NLL"]["evasive_visible"][0][-1] < met["CV (tuned)"]["evasive_visible"][0][-1]
         assert met["LSTM-NLL"]["turn"][0][-1] < met["CV (tuned)"]["turn"][0][-1]
         assert met["LSTM-NLL"]["all"][0][-1] < met["KF (tuned)"]["all"][0][-1]
+        assert met["CV (tuned)"]["straight"][0][-1] < met["LSTM-NLL"]["straight"][0][-1]
+        assert met["LSTM-NLL"]["all"][0][-1] < met["LSTM-TF"]["all"][0][-1]
         print("experiment finished in %.1f s" % (time.time() - t0))

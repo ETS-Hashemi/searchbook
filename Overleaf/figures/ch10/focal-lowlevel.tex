@@ -1,0 +1,40 @@
+% The low level of ECBS on a 3 x 4 grid: agent A must cross the column
+% that agent B walks down.  Numbers verified by low_level_example() in
+% code/ch10_ecbs.py.
+\begin{tikzpicture}[x=1.1cm,y=1.1cm,
+  goalA/.style={circle,draw=sbAgentA,dashed,thick,inner sep=1pt,minimum size=16pt},
+  goalB/.style={circle,draw=sbAgentB,dashed,thick,inner sep=1pt,minimum size=16pt},
+  pathA/.style={draw=sbAgentA,line width=1.4pt,-{Stealth[length=5pt]}},
+  pathAd/.style={draw=sbAgentA,line width=1.2pt,dashed,-{Stealth[length=5pt]}},
+  pathB/.style={draw=sbAgentB,line width=1.4pt,-{Stealth[length=5pt]}},
+  cross/.style={cross out,draw=sbRed,line width=1.3pt,minimum size=8pt,inner sep=0pt},
+  tA/.style={font=\scriptsize,text=sbAgentA}, tB/.style={font=\scriptsize,text=sbAgentB}]
+% cell (r,c) has its centre at (c+0.5, 2.5-r); row 0 is the top row
+\drawgrid{4}{3}
+\foreach \c in {0,...,3} \node[sbannot] at (\c+0.5,3.3) {$c{=}\c$};
+\foreach \r in {0,...,2} \node[sbannot,anchor=east] at (-0.15,2.5-\r) {$r{=}\r$};
+% agent B walks down column 1 and parks at (2,1)
+\draw[pathB] (1.5,2.3) -- (1.5,0.72);
+\node[tB] at (1.78,2.0) {1}; \node[tB] at (1.78,1.0) {2};
+% agent A: shortest path (dashed, above) and the path with one wait (solid, below)
+\draw[pathAd] (0.72,1.64) -- (3.28,1.64);
+\node[tA] at (1.5,1.9) {1}; \node[tA] at (2.5,1.9) {2}; \node[tA] at (3.2,1.9) {3};
+\draw[pathA] (0.72,1.36) -- (3.28,1.36);
+\node[tA] at (1.5,1.12) {2}; \node[tA] at (2.5,1.12) {3}; \node[tA] at (3.2,1.12) {4};
+\node[tA,anchor=north] at (0.5,1.22) {wait $t{=}1$};
+\node[cross] at (1.5,1.64) {};
+% starts and goals
+\node[goalA] at (3.5,1.5) {}; \node[goalB] at (1.5,0.5) {};
+\node[sbagentA] at (0.5,1.5) {A}; \node[sbagentB] at (1.5,2.5) {B};
+% annotations
+\node[sbannot,anchor=west,align=left] at (4.4,2.55)
+  {$\hcost$ = grid distance to $(1,3)$, so $\fcost(s)=\fcost_{\min}=3$};
+\node[sbannot,anchor=west,align=left,text=sbAgentA] at (4.4,1.95)
+  {dashed: shortest path, cost 3, $\fcost=3$,\\ one conflict with B at $(1,1)$, $t{=}1$};
+\node[sbannot,anchor=west,align=left,text=sbAgentA] at (4.4,1.2)
+  {solid: wait once, cost 4, $\fcost=4$,\\ no conflict};
+\node[sbannot,anchor=west,align=left] at (4.4,0.4)
+  {$w=1$: \Focal $=\set{\fcost=3}$, dashed path returned\\
+   $w=1.5$: \Focal $=\set{\fcost\le 4.5}$, solid path returned;\\
+   both runs return the lower bound $\fcost_{\min}=3$};
+\end{tikzpicture}

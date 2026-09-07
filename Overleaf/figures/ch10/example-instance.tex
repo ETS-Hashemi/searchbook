@@ -1,0 +1,58 @@
+% The worked example: a 4 x 4 grid with three agents.  (a) the root of the
+% constraint tree, (b) the optimal CBS solution, (c) the ECBS(1.2) solution.
+% Paths and costs verified by worked_example() in code/ch10_ecbs.py.
+\begin{tikzpicture}[x=0.95cm,y=0.95cm,
+  goalA/.style={circle,draw=sbAgentA,dashed,thick,inner sep=1pt,minimum size=15pt},
+  goalB/.style={circle,draw=sbAgentB,dashed,thick,inner sep=1pt,minimum size=15pt},
+  goalC/.style={circle,draw=sbAgentC,dashed,thick,inner sep=1pt,minimum size=15pt},
+  pathA/.style={draw=sbAgentA,line width=1.3pt,-{Stealth[length=4.5pt]}},
+  pathB/.style={draw=sbAgentB,line width=1.3pt,-{Stealth[length=4.5pt]}},
+  pathC/.style={draw=sbAgentC,line width=1.3pt,-{Stealth[length=4.5pt]}},
+  cross/.style={cross out,draw=sbRed,line width=1.3pt,minimum size=8pt,inner sep=0pt},
+  tA/.style={font=\tiny,text=sbAgentA}, tB/.style={font=\tiny,text=sbAgentB},
+  tC/.style={font=\tiny,text=sbAgentC},
+  cap/.style={font=\footnotesize,text=black,anchor=north,align=center}]
+% cell (r,c) has its centre at (c+0.5, 3.5-r); row 0 is the top row
+% ------------------------------------------------------------ (a) root
+\begin{scope}
+  \drawgrid{4}{4} \gridobstacle{2}{0}
+  \foreach \c in {0,...,3} \node[sbannot,font=\tiny] at (\c+0.5,4.25) {$c{=}\c$};
+  \foreach \r in {0,...,3} \node[sbannot,font=\tiny,anchor=east] at (-0.1,3.5-\r) {$r{=}\r$};
+  \draw[pathB] (3.28,1.5) -- (0.62,1.5) -- (0.62,2.25);
+  \draw[pathC] (0.38,0.75) -- (0.38,2.38) -- (3.25,2.38);
+  \draw[pathA] (2.5,1.75) -- (2.5,2.62) -- (1.78,2.62);
+  \node[tA] at (2.8,2.82) {1}; \node[tA] at (1.2,2.82) {2};
+  \node[tB] at (2.5,1.2) {1}; \node[tB] at (1.5,1.2) {2}; \node[tB] at (0.85,1.2) {3}; \node[tB] at (0.85,2.2) {4};
+  \node[tC] at (0.15,1.8) {1}; \node[tC] at (0.15,2.8) {2}; \node[tC] at (1.5,2.15) {3}; \node[tC] at (2.5,2.15) {4}; \node[tC] at (3.5,2.15) {5};
+  \node[cross] at (1.5,2.5) {};
+  \node[goalA] at (1.5,2.5) {}; \node[goalB] at (0.5,2.5) {}; \node[goalC] at (3.5,2.5) {};
+  \node[sbagentA] at (2.5,1.5) {1}; \node[sbagentB] at (3.5,1.5) {2}; \node[sbagentC] at (0.5,0.5) {3};
+  \node[cap] at (2,-0.2) {(a) root: cost 11,\\ $a_1$ and $a_3$ at $(1,1)$, $t{=}3$};
+\end{scope}
+% ------------------------------------------------------------ (b) CBS
+\begin{scope}[xshift=5.3cm]
+  \drawgrid{4}{4} \gridobstacle{2}{0}
+  \draw[pathB] (3.28,1.62) -- (0.62,1.62) -- (0.62,2.25);
+  \draw[pathC] (0.75,0.5) -- (1.5,0.5) -- (1.5,1.38) -- (2.38,1.38) -- (2.38,2.38) -- (3.25,2.38);
+  \draw[pathA] (2.62,1.75) -- (2.62,2.62) -- (1.78,2.62);
+  \node[tA] at (2.8,2.82) {1}; \node[tA] at (1.2,2.82) {2};
+  \node[tB] at (2.5,1.85) {1}; \node[tB] at (1.5,1.85) {2}; \node[tB] at (0.85,1.85) {3}; \node[tB] at (0.85,2.2) {4};
+  \node[tC] at (1.5,0.2) {1, 2 (wait)}; \node[tC] at (1.2,1.2) {3}; \node[tC] at (2.15,1.2) {4}; \node[tC] at (2.15,2.15) {5}; \node[tC] at (3.5,2.15) {6};
+  \node[goalA] at (1.5,2.5) {}; \node[goalB] at (0.5,2.5) {}; \node[goalC] at (3.5,2.5) {};
+  \node[sbagentA] at (2.5,1.5) {1}; \node[sbagentB] at (3.5,1.5) {2}; \node[sbagentC] at (0.5,0.5) {3};
+  \node[cap] at (2,-0.2) {(b) \cbs: cost 12,\\ $a_3$ waits once at $(3,1)$};
+\end{scope}
+% ------------------------------------------------------------ (c) ECBS(1.2)
+\begin{scope}[xshift=10.6cm]
+  \drawgrid{4}{4} \gridobstacle{2}{0}
+  \draw[pathB] (3.28,1.5) -- (0.62,1.5) -- (0.62,2.25);
+  \draw[pathC] (0.38,0.75) -- (0.38,2.38) -- (3.25,2.38);
+  \draw[pathA] (2.5,1.75) -- (2.5,2.62) -- (1.38,2.62) -- (1.38,3.5) -- (1.62,3.5) -- (1.62,2.78);
+  \node[tA] at (2.8,2.82) {1}; \node[tA] at (1.15,2.85) {2}; \node[tA] at (1.85,3.75) {3}; \node[tA] at (1.88,2.85) {4};
+  \node[tB] at (2.5,1.2) {1}; \node[tB] at (1.5,1.2) {2}; \node[tB] at (0.85,1.2) {3}; \node[tB] at (0.85,2.2) {4};
+  \node[tC] at (0.15,1.8) {1}; \node[tC] at (0.15,2.8) {2}; \node[tC] at (1.5,2.15) {3}; \node[tC] at (2.5,2.15) {4}; \node[tC] at (3.5,2.15) {5};
+  \node[goalA] at (1.5,2.5) {}; \node[goalB] at (0.5,2.5) {}; \node[goalC] at (3.5,2.5) {};
+  \node[sbagentA] at (2.5,1.5) {1}; \node[sbagentB] at (3.5,1.5) {2}; \node[sbagentC] at (0.5,0.5) {3};
+  \node[cap] at (2,-0.2) {(c) \ecbs(1.2): cost 13,\\ $a_1$ steps aside to $(0,1)$};
+\end{scope}
+\end{tikzpicture}
