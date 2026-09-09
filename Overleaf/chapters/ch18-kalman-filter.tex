@@ -376,3 +376,408 @@ estimate is noisier during straight flight. \textcite{barshalom2001estimation}
 treat both models in detail, together with turning models, and \cref{ch:ch19}
 compares filters on a turning target. This chapter uses the CV model
 throughout; \code{ch18\_kalman.py} builds both.
+
+% ---------------------------------------------------------------------
+\section{The algorithm}
+\label{sec:ch18-algorithm}
+
+The filter is the two facts of \cref{thm:ch18-gaussian-facts} applied in
+turn, once per measurement. This section derives the two steps, explains the
+gain, and writes the result as pseudocode.
+
+\subsection{The predict step}
+\label{sec:ch18-predict}
+
+Suppose that after step $k-1$ the belief is
+$\state_{k-1}\mid\meas_{1:k-1}\sim\Normal(\hat{\state}_{k-1},\mat{P}_{k-1})$.
+The motion model \cref{eq:ch18-motion} is an affine map of $\state_{k-1}$,
+with $\mat{A}=\mat{F}$ and $\vect{b}=\mat{B}\ctrl_k$, plus the independent
+noise $\vect{w}_k$. Fact (i) gives the prediction directly:
+\begin{equation}
+  \hat{\state}^-_k=\mat{F}\hat{\state}_{k-1}+\mat{B}\ctrl_k,\qquad
+  \mat{P}^-_k=\mat{F}\mat{P}_{k-1}\mat{F}\T+\mat{Q}.
+  \label{eq:ch18-predict}
+\end{equation}
+The mean moves as the noise-free model says; nothing else is possible,
+because the noise has mean zero. The covariance is transformed by $\mat{F}$
+and then inflated by $\mat{Q}$. The transformation is not a mere rescaling:
+for the CV model along one axis, with $\mat{P}_{k-1}=\begin{psmallmatrix}a&b\\
+b&c\end{psmallmatrix}$ (position variance $a$, velocity variance $c$,
+covariance $b$),
+\begin{equation}
+  \mat{P}^-_k=\begin{pmatrix}
+    a+2\dt\,b+\dt^2c+q\dt^3/3 & b+\dt\,c+q\dt^2/2\\
+    b+\dt\,c+q\dt^2/2 & c+q\dt
+  \end{pmatrix},
+  \label{eq:ch18-predict-cv}
+\end{equation}
+so the position variance absorbs the velocity variance ($\dt^2c$): a drone
+whose velocity is uncertain has an uncertain position a moment later, even if
+its position was known exactly. This coupling is what makes a position sensor
+informative about the velocity in the update step.
+
+\subsection{The update step}
+\label{sec:ch18-update}
+
+Now the measurement $\meas_k$ arrives. Before it is read, the state and the
+measurement are jointly Gaussian given $\meas_{1:k-1}$: the state has mean
+$\hat{\state}^-_k$ and covariance $\mat{P}^-_k$, and
+$\meas_k=\mat{H}\state_k+\vect{v}_k$ is an affine function of it plus
+independent noise. Fact (i) applied to the stacked vector
+$(\state_k,\meas_k)$ gives the joint distribution
+\begin{equation}
+  \begin{pmatrix}\state_k\\ \meas_k\end{pmatrix}\Bigm|\meas_{1:k-1}
+  \sim\Normal\!\left(
+  \begin{pmatrix}\hat{\state}^-_k\\ \mat{H}\hat{\state}^-_k\end{pmatrix},
+  \begin{pmatrix}\mat{P}^-_k & \mat{P}^-_k\mat{H}\T\\
+                 \mat{H}\mat{P}^-_k & \mat{H}\mat{P}^-_k\mat{H}\T+\mat{R}\end{pmatrix}\right),
+  \label{eq:ch18-joint}
+\end{equation}
+where the cross-covariance is
+$\Cov(\state_k,\mat{H}\state_k+\vect{v}_k)=\mat{P}^-_k\mat{H}\T$ because
+$\vect{v}_k$ is independent of $\state_k$. Conditioning on the observed value
+of $\meas_k$ with fact (ii), $\vect{a}=\state_k$ and $\vect{b}=\meas_k$, is
+the whole update step. Written out with the standard names, it reads
+\begin{align}
+  \vect{y}_k &= \meas_k-\mat{H}\hat{\state}^-_k, & &\text{innovation}\index{innovation}\label{eq:ch18-innovation}\\
+  \mat{S}_k &= \mat{H}\mat{P}^-_k\mat{H}\T+\mat{R}, & &\text{innovation covariance}\label{eq:ch18-S}\\
+  \Kgain_k &= \mat{P}^-_k\mat{H}\T\mat{S}_k\inv, & &\text{Kalman gain}\index{Kalman gain}\label{eq:ch18-gain}\\
+  \hat{\state}_k &= \hat{\state}^-_k+\Kgain_k\vect{y}_k, & &\text{updated mean}\label{eq:ch18-update-mean}\\
+  \mat{P}_k &= \mat{P}^-_k-\Kgain_k\mat{S}_k\Kgain_k\T=(\mat{I}-\Kgain_k\mat{H})\mat{P}^-_k, & &\text{updated covariance.}\label{eq:ch18-update-cov}
+\end{align}
+The innovation is the part of the measurement that the prediction did not
+already know: if the sensor reported exactly what the filter expected,
+$\vect{y}_k=\vect{0}$ and the mean does not move. Its covariance $\mat{S}_k$
+is what the filter \emph{believes} the innovation's spread to be; the two
+together are the raw material of every diagnostic in \cref{sec:ch18-tuning}.
+The two expressions for $\mat{P}_k$ agree because
+$\Kgain_k\mat{S}_k\Kgain_k\T=\mat{P}^-_k\mat{H}\T\mat{S}_k\inv\mat{H}\mat{P}^-_k=\Kgain_k\mat{H}\mat{P}^-_k$.
+
+\paragraph{The Joseph form.}
+A third expression for the updated covariance, the \textbf{Joseph
+form}\index{Joseph form}\index{Kalman filter!Joseph form},
+\begin{equation}
+  \mat{P}_k=(\mat{I}-\Kgain_k\mat{H})\mat{P}^-_k(\mat{I}-\Kgain_k\mat{H})\T+\Kgain_k\mat{R}\Kgain_k\T,
+  \label{eq:ch18-joseph}
+\end{equation}
+is the one to implement. Expanding it gives
+$(\mat{I}-\Kgain\mat{H})\mat{P}^--\mat{P}^-\mat{H}\T\Kgain\T+\Kgain\mat{S}\Kgain\T$
+for any matrix $\Kgain$, and the last two terms cancel exactly when
+$\Kgain=\mat{P}^-\mat{H}\T\mat{S}\inv$; so \cref{eq:ch18-joseph} equals
+\cref{eq:ch18-update-cov} for the Kalman gain. The difference is what happens
+when $\Kgain$ is \emph{not} exactly the Kalman gain --- because of rounding,
+or because a fixed approximate gain is used on purpose. The Joseph form is the
+covariance of the estimation error
+$\state_k-\hat{\state}_k=(\mat{I}-\Kgain\mat{H})(\state_k-\hat{\state}^-_k)-\Kgain\vect{v}_k$
+for \emph{any} gain: it is a sum of two symmetric positive semidefinite
+matrices, and therefore symmetric positive semidefinite whatever $\Kgain$ is.
+The short form $(\mat{I}-\Kgain\mat{H})\mat{P}^-$ is exact only for the
+optimal gain and can lose symmetry and even positive definiteness when the
+gain is off; the self-test of \code{ch18\_kalman.py} constructs such a case.
+\Cref{sec:ch18-properties} uses the same expansion to prove that the Kalman
+gain is the best gain.
+
+\subsection{The gain as a weighting between prediction and measurement}
+\label{sec:ch18-gain}
+
+Take the simplest case, a scalar position measured directly: $n=m=1$,
+$\mat{H}=1$, prediction $\hat x^-$ with variance $P^-$, measurement $z$ with
+variance $R$. Then $S=P^-+R$ and
+\begin{equation}
+  K=\frac{P^-}{P^-+R}\in(0,1),\qquad
+  \hat x=(1-K)\,\hat x^-+K\,z,\qquad
+  \frac1P=\frac1{P^-}+\frac1R .
+  \label{eq:ch18-gain-1d}
+\end{equation}
+The updated mean is a weighted average of the prediction and the measurement,
+and the weights are proportional to the \emph{precisions} $1/P^-$ and $1/R$:
+$K=(1/R)/(1/P^-+1/R)$. The precision of the result is the sum of the two
+precisions, which is the scales-and-weights rule of \cref{sec:ch18-intuition}.
+Three limits are worth remembering. If the sensor is perfect, $R\to0$, then
+$K\to1$ and the filter simply takes the measurement. If the prediction is
+certain, $P^-\to0$, then $K\to0$ and the measurement is ignored. If the
+measurement is missing, treat it as infinitely noisy, $R\to\infty$: $K\to0$
+and $P=P^-$, so a missing measurement is handled by skipping the update
+(\cref{sec:ch18-missing}).
+
+\begin{example}[One-dimensional update]
+\label{ex:ch18-1d}
+The prediction says the intruder is at $\hat x^-=2$~m with variance $P^-=1$~m$^2$
+(standard deviation $1$~m); the sensor reports $z=3$~m with variance
+$R=0.25$~m$^2$ (standard deviation $0.5$~m). Then $S=1.25$, $K=1/1.25=0.8$,
+the innovation is $y=1$~m, and
+\[
+  \hat x=2+0.8\cdot1=2.8~\mathrm{m},\qquad P=(1-0.8)\cdot1=0.2~\mathrm{m^2}
+  \quad(\text{standard deviation }0.447~\mathrm{m}).
+\]
+The precision form gives the same numbers: $1/P=1+4=5$ and
+$\hat x=P\,(\hat x^-/P^-+z/R)=0.2\,(2+12)=2.8$. The estimate lies four times
+closer to the measurement than to the prediction, because the sensor is four
+times more precise, and it is more precise than either: $0.447$~m against
+$1$~m and $0.5$~m. \Cref{fig:ch18-gain1d} shows the three densities. The
+posterior is proportional to the product of the prediction density and the
+likelihood, and the product of two Gaussians is a Gaussian whose peak lies
+between the two and whose width is smaller than both.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch18/gain-1d}
+  \caption{The one-dimensional update of \cref{ex:ch18-1d}. The prediction
+  (grey, dashed) and the likelihood of the measurement (red, dotted) multiply
+  to the posterior (blue), which is narrower than both and centred at
+  $\hat x=\hat x^-+Ky$ with $K=0.8$. The wider density contributes less to the
+  position of the peak: the arrow is $80\%$ of the way from $\hat x^-$ to $z$.}
+  \label{fig:ch18-gain1d}
+\end{figure}
+
+In the matrix case the same reading survives. Invert the updated covariance of
+\cref{eq:ch18-update-cov} with the Woodbury identity of \cref{ch:appB}:
+\begin{equation}
+  \mat{P}_k\inv=(\mat{P}^-_k)\inv+\mat{H}\T\mat{R}\inv\mat{H},\qquad
+  \hat{\state}_k=\mat{P}_k\bigl((\mat{P}^-_k)\inv\hat{\state}^-_k+\mat{H}\T\mat{R}\inv\meas_k\bigr).
+  \label{eq:ch18-information}
+\end{equation}
+Precisions (inverse covariances) add, and the updated mean is the
+precision-weighted average of the prediction and of the measurement mapped
+into state space. This is the \textbf{information form}\index{information filter}
+of the update, the basis of the information filter of
+\cref{sec:ch18-variants}. The gain form \cref{eq:ch18-gain} is preferred in
+practice because it inverts the $m\times m$ matrix $\mat{S}_k$ instead of
+$n\times n$ matrices, and because it works when $\mat{P}^-_k$ is singular.
+
+One feature of the matrix gain has no scalar analogue. $\Kgain_k$ is
+$n\times m$: it corrects \emph{every} component of the state, including
+those the sensor does not see. For the CV model with a position sensor along
+one axis, $\mat{H}=(1\;0)$, $\mat{P}^-=\begin{psmallmatrix}a^-&b^-\\
+b^-&c^-\end{psmallmatrix}$ and $\mat{R}=r$,
+\begin{equation}
+  S=a^-+r,\qquad
+  \Kgain=\frac1{a^-+r}\begin{pmatrix}a^-\\ b^-\end{pmatrix}
+  =\begin{pmatrix}k_p\\ k_v\end{pmatrix}.
+  \label{eq:ch18-gain-cv}
+\end{equation}
+The velocity is corrected by $k_v\,y$ with $k_v=b^-/S$: an innovation in the
+position is attributed partly to a velocity error, in proportion to the
+covariance $b^-$ between the two, which the predict step created in
+\cref{eq:ch18-predict-cv}. This is how a filter fed with positions alone
+produces a velocity estimate, and why that estimate is so much better than a
+finite difference: the filter divides by the innovation covariance, not by
+$\dt$.
+
+\subsection{Pseudocode}
+\label{sec:ch18-pseudocode}
+
+\Cref{alg:ch18-kf} states the two steps as functions of the current belief;
+\cref{alg:ch18-track} is the loop that a tracker runs on a measurement stream,
+with the practical additions --- initialisation, missing measurements, gating
+and prediction ahead --- that \cref{sec:ch18-tuning,sec:ch18-prediction}
+explain in detail.
+
+\begin{algorithm}[htb]
+\caption{The Kalman filter: one predict step and one update step}
+\label{alg:ch18-kf}
+\KwIn{belief $(\hat{\state},\mat{P})$; model $\mat{F},\mat{B},\mat{H},\mat{Q},\mat{R}$; control $\ctrl$; measurement $\meas$}
+\KwOut{the predicted belief $(\hat{\state}^-,\mat{P}^-)$, or the updated belief $(\hat{\state},\mat{P})$}
+\Fn{\KalmanPredict{$\hat{\state}$, $\mat{P}$, $\ctrl$}}{
+  $\hat{\state}^-\gets\mat{F}\hat{\state}+\mat{B}\ctrl$\label{alg:ch18-kf:pmean}\;
+  $\mat{P}^-\gets\mat{F}\mat{P}\mat{F}\T+\mat{Q}$\label{alg:ch18-kf:pcov}\;
+  \KwRet{$(\hat{\state}^-,\mat{P}^-)$}\;
+}
+\Fn{\KalmanUpdate{$\hat{\state}^-$, $\mat{P}^-$, $\meas$}}{
+  $\vect{y}\gets\meas-\mat{H}\hat{\state}^-$\tcp*{innovation}\label{alg:ch18-kf:innov}
+  $\mat{S}\gets\mat{H}\mat{P}^-\mat{H}\T+\mat{R}$\label{alg:ch18-kf:S}\;
+  $\Kgain\gets\mat{P}^-\mat{H}\T\mat{S}\inv$\tcp*{solve $\Kgain\mat{S}=\mat{P}^-\mat{H}\T$; do not invert $\mat{S}$}\label{alg:ch18-kf:gain}
+  $\hat{\state}\gets\hat{\state}^-+\Kgain\vect{y}$\label{alg:ch18-kf:mean}\;
+  $\mat{P}\gets(\mat{I}-\Kgain\mat{H})\mat{P}^-(\mat{I}-\Kgain\mat{H})\T+\Kgain\mat{R}\Kgain\T$\tcp*{Joseph form}\label{alg:ch18-kf:cov}
+  $\mat{P}\gets\tfrac12(\mat{P}+\mat{P}\T)$\tcp*{remove round-off asymmetry}\label{alg:ch18-kf:sym}
+  \KwRet{$(\hat{\state},\mat{P})$}\;
+}
+\end{algorithm}
+
+Lines~\ref{alg:ch18-kf:pmean}--\ref{alg:ch18-kf:pcov} are
+\cref{eq:ch18-predict}; for an intruder there is no control and
+$\mat{B}\ctrl$ is dropped. Line~\ref{alg:ch18-kf:innov} computes the
+innovation and line~\ref{alg:ch18-kf:S} its covariance; both are returned to
+the caller in the implementation, because the tracking loop needs them for
+gating and the engineer needs them for tuning. Line~\ref{alg:ch18-kf:gain} is
+\cref{eq:ch18-gain}, written as a linear solve with the symmetric positive
+definite matrix $\mat{S}$: for $m=2$ or $3$ the difference from an explicit
+inverse is negligible in cost but not in numerical hygiene, and the habit pays
+off in the larger filters of \cref{ch:ch19}. Line~\ref{alg:ch18-kf:mean} moves
+the mean by the gain times the innovation, and line~\ref{alg:ch18-kf:cov} is
+the Joseph form \cref{eq:ch18-joseph}. Line~\ref{alg:ch18-kf:sym} costs
+nothing and keeps $\mat{P}$ exactly symmetric over millions of steps; the
+implementation notes of \cref{sec:ch18-implementation} explain why this
+matters. Each call of \KalmanPredict costs $\bigO{n^3}$ for dense $\mat{F}$
+and each call of \KalmanUpdate $\bigO{n^2m+m^3}$; for the CV model in 3D,
+$n=6$ and $m=3$, that is a few hundred floating-point operations, so a filter
+can run at kilohertz rates on a flight computer.
+
+\begin{algorithm}[htb]
+\caption{Tracking an intruder from a stream of position measurements}
+\label{alg:ch18-track}
+\KwIn{sampling interval $\dt$; CV model $\mat{F},\mat{H},\mat{Q}$ of \cref{eq:ch18-cv}; sensor noise $\mat{R}$; gate threshold $\gamma$ (\cref{tab:ch18-chi2}); prediction horizon $J$ steps}
+\KwOut{after every step, the estimate $(\hat{\state}_k,\mat{P}_k)$ and the predictions $(\hat{\state}_{k+j\mid k},\mat{P}_{k+j\mid k})$, $j=1,\dots,J$}
+\Fn{\KalmanTrack{stream of measurements $\meas_1,\meas_2,\dots$ (some missing)}}{
+  wait for two measurements $\meas_a,\meas_b$ received one step apart\;
+  $(\hat{\state},\mat{P})\gets$ \KalmanInitTwo{$\meas_a$, $\meas_b$, $\dt$, $\mat{R}$}\tcp*{\cref{eq:ch18-init2}}\label{alg:ch18-track:init}
+  $\mathit{misses}\gets0$\;
+  \ForEach{following step $k$}{
+    $(\hat{\state}^-,\mat{P}^-)\gets$ \KalmanPredict{$\hat{\state}$, $\mat{P}$, $\vect{0}$}\label{alg:ch18-track:predict}\;
+    \eIf{$\meas_k$ is missing}{
+      $(\hat{\state},\mat{P})\gets(\hat{\state}^-,\mat{P}^-)$; $\mathit{misses}\gets\mathit{misses}+1$\tcp*{predict-only step}\label{alg:ch18-track:miss}
+    }{
+      $\vect{y}\gets\meas_k-\mat{H}\hat{\state}^-$; $\mat{S}\gets\mat{H}\mat{P}^-\mat{H}\T+\mat{R}$; $d^2\gets\vect{y}\T\mat{S}\inv\vect{y}$\label{alg:ch18-track:nis}\;
+      \eIf{$d^2>\gamma$}{
+        $(\hat{\state},\mat{P})\gets(\hat{\state}^-,\mat{P}^-)$; $\mathit{misses}\gets\mathit{misses}+1$\tcp*{gated out: treat as missing}\label{alg:ch18-track:gate}
+      }{
+        $(\hat{\state},\mat{P})\gets$ \KalmanUpdate{$\hat{\state}^-$, $\mat{P}^-$, $\meas_k$}; $\mathit{misses}\gets0$\label{alg:ch18-track:update}\;
+      }
+    }
+    \If{$\mathit{misses}>M_{\max}$}{drop the track and restart from line~\ref{alg:ch18-track:init}\label{alg:ch18-track:drop}\;}
+    deliver $(\hat{\state},\mat{P})$ and \KalmanAhead{$\hat{\state}$, $\mat{P}$, $J$} to the local layer\tcp*{\cref{eq:ch18-ahead}}\label{alg:ch18-track:deliver}
+  }
+}
+\end{algorithm}
+
+\Cref{alg:ch18-track} wraps the two steps in the loop that the prediction
+layer of \cref{ch:ch24} runs. Line~\ref{alg:ch18-track:init} starts the track
+from two measurements, which fixes both the position and, by differencing, a
+first velocity, with the covariance \cref{eq:ch18-init2} that says how poor
+that velocity is. Line~\ref{alg:ch18-track:predict} runs at every sampling
+instant whether or not a measurement arrived; a missing measurement
+(line~\ref{alg:ch18-track:miss}) leaves the prediction as the new estimate,
+with its larger covariance. Line~\ref{alg:ch18-track:nis} computes the
+squared Mahalanobis distance of the measurement from the predicted
+measurement, and line~\ref{alg:ch18-track:gate} rejects measurements that are
+implausibly far away, treating them as missing rather than resetting
+anything. Line~\ref{alg:ch18-track:drop} guards against a track that has
+lost its target: after $M_{\max}$ consecutive misses (a few seconds' worth)
+the covariance has grown so much that any measurement would pass the gate,
+and it is better to start again. Line~\ref{alg:ch18-track:deliver} hands the
+estimate, its covariance and the $J$-step prediction to the safety layer.
+
+% ---------------------------------------------------------------------
+\section{A worked example}
+\label{sec:ch18-example}
+
+\begin{example}[Five steps of a two-dimensional constant-velocity filter]
+\label{ex:ch18-five}
+A drone flies in the plane with the true state $(1,0.5)$~m/s of velocity
+starting at the origin, so that its true position at step $k$ is $(k,0.5k)$.
+The sensor reports its position once per second, $\dt=1$~s, with independent
+errors of standard deviation $\sigma_p=0.5$~m per axis, $\mat{R}=0.25\,\mat{I}_2$.
+The filter uses the CV model with $q=0.1$~m$^2$/s$^3$ and starts from a
+deliberately poor initial belief: $\hat{\state}_0=(0,0,0.5,0)$ --- the
+velocity is half the true one and points along $x$ --- with
+$\mat{P}_0=\mat{I}_4$. The five measurements, drawn once with a fixed seed and
+rounded, are
+\[
+  \meas_1=(1.28,0.31),\ \meas_2=(1.71,0.92),\ \meas_3=(3.03,1.81),\
+  \meas_4=(4.31,1.79),\ \meas_5=(5.34,2.88).
+\]
+\end{example}
+
+Because $\mat{F}$, $\mat{Q}$, $\mat{H}$, $\mat{R}$ and $\mat{P}_0$ are all
+block-diagonal with identical blocks for the $x$ and $y$ axes, the
+four-dimensional filter is two identical two-dimensional filters run side by
+side, one per axis, and they share the same covariance and the same gain at
+every step. It is therefore enough to carry one $2\times2$ covariance
+$\begin{psmallmatrix}a&b\\ b&c\end{psmallmatrix}$ and one gain
+$(k_p,k_v)$, and the whole computation fits on a sheet of paper. With $\dt=1$
+the per-axis recursion, from \cref{eq:ch18-predict-cv} and
+\cref{eq:ch18-gain-cv}, is
+\begin{align}
+  \text{predict:}&\quad a^-=a+2b+c+\tfrac{q}{3},\quad b^-=b+c+\tfrac{q}{2},\quad c^-=c+q,\notag\\
+  \text{update:}&\quad S=a^-+r,\quad k_p=\frac{a^-}{S},\quad k_v=\frac{b^-}{S},\quad
+  a=(1-k_p)\,a^-,\quad b=(1-k_p)\,b^-,\quad c=c^--k_v b^- ,
+  \label{eq:ch18-example-recursion}
+\end{align}
+with $r=\sigma_p^2=0.25$; the updated $a$, $b$, $c$ follow from
+$(\mat{I}-\Kgain\mat{H})\mat{P}^-$, whose first column is scaled by $1-k_p$
+and whose $(2,2)$ entry loses $k_v b^-$.
+
+\paragraph{Step 1 by hand.}
+Predict: $\hat{\state}^-_1=\mat{F}\hat{\state}_0=(0.5,0,0.5,0)$, and from
+$a=b{=}0$, $c=1$, wait --- from $a=c=1$, $b=0$:
+$a^-=1+0+1+0.0333=2.0333$, $b^-=0+1+0.05=1.05$, $c^-=1.1$. The position
+variance has doubled because the velocity was uncertain. Update:
+$S=2.0333+0.25=2.2833$, $k_p=0.8905$, $k_v=0.4599$. The innovation is
+$\vect{y}_1=\meas_1-\hat{\pos}^-_1=(0.78,0.31)$, so
+\[
+  \hat{\state}_1=(0.5+0.8905\cdot0.78,\ 0+0.8905\cdot0.31,\ 0.5+0.4599\cdot0.78,\ 0+0.4599\cdot0.31)
+  =(1.195,\,0.276,\,0.859,\,0.143),
+\]
+and $a=0.1095\cdot2.0333=0.2226$, $b=0.1095\cdot1.05=0.1150$,
+$c=1.1-0.4599\cdot1.05=0.6172$. One position measurement has moved the
+velocity estimate from $(0.5,0)$ to $(0.86,0.14)$, towards the true
+$(1,0.5)$, through the covariance term $b^-$. The position standard
+deviation is now $\sqrt{0.2226}=0.47$~m, slightly \emph{better} than the
+sensor's $0.5$~m, because the prior still contributed a little.
+
+\begin{table}[tb]
+  \centering\footnotesize
+  \caption{Trace of \cref{alg:ch18-kf} on \cref{ex:ch18-five}, computed by
+  \code{worked\_example()} in \code{ch18\_kalman.py}. Each step has a predict
+  row and an update row. The mean is $(p_x,p_y,v_x,v_y)$; $(a,b,c)$ are the
+  per-axis entries of $\mat{P}^-_k$ or $\mat{P}_k$; $S_k$, $k_p$ and $k_v$
+  are per axis too. The true state at step $k$ is $(k,\,0.5k,\,1,\,0.5)$.}
+  \label{tab:ch18-trace}
+  \begin{tabular}{@{}rlllL{5.3cm}@{}}
+  \toprule
+  $k$ & phase & mean $(p_x,p_y,v_x,v_y)$ & $(a,b,c)$ & measurement, innovation, gain\\
+  \midrule
+  1 & predict & $(0.500,\,0.000,\,0.500,\,0.000)$ & $(2.033,\,1.050,\,1.100)$ & $\meas_1=(1.28,0.31)$, $\vect{y}_1=(0.780,0.310)$, $S_1=2.283$\\
+    & update  & $(1.195,\,0.276,\,0.859,\,0.143)$ & $(0.223,\,0.115,\,0.617)$ & $k_p=0.891$, $k_v=0.460$, $d^2_1=0.31$\\
+  \addlinespace
+  2 & predict & $(2.053,\,0.419,\,0.859,\,0.143)$ & $(1.103,\,0.782,\,0.717)$ & $\meas_2=(1.71,0.92)$, $\vect{y}_2=(-0.343,0.501)$, $S_2=1.353$\\
+    & update  & $(1.773,\,0.827,\,0.660,\,0.432)$ & $(0.204,\,0.145,\,0.265)$ & $k_p=0.815$, $k_v=0.578$, $d^2_2=0.27$\\
+  \addlinespace
+  3 & predict & $(2.434,\,1.260,\,0.660,\,0.432)$ & $(0.791,\,0.460,\,0.365)$ & $\meas_3=(3.03,1.81)$, $\vect{y}_3=(0.596,0.550)$, $S_3=1.041$\\
+    & update  & $(2.887,\,1.678,\,0.923,\,0.675)$ & $(0.190,\,0.110,\,0.162)$ & $k_p=0.760$, $k_v=0.441$, $d^2_3=0.63$\\
+  \addlinespace
+  4 & predict & $(3.810,\,2.353,\,0.923,\,0.675)$ & $(0.606,\,0.323,\,0.262)$ & $\meas_4=(4.31,1.79)$, $\vect{y}_4=(0.500,-0.563)$, $S_4=0.856$\\
+    & update  & $(4.164,\,1.954,\,1.112,\,0.463)$ & $(0.177,\,0.094,\,0.141)$ & $k_p=0.708$, $k_v=0.377$, $d^2_4=0.66$\\
+  \addlinespace
+  5 & predict & $(5.276,\,2.418,\,1.112,\,0.463)$ & $(0.539,\,0.285,\,0.241)$ & $\meas_5=(5.34,2.88)$, $\vect{y}_5=(0.064,0.462)$, $S_5=0.789$\\
+    & update  & $(5.320,\,2.734,\,1.135,\,0.630)$ & $(0.171,\,0.090,\,0.138)$ & $k_p=0.683$, $k_v=0.361$, $d^2_5=0.28$\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch18/example}
+  \caption{The five steps of \cref{ex:ch18-five} in the plane. The predicted
+  positions (grey circles) lie on the straight continuation of the previous
+  velocity estimate; each measurement (red cross) pulls the estimate (blue)
+  most of the way towards itself at first ($k_p=0.89$) and less later
+  ($k_p=0.68$). The $2\sigma$ circles of the prediction (dashed, drawn for
+  $k\ge3$; those of steps 1 and 2 are too large for the frame) shrink after
+  every update (solid). The updated circles are smaller than the sensor's
+  $2\sigma$ radius of $1$~m from the first step on.}
+  \label{fig:ch18-example}
+\end{figure}
+
+\Cref{tab:ch18-trace} continues the computation, and \cref{fig:ch18-example}
+draws it. Three things are worth noticing. First, the gain
+\emph{decreases} from step to step, $k_p=0.89,0.82,0.76,0.71,0.68$, as the
+covariance settles: at the start the filter trusts the sensor because it
+knows nothing, and later the prediction has become good enough to be worth
+weighting. The gain converges to a steady value that depends only on $q$,
+$\mat{R}$ and $\dt$ (\cref{sec:ch18-properties}), not on the measurements.
+Second, the velocity estimate recovers from its wrong start: after five
+position measurements it is $(1.135,0.630)$~m/s against the true $(1,0.5)$,
+an error of $0.18$~m/s, while the velocity standard deviation reported by the
+filter is $\sqrt{0.138}=0.37$~m/s --- the error is inside the error bar.
+The final position error is $(0.32,0.23)$~m against a reported standard
+deviation of $\sqrt{0.171}=0.41$~m; again consistent. Third, the last column
+lists $d^2_k=\vect{y}_k\T\mat{S}_k\inv\vect{y}_k$, the squared Mahalanobis
+distance of each measurement from its prediction. For a correctly tuned
+filter this quantity has a chi-square distribution with $m=2$ degrees of
+freedom, mean $2$; the five values here average $0.43$, which for five
+samples is unremarkable, and \cref{sec:ch18-tuning} makes the test precise.
+The self-test of \code{ch18\_kalman.py} reproduces every number of the
+table to four decimals, and checks the step-1 gain against the hand
+computation above.

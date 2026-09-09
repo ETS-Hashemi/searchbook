@@ -119,3 +119,95 @@ all. Keep the three pitfall boxes, the `(f, -g, counter)` discussion, the seven 
 `fig:ch04-idea` disc-versus-ellipse pairing and the `fig:ch04-spacetime` time-layer drawing are both
 excellent), the ten well-graded exercises, and above all the discipline of having `ch04_astar.py`
 assert every number that appears in the prose and in the solutions.
+
+## Response to review (round 1)
+
+All three required changes are applied, together with all six suggestions
+(the length suggestion in the form of its compression (b) only, see below).
+Nothing on the "what must be kept" list was touched: the invariant-based proof
+architecture (`thm:ch04-invariant`, `thm:ch04-surely`, `thm:ch04-dominance`),
+the Dechter-Pearl discussion, the whole space-time section (`def:ch04-goalstay`,
+the `t >= H` pitfall, `thm:ch04-horizon`), the floating-point paragraph, the
+three pitfall boxes, the `(f, -g, counter)` discussion, all seven figures, the
+ten exercises and the assert-every-number discipline of `ch04_astar.py` are
+unchanged.
+
+### Required changes
+
+1. **`fig:ch04-example` caption -- wrong claim about Dijkstra's extra
+   expansions. DONE.** Recomputed independently before editing:
+   `set(dijkstra) - set(astar) = {(0,5),(1,5),(2,5),(3,0),(4,0)}` and
+   `set(astar) - set(dijkstra) = {}`, with `(0,5),(1,5),(2,5),(3,0)` left in
+   `Open` by A* and `(4,0)` never generated -- exactly as the report states.
+   The final clause of the caption now reads "(b) Dijkstra's algorithm
+   ($\hcost = 0$) expands 26 cells, five more than \astar: the top-row cells
+   $(0, 5)$, $(1, 5)$, $(2, 5)$ and the bottom-row cells $(3, 0)$, $(4, 0)$,
+   which \astar either leaves in \Open or never generates."
+
+2. **`keyidea` box -- optimality stated without the re-opening condition.
+   DONE.** The box now reads "... the first goal that \astar \emph{pops} is
+   reached by an optimal path, provided a closed node may be re-opened when a
+   cheaper path to it turns up (\cref{alg:ch04-astar},
+   line~\ref{alg:ch04-astar:reopen})." This matches `thm:ch04-optimal`, the
+   summary box, and the `reopen=False` assertion (`res.cost == 5.0`) in
+   `code/ch04_astar.py`.
+
+3. **Acronyms not expanded at first use (ECBS, ORCA, DWA). DONE.** Both places
+   were confirmed to be the chapter's first use of each acronym. Line~36 now
+   reads "conflict-based search (\cbs) or its bounded-suboptimal variant,
+   enhanced \cbs (\ecbs; \cref{ch:ch09,ch:ch10})". In the drone box the
+   sentence now reads "The reactive layer of \cref{ch:ch24} --- optimal
+   reciprocal collision avoidance (\orca, \cref{ch:ch13}) and the dynamic
+   window approach (DWA, \cref{ch:ch14}) --- handles the seconds-scale
+   avoidance ...". The em-dash construction is used instead of the report's
+   literal wording only to avoid parentheses nested inside a parenthetical;
+   both expansions appear at first use as required.
+
+### Suggestions
+
+* **Length.** No cuts were made to `ex:ch04-corridor` (suggestion (a)); the
+  report did not require them and the passing-bay example is referred to
+  again by `exr:ch04-coding`(d) and `exr:ch04-spacetime`(c). Suggestion (b) was applied: the
+  $(1-\epsilon)\hcost^*$ aside is gone from the Pearl paragraph, which paid for
+  the new sentence of the next item. The chapter still occupies 24 pages
+  (pp. 19-42 of `build/only-ch04-astar.pdf`); a control build with the new
+  Complexity sentence removed ends on the same page, so none of the edits above
+  cost a page.
+* **Motivation cross-reference. DONE.** Line~27 now points at
+  `\cref{sec:ch04-experiment}` instead of `\cref{sec:ch04-variants}`.
+* **`lst:ch04-spacetime` caption. DONE.** Added "The `closed` set is recorded
+  only for the traces and the figures; correctness needs only `parent`."
+  Verified against `space_time_astar()`: `closed` is only written to and
+  returned, duplicate detection is `if s2 in parent`.
+* **Complexity, admissible-but-inconsistent worst case. DONE.** Added: "All of
+  this counts \emph{distinct} nodes: if $\hcost$ is admissible but not
+  consistent, line~\ref{alg:ch04-astar:reopen} may fire again and again, and
+  Martelli~\cite{martelli1977complexity} builds graphs on which \astar
+  re-expands nodes exponentially often in the number of nodes, so the
+  $\bigO{\abs{V}}$ expansion count above needs \cref{thm:ch04-consistent}(i)."
+  The reference (Martelli, "On the Complexity of Admissible Search Algorithms",
+  *Artificial Intelligence* 8(1):1-13, 1977) is one I can vouch for; it was
+  added to `bib/ch04-extra.bib`, not to `references.bib`, and it resolves in
+  the build (entry [6]).
+* **`tab:ch04-heuristics`. DONE.** The 4-connected octile entry now reads "not
+  exact; consistent (below Manhattan)". The wider cell made the table overfull
+  by 31.7 pt, so the table was set in `\footnotesize` (still within the style
+  guide); the overfull box is gone.
+* **`def:ch04-problem` codomain. DONE.** Now "$\hcost^* \colon V \to
+  \R_{\ge 0} \cup \{\infty\}$ for the cost of a cheapest path from $n$ to a
+  goal ($\hcost^*(n) = \infty$ if no goal is reachable; the heuristic $\hcost$
+  itself is assumed finite everywhere)".
+
+### Verification after the revision
+
+* `cd Overleaf && ./build.sh ch04-astar` -> status 0, no `!` errors, no
+  undefined reference or citation belonging to Chapter 4. The only overfull box
+  above 15 pt left in the log is the pre-existing 29.1 pt one from the *List of
+  Algorithms* entry for the RRT chapter; the 31.7 pt one introduced by the
+  table edit was fixed.
+* `python3 code/ch04_astar.py` -> `ch04_astar: all self-tests passed`.
+* No Python file was changed, so `figures/data/ch04-expansions.dat` and the
+  generated `figures/ch04/{example,tiebreak}.tex` are untouched and still
+  current. Every number quoted in the revised text (21 and 26 expansions,
+  cost 13, and the five cells named in the new caption) was re-derived from
+  `ch04_astar.py` before the edit was made.
