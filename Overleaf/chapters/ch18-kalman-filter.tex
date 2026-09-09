@@ -55,10 +55,9 @@ In the hybrid architecture of \cref{ch:ch24} the filter is the core of the
 covariance to the local safety layer (\orca or DWA, \cref{ch:ch13,ch:ch14})
 and to the trajectory predictors of \cref{ch:ch20}, and its covariance,
 propagated a few seconds ahead, gives the growing uncertainty ellipses with
-which the safety layer inflates the intruder's radius. The filter is the
-Week~9 topic of the study plan (\cref{ch:appA}), and the milestone of that
-week is precisely that your planner receives a stable estimated state instead
-of raw observations.
+which the safety layer inflates the intruder's radius. It is the Week~9 topic
+of the study plan (\cref{ch:appA}), whose milestone is precisely that your
+planner receives a stable estimated state instead of raw observations.
 
 \begin{figure}[tb]
   \centering
@@ -213,12 +212,13 @@ notation table, the superscript minus marks quantities computed before the
 current measurement is used.
 \end{definition}
 
-The Bayes filter of \cref{ch:ch02} computes the posterior in two moves: it
-propagates the previous posterior through the motion model to obtain the
-prediction, and it multiplies the prediction by the likelihood
-$p(\meas_k\mid\state_k)$ to obtain the new posterior. For general densities
-both moves are integrals without a closed form. For the linear-Gaussian model
-they reduce to matrix arithmetic, because of two facts about Gaussians.
+The recursive Bayes filter \cite[ch.~2]{thrun2005probabilistic} computes the
+posterior in two moves: it propagates the previous posterior through the
+motion model to obtain the prediction, and multiplies the prediction by the
+likelihood $p(\meas_k\mid\state_k)$ to obtain the new posterior. For general
+densities both moves are integrals without closed form; for the
+linear-Gaussian model they reduce to matrix arithmetic, because of two facts
+about Gaussians.
 
 \subsection{Two facts about Gaussians}
 
@@ -244,19 +244,9 @@ Let $\state\sim\Normal(\vect{\mu},\mat{\Sigma})$ in $\R^n$.
   \end{equation}
 \end{enumerate}
 \end{lemma}
-\begin{proof}[Proof sketch]
-(i) is the closure of Gaussians under affine maps and under sums of
-independent Gaussians, stated in \cref{ch:ch02}. For (ii), write the joint
-density as $\exp(-\tfrac12\phi)$ with $\phi$ the quadratic form of the block
-covariance, expand $\phi$ with the block inverse (the Schur-complement
-identity of \cref{ch:appB}) and collect the terms that contain $\vect{a}$:
-they form a quadratic form in
-$\vect{a}-\vect{\mu}_a-\mat{\Sigma}_{ab}\mat{\Sigma}_{bb}\inv(\vect{b}-\vect{\mu}_b)$
-with the precision matrix
-$(\mat{\Sigma}_{aa}-\mat{\Sigma}_{ab}\mat{\Sigma}_{bb}\inv\mat{\Sigma}_{ba})\inv$,
-and the rest depends on $\vect{b}$ alone. \Cref{ch:appB} and
-\textcite[ch.~3]{thrun2005probabilistic} give the full computation.
-\end{proof}
+Both facts are proved in \cref{ch:appB} --- (ii) is the conditioning theorem
+there, whose covariance is the Schur complement of $\mat{\Sigma}_{bb}$ --- and
+in \textcite[ch.~3]{thrun2005probabilistic}.
 
 Fact (i) is the predict step in disguise: the motion model
 \cref{eq:ch18-motion} is an affine map of $\state_{k-1}$ plus independent
@@ -335,18 +325,17 @@ form against this integral numerically.
 
 Two features of $\mat{Q}$ matter in practice. First, $q$ is a \emph{rate}: it
 does not change when the sampling interval changes, because $\mat{Q}$ carries
-all the dependence on $\dt$. A sensor that suddenly reports at $20$~Hz instead
-of $10$~Hz needs a new $\mat{Q}$ but the same $q$
-(\cref{sec:ch18-implementation} returns to this). Second, the off-diagonal
-term couples position and velocity: an unknown acceleration moves both, in
-the same direction. A diagonal $\mat{Q}$ is a common shortcut and a mild
-error; $\mat{Q}=q\,\mat{I}$ regardless of $\dt$ is a common shortcut and a
-serious one. As a starting value, if the intruder's accelerations have a
-magnitude of about $a_{\max}$ and persist for about $T_a$ seconds, take
-$q\approx a_{\max}^2\,T_a$, so that the model's velocity uncertainty after
-$T_a$, $\sqrt{q\,T_a}$, matches the velocity change $a_{\max}T_a$ that a real
-manoeuvre produces; \cref{sec:ch18-tuning} shows how to refine the value from
-data.
+all the dependence on $\dt$; a sensor that suddenly reports at $20$~Hz
+instead of $10$~Hz needs a new $\mat{Q}$ but the same $q$. Second, the
+off-diagonal term couples position and velocity, because an unknown
+acceleration moves both in the same direction; a diagonal $\mat{Q}$ is a
+common shortcut and a mild error, $\mat{Q}=q\,\mat{I}$ regardless of $\dt$ a
+common shortcut and a serious one (\cref{sec:ch18-implementation}). As a
+starting value, if the intruder's accelerations have magnitude about
+$a_{\max}$ and persist for about $T_a$ seconds, take $q\approx a_{\max}^2T_a$,
+so that the model's velocity uncertainty after $T_a$, $\sqrt{qT_a}$, matches
+the velocity change $a_{\max}T_a$ of a real manoeuvre; \cref{sec:ch18-tuning}
+refines the value from data.
 
 \paragraph{The constant-acceleration model.}
 When the intruder manoeuvres persistently --- long turns, sustained climbs
@@ -389,12 +378,11 @@ noise $\vect{w}_k$. Fact (i) gives the prediction directly:
   \mat{P}^-_k=\mat{F}\mat{P}_{k-1}\mat{F}\T+\mat{Q}.
   \label{eq:ch18-predict}
 \end{equation}
-The mean moves as the noise-free model says; nothing else is possible,
-because the noise has mean zero. The covariance is transformed by $\mat{F}$
-and then inflated by $\mat{Q}$. The transformation is not a mere rescaling:
-for the CV model along one axis, with $\mat{P}_{k-1}=\begin{psmallmatrix}a&b\\
-b&c\end{psmallmatrix}$ (position variance $a$, velocity variance $c$,
-covariance $b$),
+The mean moves as the noise-free model says. The covariance is transformed by
+$\mat{F}$ and then inflated by $\mat{Q}$, and the transformation is not a mere
+rescaling: for the CV model along one axis, with
+$\mat{P}_{k-1}=\begin{psmallmatrix}a&b\\ b&c\end{psmallmatrix}$ (position
+variance $a$, velocity variance $c$, covariance $b$),
 \begin{equation}
   \mat{P}^-_k=\begin{pmatrix}
     a+2\dt\,b+\dt^2c+q\dt^3/3 & b+\dt\,c+q\dt^2/2\\
@@ -403,9 +391,9 @@ covariance $b$),
   \label{eq:ch18-predict-cv}
 \end{equation}
 so the position variance absorbs the velocity variance ($\dt^2c$): a drone
-whose velocity is uncertain has an uncertain position a moment later, even if
-its position was known exactly. This coupling is what makes a position sensor
-informative about the velocity in the update step.
+whose velocity is uncertain has an uncertain position a moment later, even
+if its position was known exactly. This coupling is what makes a position
+sensor informative about the velocity in the update step.
 
 \subsection{The update step}
 \label{sec:ch18-update}
@@ -849,11 +837,9 @@ positive semidefinite because $\mat{S}$ is, and it vanishes only for
 $\Kgain=\Kgain^*$ since $\mat{S}\succ\mat{0}$ when $\mat{R}\succ\mat{0}$.
 \end{proof}
 
-This is the argument of Kalman's original paper, which never mentions
-Gaussians: the filter is derived as an orthogonal projection onto the space
-of linear functions of the measurements \cite{kalman1960new}. The self-test
-of \code{ch18\_kalman.py} verifies \cref{eq:ch18-best-gain} numerically for a
-gain that is $50\%$ too large.
+This is the argument of Kalman's original paper, which derives the filter by
+orthogonal projection and never mentions Gaussians \cite{kalman1960new}; the
+self-test verifies \cref{eq:ch18-best-gain} for a gain $50\%$ too large.
 
 \begin{proposition}[The covariance does not depend on the data; steady state]
 \label{thm:ch18-steady}
@@ -889,14 +875,12 @@ detectability of $(\mat{F},\mat{H})$ and stabilisability of
 $(\mat{F},\mat{Q}^{1/2})$.
 \end{proof}
 
-Two consequences matter for a tracker. The ellipses that the safety layer
-receives and the gain that the filter applies are known functions of the
-sampling rate and the noise levels, so they can be inspected and tuned
-offline, on no data at all. And the gain settles quickly: in the worked
-example it fell from $0.89$ to $0.68$ in five steps, and in
-\cref{sec:ch18-experiment} the position standard deviation is within a few
-percent of its final $0.39$~m after two seconds, which is why the
-constant-gain filter of \cref{sec:ch18-variants} loses little.
+For a tracker this means that the ellipses the safety layer receives and the
+gain the filter applies are known functions of the sampling rate and the
+noise levels, tunable offline on no data at all, and that the gain settles
+quickly: from $0.89$ to $0.68$ in five steps in the worked example, and to
+within a few percent of its final value after two seconds in
+\cref{sec:ch18-experiment}.
 
 \paragraph{Observability.}
 The pair $(\mat{F},\mat{H})$ is \textbf{observable}\index{observability} if
@@ -919,10 +903,9 @@ growing. Check the rank once, when the model is built;
 \paragraph{Complexity and memory.}
 The filter is recursive: step $k$ needs the previous belief and the current
 measurement, never the history, so memory is $\bigO{n^2}$ and time per step
-$\bigO{n^3}$, independent of $k$. A batch least-squares fit to all
-measurements so far would give the same estimate at a cost growing with $k$;
-the Kalman filter is that fit reorganised so that each measurement is
-absorbed once and forgotten.
+$\bigO{n^3}$, independent of $k$; it is the batch least-squares fit to all
+measurements so far, reorganised so that each measurement is absorbed once
+and forgotten.
 
 % ---------------------------------------------------------------------
 \section{Tuning, diagnostics, gating, and imperfect sensors}
@@ -952,13 +935,12 @@ trade-off between two failure modes, shown in \cref{fig:ch18-tuning} and
 \begin{itemize}
   \item \textbf{$\mat{Q}$ too small: sluggish.} The filter believes its own
   model, the gain becomes small, and the estimate follows the true motion
-  with a lag. Straight flight is tracked beautifully, but when the intruder
-  turns the estimate overshoots the corner and takes seconds to catch up. The
-  innovations are large and, tellingly, \emph{correlated in time}: the filter
-  is wrong in the same direction for many consecutive steps.
+  with a lag: straight flight is tracked beautifully, but in a turn the
+  estimate overshoots the corner and takes seconds to catch up. The
+  innovations are large and, tellingly, \emph{correlated in time}.
   \item \textbf{$\mat{Q}$ too large: noisy.} The filter believes the sensor,
   the gain stays large, and the estimate copies the measurement noise; the
-  velocity estimate, in particular, becomes almost as bad as a finite
+  velocity estimate in particular becomes almost as bad as a finite
   difference. The innovations are small and \emph{negatively} correlated:
   each measurement overcorrects, and the next one corrects back.
 \end{itemize}
@@ -1191,12 +1173,11 @@ metres of travel. \code{init\_two\_point} implements \cref{eq:ch18-init2}.
 \section{Predicting ahead: uncertainty propagation}
 \label{sec:ch18-prediction}
 
-The safety layer of \cref{ch:ch24} does not ask where the intruder
-\emph{is}; it asks where the intruder \emph{will be} during the next few
-seconds, and how sure the tracker is. Both questions have the same answer:
-run the predict step $j$ times without an update. Since the mean and the
-covariance evolve independently of any measurement, the result is closed
-form:
+The safety layer of \cref{ch:ch24} asks where the intruder \emph{will be}
+during the next few seconds and how sure the tracker is. Both questions have
+the same answer, the predict step run $j$ times without an update, and since
+mean and covariance evolve independently of the measurements the result is
+closed form:
 \begin{equation}
   \hat{\state}_{k+j\mid k}=\mat{F}^{j}\hat{\state}_k,\qquad
   \mat{P}_{k+j\mid k}=\mat{F}^{j}\mat{P}_k(\mat{F}^{j})\T+\sum_{i=0}^{j-1}\mat{F}^{i}\mat{Q}(\mat{F}^{i})\T .
@@ -1335,59 +1316,50 @@ optimum without ever seeing the true trajectory.
 \section{Variants and extensions}
 \label{sec:ch18-variants}
 
-\paragraph{Constant gain: the alpha--beta filter.}
-By \cref{thm:ch18-steady} the gain converges. Running the CV filter with the
-constant gain $\Kgain_\infty=(k_p,k_v)$ per axis from the start gives the
+\paragraph{Constant gain.}
+By \cref{thm:ch18-steady} the gain converges; running the CV filter with the
+constant gain $(k_p,k_v)$ per axis from the start gives the
 \textbf{alpha--beta filter}\index{alpha-beta filter@alpha--beta filter},
-$\hat p\gets\hat p^-+\alpha\,y$, $\hat v\gets\hat v^-+(\beta/\dt)\,y$ with
-$\alpha=k_p$, $\beta=k_v\dt$: no covariance, no matrix arithmetic, and the
-same steady-state accuracy. It loses the transient behaviour --- a two-point
-start is not exploited --- and the covariance output that the safety layer
-needs, so in this book it serves as a sanity check rather than as the
-tracker.
+$\hat p\gets\hat p^-+\alpha y$, $\hat v\gets\hat v^-+(\beta/\dt)\,y$ with
+$\alpha=k_p$, $\beta=k_v\dt$: no covariance, no matrix arithmetic, the same
+steady-state accuracy, but no transient and no covariance output for the
+safety layer.
 
 \paragraph{The information filter.}
-Carrying the precision $\mat{P}\inv$ and the information vector
-$\mat{P}\inv\hat{\state}$ instead of $\mat{P}$ and $\hat{\state}$ turns the
-update \cref{eq:ch18-information} into two additions and makes the predict
-step the expensive one. It is the natural form when several sensors observe
-the same intruder: their contributions $\mat{H}_i\T\mat{R}_i\inv\mat{H}_i$
-add, in any order, and a sensor that reports nothing adds zero. With a
-diagonal $\mat{R}$ the same effect is obtained in the gain form by processing
-the components of $\meas_k$ one at a time as scalar updates, which needs no
-matrix inverse at all.
+Carrying $\mat{P}\inv$ and $\mat{P}\inv\hat{\state}$ turns the update
+\cref{eq:ch18-information} into two additions and makes the predict step the
+expensive one; it is the natural form when several sensors observe the same
+intruder, since their contributions $\mat{H}_i\T\mat{R}_i\inv\mat{H}_i$ add
+in any order and a silent sensor adds zero. With a diagonal $\mat{R}$ the gain
+form achieves the same by processing the components of $\meas_k$ one at a
+time as scalar updates.
 
 \paragraph{Smoothing.}
-The filter uses the measurements up to step $k$. Offline, the measurements
-\emph{after} $k$ are available too, and the Rauch--Tung--Striebel
-smoother\index{smoother!Rauch--Tung--Striebel} \cite{rauch1965maximum} runs
-a backward pass over the stored filter outputs that reduces the error
-roughly by half in the interior of a recorded trajectory. It is the right
-tool for cleaning the recorded trajectories on which the predictors of
-\cref{ch:ch20} are trained; it is not a tracker, because it needs the
-future. \textcite{sarkka2013bayesian} treat filters and smoothers together.
+Offline, the measurements \emph{after} step $k$ are available too, and the
+Rauch--Tung--Striebel smoother\index{smoother!Rauch--Tung--Striebel}
+\cite{rauch1965maximum} runs a backward pass over the stored filter outputs
+that roughly halves the error in the interior of a recorded trajectory: the
+right tool for cleaning the trajectories on which the predictors of
+\cref{ch:ch20} are trained, not a tracker, because it needs the future
+\cite{sarkka2013bayesian}.
 
-\paragraph{Richer states.}
-Anything that the noise model cannot absorb can be added to the state: the
-acceleration (the CA model of \cref{sec:ch18-models}), a slowly varying
-sensor bias, a time-correlated disturbance modelled as a first-order
-process. The price is a larger $n$, a slower response to what the extra
-states must first learn, and the need to check observability again. For an
+\paragraph{Richer states and manoeuvring targets.}
+Anything the noise model cannot absorb can be added to the state --- the
+acceleration (the CA model), a slowly varying sensor bias, a time-correlated
+disturbance --- at the price of a larger $n$, a slower response to what the
+extra states must first learn, and a fresh observability check. For an
 intruder that alternates between straight flight and turns, the interacting
-multiple model (IMM) estimator runs a CV and a CA (or a coordinated-turn)
-filter in parallel and mixes them by their likelihoods
-\cite{barshalom2001estimation}; \cref{ch:ch19} compares filters on a turning
-target.
+multiple model (IMM) estimator runs a CV and a CA or coordinated-turn filter
+in parallel and mixes them by their likelihoods \cite{barshalom2001estimation}.
 
-\paragraph{Nonlinear models and non-Gaussian noise.}
-A radar that reports range and bearing, a camera that reports pixel
-coordinates, a turn model with an unknown turn rate: each breaks the linear
-form of $\mat{H}$ or $\mat{F}$. The extended Kalman filter linearises
-around the current estimate, the unscented filter propagates a handful of
-chosen points, and the particle filter abandons the Gaussian altogether;
-\cref{ch:ch19} presents all three and says when each is worth its cost.
-Everything in this chapter --- innovation, gain, NIS, gating, prediction
-ahead --- survives with the Jacobians in place of $\mat{F}$ and $\mat{H}$.
+\paragraph{Nonlinear models.}
+A radar that reports range and bearing, a camera that reports pixels, a turn
+model with an unknown rate: each breaks the linearity of $\mat{H}$ or
+$\mat{F}$. The extended Kalman filter linearises around the current estimate,
+the unscented filter propagates a handful of chosen points, and the particle
+filter abandons the Gaussian altogether; \cref{ch:ch19} presents all three and
+compares them on a turning target. Everything in this chapter survives with
+Jacobians in place of $\mat{F}$ and $\mat{H}$.
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
@@ -1503,28 +1475,27 @@ in $\mat{R}$; \cref{exr:ch18-coding} does exactly that.
 
 \begin{dronebox}
 The Kalman filter is the \textbf{prediction layer} of the hybrid architecture
-of \cref{ch:ch24}, the second of its four layers and the only one that deals
-with agents the swarm does not control. It \emph{receives} timestamped sensor
-reports about unknown drones --- positions, or positions and velocities ---
-with their noise levels, and, from the decision logic, the safety horizon $h$
-over which the local layer plans. It \emph{maintains} one track per intruder:
-a CV filter with gating and two-point initialisation (\cref{alg:ch18-track}),
-nearest-neighbour association when several intruders are visible, and a
-health count of consecutive misses. It \emph{delivers}, at every cycle, the
-estimate $(\hat{\state}_k,\mat{P}_k)$ and the predictions
+of \cref{ch:ch24}, the only layer that deals with agents the swarm does not
+control. It \emph{receives} timestamped sensor reports about unknown drones
+(positions, or positions and velocities) with their noise levels, and the
+safety horizon $h$ from the decision logic. It \emph{maintains} one track per
+intruder --- a CV filter with gating and two-point initialisation
+(\cref{alg:ch18-track}), nearest-neighbour association when several intruders
+are visible, and a health count of consecutive misses --- and \emph{delivers},
+at every cycle, $(\hat{\state}_k,\mat{P}_k)$ and the predictions
 $(\hat{\state}_{k+j\mid k},\mat{P}_{k+j\mid k})$ up to the horizon
 (\cref{eq:ch18-ahead}). The local safety layer (\orca in \cref{ch:ch13}, DWA
 in \cref{ch:ch14}) takes the predicted position and velocity as the obstacle
 and inflates its radius by $\kappa\,\sigma_{\max}(h)$; the time-to-collision
 trigger of \cref{ch:ch24} is evaluated on the same prediction; the
 constant-velocity predictor of \cref{ch:ch20} is \cref{eq:ch18-ahead} itself,
-and the learned predictors of that chapter take the filtered history rather
-than the raw reports as input; the replanning layer (\cref{ch:ch05,ch:ch24})
-receives the predicted occupancy when a detour must be planned; and the
-health count tells the decision logic when an intruder is no longer tracked.
-This is the Week~9 topic of the study plan (\cref{ch:appA}), whose milestone
-is exactly this interface: from Week~9 on, your planner receives a stable
-estimated state with a covariance instead of raw noisy observations.
+and the learned predictors of that chapter take the filtered history as
+input; the replanning layer (\cref{ch:ch05,ch:ch24}) receives the predicted
+occupancy when a detour must be planned; and the health count tells the
+decision logic when an intruder is no longer tracked. This is the Week~9
+topic of the study plan (\cref{ch:appA}), whose milestone is exactly this
+interface: a stable estimated state with a covariance instead of raw noisy
+observations.
 \end{dronebox}
 
 % ---------------------------------------------------------------------
@@ -1659,17 +1630,6 @@ and show that the rank is $3$. (c) A 2D CV model is observed by a sensor
 that reports only the $x$-coordinate. Which of the four state components are
 observable? Verify with \code{observability\_rank}, run the filter on a
 simulation, and describe how $\mat{P}$ behaves.
-\end{exercise}
-
-\begin{exercise}[\difficulty{2}]
-\label{exr:ch18-dtscaling}
-Take experiment A and re-simulate it at $20$~Hz with the same $q$ and
-$\mat{R}$. Track it with (i) the correct $\mat{Q}(\dt)$ of \cref{eq:ch18-cv}
-and (ii) the diagonal shortcut $\mat{Q}=\diag(q_p,q_p,q_v,q_v)$ with
-$q_p,q_v$ chosen to match the diagonal of the correct $\mat{Q}$ at $10$~Hz.
-Report the position and velocity RMSE and the mean NIS of both filters at
-$10$ and at $20$~Hz, and explain the pattern with the pitfall of
-\cref{sec:ch18-implementation}.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3} Coding]
