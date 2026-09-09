@@ -44,26 +44,26 @@ Legend: `[ ]` open · `[x]` done · `[~]` in progress · `[-]` dropped (with rea
 Each chapter: outline → draft following the template → figures (≥4, TikZ) → worked example with trace table → pseudocode → verified Python → pitfalls → drone-system box → summary → exercises → compile check.
 
 ### Part I — Foundations
-- [~] 2.01 Ch 1 Planning for Drone Swarms (problem, the four-layer hybrid architecture preview, roadmap, established vs open research) — drafted, compiles (Ch 1, ~20 pp, 6 figures, code + self-test)
+- [x] 2.01 Ch 1 Planning for Drone Swarms (problem, the four-layer hybrid architecture preview, roadmap, established vs open research) — written and compiled; reviewed and revised (see review log)
 - [x] 2.02 Ch 2 The Toolbox (graphs and grids, configuration space, time-indexed paths, kinematics, uncertainty, complexity, priority queues) — done: 23 pages, compiles, self-test passes (7 figures, 7 tables, 10 exercises, solutions, glossary); over the length target, cut candidates noted for review
 
 ### Part II — Single-Agent Graph Search
-- [~] 2.03 Ch 3 Dijkstra's Algorithm — drafted, compiles (Ch 3, 6 figures, code + self-test); awaiting finisher pass
-- [~] 2.04 Ch 4 A* Search (admissible/consistent heuristics, optimality proof, weighted A*, space-time A*) — drafted, compiles (Ch 4, 7 figures); space-time A* section and experiment figure to verify
-- [~] 2.05 Ch 5 Incremental Search: LPA* and D* Lite — drafted, compiles (Ch 5, 6 figures, D* Lite + LPA*); finisher pass pending
+- [x] 2.03 Ch 3 Dijkstra's Algorithm — written and compiled; reviewed and revised (see review log)
+- [x] 2.04 Ch 4 A* Search (admissible/consistent heuristics, optimality proof, weighted A*, space-time A*) — written and compiled; reviewed and revised (see review log)
+- [x] 2.05 Ch 5 Incremental Search: LPA* and D* Lite — written and compiled; reviewed and revised (see review log)
 - [~] 2.06 Ch 6 Anytime Search: ARA* (and Anytime D* pointer) — [~] author running (relaunched after container restart); text 4 lines so far, 0 figure files, code present
 
 ### Part III — Multi-Agent Path Finding
-- [~] 2.07 Ch 7 The MAPF Problem (conflict types, objectives, complexity, benchmarks) — drafted on Fable (20 pp, compiles); Opus review in progress
+- [x] 2.07 Ch 7 The MAPF Problem (conflict types, objectives, complexity, benchmarks) — written and compiled; reviewed and revised (see review log)
 - [~] 2.08 Ch 8 Prioritized Planning and Space-Time A* (reservation tables, Cooperative A*, incompleteness) — partial draft (282 lines, ends mid-chapter); needs completion
-- [~] 2.09 Ch 9 Conflict-Based Search (constraint tree, high/low level, optimality, ICBS improvements) — drafted on Fable (20 pp, 1315 lines, compiles); Opus review in progress
-- [ ] 2.10 Ch 10 Bounded-Suboptimal Search: ECBS (focal search, bounds, benchmarks vs CBS)
-- [~] 2.11 Ch 11 M*, Push-and-Swap, Push-and-Rotate — drafted on Fable (20 pp, compiles); Opus review in progress
+- [x] 2.09 Ch 9 Conflict-Based Search (constraint tree, high/low level, optimality, ICBS improvements) — written and compiled; reviewed and revised (see review log)
+- [x] 2.10 Ch 10 Bounded-Suboptimal Search: ECBS (focal search, bounds, benchmarks vs CBS) — written and compiled; reviewed and revised (see review log)
+- [x] 2.11 Ch 11 M*, Push-and-Swap, Push-and-Rotate — written and compiled; reviewed and revised (see review log)
 
 ### Part IV — Local and Reactive Collision Avoidance
 - [ ] 2.12 Ch 12 Velocity Obstacles (collision cone, relative velocity, time-to-collision, truncation)
-- [~] 2.13 Ch 13 RVO and ORCA (reciprocity, half-planes, linear program, 3D extension) — drafted on Fable (24 pp, 1602 lines, compiles); Opus review in progress
-- [~] 2.14 Ch 14 Dynamic Window Approach (dynamic window, objective, admissible velocities) — drafted on Fable (20 pp, compiles); Opus review in progress
+- [x] 2.13 Ch 13 RVO and ORCA (reciprocity, half-planes, linear program, 3D extension) — written and compiled; reviewed and revised (see review log)
+- [x] 2.14 Ch 14 Dynamic Window Approach (dynamic window, objective, admissible velocities) — written and compiled; reviewed and revised (see review log)
 - [ ] 2.15 Ch 15 Artificial Potential Fields (attractive/repulsive, local minima, oscillation, remedies)
 
 ### Part V — Sampling-Based Motion Planning
@@ -72,11 +72,11 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 ### Part VI — Tracking and Prediction
 - [ ] 2.18 Ch 18 The Kalman Filter (linear-Gaussian model, predict/update, tuning, constant-velocity tracking)
-- [~] 2.19 Ch 19 EKF, UKF and Particle Filters — drafted on Fable (20 pp, compiles); Opus review in progress
-- [~] 2.20 Ch 20 Trajectory Prediction (constant-velocity baselines, LSTM, Transformers, ADE/FDE, uncertainty) — drafted on Fable (24 pp, 1571 lines, compiles); Opus review in progress
+- [x] 2.19 Ch 19 EKF, UKF and Particle Filters — written and compiled; reviewed and revised (see review log)
+- [x] 2.20 Ch 20 Trajectory Prediction (constant-velocity baselines, LSTM, Transformers, ADE/FDE, uncertainty) — written and compiled; reviewed and revised (see review log)
 
 ### Part VII — Optimization and Control
-- [~] 2.21 Ch 21 Model Predictive Control (receding horizon, constraints, QP formulation, collision constraints) — drafted on Fable (22 pp, compiles); Opus review in progress
+- [x] 2.21 Ch 21 Model Predictive Control (receding horizon, constraints, QP formulation, collision constraints) — written and compiled; reviewed and revised (see review log)
 - [ ] 2.22 Ch 22 MILP for Planning (big-M obstacle avoidance, scheduling, when it is too expensive)
 - [ ] 2.23 Ch 23 Consensus and Formation Control (graph Laplacian, consensus protocol, formation error, communication radius)
 
@@ -93,7 +93,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 ## Phase 4 — Back matter
 
-- [~] 4.1 Appendix A: the twelve-week study plan (week → chapters → coding exercise → milestone → completion checklist) — drafted, compiles (Appendix A, 850 lines)
+- [x] 4.1 Appendix A: the twelve-week study plan (week → chapters → coding exercise → milestone → completion checklist) — written; reviewed and revised (see review log)
 - [ ] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics)
 - [ ] 4.3 Appendix C: hints and solutions to selected exercises (≥2 per chapter)
 - [ ] 4.4 Glossary (every bold term of the book)
@@ -104,32 +104,32 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 Round k for chapter N: reviewer report → required changes applied → compile → re-review.
 
-- [ ] 5.01 Ch 1 — review/revise until Accept
-- [ ] 5.02 Ch 2 — review/revise until Accept
-- [ ] 5.03 Ch 3 — review/revise until Accept
-- [ ] 5.04 Ch 4 — review/revise until Accept
-- [ ] 5.05 Ch 5 — review/revise until Accept
+- [x] 5.01 Ch 1 — review/revise until Accept — Accept (round 2)
+- [~] 5.02 Ch 2 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [~] 5.03 Ch 3 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [~] 5.04 Ch 4 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [~] 5.05 Ch 5 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [ ] 5.06 Ch 6 — review/revise until Accept
-- [ ] 5.07 Ch 7 — review/revise until Accept
+- [~] 5.07 Ch 7 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [ ] 5.08 Ch 8 — review/revise until Accept
-- [ ] 5.09 Ch 9 — review/revise until Accept
-- [ ] 5.10 Ch 10 — review/revise until Accept
-- [ ] 5.11 Ch 11 — review/revise until Accept
+- [~] 5.09 Ch 9 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [~] 5.10 Ch 10 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [~] 5.11 Ch 11 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [ ] 5.12 Ch 12 — review/revise until Accept
-- [ ] 5.13 Ch 13 — review/revise until Accept
-- [ ] 5.14 Ch 14 — review/revise until Accept
+- [~] 5.13 Ch 13 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [~] 5.14 Ch 14 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [ ] 5.15 Ch 15 — review/revise until Accept
 - [ ] 5.16 Ch 16 — review/revise until Accept
 - [ ] 5.17 Ch 17 — review/revise until Accept
 - [ ] 5.18 Ch 18 — review/revise until Accept
-- [ ] 5.19 Ch 19 — review/revise until Accept
-- [ ] 5.20 Ch 20 — review/revise until Accept
-- [ ] 5.21 Ch 21 — review/revise until Accept
+- [~] 5.19 Ch 19 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [~] 5.20 Ch 20 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [~] 5.21 Ch 21 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [ ] 5.22 Ch 22 — review/revise until Accept
 - [ ] 5.23 Ch 23 — review/revise until Accept
 - [ ] 5.24 Ch 24 — review/revise until Accept
 - [ ] 5.25 Ch 25 — review/revise until Accept
-- [ ] 5.26 Front matter and appendices — review/revise until Accept
+- [~] 5.26 Front matter and appendices — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 
 ## Phase 6 — Book-level review (whole manuscript)
 
@@ -177,6 +177,8 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 14 | 13:50 | fixed two build blockers myself: tcolorbox titles containing commas (global, `searchbook.sty`) and the missing `figures/ch08/idea.tex` | full book compiles: 168 pp, 0 errors |
 | 15 | 13:55 | 8.2/8.3 produced `Overleaf/searchbook.pdf` and `Overleaf/searchbook-overleaf.zip` (202 files) from the current state | delivered |
 | 24 | 13:00-17:40 | first wave: authors finished Ch 7, 9, 11, 13, 19, 20, 21 (20-24 pp each, all compile); then the session limit hit again (reset 17:40 UTC) before any review completed | 17 drafted files |
+| 26 | 09-08 | review loops finished for Ch 1-5, 7, 9-11, 13, 14, 19-21 and App. A (Ch 1 Accept; 14 others: two Opus rounds, minor items applied). All 12 remaining authors (Ch 6, 8, 12, 15-18, 22-25, App. B) stopped by the WEEKLY Fable limit | 15 reviewed |
+| 27 | 09-09 08:50 | full build currently fails on partial figures left by interrupted authors (ch12, ch22); resuming the workflows so those authors finish their chapters | resuming |
 | 25 | 19:15 | workflows resumed from their run IDs: the seven finished authors replay from cache; Opus reviews of Ch 7, 9, 11, 13, 19, 20, 21 and the review-only passes start; remaining authors (Ch 6, 8, 12, 14-18, 22-25, App B) follow | running |
 | 23 | 12:46 | session limit reset; three workflows relaunched from docs/workflows/batches/w1-3.json (Fable authors, Opus reviewers, Essential chapters 16-24 pp) | running |
 | 22 | 02:45 | all three workflows failed at launch: session limit (resets 06:00 UTC) - no chapter work possible until then. User: Essential chapters get more space (16-22 pp, up to 24); completeness never sacrificed to length. Script and batch files (docs/workflows/batches/w1-3.json) updated; automatic resume scheduled for 06:07 UTC | paused |
@@ -195,4 +197,18 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 
 | Chapter | Round | Verdict | Required changes (summary) | Status |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| Ch 1 | 1-2 | Minor revision (8) -> Accept (1 cosmetic) | see reviews/ch01-round1.md, ch01-round2.md | ACCEPT |
+| Ch 2 | 1-2 | Minor revision (10) -> Minor revision (3), applied | see reviews/ch02-round1.md, ch02-round2.md | minor items applied, unreviewed |
+| Ch 3 | 1-2 | Minor revision (4) -> Minor revision (2), applied | see reviews/ch03-round1.md, ch03-round2.md | minor items applied, unreviewed |
+| Ch 4 | 1-2 | Major revision (13) -> Minor revision (7), applied | see reviews/ch04-round1.md, ch04-round2.md | minor items applied, unreviewed |
+| Ch 5 | 1-2 | Minor revision (9) -> Minor revision (2), applied | see reviews/ch05-round1.md, ch05-round2.md | minor items applied, unreviewed |
+| Ch 7 | 1-2 | Minor revision (8) -> Minor revision (4), applied | see reviews/ch07-round1.md, ch07-round2.md | minor items applied, unreviewed |
+| Ch 9 | 1-2 | Minor revision (11) -> Minor revision (2), applied | see reviews/ch09-round1.md, ch09-round2.md | minor items applied, unreviewed |
+| Ch 10 | 1-2 | Minor revision (7) -> Minor revision (2), applied | see reviews/ch10-round1.md, ch10-round2.md | minor items applied, unreviewed |
+| Ch 11 | 1-2 | Minor revision (8) -> Minor revision (3), applied | see reviews/ch11-round1.md, ch11-round2.md | minor items applied, unreviewed |
+| Ch 13 | 1-2 | Minor revision (10) -> Minor revision (4), applied | see reviews/ch13-round1.md, ch13-round2.md | minor items applied, unreviewed |
+| Ch 14 | 1-2 | Minor revision (8) -> Minor revision (3), applied | see reviews/ch14-round1.md, ch14-round2.md | minor items applied, unreviewed |
+| Ch 19 | 1-2 | Minor revision (8) -> Minor revision (4), applied | see reviews/ch19-round1.md, ch19-round2.md | minor items applied, unreviewed |
+| Ch 20 | 1-2 | Minor revision (12) -> Minor revision (6), applied | see reviews/ch20-round1.md, ch20-round2.md | minor items applied, unreviewed |
+| Ch 21 | 1-2 | Minor revision (9) -> Minor revision (3), applied | see reviews/ch21-round1.md, ch21-round2.md | minor items applied, unreviewed |
+| App. A | 1-2 | Minor revision (6) -> Minor revision (9), applied | see reviews/appA-round1.md, appA-round2.md | minor items applied, unreviewed |
