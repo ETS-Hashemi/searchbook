@@ -36,7 +36,7 @@ Legend: `[ ]` open · `[x]` done · `[~]` in progress · `[-]` dropped (with rea
 
 - [x] 1.1 Title page and copyright/colophon page (`frontmatter/titlepage.tex`, `copyright.tex`; final polish in 7.5)
 - [~] 1.2 Preface: who the book is for, prerequisites, how to read it, how it maps to the 12-week plan, conventions (boxes, difficulty stars, priorities), how to run the code — drafted (`frontmatter/preface.tex`, 3 pages, compiles); final check after the chapters are reviewed
-- [~] 1.3 Notation and symbols table (complete, consistent with all chapters) — Opus agent writing it from the macros and the 15 written chapters
+- [x] 1.3 Notation and symbols table (complete, consistent with all chapters) — written (4 pages, 102 symbols in 7 groups, compiles); cross-chapter inconsistencies filed in docs/consistency-issues.md for 6.2
 - [ ] 1.4 List of algorithms (auto-generated; check titles)
 
 ## Phase 2 — Chapter drafts

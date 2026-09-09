@@ -548,6 +548,7 @@ def _self_test():
     _, X = consensus_continuous(laplacian(A), x0, 20.0)
     assert np.allclose(X[-1], [2.0, 2.0, 12.0, 12.0], atol=1e-6)
     assert disagreement(X[-1]) > 1.0
+    assert abs(disagreement(X[-1]) - 10.0) < 1e-6   # quoted in the pitfall
 
     # 4. Discrete-time step size: eps < 1/d_max converges, eps > 2/lambda_n
     #    diverges (the 4-cycle has lambda_n = 2 d_max, so both bounds agree)
@@ -644,6 +645,28 @@ def _self_test():
                for i in range(8) for j in range(i + 1, 8))
     assert dmin > 0.5 * 1.5
     assert np.linalg.norm(traj[-1] - traj[-1].mean(axis=0), axis=1).max() < 6.0
+
+    # 10. Numbers quoted in the exercises and their solutions
+    A5 = np.array([[0, 1, 1, 1], [1, 0, 1, 0], [1, 1, 0, 1], [1, 0, 1, 0]])
+    assert np.allclose(np.linalg.eigvalsh(laplacian(A5)), [0.0, 2.0, 4.0, 4.0])
+    M = pinned_matrix(ex["A"], pinned=(0,))
+    z = np.linalg.solve(M, np.ones(4))      # lag without feed-forward
+    assert np.allclose(z, [4.0, 16.0 / 3.0, 17.0 / 3.0, 20.0 / 3.0])
+    lag = np.sqrt(np.mean([(z[j] - z[i]) ** 2 for i, j in edges_of(ex["A"])]))
+    assert abs(lag - 1.19) < 0.01
+    assert abs(np.linalg.eigvalsh(M)[0] - 0.178) < 1e-3   # mu_1 of L + B
+    # non-closing triangle d_12 = d_23 = (1, 0), d_31 = (-1, 0): e_F = 1/3
+    D3 = np.zeros((3, 3, 2))
+    for i, j, d in ((0, 1, 1.0), (1, 2, 1.0), (2, 0, -1.0)):
+        D3[i, j, 0], D3[j, i, 0] = d, -d
+    P3 = np.array([[0.0, 0.0], [1.0, 0.3], [0.5, 1.0]])
+    for _ in range(3000):
+        V3 = np.array([sum(P3[j] - P3[i] - D3[i, j] for j in range(3) if j != i)
+                       for i in range(3)])
+        P3 = P3 + 0.01 * V3
+    e3 = np.sqrt(np.mean([np.sum((P3[j] - P3[i] - D3[i, j]) ** 2)
+                          for i, j in ((0, 1), (1, 2), (2, 0))]))
+    assert abs(e3 - 1.0 / 3.0) < 1e-6
 
     print("ch23_consensus: all self-tests passed in %.1f s"
           % (time.time() - t0))

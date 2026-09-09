@@ -1,5 +1,6 @@
 \chapter{Mixed-Integer Linear Programming for Planning}
 \label{ch:ch22}
+\chaptermark{MILP for Planning}
 % Function names for pseudocode are prefixed with "Milp" to stay unique
 % across the book.
 \SetKwFunction{MilpBranchAndBound}{BranchAndBound}
@@ -50,22 +51,18 @@ it is the reference solution against which the hybrid planner of
 worst case, the search is exponential in the number of binaries: MILP is the
 tool for small, safety-critical or offline problems, for verifying that a
 heuristic is close to optimal, and for scheduling take-off and landing slots,
-not for replanning a swarm of fifty drones ten times a second. The training
-plan lists it as a Medium-priority topic of Week~11 (\cref{ch:appA}), next to
-MPC.
+not for replanning a swarm of fifty drones ten times a second.
 
-The chapter first recalls linear programs and what integer variables buy
-(\cref{sec:ch22-intuition,sec:ch22-problem}), then derives the big-$M$
-encodings of obstacle avoidance and separation and assembles the full
-multi-vehicle MILP (\cref{sec:ch22-model}). \Cref{sec:ch22-algorithm}
-explains branch-and-bound and traces it on a tiny instance,
-\cref{sec:ch22-example} solves a two-vehicle instance with
-\code{scipy.optimize.milp}, and \cref{sec:ch22-properties} proves what the
-method guarantees and where it is exponential. \Cref{sec:ch22-variants}
-formulates MAPF as an integer program and compares it with \cbs,
-\cref{sec:ch22-cost} measures the cost of exactness, and
-\cref{sec:ch22-implementation,sec:ch22-drone} cover the implementation, the
-pitfalls and the place of MILP in the drone system.
+The chapter recalls linear programs and what integer variables buy
+(\cref{sec:ch22-intuition,sec:ch22-problem}), derives the big-$M$ encodings
+and the full multi-vehicle MILP (\cref{sec:ch22-model}), explains and traces
+branch-and-bound (\cref{sec:ch22-algorithm}), solves a two-vehicle instance
+with \code{scipy.optimize.milp} (\cref{sec:ch22-example}), proves what the
+method guarantees and where it is exponential (\cref{sec:ch22-properties}),
+formulates MAPF as an integer program (\cref{sec:ch22-variants}), measures
+the cost of exactness (\cref{sec:ch22-cost}) and closes with implementation
+notes, pitfalls and the place of MILP in the drone system
+(\cref{sec:ch22-implementation,sec:ch22-drone}).
 
 % ---------------------------------------------------------------------
 \section{The idea in plain words}
@@ -165,22 +162,19 @@ The geometry behind the last sentence is reviewed in \cref{ch:appB}: a
 polyhedron is convex, a linear function on a convex polyhedron with vertices
 takes its minimum at a vertex, and every vertex is determined by $n$ of the
 constraints holding with equality. The \textbf{simplex method}\index{simplex
-method} exploits this. It starts at a vertex, moves along an edge to a
+method} exploits this: it starts at a vertex, moves along an edge to a
 neighbouring vertex with a smaller objective, and stops when no neighbour is
-better; because the polyhedron is convex, a vertex without a better neighbour
-is optimal. Its worst case is exponential in $n$, but on practical problems
-it needs a number of steps that grows roughly linearly with the constraints.
-\textbf{Interior-point methods}\index{interior-point method} follow a path
-through the interior of $P$ towards the optimal face and take a number of
-iterations that grows only logarithmically with the required accuracy; they
-are polynomial in the worst case. Both are treated in
-\textcite{nocedal2006numerical} and, together with the convex geometry, in
+better, which by convexity means optimal. Its worst case is exponential in
+$n$, but in practice its step count grows roughly linearly with the number
+of constraints. \textbf{Interior-point methods}\index{interior-point method}
+follow a path through the interior of $P$ towards the optimal face in a
+number of iterations that is polynomial in the worst case. Both are treated
+in \textcite{nocedal2006numerical} and, with the convex geometry, in
 \textcite{boyd2004convex}. For this chapter it is enough to know that an LP
-with $10^5$ variables is solved in well under a second, that a solver
-reports infeasibility reliably, and that the LP solver is called thousands
-of times inside a MILP solver. The HiGHS solver behind
-\code{scipy.optimize.milp} uses a dual simplex method for these calls
-\cite{huangfu2018parallelizing}.
+with $10^5$ variables is solved in well under a second, that infeasibility
+is reported reliably, and that the LP solver is called thousands of times
+inside a MILP solver; HiGHS, the solver behind \code{scipy.optimize.milp},
+uses a dual simplex method for these calls \cite{huangfu2018parallelizing}.
 
 \subsection{Integer and binary variables}
 \label{sec:ch22-integer}
@@ -231,7 +225,7 @@ relaxation is as tight as possible.
 \end{table}
 
 % ---------------------------------------------------------------------
-\section{Modelling obstacles, separation and the trajectory problem}
+\section[Modelling obstacles and separation]{Modelling obstacles, separation and the trajectory problem}
 \label{sec:ch22-model}
 
 \subsection{Obstacle avoidance with the big-\texorpdfstring{$M$}{M} trick}
@@ -549,12 +543,10 @@ has $16$ binaries, four per step. Its LP relaxation flies straight through
 the block with cost $4$ (the accelerations $(1,1,-1,-1)$ along $x$) and sets
 every binary of step $k = 2$, where the drone is at $(2,0)$ inside $O$, to
 $b_{2,j} = 0.143 = 0.5/3.5$: each side inequality is switched off by one
-seventh, which the relaxation allows and the drone cannot do. The
-implementation in \code{code/ch22\_milp.py} rounds the harmless binaries
-first: in a group whose sum is at most $3$, a binary that is already $0$
-certifies the disjunction, and the other three can be set to $1$ at no cost.
-This leaves the group of step $2$, and \cref{tab:ch22-trace} and
-\cref{fig:ch22-bnb} show the search. Fixing $b_{2,1} = 0$ demands
+seventh, which the relaxation allows and the drone cannot do. (The other
+groups already contain a binary at $0$, which certifies their disjunction;
+the code sets their remaining binaries to $1$ at no cost and branches only
+on step $2$.) \Cref{tab:ch22-trace} and \cref{fig:ch22-bnb} show the search. Fixing $b_{2,1} = 0$ demands
 $x_2 \le 1.5$, which the dynamics cannot reach while still arriving at $x_4 =
 4$ at rest, so that child is infeasible; $b_{2,2} = 0$ demands $x_2 \ge 2.5$,
 also infeasible. The branch $b_{2,3} = 0$ (pass below, $y_2 \le -0.5$) has an
@@ -687,18 +679,17 @@ exceeds $0.889$~m/s$^2$ (objective $0.889 + 0.889$) and whose relaxation is
 already integral: the block hardly matters
 when the drones fly slowly. The minimum-time objective (right panel) brings
 both drones home in $4.5$~s each, the discrete optimum of the arrival
-binaries, at the price of $16.0$~m/s of velocity change and of the behaviour
-described in the caption: at $t = 2$~s A is at $x = 4.375$ and B at $x =
-5.625$, both on the edge $y = 5.5$; at $t = 2.5$~s they have exchanged these
-positions. The sampled $\infty$-distance is $1.25$~m at both instants, so the
-MILP is satisfied, but the continuous-time separation, evaluated by
-\code{continuous\_check} in the code on the exact zero-order-hold motion,
-drops to $0$: the drones fly through each other. The minimum-fuel plan is
-better but not clean either: between samples its separation drops to
-$0.856$~m and drone B cuts the top-left corner of the block by $0.146$~m
-between $t = 3$ and $t = 3.5$~s. \Cref{prop:ch22-intersample} gives the
-margins that make the sampled constraints imply the continuous ones, and
-\cref{exr:ch22-margin} applies them to this instance.
+binaries, at the price of $16.0$~m/s of velocity change and of a flaw: at
+$t = 2$~s A is at $x = 4.375$ and B at $x = 5.625$, both on the edge
+$y = 5.5$, and at $t = 2.5$~s they have exchanged these positions. The
+sampled $\infty$-distance is $1.25$~m at both instants, so the MILP is
+satisfied, but the continuous-time separation, evaluated by
+\code{continuous\_check} on the exact zero-order-hold motion, drops to $0$:
+the drones fly through each other. The minimum-fuel plan is not clean
+either: between samples its separation drops to $0.856$~m and drone B cuts
+the corner of the block by $0.146$~m between $t = 3$ and $3.5$~s.
+\Cref{prop:ch22-intersample} gives the margins that make the sampled
+constraints imply the continuous ones; \cref{exr:ch22-margin} applies them.
 
 
 % ---------------------------------------------------------------------
@@ -796,14 +787,11 @@ NP-hardness says that no such trick works for all instances unless
 P~$=$~NP.
 \end{proof}
 
-In practice the effort is the number of nodes times the cost of one LP.
-The dual simplex method re-solves a child from its parent's basis in a
-handful of pivots, so a few thousand nodes per second are typical for
-models of the size of \cref{ex:ch22-two}. What decides the number of nodes
-is the number of binaries and the tightness of the relaxation: the weaker
-the root bound, the deeper the tree before bounding bites.
-\Cref{tab:ch22-binaries} and \cref{sec:ch22-cost} translate this into
-drones and time steps.
+In practice the effort is the number of nodes times the cost of one LP,
+and the dual simplex method re-solves a child from its parent's basis in a
+few pivots. What decides the number of nodes is the number of binaries and
+the tightness of the relaxation: the weaker the root bound, the deeper the
+tree before bounding bites (\cref{tab:ch22-binaries,sec:ch22-cost}).
 
 \subsection{What the sampled constraints guarantee between samples}
 
@@ -855,9 +843,8 @@ raise $d_{\min}$ by $v_{\max}\dt$ before building the model. In
 of $2.5$~m, and the self-test solves this ``safe'' instance: the optimal
 fuel rises from $12.02$ to $16.78$~m/s, and the continuous motion, checked
 against the original block and the original $d_{\min}$, never enters the
-block and never comes closer than $4.08$~m. The margins are conservative
-because they assume top speed at every step in the worst direction; the
-solution stays far from the limits it was protected against. Inflating the
+block and never comes closer than $4.08$~m (the margins assume top speed in
+the worst direction at every step, so they are conservative). Inflating the
 block alone is not enough: with the original $d_{\min}$ the plan is $0.06$~m
 from a mid-step collision. The alternatives, a finer $\dt$ and an
 \emph{a posteriori} check of the continuous motion, are discussed in
@@ -925,26 +912,24 @@ definition of \cref{ch:ch07} whenever no agent leaves its goal again.
 \end{figure}
 
 For a single agent, \cref{eq:ch22-mapf-flow} alone is a shortest-path
-problem whose LP relaxation is always integral (the constraint matrix of a
-network flow is totally unimodular), and Dijkstra's algorithm of
-\cref{ch:ch03} solves it faster than any LP. All the difficulty comes from
-the coupling rows \cref{eq:ch22-mapf-cap,eq:ch22-mapf-swap}. This tells you
-how the ILP compares with \cbs (\cref{ch:ch09}). Both are exact. \cbs works
-on the conflicts: its constraint tree grows with the number of conflicts
-that the low-level paths have, and it does not care how large the map is.
-The ILP works on the volume: it has $m \cdot T \cdot \sum_v (\deg v + 1)$
+problem whose LP relaxation is always integral (a network-flow matrix is
+totally unimodular), and Dijkstra's algorithm of \cref{ch:ch03} solves it
+faster than any LP; all the difficulty comes from the coupling rows
+\cref{eq:ch22-mapf-cap,eq:ch22-mapf-swap}. This tells you how the ILP
+compares with \cbs (\cref{ch:ch09}). Both are exact. \cbs works on the
+conflicts: its constraint tree grows with the conflicts of the low-level
+paths, whatever the size of the map. The ILP works on the volume: it has $m \cdot T \cdot \sum_v (\deg v + 1)$
 binaries whether the agents interact or not, so its size grows with the
 map, the horizon and the number of agents, but a conflict costs it nothing
 beyond a row. On a $32 \times 32$ grid with $20$ agents and $T = 60$ that
-is about six million binaries (\cref{exr:ch22-mapfilp}), far beyond what
-branch-and-bound handles, while \cbs solves such instances routinely when
-the conflicts are few. On small, densely populated graphs the picture
-reverses: there the constraint tree of \cbs explodes with the conflicts,
-while the flow program stays small, and Yu and LaValle report optimal
-solutions for a hundred or more robots on grids of a few hundred cells.
-The ILP also inherits everything a MILP solver offers: an incumbent with a
-gap at any time, a warm start from a previous solution, and any linear side
-constraint that \cbs would need a new branching rule for.
+is about six million binaries (\cref{exr:ch22-mapfilp}), far beyond
+branch-and-bound, while \cbs solves such instances routinely when the
+conflicts are few. On small, densely populated graphs the picture reverses:
+the constraint tree of \cbs explodes while the flow program stays small,
+and Yu and LaValle report optimal solutions for a hundred or more robots on
+grids of a few hundred cells. The ILP also inherits everything a MILP
+solver offers: an incumbent with a gap at any time, a warm start, and any
+linear side constraint that \cbs would need a new branching rule for.
 
 \subsection{Other extensions}
 \label{sec:ch22-other}
@@ -1005,11 +990,9 @@ nodes: each LP relaxation, with $2\,000$ binaries and $3\,000$ variables,
 takes seconds. The number of binaries, \cref{tab:ch22-binaries}, is not the whole story; what the
 solver fights is the weak relaxation of the big-$M$ rows and the symmetry
 of a crossing, where the mirror image of every plan is another plan of the
-same cost. Instances in which the drones interact less, a formation
-flying in the same direction or a corridor with two lanes, are solved
-faster than \cref{fig:ch22-scaling} suggests, and a problem-specific
-symmetry-breaking constraint (\cref{sec:ch22-implementation}) can gain an
-order of magnitude. The shape of the curves does not change.
+same cost. Less entangled instances (a formation flying one way, a two-lane
+corridor) and symmetry-breaking constraints (\cref{sec:ch22-implementation})
+gain an order of magnitude, not a change of shape.
 
 \begin{table}[tb]
   \centering\small
@@ -1037,13 +1020,12 @@ order of magnitude. The shape of the curves does not change.
 \end{table}
 
 \Cref{tab:ch22-verdict} states the verdict. MILP is not a competitor of the
-planners in Parts~III and~IV of this book; it is their judge. A two- or
-three-drone scenario of the experiment matrix of \cref{ch:ch25} has an
-exact optimum that the MILP computes offline in seconds to minutes, and the
-ratio between the cost of the hybrid planner's plan and that optimum is a
-number that no amount of simulation could otherwise provide. The same
-solver, given a few dozen binaries, assigns take-off slots to a fleet in
-milliseconds. What it cannot do is replan fifty drones ten times a second.
+planners in Parts~III and~IV of this book; it is their judge: for a two- or
+three-drone scenario of \cref{ch:ch25} it computes the exact optimum
+offline, and the gap of the hybrid planner's plan to that optimum becomes a
+measured number. Given a few dozen binaries it also assigns take-off slots
+to a fleet in milliseconds. What it cannot do is replan fifty drones ten
+times a second.
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
@@ -1051,24 +1033,22 @@ milliseconds. What it cannot do is replan fifty drones ten times a second.
 
 The file \code{code/ch22\_milp.py} builds the MILP of
 \cref{def:ch22-problem} as sparse matrices. The class \code{MilpModel}
-allocates blocks of variable indices in the order states, inputs, slacks,
-obstacle binaries, separation binaries and arrival binaries, so that
+allocates blocks of variable indices (states, inputs, slacks, obstacle,
+separation and arrival binaries) behind the index functions
 \code{x(i, k, d)}, \code{u(i, k, d)}, \code{b(i, o, k, j)} and
-\code{cpair(pair, k, q)} return column numbers, and it collects every
-constraint row as a dictionary of coefficients with a lower and an upper
-bound through \code{add\_row}. \Cref{lst:ch22-obstacle} is the big-$M$
-block of \cref{eq:ch22-bigm} with the tight values \cref{eq:ch22-tightM}
-computed from the workspace; the separation rows follow the same pattern.
+\code{cpair(pair, k, q)}, and \code{add\_row} collects a constraint row as
+a dictionary of coefficients with two bounds. \Cref{lst:ch22-obstacle} is
+the big-$M$ block of \cref{eq:ch22-bigm} with the tight values
+\cref{eq:ch22-tightM}; the separation rows follow the same pattern.
 \Cref{lst:ch22-solve} assembles the rows into a \code{scipy.sparse} matrix
 and calls \code{scipy.optimize.milp}\index{scipy.optimize.milp@\code{scipy.optimize.milp}},
 whose \code{integrality} vector marks the binaries, whose \code{bounds}
-carry the workspace and the input limits, and whose \code{options} accept
-a time limit; the same method with \code{relax=True} solves the LP
-relaxation of a node for the textbook branch-and-bound
-\code{branch\_and\_bound} that produced \cref{tab:ch22-trace}. The result
-carries the status ($0$ optimal, $1$ stopped by the limit with an
-incumbent, $2$ infeasible), the node count and the gap.
-\Cref{lst:ch22-use} is all a user writes.
+carry the workspace and the input limits and whose \code{options} accept a
+time limit; with \code{relax=True} it solves the LP relaxation of a node
+for the textbook \code{branch\_and\_bound} that produced
+\cref{tab:ch22-trace}. The result carries the status ($0$ optimal, $1$
+stopped by the limit with an incumbent, $2$ infeasible), the node count and
+the gap. \Cref{lst:ch22-use} is all a user writes.
 
 \begin{lstlisting}[caption={The big-$M$ obstacle rows of \cref{eq:ch22-bigm} with the tight $M$ of \cref{eq:ch22-tightM} (from \code{code/ch22\_milp.py}).},label={lst:ch22-obstacle}]
     def _obstacle_rows(self):
@@ -1168,14 +1148,13 @@ plan with \code{check\_solution}, never with the status alone: the
 tolerances of the solver are yours to accept or to reject.\index{warm start}\index{incumbent!time limit}
 
 \begin{pitfall}[A huge $M$]
-The textbook ``$M = 10^6$'' costs twice. It makes the LP relaxation
-useless, because a binary of $10^{-6}$ already switches a constraint off
-by one metre, so the root bound is the unconstrained problem and the tree
-grows until many binaries are fixed. And it makes the integrality
-tolerance dangerous: a binary reported as $0$ may be $10^{-6}$, which with
-$M = 10^6$ relaxes the row by a full metre, so the ``feasible'' plan flies
-through the block. Compute $M$ from the workspace, keep all coefficients
-within a few orders of magnitude of one, and verify the returned plan.
+The textbook ``$M = 10^6$'' costs twice. A binary of $10^{-6}$ already
+switches a constraint off by one metre, so the LP relaxation is the
+unconstrained problem and the tree grows until many binaries are fixed;
+and a binary reported as $0$ within the integrality tolerance may be
+$10^{-6}$, so the ``feasible'' plan flies through the block. Compute $M$
+from the workspace, keep all coefficients within a few orders of magnitude
+of one, and verify the returned plan.
 \end{pitfall}
 
 \begin{pitfall}[Safe at the samples, unsafe in between]
@@ -1193,10 +1172,9 @@ continuous motion before you fly it.
 When the horizon is too short, the workspace too small or the margins too
 large, the solver answers ``infeasible'' and nothing else: the self-test
 shortens \cref{ex:ch22-two} to $N = 8$ and gets status $2$ in a few
-milliseconds without a hint which row is to blame. There is no
-diagnostic in the returned object. Diagnose by relaxation: drop the
-separation rows, then the obstacles, then the terminal condition, and see
-when the problem becomes feasible; compare the horizon with the
+milliseconds, with no hint which row is to blame. Diagnose by relaxation:
+drop the separation rows, then the obstacles, then the terminal condition,
+and see when the problem becomes feasible; compare the horizon with the
 minimum-time bound of a single drone; or add elastic slacks with a large
 linear penalty to the suspect rows, as in the soft constraints of
 \cref{ch:ch21}, and read off which slacks are non-zero.
@@ -1230,10 +1208,9 @@ express. The study plan places MILP in Week~11 next to MPC
 \begin{itemize}
   \item A linear program minimises a linear objective over a polyhedron
         and attains its optimum at a vertex; simplex and interior-point
-        methods solve it reliably at any practical size.
-  \item Integer and binary variables add choices, either-or conditions,
-        on/off switches and assignments. The LP relaxation, obtained by
-        dropping integrality, bounds the integer optimum.
+        methods solve it reliably. Integer and binary variables add
+        choices, either-or conditions, on/off switches and assignments;
+        the LP relaxation bounds the integer optimum.
   \item The big-$M$ trick turns ``outside the rectangle'' into four
         switched inequalities with at most three switches on, and
         ``at least $d_{\min}$ apart'' into the same with four binaries per
@@ -1263,20 +1240,18 @@ express. The study plan places MILP in Week~11 next to MPC
 \paragraph{Further reading.}
 The formulation of this chapter is that of Schouwenaars, De Moor, Feron
 and How \cite{schouwenaars2001mixed} and of Richards and How
-\cite{richards2002aircraft}, who introduced the minimum-time encoding and
-applied the method to aircraft and spacecraft; Yu and LaValle
-\cite{yu2016optimal} give the MAPF flow formulation and its heuristics.
+\cite{richards2002aircraft}, who introduced the minimum-time encoding; Yu
+and LaValle \cite{yu2016optimal} give the MAPF flow formulation.
 Branch-and-bound goes back to Land and Doig \cite{landdoig1960automatic};
 Wolsey \cite{wolsey1998integer} is the standard textbook on integer
 programming, and Vielma \cite{vielma2015mixed} surveys formulation
-techniques, including tighter alternatives to big-$M$. The geometry of
-linear programs and the interior-point method are in Boyd and Vandenberghe
+techniques, including tighter alternatives to big-$M$. Linear programs and
+the interior-point method are in Boyd and Vandenberghe
 \cite{boyd2004convex}, the simplex method in Nocedal and Wright
-\cite{nocedal2006numerical}, and the HiGHS solver behind
-\code{scipy.optimize.milp} in Huangfu and Hall
+\cite{nocedal2006numerical}, and the HiGHS solver in Huangfu and Hall
 \cite{huangfu2018parallelizing}. Borrelli, Bemporad and Morari
-\cite{borrelli2017predictive} treat the receding-horizon use of
-mixed-integer models as hybrid MPC.
+\cite{borrelli2017predictive} treat receding-horizon mixed-integer models
+as hybrid MPC.
 
 % ---------------------------------------------------------------------
 \section{Exercises}

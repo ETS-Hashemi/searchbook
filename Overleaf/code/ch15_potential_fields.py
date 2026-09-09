@@ -425,6 +425,9 @@ def _self_test():
     assert np.allclose(rows["B"]["f"], [-0.5, 0.0])
     assert rows["C"]["f"][1] > 0.0 and rows["C"]["f"][0] > 0.0   # deflected upwards
     assert traj["status"] == "reached" and traj["min_clearance"] > 0.2, traj["status"]
+    # the hybrid attraction (conic beyond d* = 2) keeps a larger clearance
+    hyb_run = simulate((0.0, 4.5), GOAL, DISC, replace(prm, d_star=2.0))
+    assert hyb_run["status"] == "reached" and hyb_run["min_clearance"] > traj["min_clearance"]
 
     # 3. local minimum on the axis is detected, at the root of F_x = 0
     lm = local_minimum_case(prm)
@@ -495,6 +498,8 @@ def _self_test():
             np.round(r["f"], 3), np.linalg.norm(r["f"]), r["u"]))
     print("  trajectory from (0,4.5): %s after %d steps, min clearance %.3f" % (
         traj["status"], traj["steps"], traj["min_clearance"]))
+    print("  the same with the hybrid attraction d*=2: %s after %d steps, min clearance %.3f" % (
+        hyb_run["status"], hyb_run["steps"], hyb_run["min_clearance"]))
     print("local minimum: stuck at x=%.4f after %d steps; root of F_x=0 at x=%.4f" % (
         lm["result"]["final"][0], lm["result"]["steps"], lm["equilibrium_x"]))
     print("GNRON: plain stops %.3f from the goal (%s, %d steps); n=2 %s in %d steps" % (
