@@ -24,9 +24,10 @@
 \label{sec:ch06-motivation}
 
 A drone of the swarm in \cref{ch:ch24} is flying the path that the global
-planner (\cbs or \ecbs, \cref{ch:ch09,ch:ch10}) assigned to it when an
-unknown quadrotor crosses its route. The local layer (\orca or DWA,
-\cref{ch:ch13,ch:ch14}) swerves, and after two seconds the drone is three
+planner (conflict-based search, \cbs, or its bounded-suboptimal variant
+\ecbs, \cref{ch:ch09,ch:ch10}) assigned to it when an unknown quadrotor
+crosses its route. The local layer (optimal reciprocal collision avoidance,
+\orca, or the dynamic window approach, DWA, \cref{ch:ch13,ch:ch14}) swerves, and after two seconds the drone is three
 cells off its nominal path with the intruder still between it and the next
 waypoint. The replanning layer must now produce a new global path from the
 current cell, and it has one control cycle to do it, say $50$~ms on a flight
@@ -104,10 +105,15 @@ with the key $\gcost(n) + w\,\hcost(n)$ for a weight $w \ge 1$
 \cite{pohl1970heuristic}. The weight makes the search greedy: cells that look
 close to the goal are expanded first, the frontier stops sweeping the whole
 band $\fcost \le C^*$ and dives towards the goal instead, and the search ends
-after far fewer expansions. The price is bounded: with an admissible heuristic
-the returned path costs at most $w \cdot C^*$, and in practice much less. On
-the random grids of \cref{ch:ch04}, $w = 2$ cut the effort by a factor of
-about ten while lengthening the paths by $6$--$12\,\%$.
+after far fewer expansions. The price is bounded: when $\hcost$ is consistent
+the returned path costs at most $w \cdot C^*$ even though closed states are
+never re-opened, which is the case \cref{thm:ch06-bound} proves below; with a
+merely admissible $\hcost$ the bound needs re-opening
+(\cref{thm:ch04-weighted}), and \cref{exr:ch06-proof} shows what breaks. On
+the random grids of \cref{ch:ch04}, $w = 2$ cut the effort from $3\,324$ to
+$271$ expansions on the 8-connected grid and from $756$ to $372$ on the
+4-connected one, while lengthening the paths by $6$ and $12\,\%$
+respectively.
 
 The obvious anytime planner is therefore: run weighted \astar with $w = 3$,
 publish the path, run it again with $w = 2$, publish, run it again with
@@ -189,7 +195,9 @@ key}\index{ARA*!inflated key} of a state is
 For $\eps = 1$ it is the $\fcost$ of \astar; for $\eps > 1$ it is the key of
 weighted \astar with $w = \eps$. In \arastar the value of $\eps$ changes between
 iterations, so $\fcost_\eps$ of a state in \Open must be recomputed whenever
-$\eps$ does.
+$\eps$ does. Pearl and Kim's $\astar_\eps$ \cite{pearl1982studies} writes the
+slack as $\eps$, so its bound reads $1 + \eps$; here $\eps$ is the multiplier
+itself and the bound is $\eps\,C^*$.
 \end{definition}
 
 \begin{definition}[Consistent and inconsistent states]
@@ -227,6 +235,11 @@ When an iteration of \arastar ends, let
   \eps' = \min\Bigl(\eps,\ \frac{\gcost(\gamma)}{L}\Bigr).
   \label{eq:ch06-certificate}
 \end{equation}
+\arastar never expands $\gamma$, because the loop stops as soon as the goal
+holds the smallest key, so a finite $\gcost(\gamma)$ means $\gamma \in \Open$
+and therefore $L \le \gcost(\gamma) < \infty$ and $\eps' \ge 1$. Both lists
+can be empty, $L = \infty$, only when $\gamma$ was never generated, which is
+the failure exit on line~\ref{alg:ch06-main:fail}.
 \end{definition}
 
 \Cref{sec:ch06-properties} shows that $L \le C^*$ unless the current path is
@@ -323,9 +336,9 @@ line~\ref{alg:ch06-improvepath:incons} fires in the worked example.
   \inputfigure{ch06/incons}
   \caption{How inflation creates an inconsistent state (cells of
   \cref{ex:ch06-grid}, first iteration, $\eps = 3$). The cell $(3,3)$ can be
-  reached from $(1,3)$ by two diagonal moves through $(2,2)$ (blue, cost
-  $1 + 2\sqrt{2} = 3.83$) or by two straight moves through $(2,3)$ (orange,
-  cost $3$). With $\eps = 3$ the diagonal neighbour has the smaller key
+  reached from $(1,3)$ by two diagonal moves through $(2,2)$ (blue, reaching it with
+  $\gcost = 1 + 2\sqrt{2} = 3.83$) or by two straight moves through $(2,3)$
+  (orange, $\gcost = 3$). With $\eps = 3$ the diagonal neighbour has the smaller key
   ($17.41 < 18.24$), because it is closer to the goal in $\hcost$, so
   $(2,2)$ is expanded in step~3 and $(3,3)$ receives $\gcost = 3.83$ and is
   expanded in step~9. Only in step~12 is $(2,3)$ expanded and the cheaper way
@@ -425,30 +438,27 @@ below is produced by its self-test. The optimal cost is $C^* = 6 + 3\sqrt{2}
 \end{figure}
 
 \paragraph{First iteration, $\eps = 3$.}
-\Cref{tab:ch06-trace} lists every expansion. The start has key $0 + 3 \cdot
-7.41 = 22.24$. Its only free neighbour is $(1,3)$, whose expansion in step~2
-generates five cells; the two diagonal ones, $(2,4)$ and $(2,2)$, have the
-larger $\gcost$ but the smaller keys, because they are closer to the goal and
-$\hcost$ counts three times. The search takes $(2,2)$, then $(3,2)$, $(4,2)$,
-and the keys fall from $22.24$ to $13.41$ in five steps: this is greedy
-best-first behaviour, every step reduces $\hcost$. At $(4,2)$ the wall at
-$(5,2)$ blocks the way, and the key of the next expansion jumps to $15.07$
-for $(4,3)$; the search climbs to $(5,4)$ in step~8, is stopped by the wall
-segment $(6,3)$--$(6,4)$, and now has to fall back on cells with keys around
-$17$: $(3,3)$ and $(3,1)$ in steps~9 and~10, $(4,4)$, and in step~12 the cell
-$(2,3)$, which has been in \Open since step~2 with key $18.24$. Its expansion
+\Cref{tab:ch06-trace} lists every expansion; three moments matter. The greedy
+dive: the start has key $0 + 3 \cdot 7.41 = 22.24$, and of the five cells that
+step~2 generates from its only free neighbour $(1,3)$ the diagonal ones
+$(2,4)$ and $(2,2)$ have the larger $\gcost$ but the smaller keys, since
+$\hcost$ counts three times; the search takes $(2,2)$, then $(3,2)$ and
+$(4,2)$, and the keys fall from $22.24$ to $13.41$ in five steps. The wall: at
+$(4,2)$ the obstacle $(5,2)$ blocks the way, the next key jumps to $15.07$ for
+$(4,3)$, the climb to $(5,4)$ in step~8 meets the wall segment
+$(6,3)$--$(6,4)$, and the search falls back on cells with keys around $17$.
+And step~12, which expands $(2,3)$, in \Open since step~2 with key $18.24$: it
 finds the cheaper way to $(3,3)$, $\gcost = 3.00$ instead of $3.83$
-(\cref{fig:ch06-incons}); $(3,3)$ is closed, so it is moved to
-\textsc{Incons} and its successors, in particular $(4,3)$ with $\gcost =
-4.83$, keep their values. Steps~13--17 climb over the wall along the top row
-and descend the column $x = 7$ to the goal, which is generated in step~17 with
-$\gcost(\gamma) = 12.24$. Its key is $12.24 + 3 \cdot 0 = 12.24$, the smallest
-in \Open, and the loop stops: 17 expansions, the path of the left panel of
+(\cref{fig:ch06-incons}), and $(3,3)$, being closed, is moved to
+\textsc{Incons} while its successors, in particular $(4,3)$ with $\gcost =
+4.83$, keep their values. Five further expansions cross the wall and generate
+the goal with $\gcost(\gamma) = 12.24$, which is the smallest key in \Open, so
+the loop stops: 17 expansions, the path of the left panel of
 \cref{fig:ch06-example}, cost $8 + 3\sqrt{2} = 12.24$. The certificate: the
 inconsistent states are the eight cells in \Open and $(3,3)$ in
-\textsc{Incons}, and the minimum of $\gcost + \hcost$ over them is $L = 3.00 +
-4.41 = 7.41$, attained by $(3,3)$; hence $\eps' = \min(3,\ 12.24 / 7.41) =
-1.65$. The true ratio is $12.24 / 10.24 = 1.20$.
+\textsc{Incons}, the smallest $\gcost + \hcost$ among them is $L = 3.00 + 4.41
+= 7.41$, at $(3,3)$, so $\eps' = \min(3,\ 12.24/7.41) = 1.65$, while the true
+ratio is $12.24/10.24 = 1.20$.
 
 \begin{table}[p]
   \centering\footnotesize
@@ -537,8 +547,11 @@ first iteration with their optimal $\gcost$-values but never expanded, and
 step~11 generates the goal with $\gcost(\gamma) = 10.24$. The smallest key in
 \Open is now $10.24$, the loop stops, and $L = 10.24$ gives $\eps' = 1$: the
 path is optimal. Eleven expansions, 32 in total for the three iterations.
-Plain \astar with the same tie-breaking needs 22 expansions for this instance,
-and restarting weighted \astar for each $\eps$ would need $17 + 20 + 22 = 59$.
+Plain \astar with the same tie-breaking, which is what
+\code{weighted\_astar(grid, start, goal, 1.0)} runs, needs 22 expansions for
+this instance --- the reference \astar of the self-test breaks ties
+differently and needs 25 --- and restarting weighted \astar for each $\eps$
+would need $17 + 20 + 22 = 59$.
 \Cref{tab:ch06-iterations} collects the numbers.
 
 \begin{table}[tb]
@@ -620,11 +633,16 @@ When $\mathrm{parent}(n') \gets n$ is set, $\gcost(n') = \gcost(n) + c(n,
 n')$; afterwards $\gcost(n)$ can only decrease, so $\gcost(n) + c(n, n') \le
 \gcost(n')$ holds from then on for every pointer, and summing along the
 pointers gives a path cost of at most $\gcost(\gamma)$. The chain cannot
-cycle: along a pointer $\gcost$ decreases by at least the edge cost, and a
-cycle of non-negative costs on which $\gcost$ decreases strictly at least once
-(the pointer that was set last on the cycle was set when the target's $\gcost$
-strictly decreased) is impossible. So the chain ends at the only state without
-a parent, $s$.
+cycle. Suppose the pointers closed one, and look at the moment its last
+pointer was set, say $\mathrm{parent}(u) \gets p$; the relaxation that set it
+was strict, $\gcost(p) + c(p,u) < \gcost(u)$ for the value $\gcost(u)$ had a
+moment earlier. Every other pointer of the cycle was already in place and
+satisfied $\gcost(\mathrm{parent}(x)) + c(\mathrm{parent}(x),x) \le
+\gcost(x)$, so following them from $p$ around the cycle back to $u$ and adding
+the inequalities telescopes to $\gcost(u) + (\text{costs}) \le \gcost(p)$,
+hence $\gcost(u) \le \gcost(p)$ because costs are non-negative. Together with
+the strict relaxation this gives $c(p,u) < 0$, which is impossible. So the
+chain ends at the only state without a parent, $s$.
 \end{proof}
 
 \begin{theorem}[$\eps$-suboptimality; Likhachev, Gordon and Thrun 2003]
@@ -827,11 +845,15 @@ means. A single optimal \astar on the same instances expands $1\,177$ cells.
   \label{fig:ch06-anytime}
 \end{figure}
 
-Five observations.
+Four observations.
 \begin{enumerate}
-  \item The first iteration is weighted \astar: $215$ expansions, $18\,\%$ of
-        the work of \astar, for a path $8.3\,\%$ longer than optimal with a
-        certificate of $1.41$, far below $\eps = 3$.
+  \item The cheap path comes first and the work is spent at the end: the first
+        iteration is weighted \astar and buys a path $8.3\,\%$ longer than
+        optimal, with a certificate of $1.41$ far below $\eps = 3$, for $215$
+        expansions or $18\,\%$ of the work of \astar, while the three
+        iterations with $\eps \le 1.25$ cost $1\,243$ of the $1\,541$
+        expansions, because a small $\eps$ makes the search behave like
+        \astar, which must rule out every cell with $\gcost^* + \hcost < C^*$.
   \item Iterations~2 and~3 expand nothing: the $\eps = 3$ path already passes
         the termination test for $\eps = 2.5$ and $2$
         (\cref{thm:ch06-properties}(iv)). They cost only the re-keying of
@@ -840,10 +862,6 @@ Five observations.
         the path a little, to $7\,\%$ and $5\,\%$ above optimal: \arastar
         delivers the guarantee, not the best path the effort could have
         bought.
-  \item The work is spent at the end. The three iterations with $\eps \le
-        1.25$ cost $1\,243$ of the $1\,541$ expansions: with a small $\eps$
-        the search behaves like \astar and must rule out every cell with
-        $\gcost^* + \hcost < C^*$.
   \item The total is $1.3$ times one \astar for \arastar and $3.4$ times for
         the restarts. \arastar to optimality is more expensive than \astar
         alone, by $31\,\%$ here; this is the price of having had a path after
@@ -858,26 +876,22 @@ Five observations.
 \subsection{Choosing the schedule}
 
 The schedule is the only parameter of \arastar, and \cref{tab:ch06-schedule}
-summarises what its two knobs do. The initial factor $\eps_1$ sets the time to
-the first path. Values between $2$ and $3$ are the usual choice on grids and
-lattices \cite{likhachev2003ara,likhachev2008anytime}; larger values make the
-first search greedier and rarely faster, since a greedy search that runs into
-a dead end must back out of it cell by cell, and its paths become erratic. The
-decrement decides how many intermediate paths are published and how much of
-the work is spent between the first path and the optimal one. A large jump
-such as $3 \to 1$ turns \arastar into weighted \astar followed by \astar:
-the second iteration does nearly all the work of \astar, nothing is published
-in between, and a deadline that falls inside it finds only the first path.
-Small decrements are nearly free when they produce zero-work iterations and
-publish a path whenever they do not, so err on the side of small steps; $0.2$
-is a common value. A refinement uses the certificate: since $\eps'_k \le
-\eps_k$ is what has already been achieved, an inflation factor above $\eps'_k$
-cannot improve the published guarantee, and the next iteration may start at
-$\eps_{k+1} = \max(1, \eps'_k - \Delta)$. On \cref{ex:ch06-grid} this rule
-turns $\eps = 3$ into $\eps = 1.45$ for the second iteration, which finds the
-optimal path with 13 expansions and a certificate of $1.16$; the final
-iteration with $\eps = 1$ then only certifies it, with two expansions
-(\cref{exr:ch06-schedule}).
+summarises what its two knobs, the initial factor $\eps_1$ and the decrement,
+do. Three things the table cannot say are worth adding. Values of $\eps_1$
+between $2$ and $3$ are the usual choice on grids and lattices
+\cite{likhachev2003ara,likhachev2008anytime}, because a greedier first search
+must back out of every dead end cell by cell and is rarely faster. Small
+decrements cost almost nothing, since an iteration that expands nothing costs
+only the re-keying of \Open and one that expands something publishes a path,
+so err on the side of small steps; $0.2$ is a common value. And the
+certificate can drive the schedule: an inflation factor above $\eps'_k$, which
+has already been achieved, cannot improve the published guarantee, so the next
+iteration may start at $\eps_{k+1} = \max(1, \eps'_k - \Delta)$
+(\cref{exr:ch06-schedule} runs this rule on \cref{ex:ch06-grid}). A schedule
+that stops before $\eps = 1$ loses nothing the certificate does not report:
+the last path still carries its own $\eps'$, which in
+\cref{tab:ch06-experiment} is already $1.086$ at $\eps = 1.1$ for a path that
+is in fact within $0.03\,\%$ of optimal.
 
 \begin{table}[tb]
   \centering\small
@@ -1070,13 +1084,17 @@ by $10^{-16}$ would then send a closed cell to \textsc{Incons} for nothing.
 The self-test passes without a tolerance, but a production version should
 insist on an improvement of at least a small $\epsilon$ in the relaxation, as
 the \astar code of \cref{ch:ch04} does. The self-test runs \arastar with the
-schedule $3, 2, 1.5, 1$ on 80 random $24 \times 18$ grids, half of them
-4-connected, and checks against an independent \astar that every published
-path is valid, that $L \le C^*$, $1 \le \eps' \le \eps$ and $\cost \le \eps'
-C^*$, that $\gcost(\gamma)$ never increases, that the last path is optimal
-with $\eps' = 1$, that the first iteration coincides with weighted \astar, and
-that \cref{ex:ch06-grid} reproduces \cref{tab:ch06-iterations}; it runs in
-well under a second.
+schedule $3, 2, 1.5, 1$ on 80 random $24 \times 18$ grids with a quarter of
+the cells blocked, half of them 4-connected. On the 55 solvable ones it checks
+against an independent \astar that every published path is valid, that $L \le
+C^*$, $1 \le \eps' \le \eps$ and $\cost \le \eps' C^*$, that $\gcost(\gamma)$
+never increases and that the last path is optimal with $\eps' = 1$; on the
+other 25 it checks that nothing is published; and on \cref{ex:ch06-grid} it
+reproduces \cref{tab:ch06-iterations}. Weighted \astar is \arastar with a
+one-element schedule --- that is exactly how \code{weighted\_astar()} is
+implemented, so the first iteration and the restarts of
+\cref{sec:ch06-experiment} use the same code path and tie-breaking as \arastar
+itself. The whole test runs in well under a second.
 
 \begin{pitfall}[Treating the inflated key as if it were consistent]
 With $\eps > 1$ the key $\gcost + \eps\,\hcost$ is not consistent even when
@@ -1140,15 +1158,12 @@ expansions leaves plain \astar without any path, restarted weighted \astar
 with a path $3\,\%$ above optimal, and \arastar with a path $1\,\%$ above
 optimal and a certificate of $1.23$.
 
-Three practical rules follow from the chapter. \emph{Fly the first path.}
-With $\eps_1 = 3$ it arrives after a fifth of the work of \astar, and the
-following iterations can run in later control cycles while the drone moves;
-because the pointer path is valid at every moment, an interrupted iteration
-never leaves the drone without a path. \emph{Read the certificate, not
-$\eps$.} The executive of \cref{ch:ch24} can commit to a path with $\eps' \le
-1.2$ and spend a further cycle on one with $\eps' = 1.6$; the true ratio is
-usually far better, but only the certificate can be guaranteed.
-\emph{Search backward when the start moves.} A drone that flies while the
+Three practical rules follow from the chapter. \emph{Fly the first path:}
+with $\eps_1 = 3$ it arrives after a fifth of the work of \astar, and the
+later iterations can run in following control cycles while the drone moves.
+\emph{Read the certificate, not $\eps$:} the executive of \cref{ch:ch24} can
+commit to a path with $\eps' \le 1.2$ and spend one more cycle on one with
+$\eps' = 1.6$. \emph{Search backward when the start moves.} A drone that flies while the
 planner improves changes its start; the forward search of this chapter keeps
 its guarantee only for the part of the path not yet flown, which is why the
 anytime replanner of choice on a changing map is Anytime \dstar
