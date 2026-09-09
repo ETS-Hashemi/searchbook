@@ -491,7 +491,13 @@ def _self_test():
     assert not w.point_free(np.array([4.01, 5.0]))
     assert w.point_free(np.array([3.5, 5.0]))
     # the wall is thinner than delta, but the inflation by delta/2 makes it
-    # impossible for all test points to miss it
+    # impossible for all test points to miss it, at any angle: sweep 40
+    # segment directions through a point inside the wall, then 40 parallel
+    # crossings of it
+    c = np.array([4.01, 5.0])
+    for th in np.linspace(0.0, np.pi, 40, endpoint=False):
+        e = 2.0 * np.array([math.cos(th), math.sin(th)])
+        assert not w.segment_free(c - e, c + e)
     for y in np.linspace(0.3, 9.7, 40):
         assert not w.segment_free([1.0, y], [7.0, y + 0.3])
     assert w.segment_free([1, 1], [3.9, 9])
@@ -509,6 +515,7 @@ def _self_test():
     trace = []
     res = rrt(world, start, goal, eta=0.5, p_goal=0.05, r_goal=0.5,
               max_iters=2000, seed=1, trace=trace)
+    n_checks = world.point_checks
     assert res.path is not None
     assert path_is_free(world, res.path)
     assert np.allclose(res.path[0], start) and np.allclose(res.path[-1], goal)
@@ -518,9 +525,9 @@ def _self_test():
                max_iters=2000, seed=1)
     assert np.array_equal(res.path, res2.path)         # deterministic
     print("worked example: solution at iteration %d, %d vertices, "
-          "%d path vertices, length %.3f" % (
+          "%d path vertices, length %.3f, %d point tests" % (
               res.solution_iter, res.n_vertices, len(res.path),
-              path_length(res.path)))
+              path_length(res.path), n_checks))
     print("first iterations (it, q_rand, nearest, q_new, free):")
     for (it, q_rand, i_near, q_new, free) in trace[:10]:
         print("  %2d  (%.2f, %.2f)  %2d  (%.2f, %.2f)  %s" % (
@@ -529,8 +536,23 @@ def _self_test():
     print("  first blocked extension at iteration %s; %d of %d blocked"
           % (blocked[0] if blocked else None, len(blocked), len(trace)))
     ref_path, ref_len = visibility_shortest_path(world, start, goal)
-    print("  visibility-graph shortest path length %.3f via %d vertices"
-          % (ref_len, len(ref_path)))
+    clearance = world.radius + 0.5 * world.delta + 0.05
+    print("  visibility-graph shortest path length %.3f via %d vertices "
+          "(clearance %.3f)" % (ref_len, len(ref_path), clearance))
+    # the same reference in the limit of zero clearance: the corner offset
+    # only keeps the visibility edges free, so push the interior waypoints
+    # back onto the exact corners and measure the polyline again
+    w0 = World([0, 0], [10, 10], boxes=[([3, 0], [5, 6]), ([6, 4], [8, 10])],
+               radius=0.0, delta=0.01)
+    p0, _ = visibility_shortest_path(w0, start, goal, offset=0.005)
+    corners = np.array([[x, y] for lo, hi in zip(w0.box_lo, w0.box_hi)
+                        for x in (lo[0], hi[0]) for y in (lo[1], hi[1])])
+    p0[1:-1] = corners[np.argmin(
+        ((p0[1:-1, None, :] - corners[None, :, :]) ** 2).sum(axis=2), axis=1)]
+    ref0 = path_length(p0)
+    print("  zero-clearance shortest path length %.3f via %s" % (
+        ref0, " ".join("(%g,%g)" % tuple(c) for c in p0[1:-1])))
+    assert ref0 < ref_len
     assert path_length(res.path) > ref_len
 
     # 3. smoothing never increases the length -----------------------------
@@ -601,6 +623,22 @@ def _self_test():
           "(%.1f s of flight), final speed %.2f" % (
               kr.iterations, kr.n_vertices, len(kr.controls),
               len(kr.controls) * dt, np.linalg.norm(kr.states[-1, d:])))
+    # 7. cost of the linear-scan nearest-neighbour query ------------------
+    rng = np.random.default_rng(0)
+    timings = []
+    for n in (10 ** 3, 10 ** 4, 10 ** 5):
+        tr = Tree(np.zeros(3), capacity=n)
+        tr.V = rng.random((n, 3)) * 10.0
+        tr.n = n
+        qs = rng.random((200, 3)) * 10.0
+        t1 = time.time()
+        for q in qs:
+            tr.nearest(q)
+        timings.append((n, 1e3 * (time.time() - t1) / len(qs)))
+    assert timings[-1][1] > timings[0][1]
+    print("nearest by linear scan (3D, mean of 200 queries): " + ", ".join(
+        "n=%d %.3f ms" % (n, ms) for n, ms in timings))
+
     print("self-test passed in %.1f s" % (time.time() - t0))
 
 

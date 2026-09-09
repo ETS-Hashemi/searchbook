@@ -76,7 +76,8 @@ sharp corners (\cref{fig:ch22-relaxation}). Sliding the level line of the
 objective across the polyhedron shows that the best value is always reached
 at a corner, a \emph{vertex}. The simplex method walks from vertex to
 neighbouring vertex, always improving; interior-point methods travel through
-the inside and converge to the same vertex. Both solve LPs with hundreds of
+the inside and converge to a point of the optimal face, from which a
+\emph{crossover} step recovers a vertex when one is wanted. Both solve LPs with hundreds of
 thousands of variables in seconds, and both are reviewed in
 \cref{sec:ch22-lp}.
 
@@ -91,6 +92,10 @@ point, and the integer optimum $(3,3)$ lies on a different side of the
 polyhedron. Dropping the integrality requirement is called the
 \textbf{LP relaxation}\index{LP relaxation}; its value is a bound on the
 integer optimum, and this bound is what makes an exact search affordable.
+This example \emph{maximises} $x + 2y$ (equivalently, it minimises
+$-x - 2y$), so its relaxation value $10$ is an upper bound on the integer
+optimum $9$; for the minimisation of \cref{def:ch22-lp}, the convention of
+the rest of this chapter, the relaxation value is a \emph{lower} bound.
 
 \begin{figure}[tb]
   \centering
@@ -101,7 +106,9 @@ integer optimum, and this bound is what makes an exact search affordable.
   value $10$. If $x$ and $y$ must be integers, only the lattice points inside
   the polyhedron (dots) are feasible. Rounding the LP vertex to $(2,4)$ or
   $(3,4)$ leaves the polyhedron; the integer optimum is $(3,3)$ with value
-  $9$, and the LP value $10$ is an upper bound on it.}
+  $9$, and the LP value $10$ is an upper bound on it because this example
+  maximises $x + 2y$; for a minimisation, as in \cref{def:ch22-lp}, the
+  relaxation value is a lower bound.}
   \label{fig:ch22-relaxation}
 \end{figure}
 
@@ -170,8 +177,7 @@ of constraints. \textbf{Interior-point methods}\index{interior-point method}
 follow a path through the interior of $P$ towards the optimal face in a
 number of iterations that is polynomial in the worst case. Both are treated
 in \textcite{nocedal2006numerical} and, with the convex geometry, in
-\textcite{boyd2004convex}. For this chapter it is enough to know that an LP
-with $10^5$ variables is solved in well under a second, that infeasibility
+\textcite{boyd2004convex}. For this chapter it is enough to know that infeasibility
 is reported reliably, and that the LP solver is called thousands of times
 inside a MILP solver; HiGHS, the solver behind \code{scipy.optimize.milp},
 uses a dual simplex method for these calls \cite{huangfu2018parallelizing}.
@@ -350,16 +356,16 @@ the same treatment with four binaries $c^{ij}_{k,1}, \dots, c^{ij}_{k,4}$
 per pair and step:
 \begin{equation}
 \begin{aligned}
-  x^i_k - x^j_k &\ge d_{\min} - M c^{ij}_{k,1}, &
-  x^j_k - x^i_k &\ge d_{\min} - M c^{ij}_{k,2},\\
-  y^i_k - y^j_k &\ge d_{\min} - M c^{ij}_{k,3}, &
-  y^j_k - y^i_k &\ge d_{\min} - M c^{ij}_{k,4},\\
+  x^i_k - x^j_k &\ge d_{\min} - M_x c^{ij}_{k,1}, &
+  x^j_k - x^i_k &\ge d_{\min} - M_x c^{ij}_{k,2},\\
+  y^i_k - y^j_k &\ge d_{\min} - M_y c^{ij}_{k,3}, &
+  y^j_k - y^i_k &\ge d_{\min} - M_y c^{ij}_{k,4},\\
   c^{ij}_{k,1} + c^{ij}_{k,2} + c^{ij}_{k,3} + c^{ij}_{k,4} &\le 3.
 \end{aligned}
 \label{eq:ch22-sep}
 \end{equation}
-The tight constant is now $M = d_{\min} + (X_{\max} - X_{\min})$ for the
-$x$-rows and $M = d_{\min} + (Y_{\max} - Y_{\min})$ for the $y$-rows, because
+The tight constants are $M_x = d_{\min} + (X_{\max} - X_{\min})$ for the
+$x$-rows and $M_y = d_{\min} + (Y_{\max} - Y_{\min})$ for the $y$-rows, because
 $x^i_k - x^j_k$ can be as small as $-(X_{\max} - X_{\min})$. The
 $\infty$-norm square is a conservative stand-in for the Euclidean disc of
 radius $d_{\min}$ (it contains the disc); the disc itself can be
@@ -368,10 +374,8 @@ approximated by a polygon with more binaries per pair.
 \begin{table}[tb]
   \centering\small
   \caption{Number of binary variables $4N\bigl(m\,n_O + \binom{m}{2}\bigr)$
-  for $m$ drones, one obstacle ($n_O = 1$) and $N$ time steps, and the
-  number of leaves $2^{\text{binaries}}$ that a search without bounding
-  would have to visit. The pair term $\binom{m}{2}$ dominates from about
-  four drones on.}
+  for $m$ drones, one obstacle ($n_O = 1$) and $N$ time steps. The pair
+  term $\binom{m}{2}$ dominates from about four drones on.}
   \label{tab:ch22-binaries}
   \begin{tabular}{@{}rrrrr@{}}
   \toprule
@@ -493,7 +497,7 @@ problem $P$ with binaries.
     $(Q, \beta) \gets$ node of \Open with the smallest $\beta$\label{alg:ch22-bnb:pop}\;
     \If{$\beta \ge J_{\mathrm{inc}}$}{\KwContinue \tcp*{pruned by the parent's bound}}
     $(\vect{z}, J_{\mathrm{LP}}) \gets$ \MilpSolveLP{$Q$}\label{alg:ch22-bnb:lp}\;
-    \If{$Q$ is infeasible}{\KwContinue \tcp*{pruned by infeasibility}}
+    \If{the relaxation is infeasible}{\KwContinue \tcp*{pruned by infeasibility}}
     \If{$J_{\mathrm{LP}} \ge J_{\mathrm{inc}}$}{\KwContinue \tcp*{pruned by bound}\label{alg:ch22-bnb:bound}}
     \If{$z_j \in \set{0,1}$ for all $j \in I$}{
       $J_{\mathrm{inc}} \gets J_{\mathrm{LP}}$; $\vect{z}^* \gets \vect{z}$
@@ -592,18 +596,15 @@ optimum $6$.
   \label{fig:ch22-bnb}
 \end{figure}
 
-Two lessons of the example carry over to every MILP of this chapter. The
-root relaxation of a big-$M$ model is nearly the unconstrained problem, so
-the bound becomes useful only after several binaries are fixed, and
-symmetric solutions (above/below, $i$ left of $j$ or $j$ left of $i$) create
-subtrees that the bound can prune only after an incumbent of equal cost
-exists. Production solvers such as HiGHS add \emph{presolve} (tightening
+The example shows in miniature what makes these trees grow: the root
+relaxation of a big-$M$ model is nearly the unconstrained problem, and the
+mirror-image plan is a second leaf of the same cost. Production solvers such as HiGHS add \emph{presolve} (tightening
 $M$ from the variable bounds, removing redundant rows), \emph{cutting
 planes} (extra valid inequalities that cut off fractional vertices;
 the combination is called \textbf{branch-and-cut}\index{branch-and-cut}),
 and \emph{primal heuristics} that find incumbents early; see
 \textcite{wolsey1998integer}. They change the constants, not the worst case
-of \cref{thm:ch22-complexity}.
+of \cref{prop:ch22-complexity}.
 
 % ---------------------------------------------------------------------
 \section{A worked example}
@@ -630,9 +631,17 @@ state variables, $48$ inputs, $48$ slacks, $96$ obstacle binaries and $48$
 separation binaries, $344$ variables in all, and $388$ constraint rows:
 $8$ initial and $8$ terminal conditions, $96$ dynamics rows, $96$ slack rows,
 $120$ obstacle rows ($2$ drones $\times$ $12$ steps $\times$ $5$ rows) and
-$60$ separation rows. HiGHS solves it in about $1.2$~s after $366$
+$60$ separation rows. The tight big-$M$ values \cref{eq:ch22-tightM} of this instance are
+$M_1 = 6$, $M_2 = 6$, $M_3 = 6.5$ and $M_4 = 5.5$~m, and the separation rows
+use $M_x = 11$~m and $M_y = 9$~m (\cref{exr:ch22-tightm}). HiGHS solves the
+fuel model in about $1.8$~s\footnote{Every solve time quoted in this chapter
+was measured on one core of an Intel Xeon at $2.8$~GHz under Python~3.11
+with SciPy~1.17.1 and its bundled HiGHS. Times vary by a few tenths of a
+second between runs of the same instance and by a factor of two between
+machines; the node counts are reproducible.} after $366$
 branch-and-bound nodes. The optimal fuel is $J_{\mathrm{fuel}} = 12.02$~m/s
-of total velocity change. Both drones go over the top; A climbs to $y =
+of total velocity change, and \cref{tab:ch22-steps} is the resulting pair of
+trajectories. Both drones go over the top; A climbs to $y =
 6.5$ while B stays on the edge $y = 5.5$, and at step $k = 6$ ($t = 3$~s)
 they pass each other with $\norm{\pos^A_6 - \pos^B_6}_\infty = 1.000$: the
 separation constraint is active, and the binary $c_{6,3} = 0$ (``A above B'')
@@ -645,16 +654,47 @@ $2$~m at every sampled instant.
 \begin{table}[tb]
   \centering\small
   \caption{Size of the MILP of \cref{ex:ch22-two} and the effort of
-  \code{scipy.optimize.milp} (HiGHS 1.x, one core) for the three objectives.
-  Times vary by a few tenths of a second between runs.}
+  \code{scipy.optimize.milp} (HiGHS, one core) for the three objectives, on
+  the machine and software named in the footnote of \cref{sec:ch22-example}. The minimum-time optimum is the
+  pair of arrival times; the code prints the objective $9.016$, which adds
+  the small fuel tie-breaker of \cref{eq:ch22-time}.}
   \label{tab:ch22-sizes}
   \begin{tabular}{@{}lrrrrrl@{}}
   \toprule
   Objective & Variables & Constraints & Binaries & B\&B nodes & Time [s] & Optimum\\
   \midrule
-  minimum fuel & 344 & 388 & 144 & 366 & 1.2 & $12.02$~m/s\\
-  minimum peak & 298 & 388 & 144 & 1 & 0.09 & $0.889 + 0.889$~m/s$^2$\\
-  minimum time & 368 & 486 & 168 & 1 & 0.28 & $4.5 + 4.5$~s\\
+  minimum fuel & 344 & 388 & 144 & 366 & 1.8 & $12.02$~m/s\\
+  minimum peak & 298 & 388 & 144 & 1 & 0.14 & $0.889 + 0.889$~m/s$^2$\\
+  minimum time & 368 & 486 & 168 & 1 & 0.53 & $4.5 + 4.5$~s\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The minimum-fuel plan of \cref{ex:ch22-two}, step by step, as
+  printed by the self-test of \code{code/ch22\_milp.py}. The separation
+  constraint is tight at $k = 6$, where the two drones pass each other with
+  exactly $d_{\min} = 1$~m; everywhere else it is slack.}
+  \label{tab:ch22-steps}
+  \begin{tabular}{@{}rrccr@{}}
+  \toprule
+  $k$ & $t$ [s] & $\pos^A_k$ [m] & $\pos^B_k$ [m] & $\norm{\pos^A_k - \pos^B_k}_\infty$ [m]\\
+  \midrule
+  0 & 0.0 & $(1.000, 4.000)$ & $(9.000, 4.500)$ & 8.000\\
+  1 & 0.5 & $(1.250, 4.250)$ & $(8.750, 4.614)$ & 7.500\\
+  2 & 1.0 & $(1.889, 4.750)$ & $(8.091, 4.841)$ & 6.202\\
+  3 & 1.5 & $(2.667, 5.250)$ & $(7.273, 5.068)$ & 4.606\\
+  4 & 2.0 & $(3.444, 5.750)$ & $(6.455, 5.295)$ & 3.010\\
+  5 & 2.5 & $(4.222, 6.250)$ & $(5.636, 5.500)$ & 1.414\\
+  6 & 3.0 & $(5.000, 6.500)$ & $(4.818, 5.500)$ & \textbf{1.000}\\
+  7 & 3.5 & $(5.778, 6.250)$ & $(4.000, 5.318)$ & 1.778\\
+  8 & 4.0 & $(6.556, 5.750)$ & $(3.182, 5.136)$ & 3.374\\
+  9 & 4.5 & $(7.333, 5.250)$ & $(2.364, 4.955)$ & 4.970\\
+  10 & 5.0 & $(8.111, 4.750)$ & $(1.591, 4.773)$ & 6.520\\
+  11 & 5.5 & $(8.750, 4.250)$ & $(1.114, 4.591)$ & 7.636\\
+  12 & 6.0 & $(9.000, 4.000)$ & $(1.000, 4.500)$ & 8.000\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -764,7 +804,7 @@ The node bound of \cref{thm:ch22-bnb} is not a pessimistic artefact of the
 proof.
 
 \begin{proposition}[Exponential branch-and-bound trees]
-\label{thm:ch22-complexity}
+\label{prop:ch22-complexity}
 Deciding whether a MILP with binaries has a feasible solution is
 NP-hard \cite{karp1972reducibility}, and there are families of programs
 with $n$ binaries on which \cref{alg:ch22-bnb} visits at least
@@ -894,9 +934,12 @@ $G_T$ with a small gadget, so that their program stays a network flow with
 capacities. For the makespan objective the program is a feasibility
 problem: solve it for increasing $T$, starting from the largest single-agent
 distance, and the first feasible $T$ is optimal. The sum of costs is the
-linear objective $\sum_i \sum_{e \notin \delta^-(g_i, \cdot)} f^i_e$, the
-number of steps each agent spends away from its goal, which agrees with the
-definition of \cref{ch:ch07} whenever no agent leaves its goal again.
+linear objective $\sum_i \sum_{e \neq ((g_i,t)\to(g_i,t+1))} f^i_e$: every
+edge of agent $i$ counts one, except the wait edges at its own goal, so the
+sum is the number of steps the agent spends away from that goal, which is
+the definition of \cref{ch:ch07} whenever no agent leaves its goal again.
+Excluding all of $\delta^-(g_i,\cdot)$ instead would drop the arrival move
+as well and undercount every agent by one step.
 
 \begin{figure}[tb]
   \centering
@@ -1020,11 +1063,10 @@ gain an order of magnitude, not a change of shape.
 \end{table}
 
 \Cref{tab:ch22-verdict} states the verdict. MILP is not a competitor of the
-planners in Parts~III and~IV of this book; it is their judge: for a two- or
+planners in Parts~III and~IV of this book but their judge: for a two- or
 three-drone scenario of \cref{ch:ch25} it computes the exact optimum
-offline, and the gap of the hybrid planner's plan to that optimum becomes a
-measured number. Given a few dozen binaries it also assigns take-off slots
-to a fleet in milliseconds. What it cannot do is replan fifty drones ten
+offline, so that the gap of the hybrid planner's plan becomes a measured
+number instead of a guess. What it cannot do is replan fifty drones ten
 times a second.
 
 % ---------------------------------------------------------------------
@@ -1047,8 +1089,10 @@ carry the workspace and the input limits and whose \code{options} accept a
 time limit; with \code{relax=True} it solves the LP relaxation of a node
 for the textbook \code{branch\_and\_bound} that produced
 \cref{tab:ch22-trace}. The result carries the status ($0$ optimal, $1$
-stopped by the limit with an incumbent, $2$ infeasible), the node count and
-the gap. \Cref{lst:ch22-use} is all a user writes.
+stopped by the limit with an incumbent, $2$ infeasible) and, in
+\code{res.mip\_node\_count} and \code{res.mip\_gap}, the node count and the
+relative gap, which \code{Solution} exposes as \code{sol.nodes} and
+\code{sol.gap}. \Cref{lst:ch22-use} is all a user writes.
 
 \begin{lstlisting}[caption={The big-$M$ obstacle rows of \cref{eq:ch22-bigm} with the tight $M$ of \cref{eq:ch22-tightM} (from \code{code/ch22\_milp.py}).},label={lst:ch22-obstacle}]
     def _obstacle_rows(self):
@@ -1115,10 +1159,18 @@ relaxation and to the tolerances.\index{big-M@big-$M$ trick!implementation}
 \paragraph{Symmetry.}
 Two drones that cross can pass left-or-right of each other at the same
 cost, and a plan and its mirror image are different leaves of the tree.
-Break the symmetry when the instance has one: fix the side for one pair
-($c^{12}_{k,1} = 1$ for all $k$, say, when you know drone~1 should stay on
-one side), or add an ordering constraint on the drones' arrival binaries.
-Every symmetry removed halves the tree.\index{symmetry breaking}
+Break the symmetry when the instance has one: forbid one of the four
+disjuncts for one pair ($c^{12}_{k,1} = 1$ for all $k$ switches off the row
+``drone~1 at least $d_{\min}$ to the right of drone~2'', so the pair must be
+separated in one of the three other directions at every step), or add an
+ordering constraint on the drones' arrival binaries. Fixing
+$c^{12}_{k,1} = 1$ removes the mirror-image subtree, and every symmetry
+removed halves the tree; but it is a \emph{valid} constraint only when a
+plan of the remaining shape is known to exist, so compare the optimum with
+and without it before trusting the faster run. (The opposite value
+$c^{12}_{k,1} = 0$ is a much stronger demand: it \emph{enforces}
+$x^1_k - x^2_k \ge d_{\min}$, that is, drone~1 stays to the right of drone~2
+at every step.)\index{symmetry breaking}
 
 \paragraph{Time discretisation.}
 The step $\dt$ trades three things: the accuracy of the zero-order-hold
@@ -1127,8 +1179,8 @@ model, the size of the corner-cutting margins of
 number of binaries, which grows as $1/\dt$. Halving $\dt$ in
 \cref{ex:ch22-two} ($N = 24$, $\dt = 0.25$~s) reduces the mid-step
 penetration of the block from $0.146$ to $0.017$~m and leaves the fuel
-almost unchanged ($12.04$~m/s), but the solve takes about $14$~s and
-$4\,100$ nodes instead of $1.2$~s and $366$. A coarse step with the margins
+almost unchanged ($12.04$~m/s), but the solve takes about $21$~s and
+$4\,100$ nodes instead of $1.8$~s and $366$. A coarse step with the margins
 of \cref{prop:ch22-intersample}, followed by an \emph{a posteriori} check
 of the continuous motion with \code{continuous\_check}, is usually the
 better bargain.\index{time discretisation!MILP}
@@ -1223,7 +1275,7 @@ express. The study plan places MILP in Week~11 next to MPC
   \item Branch-and-bound solves LP relaxations, branches on fractional
         binaries and prunes by bound and infeasibility. It is exact
         (\cref{thm:ch22-bnb}) and exponential in the worst case
-        (\cref{thm:ch22-complexity}); solvers add presolve, cuts and
+        (\cref{prop:ch22-complexity}); solvers add presolve, cuts and
         heuristics and report an incumbent with a gap.
   \item The constraints hold at the sampled instants only; the margins
         $v_{\max}\dt/2$ and $v_{\max}\dt$ of \cref{prop:ch22-intersample}
@@ -1341,9 +1393,13 @@ with \code{ch22\_milp.py}: three drones in a $10 \times 8$~m workspace,
 A from $(1,1)$ to $(9,7)$, B from $(1,4)$ to $(9,4)$ and C from $(1,7)$ to
 $(9,1)$, a block $[4,6] \times [2,6]$, $N = 12$ steps of $\dt = 0.5$~s,
 $a_{\max} = 2$~m/s$^2$, $v_{\max} = 3$~m/s and $d_{\min} = 1$~m.
-(a)~Build the \code{Instance}, solve it with the fuel and the time
-objective, check both solutions with \code{check\_solution} and
-\code{continuous\_check}, and report a table like \cref{tab:ch22-sizes}.
+(a)~Build the \code{Instance} and solve it with the fuel and the time
+objective as \code{solve\_instance(inst, time\_limit=120)}; report
+\code{sol.status} (and \code{sol.gap}, if the limit strikes) as well as the
+objective, the binaries, the nodes and the time in a table like
+\cref{tab:ch22-sizes}, and check both solutions with \code{check\_solution}
+and \code{continuous\_check}. Expect a solve of tens of seconds: three
+drones are already a hard instance (\cref{sec:ch22-cost}).
 (b)~Plot the trajectories and mark the steps at which a separation
 constraint is active. (c)~Solve the three-drone crossing instance
 \code{crossing\_instance(3, 12)} with a time limit of $10$~s and report

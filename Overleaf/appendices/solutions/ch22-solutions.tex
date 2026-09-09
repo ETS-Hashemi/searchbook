@@ -23,7 +23,7 @@ proposition bounds the $\infty$-distance to the nearest sample in every
 direction, and a drone skimming the top edge can dip below it between two
 samples just as one passing the left edge can drift right. The self-test
 of \code{ch22\_milp.py} solves the safe instance: fuel $16.78$~m/s instead
-of $12.02$ (a price of $40\,\%$ for a guarantee), about $1.3$~s and $48$
+of $12.02$ (a price of $40\,\%$ for a guarantee), about $2.6$~s and $48$
 nodes, no penetration of the original block between samples and a
 continuous-time minimum separation of $4.08$~m, far above the required
 $1$~m because the margins assume top speed in the worst direction at every
@@ -45,29 +45,47 @@ $f^1_{(a,0)\to(b,1)} + f^1_{(b,0)\to(a,1)} + f^2_{(a,0)\to(b,1)} +
 f^2_{(b,0)\to(a,1)} \le 1$. The drawn flows use $(a,0)\to(b,1)\to(d,2)$ and
 $(d,0)\to(c,1)\to(a,2)$: every state is entered at most once and no edge is
 used in both directions. The dashed alternative $(d,0)\to(b,1)$ makes the
-capacity row of $(b,1)$ equal to $2$. On the $32 \times 32$ grid every
-state has five outgoing edges (four moves and a wait), so there are $20
-\cdot 60 \cdot 1024 \cdot 5 \approx 6.1 \cdot 10^6$ binaries, $1024 \cdot
-60 \approx 6.1 \cdot 10^4$ capacity rows and about $2 \cdot 1024 \cdot 60
-\approx 1.2 \cdot 10^5$ anti-swap rows (one per undirected grid edge and
-step).
+capacity row of $(b,1)$ equal to $2$. On the $32 \times 32$ grid an interior state has five
+outgoing edges (four moves and a wait), but a state on an edge of the grid
+has four and a corner state three, so one layer of the time-expanded graph
+has $\sum_v (\deg v + 1) = 1024 + 2 \cdot (2 \cdot 32 \cdot 31) = 4992$
+edges. That gives $20 \cdot 60 \cdot 4992 \approx 6.0 \cdot 10^6$ binaries,
+the ``about six million'' of \cref{sec:ch22-mapf-ilp}; $1024 \cdot 60
+\approx 6.1 \cdot 10^4$ capacity rows; and $1984 \cdot 60 \approx 1.2 \cdot
+10^5$ anti-swap rows, one per undirected grid edge and step, the grid
+having $2 \cdot 32 \cdot 31 = 1984$ edges.
 \end{solution}
 
 \begin{solution}{exr:ch22-coding}
 Hints. (a)~Build \code{Instance(vehicles=[Vehicle((1,1),(9,7)),
 Vehicle((1,4),(9,4)), Vehicle((1,7),(9,1))], obstacles=[(4,6,2,6)],
 horizon=12, dt=0.5, a\_max=2, v\_max=3, d\_min=1, workspace=(0,10,0,8))}
-and pass it to \code{solve\_instance}; the fuel model has $3$ obstacle
-groups and $3$ pair groups per step, hence $4 \cdot 12 \cdot 6 = 288$
-binaries. Expect the solver to need far longer than for two drones and set
-a time limit. (b)~A separation constraint is active at step $k$ when
+and pass it to \code{solve\_instance(inst, time\_limit=120)}; the fuel model
+has $3$ obstacle groups and $3$ pair groups per step, hence $4 \cdot 12
+\cdot 6 = 288$ binaries among $588$ variables and $672$ rows. The reference
+run finishes inside the limit with \code{sol.status} $= 0$: the fuel
+optimum is $J_{\mathrm{fuel}} = 21.19$~m/s after $9\,755$ branch-and-bound
+nodes and about $44$~s, tens of times the two-drone instance of
+\cref{ex:ch22-two}. The minimum-time model ($324$ binaries) is much easier,
+$11$ nodes and about $2$~s, with arrival times summing to $13.5$~s
+(objective $13.535$ including the fuel tie-breaker). If your run hits the
+limit, report \code{sol.status} $= 1$ and \code{sol.gap} instead of
+concluding that the model is wrong. \code{continuous\_check} shows what the
+coarse $\dt$ costs: the fuel plan cuts the block by $0.45$~m and its
+separation drops to $0.83$~m between samples, so the margins of
+\cref{prop:ch22-intersample} are needed before such a plan is flown. (b)~A separation constraint is active at step $k$ when
 \code{check\_solution}-style distances give $\norm{\pos^i_k -
 \pos^j_k}_\infty = d_{\min}$ within $10^{-6}$. (c)~With the limit the
 status is $1$ and \code{sol.gap} holds the relative gap; the scaling
 experiment of the chapter obtained gaps below $10\,\%$ after $30$~s for
 this instance. (d)~Fix the bound of the binary
 \code{model.cpair((0, 1), k, 0)} to $1$ for all $k$ before calling
-\code{model.solve}, which forbids ``drone~1 to the right of drone~2'', and
-compare \code{sol.nodes} and \code{sol.solve\_time}; the optimum must not
-change if the mirror image of the optimal plan was feasible.
+\code{model.solve}. By the convention of \cref{eq:ch22-sep} this
+\emph{switches off} the row ``drone~1 at least $d_{\min}$ to the right of
+drone~2'', so that pair must be separated in one of the three other
+directions at every step and the mirror-image subtree disappears; compare
+\code{sol.nodes} and \code{sol.solve\_time}. The optimum is unchanged only
+when an optimal plan that never relies on that direction exists, so check
+the objective against the unconstrained run before trusting the faster
+one.
 \end{solution}

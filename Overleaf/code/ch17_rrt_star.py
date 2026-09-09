@@ -458,25 +458,26 @@ def rrt_star(world, start, goal, eta=1.0, gamma=None, p_goal=0.05,
             else:
                 near = tree.near(x_new, radius)
             near_total += len(near)
-            # --- ChooseParent --------------------------------------------
-            i_min, c_min = i_nearest, tree.cost[i_nearest] + d_nearest
+            dists = np.linalg.norm(tree.V[near] - x_new, axis=1)
+            # --- ChooseParent (c_par is local: c_min is the start-goal
+            #     distance of the informed set) -----------------------------
+            i_par, c_par = i_nearest, tree.cost[i_nearest] + d_nearest
             if choose_parent and len(near):
-                dists = np.linalg.norm(tree.V[near] - x_new, axis=1)
                 cand = tree.cost[near] + dists
                 for k in np.argsort(cand):           # cheapest first
-                    if cand[k] >= c_min:
+                    if cand[k] >= c_par:
                         break
                     if world.segment_free(tree.V[near[k]], x_new):
-                        i_min, c_min = int(near[k]), float(cand[k])
+                        i_par, c_par = int(near[k]), float(cand[k])
                         break
-            i_new = tree.add(x_new, i_min, c_min - tree.cost[i_min])
+            i_new = tree.add(x_new, i_par, c_par - tree.cost[i_par])
             # --- Rewire --------------------------------------------------
             if rewire:
                 for k in range(len(near)):
                     j = int(near[k])
-                    if j == i_min:
+                    if j == i_par:
                         continue
-                    via = c_min + dists[k]
+                    via = c_par + dists[k]
                     if via < tree.cost[j] - 1e-12 and \
                             world.segment_free(x_new, tree.V[j]):
                         tree.set_parent(j, i_new, dists[k])
@@ -599,19 +600,19 @@ def tiny_example(x_rand=(4.0, 2.1), eta=1.0, r=2.0):
     cand = tree.cost[near] + dists
     free = [world.segment_free(tree.V[j], x_new) for j in near]
     order = np.argsort(cand)
-    i_min = None
+    i_par = None
     for k in order:
         if free[k]:
-            i_min = int(near[k])
-            c_min = float(cand[k])
+            i_par = int(near[k])
+            c_par = float(cand[k])
             break
-    i_new = tree.add(x_new, i_min, c_min - tree.cost[i_min])
+    i_new = tree.add(x_new, i_par, c_par - tree.cost[i_par])
     rewired = []
     for k in range(len(near)):
         j = int(near[k])
-        if j == i_min:
+        if j == i_par:
             continue
-        via = c_min + dists[k]
+        via = c_par + dists[k]
         if via < tree.cost[j] and world.segment_free(x_new, tree.V[j]):
             old_parent = int(tree.parent[j])
             tree.set_parent(j, i_new, dists[k])
@@ -620,7 +621,7 @@ def tiny_example(x_rand=(4.0, 2.1), eta=1.0, r=2.0):
                 nearest=i_nearest, near=[int(j) for j in near],
                 candidates=dict((int(near[k]), (float(cand[k]), bool(free[k])))
                                 for k in range(len(near))),
-                parent=i_min, cost_new=c_min, rewired=rewired,
+                parent=i_par, cost_new=c_par, rewired=rewired,
                 cost_before=cost_before, cost_after=tree.cost[:tree.n].copy(),
                 new_index=i_new)
 
