@@ -640,6 +640,7 @@ class HybridSimulation:
         self.recheck_log: List[dict] = []
         self.reconnect_log: List[dict] = []
         self.trigger_profiles: List[dict] = []
+        self.replan_log: List[dict] = []
         self.orca_infeasible = 0
         self.clock = RateSchedule({"control": DT, "prediction": self.p["period_prediction"]})
         self.pred = None
@@ -795,22 +796,23 @@ class HybridSimulation:
     def reconnect(self, d: Drone, pred):
         """Search forward along the nominal path for a waypoint that can be
         reached by a collision-free straight flight, with a delay of at
-        most delay_max steps.  Returns (k, delay, reason)."""
+        most delay_max steps.  Returns (k, delay, reason, candidates tried)."""
         k0 = max(0, int(math.ceil(self.t - d.t0 + 1e-9)))
         last = len(d.path) - 1
-        reason = "no reachable waypoint"
+        tried = []
         for delay in range(self.p["delay_max"] + 1):
             for k in range(k0, min(k0 + self.p["k_look"], last) + 1):
-                t_b = d.t0 + k + delay
+                t_b = d.t0 + k + delay                # arrive at waypoint k, delayed
                 w = centre(d.path[k])
                 need = float(np.linalg.norm(w - d.pos))
                 if t_b - self.t < DT or need / (t_b - self.t) > self.p["v_max"]:
-                    reason = "too fast"
+                    tried.append((k, delay, "too fast"))
                     continue
                 if self.segment_free(d.pos, self.t, w, t_b, pred, d):
-                    return k, delay, "ok"
-                reason = "segment blocked"
-        return None, None, reason
+                    tried.append((k, delay, "ok"))
+                    return k, delay, "ok", tried
+                tried.append((k, delay, "segment blocked"))
+        return None, None, (tried[-1][2] if tried else "no waypoint ahead"), tried
 
     # -- replanning and the conflict re-check ------------------------------
     def reservation_of_others(self, d: Drone, pred, t_start: int) -> Reservation:
@@ -850,7 +852,9 @@ class HybridSimulation:
         d.target, d.target_time, d.target_index = centre(c0), float(t_start), 0
         d.replans += 1
         self.last_replan = dict(t=self.t, drone=d.name, t_start=t_start, c0=c0,
-                                path=list(d.path), blocked=sum(len(v) for v in res.layers.values()))
+                                path=list(d.path), blocked=sum(len(v) for v in res.layers.values()),
+                                layers={t: sorted(c) for t, c in res.layers.items()})
+        self.replan_log.append(self.last_replan)
         return True
 
     def recheck(self, changed: Drone) -> dict:
@@ -905,9 +909,9 @@ class HybridSimulation:
                 self.transition(d, REPLANNING, "drift %.2f m or time bound" % drift)
             elif d.clear_count >= self.p["n_clear"]:
                 self.transition(d, RECONNECTING, "conflict cleared")
-                k, delay, reason = self.reconnect(d, pred)
+                k, delay, reason, tried = self.reconnect(d, pred)
                 self.reconnect_log.append(dict(t=self.t, drone=d.name, k=k, delay=delay,
-                                               reason=reason, pos=d.pos.copy()))
+                                               reason=reason, pos=d.pos.copy(), tried=tried))
                 if k is None:
                     self.transition(d, REPLANNING, "reconnection failed: " + reason)
                 else:
@@ -953,6 +957,8 @@ class HybridSimulation:
                 self.tracker.update(z)
             self.pred = self.prediction()
         pred = self.pred
+        profiles = {d.name: (self.conflict_profile(d, pred) if pred is not None else None)
+                    for d in self.drones}
         # decisions from one snapshot of the teammates' states
         commands = [self.decide(d, pred) for d in self.drones]
         for d, v in zip(self.drones, commands):
@@ -963,7 +969,8 @@ class HybridSimulation:
                     est=(self.tracker.position if self.tracker.x is not None else None),
                     pred=pred, e_form=self.formation_error(), connected=self.connected(),
                     sep=[float(np.linalg.norm(d.pos - p_true)) for d in self.drones],
-                    paths=[(list(d.path), d.t0) for d in self.drones])
+                    drift=[float(np.linalg.norm(d.pos - d.plan_position(self.t))) for d in self.drones],
+                    profiles=profiles, paths=[(list(d.path), d.t0) for d in self.drones])
         self.history.append(snap)
         for d in self.drones:
             self.d_min_intruder = min(self.d_min_intruder, float(np.linalg.norm(d.pos - p_true)))
@@ -1075,8 +1082,7 @@ def worked_example(verbose: bool = True) -> HybridSimulation:
         print("Re-checks:")
         for e in sim.recheck_log:
             print("  t=%5.1f  %s: conflict=%s repaired=%s" % (e["t"], e["drone"], e["conflict"], e["repaired"]))
-        if hasattr(sim, "last_replan"):
-            lr = sim.last_replan
+        for lr in sim.replan_log:
             print("Replan of %s at t=%.1f from %s at t_start=%d, %d blocked cells:\n  %s"
                   % (lr["drone"], lr["t"], lr["c0"], lr["t_start"], lr["blocked"], lr["path"]))
         print("Minimum separation: intruder %.2f m, teammates %.2f m (R_safe = %.2f, R_mate = %.2f)"
