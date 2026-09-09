@@ -47,3 +47,9 @@ judgement at fix time.
 
 ## Minor
 - ch12 line ~455 writes \epsilon where the book macro is \eps.
+
+## Part 1 applied (2026-09-09): ch01, ch02, ch03, ch07, ch19, ch20, ch21 (+ solutions, figures)
+Remaining for part 2 (after the confirming round): ch08 (g -> gamma), ch16 (bold states, tree -> \mathcal{T}),
+ch23 (consensus step size eps -> h; adjacency A -> \mat{W}), ch12 and ch19 (\epsilon -> \eps), and
+frontmatter/notation.tex rows: goal gamma everywhere; \dist (ch03 no longer uses delta); MAPF goal gamma_i;
+particle weight \omega^{(i)}; terminal weight \mat{P}_f; QP bound \vect{u}_{\max}; the \ttc row (ch01 uses t_c).

@@ -134,7 +134,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 ## Phase 6 — Book-level review (whole manuscript)
 
 - [ ] 6.1 Structural review: order of chapters, prerequisites satisfied, redundancy removed, forward/backward references correct
-- [ ] 6.2 Consistency review: notation, terminology, algorithm names, agent colours in figures, box usage
+- [~] 6.2 Consistency review: notation, terminology, algorithm names, agent colours in figures, box usage — part 1 applied on Ch 1, 2, 3, 7, 19, 20, 21 (docs/consistency-issues.md); part 2 after the confirming round
 - [ ] 6.3 Coverage audit against the training plan: every algorithm, every weekly "Learn" item, every capstone element, every checklist item is taught somewhere (traceability table in Appendix A)
 - [ ] 6.4 Accuracy spot-check of all theorems, formulas and complexity tables by a second reviewer
 - [ ] 6.5 Readability pass: sentence length, jargon defined, transitions, chapter openings/closings
