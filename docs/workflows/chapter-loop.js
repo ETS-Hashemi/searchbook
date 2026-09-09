@@ -130,12 +130,13 @@ async function reviewLoop(it, startRound) {
 
 const results = await pipeline(ITEMS,
   async (it) => {
-    if (it.mode === 'review-only') return { status: 'done', pages: 0, notes: 'pre-existing draft; review only' }
+    if (it.mode === 'review-only') return { status: 'done', pages: 0, notes: 'pre-existing draft; review only', startRound: it.startRound || 1 }
     if (it.mode === 'apply-review') {
-      const rev = await tryAgent(applyReviewPrompt(it, 1),
-        { label: 'apply:' + it.id + ':r1', phase: 'Revise', agentType: 'general-purpose', schema: REPORT, model: REVIEW_MODEL })
+      const ar = it.applyRound || 1
+      const rev = await tryAgent(applyReviewPrompt(it, ar),
+        { label: 'apply:' + it.id + ':r' + ar, phase: 'Revise', agentType: 'general-purpose', schema: REPORT, model: REVIEW_MODEL })
       if (!rev) return null
-      return { status: rev.status, pages: rev.pages, notes: 'applied pending review: ' + (rev.notes || '').slice(0, 200), startRound: 2 }
+      return { status: rev.status, pages: rev.pages, notes: 'applied pending review: ' + (rev.notes || '').slice(0, 200), startRound: ar + 1 }
     }
     return await tryAgent(writePrompt(it),
       { label: 'write:' + it.id, phase: 'Write', agentType: 'general-purpose', schema: REPORT, ...WRITE_OPTS })
