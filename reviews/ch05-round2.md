@@ -1,257 +1,221 @@
 # Review of Chapter 5 (Incremental Search: LPA* and D* Lite) - round 2
 
-Reviewed artefacts: `Overleaf/chapters/ch05-lpastar-dstarlite.tex` (1478 lines),
+Reviewed artefacts: `Overleaf/chapters/ch05-lpastar-dstarlite.tex` (1503 lines),
 `Overleaf/figures/ch05/{idea,consistency,lpastar-example,dstarlite-example,replanning-experiment,drone-replanning}.tex`,
 `Overleaf/code/ch05_dstar_lite.py`, `Overleaf/code/figures/gen_ch05_examples.py`,
 `Overleaf/code/figures/gen_ch05_replanning.py`, `Overleaf/figures/data/ch05-replanning.dat`,
 `Overleaf/appendices/solutions/ch05-solutions.tex`, `Overleaf/appendices/glossary/ch05-terms.tex`,
-`Overleaf/bib/ch05-extra.bib`, `Overleaf/references.bib`, `Overleaf/frontmatter/notation.tex`,
-`Overleaf/searchbook.sty`, against `STYLE_GUIDE.md` §9 (A-H), `docs/specs/ch05.md`,
-`docs/core-idea.txt` (Week 2), and `reviews/ch05-round1.md` including the reviser's response.
+`Overleaf/references.bib`, `Overleaf/bib/ch05-extra.bib`, `Overleaf/frontmatter/notation.tex`,
+`Overleaf/chapters/ch04-astar.tex` (notation and tie-breaking), against `STYLE_GUIDE.md` section 9
+(A-H), `docs/specs/ch05.md`, `docs/core-idea.txt` (Week 2), and `reviews/ch05-round1.md`
+including the reviser's response.
 
-**Round-1 follow-up.** All nine required changes of round 1 are verified as resolved, and none of
-them is re-raised below:
+Checks performed in this round.
 
-1. (A) The consistency inequality in the proof sketch of Thm 2.9 now reads
-   `h(s_start,s') <= h(s_start,u) + c(u,s')` for the edge `(u,s')`, `u in Pred(s')`. I re-derived the
-   chain: the key order gives `g(s')+h(s_start,s') >= g(u)+h(s_start,u)`, and the correctly oriented
-   inequality turns this into `c(u,s')+g(s') >= g(u)`. **Correct.**
-2. (A) §2.8.1 now says "nearly twice as fast ... at 7 of the 40 events ... the slower of the two (up to
-   5.2 ms against 1.6 ms)". Re-checked against `figures/data/ch05-replanning.dat`: means 0.8224 ms vs
-   1.4932 ms (ratio 1.82), exactly 7 events with `dsl_ms > astar_ms` (2, 4, 5, 13, 16, 26, 37), max
-   5.187 vs 1.645. **Correct.**
-3. (A) Field D*: "up to about 41% ... on a 4-connected grid and up to about 8% ... on an 8-connected
-   one". `sqrt(2)=1.414` and `sqrt(4-2*sqrt(2))=1.0824`. **Correct.**
-4. (A) The `k_2` claim in §2.4 is now split into the overconsistent and underconsistent cases.
-   **Correct.**
-5. (D) The caption of Fig. 2.1 now carries the "(52 expansions)" clause, and §2.2 mirrors it. I
-   re-ran `idea_scenario(3)`: `n_init=52`, `n_rep=6`, `astar.expansions=26`, and the repair touches
-   exactly 4 distinct cells. **Correct.**
-6. (G) §2.7 now has the short running title; `pdftotext` shows the running head
-   "2.7 A worked example: D* Lite repairs a plan" cleanly separated on book page 37. **Correct.**
-7. (G) The docstring in `notify_changed_cells` now reads "(D* Lite main loop)"; I verified
-   programmatically that all three listings are byte-exact substrings of `code/ch05_dstar_lite.py`
-   (39, 41 and 16 lines, all under the 45-line cap). **Correct.**
-8. (G) **Zero** overfull `\hbox`es of any size in the build log. **Correct.**
-9. (F) The bridge paragraph to Chapter 4's notation is in §2.3. **Correct.**
+* **Build.** `cd Overleaf && ./build.sh ch05-lpastar-dstarlite` exits 0. No `!` errors, no
+  undefined reference or citation belonging to Chapter 5 (the only `??` are `ch:ch11`,
+  `ch:ch13`, `ch:ch14`, `ch:ch19`, `ch:ch20`, `ch:ch21`, i.e. chapters not built in the
+  single-chapter run). The one overfull box (29.1 pt) is a line of the global *List of
+  Algorithms* belonging to Chapter 16, not to this chapter. **Length: PDF pages 21-44 of
+  `build/only-ch05-lpastar-dstarlite.pdf`, i.e. 24 chapter pages**, exactly at the 24-page
+  ceiling (the spec asks for 16-18; see required change 1 and the trim list in the
+  Suggestions, which must be applied together so the fix does not push the chapter over).
+* **Code.** `python3 code/ch05_dstar_lite.py` -> `self-test passed in 1.2 s`.
+* **Numbers.** I re-ran `lpastar_example`, `dstar_lite_example`, `gen_ch05_examples.idea_scenario`
+  and all ten seeds of `gen_ch05_replanning.run`, and compared every number in the text with the
+  output. Tables 5.1, 5.2, 5.5 and 5.6 are byte-identical with the rows emitted by `latex_trace`
+  (5 / 13 / 10 / 12 expansions, A* 7 and 12, `k(S)=[7;7]`, `k_m=2`, `g(3,3)=4`, 3 updated
+  vertices, costs 4->6 and 7->7, `t=9`). The idea figure reproduces 52 / 26 / 6 with exactly four
+  distinct expanded cells, the blocked cell among them. Every experiment number is reproduced:
+  1285.1 / 278.6 / 1246.7 expansions and 32.3 / 1.26 ms at event 0, 1031 vs 14 165.8 expansions
+  and 32.9 vs 59.7 ms over events 1-40 (ratios 13.7 and 1.82), cumulative 65.2 vs 61.0 ms,
+  crossover in cumulative expansions at event 4, mean repair 0.822 vs 1.493 ms, 7 slower events
+  with 5.187 vs 1.645 ms, 28.2 vs 4.2 us per expansion, 203 on-path events (mean 49.3, median 4,
+  max 1704) and 197 off-path events (mean 1.5, 68 % zeros), factor 1285/279 = 4.61.
+* **Canonical sources.** Both pseudocodes were compared line by line with Koenig, Likhachev and
+  Furcy (AIJ 2004) and Koenig and Likhachev (AAAI 2002): key with `k_m`, the `k_old <
+  CalculateKey(u)` reinsert test, `g(u) <- inf` with `Pred(u) u {u}`, `UpdateVertex` on the tail
+  of a changed edge, `k_m += h(s_last,s_start)` once per batch before the edge updates, and
+  `s_last <- s_start` in the same branch: all correct (but see required change 2 on how the
+  version is described). I re-derived Proposition 5.4, both proof sketches, the key-order
+  argument, the `O(|E|(Delta+log|V|))` bound, the `k_m` lower-bound argument and Table 5.4 by
+  hand; all are correct. I also re-derived the seven-expansion counterexample in the solution of
+  `exr:ch05-secondkey` step by step - it is right, including the six-expansion two-component run.
+* **Bibliography.** All ten keys resolve; authors, venue, volume and pages of
+  `koenig2002dstarlite` (AAAI 2002, 476-483), `koenig2004lpa` (AIJ 155(1-2):93-146),
+  `koenig2005fast` (T-RO 21(3):354-363), `stentz1994optimal` (ICRA 1994, 3310-3317),
+  `stentz1995focussed` (IJCAI 1995, 1652-1659), `likhachev2005anytime` (ICAPS 2005, 262-271),
+  `ferguson2006field` (JFR 23(2):79-101) and `sun2010moving` (AAMAS 2010) are all ones I can
+  vouch for. No fabricated reference. 24 distinct `\index` entries, well above the minimum.
+* **Spec and Week-2 plan.** Every "must cover" item of `docs/specs/ch05.md` is present
+  (wasted-work figure, g/rhs and the three consistency states, two-component key, LPA*
+  pseudocode + worked example + trace, reversed search, numeric `k_m` illustration, full D* Lite
+  pseudocode, three-panel worked example, properties with assumptions, generated 50x50
+  experiment, four implementation notes, five pitfalls, four variants, drone box, 8 exercises
+  with the Week-2 coding exercise, a hand trace and the `k_m` proof).
 
-**Build.** `cd Overleaf && ./build.sh ch05-lpastar-dstarlite` -> status 0; no `!` errors; no undefined
-reference or citation belonging to this chapter (all `??` are cross-chapter, as expected in a
-single-chapter build); no multiply-defined labels; no overfull boxes. 43-page PDF; the chapter is book
-pages 27-49, i.e. **23 pages**, inside the 24-page cap (about 5 above the 16-18 page target of
-`docs/specs/ch05.md`). The excess is content, not padding - two full worked examples with four trace
-tables, two full pseudocode listings and three code listings - so **no cuts are required** (category G
-would be the wrong tool here). Fixing change 1 below should give back most of one page.
+**Round-1 follow-up: all six required changes of round 1 are resolved, and none is re-raised.**
 
-**Code.** `python3 code/ch05_dstar_lite.py` -> `self-test passed in 0.8 s` (exit 0). I re-ran
-`lpastar_example()`, `dstar_lite_example()` and `idea_scenario(3)`, and recomputed the aggregate
-statistics from the committed `.dat`. Every number quoted in the chapter reproduces:
+1. (A) `sec:ch05-properties` now reads `O(|E|(\Delta+\log|V|))` with the 4-connected
+   specialisation and the sentence explaining the extra factor `Delta`. Correct.
+2. (A) `def:ch05-problem` now carries the labelled **moving-start** clause and the road-map
+   sentence with `\cref` to the four sections. Correct.
+3. (A) The LPA* walkthrough now says "may be expanded a second time later ... if the loop ever
+   reaches its new, larger key", with the pointer to step 10 of `tab:ch05-dstarlite-repair`.
+   I re-checked that step: `(1,3)` is retracted and never re-expanded. Correct.
+4. (D) `figures/ch05/drone-replanning.tex`: tube base at `y=1.2`, intruder at `(9.5,1.5)`, arrow
+   from `(9.5,1.5)`. I traced the blue route cell by cell - `(8,2),(8,1),(8,0),(9,0),(10,0),
+   (10,1),(10,2),...` - none of them is hatched and none is inside the polygon; the caption
+   sentence about slipping below the region is there. Correct.
+5. (D) `figures/ch05/idea.tex` line 99 now draws `\draw[sbOrange,line width=1.2pt] (6,6)
+   rectangle ++(1,1);` after the obstacle fill, and the generator asserts the blocked cell is one
+   of the expansions (it is). Caption extended. Correct.
+6. (E) `appendices/solutions/ch05-solutions.tex` now has eight solution blocks for eight
+   exercises, including `exr:ch05-threshold`. Correct.
 
-* LPA*: first search 5 expansions / cost 4; repair 13 expansions / cost 6; A* from scratch 7
-  expansions. Every row of Tables 2.1 and 2.2 is byte-identical to the LaTeX the code emits, and the
-  five `UpdateVertex` events after the change match the "The change" paragraph.
-* D* Lite: initial search 10 expansions, `k(S)=[7;7]`, cost 7; move/no-change rows; repair with
-  `k_m=2`, 3 updated vertices, 12 expansions, `g(2,3)=7`; A* from `(2,3)` also 12; goal at `t=9`;
-  `reinserted without expansion: []`, which is exactly the "the reinsert check therefore never fires"
-  sentence. Every row of Tables 2.5 and 2.6 matches.
-* Experiment: 1285.1/278.6/1246.7 expansions and 32.3/1.26/4.75 ms at event 0 (factor 4.61 ->
-  "4.6"); sums over events 1-40 of 1031.0 and 14165.8 expansions (ratio 13.7 -> "about 14") and
-  32.90 ms vs 59.73 ms (ratio 1.82 -> "about 1.8", "33 ms"/"60 ms"); cumulative time 65.2 ms vs
-  61.0 ms; cumulative expansions cross over exactly at event 4; per-expansion cost
-  65.211 ms / 2316.1 = 28.2 us against 60.991 ms / 14444.4 = 4.22 us; `onpath` sums to 20.3, i.e.
-  203 on-path and 197 off-path events. All as printed.
-
-**Pseudocode.** Algorithm 2.1 still matches LPA* (Koenig, Likhachev & Furcy, AIJ 2004, Fig. 1) line for
-line, and Algorithm 2.2 matches the final version of D* Lite (Koenig & Likhachev, AAAI 2002, Fig. 3)
-line for line: `s_last` initialised before `Initialize`, `k_m <- 0`, keys
-`[min(g,rhs)+h(s_start,s)+k_m ; min(g,rhs)]`, loop condition
-`TopKey() < CalculateKey(s_start) or rhs(s_start) != g(s_start)`, the `k_old < CalculateKey(u)`
-reinsert branch, `Pred(u) u {u}` on underconsistency, `UpdateVertex` on the *tail* of a changed edge,
-and the once-per-batch `k_m += h(s_last, s_start)`. The heuristic assumptions stated in §2.6.1
-(nonnegative, `h(s_start,s_start)=0`, consistency w.r.t. the start, plus the triangle inequality for
-`k_m`) are exactly what the proofs use, and admissibility follows from them by induction, so the
-assumption set is both sufficient and honest.
-
-**Bibliography.** All ten keys resolve (`references.bib`, `bib/ch05-extra.bib`) and I can vouch for
-every one: Koenig & Likhachev AAAI 2002 pp. 476-483; Koenig, Likhachev & Furcy AIJ 155(1-2):93-146,
-2004; Koenig & Likhachev T-RO 21(3):354-363, 2005; Stentz ICRA 1994 pp. 3310-3317; Stentz IJCAI 1995;
-Sun, Yeoh & Koenig AAMAS 2010; Ferguson & Stentz JFR 23(2):79-101, 2006; Likhachev, Ferguson, Gordon,
-Stentz & Thrun ICAPS 2005 pp. 262-271; plus Russell & Norvig and LaValle. Nothing fabricated.
-
-**Spec coverage.** Every "must cover" item of `docs/specs/ch05.md` is present, including the numeric
-`k_m` illustration (Table 2.4), the three-panel D* Lite figure, the generated 50x50 experiment, all
-five named pitfalls, all four named variants, the drone box with the predicted-intruder-region-as-cost-change
-paragraph, and 8 exercises with the Week-2 coding exercise, the hand trace and the `k_m` proof.
+The applied suggestions (strict key order in `def:ch05-key`, the machine-dependence sentence in
+`sec:ch05-experiment`, the corrected "either makes it consistent or ..." in `sec:ch05-intuition`,
+the `Memory` paragraph, the shortened `tab:ch05-km` caption) are all in place.
 
 ## Verdict
 
-**Minor revision.** There are no outstanding problems in categories A, B, D, E or H. Two required
-changes remain, both in category G (float placement), and both are local one-line edits to placement
-specifiers plus one `\FloatBarrier`. They are not cosmetic, however: as the chapter currently prints,
-the D* Lite pseudocode and the two D* Lite trace tables sit *after the exercises*, eleven pages away
-from the text that walks through them line by line, which materially damages the chapter for the
-reader who is working alone (category C is affected as a consequence). Everything else - the
-mathematics, the proofs, the code, the numbers, the figures, the exercises and the citations - is in
-publishable shape.
+**Minor revision.** The chapter is technically correct, complete against the spec and the Week-2
+plan, and every number in it is reproduced by the committed code. There is no remaining defect in
+categories A-E. Two required changes remain, both local: a float pile-up that prints both
+pseudocodes five to six pages after the walkthroughs that dissect them line by line, and one
+sentence that mis-describes which version of D* Lite is printed.
 
 ## Required changes
 
-1. **`ch05-lpastar-dstarlite.tex` line 677 (`\begin{algorithm}[htb]`, `alg:ch05-dstarlite`) -
-   Algorithm 2.2, the central pseudocode of the chapter, is printed on book page 48, after all eight
-   exercises, while §2.6.3 walks through it on book pages 36-37.**
-   The float is a full text column tall (40 numbered lines plus `\KwIn`/`\KwOut` and caption), so
-   `h` fails at its point of insertion and `t`/`b` can never accept it (it exceeds
-   `\topfraction * \textheight`); with no `p` in the specifier LaTeX defers it to the chapter-final
-   `\clearpage`. The consequence in the printed PDF: the "Walkthrough" paragraph on page 36 refers to
-   "line 8", "line 10", "line 14", "line 15", "line 18", "lines 20-24", and the paragraph on page 37
-   to "line 28", "line 30", "line 31", "line 33", "line 35", "line 39", "line 40"; §2.7 (page 37)
-   refers to "line 28" and "lines 35-40"; §2.10 (page 44) to "line 30"; and Exercises 2.4 and 2.5
-   (page 47) to "line 35" - all of an algorithm the reader has not yet seen. Listing 2.3's caption
-   ("lines 35-40 of Main") is likewise unresolvable at the point it is read.
-   *Fix:* change line 677 to `\begin{algorithm}[p]` (equivalently `[!htbp]`, which also lifts the
-   fraction limits), so that the algorithm is set on a float page inside §2.6. Rebuild and confirm
-   with `pdftotext build/only-ch05-lpastar-dstarlite.pdf -` that "Algorithm 2.2. D* Lite, final
-   version" now appears *before* the "2.7 A worked example" heading. (Category **G**, with a
-   knock-on effect on **C**.)
+1. **Location:** `sec:ch05-lpastar` / `sec:ch05-dstarlite`; the float environments at
+   lines 289 (`\begin{algorithm}[htb]`, `alg:ch05-lpastar`), 442, 496, 576, 647
+   (`\begin{table}[tb]`), 686 (`\begin{algorithm}[!htbp]`, `alg:ch05-dstarlite`) and 815, 835
+   (`\begin{table}[htbp]`).
+   **Problem:** the floats of Sections 5.4-5.7 pile up and are printed far behind the text that
+   uses them. In the current PDF, Section 5.4 and its line-by-line walkthrough are on PDF pages
+   25-26 (printed 91-92) but **Algorithm 5.1 is typeset on PDF page 31 (printed 97)**; the
+   walkthrough tells the reader "line 6 ... line 9 ... lines 10-11 ... line 13 ... line 20" for a
+   listing that is six pages further on, inside the D* Lite worked example. The same happens to
+   the main algorithm: the pseudocode walkthrough of Section 5.6.3 is on PDF pages 28-29
+   (printed 94-95), **Algorithm 5.2 is typeset on PDF page 33 (printed 99)**, i.e. after the
+   worked example that traces it. Table 5.1 (discussed p. 26) lands on p. 31, Table 5.2
+   (p. 26-27) on p. 32, Table 5.3 (p. 27) on p. 32, Table 5.4 (p. 28) on p. 32, Tables 5.5 and
+   5.6 (p. 29-30) on p. 34; PDF pages 31-34 are four consecutive pages of floats. For a reader
+   working alone this is the single biggest obstacle in the chapter.
+   **Fix:** the chapter already loads `placeins` (it uses `\FloatBarrier` at line 912). Add three
+   more barriers and pin the two algorithms to the top of a page:
+   (a) change line 289 to `\begin{algorithm}[!t]` and line 686 to `\begin{algorithm}[!t]`;
+   (b) insert `\FloatBarrier` immediately before `\section{A worked example: \lpastar repairs a
+   path}` (line 405), before `\section{The algorithm: \dstarlite}` (line 532), and before
+   `\section[A worked example: \dstarlite repairs a plan]{...}` (line 787).
+   After that, Algorithm 5.1 must appear inside Section 5.4, Tables 5.1-5.2 inside Section 5.5,
+   and Algorithm 5.2 with Tables 5.3-5.4 no later than the end of Section 5.6. Re-run
+   `./build.sh ch05-lpastar-dstarlite` and check the new page map. Barriers cost white space, so
+   apply the three trims of Suggestions 4-6 in the same pass and confirm the chapter still ends
+   within 24 pages; if one page is still missing, move `tab:ch05-directions` (the mirror table,
+   line 576) to the end of Section 5.6.1 with `[!b]`, or shorten Listing 5.1 as proposed.
+   **Category:** G (float placement), with a direct effect on C.
 
-2. **`ch05-lpastar-dstarlite.tex` lines 805 and 825 (`\begin{table}[tb]`, `tab:ch05-dstarlite-trace`
-   and `tab:ch05-dstarlite-repair`) - Tables 2.5 and 2.6 are printed on book page 49, after the
-   exercises, while §2.7 discusses them on book pages 37-38.**
-   They are held on the deferred-float list behind Algorithm 2.2 (LaTeX defers the remainder of the
-   list once a float in it cannot be placed) and are then flushed only at the chapter-final
-   `\clearpage`. The reader of §2.7 is told "Table 2.5 lists the events" and "Table 2.6 traces the
-   repair" and must jump eleven pages forward for both; the worked example is unreadable as printed.
-   *Fix:* after applying change 1, also give both tables `[htbp]` instead of `[tb]`, and insert
-   `\FloatBarrier` on its own line immediately before `\section{Properties: correctness, optimality,
-   complexity}` (line 902) - `placeins` is already loaded by `searchbook.sty` (line 70), so no
-   package change is needed. Rebuild and confirm that Tables 2.5 and 2.6 both appear between the
-   "2.7 A worked example" heading and the "2.8 Properties" heading, and that no new overfull box or
-   float warning appears. (Category **G**, with a knock-on effect on **C**.)
+2. **Location:** `sec:ch05-dstarlite-pseudocode`, first sentence: "\Cref{alg:ch05-dstarlite} is
+   the final, optimised version of \dstarlite as published by Koenig and Likhachev
+   \cite{koenig2002dstarlite}."
+   **Problem:** the algorithm printed is the paper's *final version* (the one that introduces
+   `k_m`), not its *optimised version*. The optimised variant in the same paper differs in
+   exactly the place the chapter later reasons about: it maintains `rhs` incrementally in the
+   overconsistent branch (`rhs(s) <- min(rhs(s), c(s,u)+g(u))` for each predecessor), recomputes
+   the full minimum in the underconsistent branch only for predecessors whose `rhs` was derived
+   from the retracted `g`-value, and updates a queue entry in place instead of Remove+Insert. A
+   reader who follows the sentence to the paper's optimised figure will find pseudocode that does
+   not match Algorithm 5.2 line by line, and will also conclude that the published algorithm
+   carries the factor `Delta` that `sec:ch05-properties` attributes to "recomputing an rhs-value
+   as a minimum over all successors" - which is precisely what the optimised version avoids in
+   the common case.
+   **Fix:** replace the phrase "the final, optimised version" by "the final version (the one with
+   the key modifier)" and add one sentence at the end of that paragraph, e.g.: "The paper also
+   gives an optimised variant that computes the same values with the same expansions but
+   maintains $\rhs$ incrementally instead of recomputing the minimum over all successors on every
+   \DslUpdateVertex; it removes the factor $\Delta$ of \cref{sec:ch05-properties} from the
+   overconsistent case and is what a production implementation should use." (Optionally add the
+   same one-clause remark to the complexity paragraph in `sec:ch05-properties`.)
+   **Category:** H (attribution to the cited source), with an A-flavoured consequence for the
+   complexity discussion.
 
 ## Suggestions
 
-* §2.8, proof sketch of Thm 2.9: the sentence "The consistency condition of \cref{sec:ch05-dstarlite}"
-  points at §2.6, but the condition is stated in §2.6.1. Change the reference to
-  `\cref{sec:ch05-reverse}`.
-* §2.5, "The change" paragraph: "two underconsistent cells, eight queued cells" reads as if the queue
-  held eight entries; the code shows ten (the two underconsistent cells *plus* eight overconsistent
-  ones). Write "two underconsistent cells, eight further queued cells".
-* §2.8, second remark: "its only cost is at most one extra pop-and-reinsert per queue entry that was
-  inserted before a move" is exact only within a single call of `ComputeShortestPath` (where `k_m` is
-  constant); across several calls an entry can be reinserted once per `k_m` increase. Add "within one
-  call".
-* Table 2.4: the final row prints "v (no `k_m`) | u | u" under three columns whose headings are
-  "stored key", "now, no `k_m`", "now, `k_m=2`". Relabelling the first of these cells (for example
-  "v, from the stored keys") would make the point land without re-reading the caption.
-* `frontmatter/notation.tex` is still a 13-line stub and does not list `\rhs`, `k_m`, `\Pred`,
-  `\Succ` or `\dist`. This is a Phase-1 file, not the chapter's, so it is not a required change here;
-  keep carrying the five symbols in the hand-in report until the notation table is written.
-* `appendices/solutions/ch05-solutions.tex` now covers 6 of the 8 exercises, and the four long ones
-  are excellent. The two coding exercises (2.6, 2.7) have nothing; two sentences of expected outcome
-  for 2.6 ("the two path costs must agree on every run; off-path obstacles should cost D* Lite zero
-  expansions in most events; the first search will be several times more expensive than A*") would
-  let a lone reader know whether their implementation is right.
-* §2.9, "D* Lite ... is provably at least as efficient in expansions" than D*: this is a real result
-  but the reader cannot tell which paper proves it. Either name the theorem in
-  \cite{koenig2002dstarlite} or soften to "expands no more vertices than D* in the experiments of
-  \cite{koenig2005fast}".
-* Figure 2.4's middle panel is described as showing "orange cells ... UpdateVertex made
-  inconsistent", while the text says three vertices changed (two became inconsistent, one left the
-  queue). One clause in the caption - "the third changed vertex, the gap cell (3,4), simply leaves
-  the queue" - would close the small gap between figure and text.
+1. **`fig:ch05-dstarlite-example` shows only `g`-values.** `dsl_labels` in
+   `code/figures/gen_ch05_examples.py` prints `g` alone, while `fig:ch05-lpastar-example` prints
+   `g/rhs`. In the middle panel the two orange cells `(3,3)` and `(2,3)` therefore carry the
+   numbers 4 and 5 with no visible reason for being inconsistent, although the whole chapter
+   turns on the gap between `g` and `rhs`. Printing `g/rhs` for at least the three changed cells
+   (or for all cells of the middle panel) would make the panel self-explanatory and the two
+   worked-example figures consistent with each other.
+2. **Priority-queue cost in `sec:ch05-implementation`.** "the heap holds at most one live entry
+   per vertex, and all operations stay $\bigO{\log|U|}$ amortised" understates the heap: with
+   lazy deletion the *stale* entries are only discarded when they surface at the top, so the heap
+   can hold many entries per vertex and its size is bounded by the number of insertions since the
+   last purge, not by `|U|`. Suggest "all operations stay $\bigO{\log m}$ amortised, where `m` is
+   the number of entries currently in the heap; stale entries are only discarded when they reach
+   the top, so on a long mission it is worth rebuilding the heap from `key_of` occasionally" -
+   and one clause in the `Memory` paragraph that the queue, unlike the two arrays, is not
+   `O(|V|)`.
+3. **Notation table.** `frontmatter/notation.tex` line 84 advertises `\key(s)` for this chapter,
+   while the chapter writes `k(s)`, `k_1`, `k_2`. Round 1 raised this and the reviser deferred it
+   to the consistency pass, which is reasonable; a one-clause in-chapter remedy is available in
+   the meantime: in `def:ch05-key` write "the **key** (written $\key(s)$ in the notation table)".
+   Still flag `s_start`, `s_goal`, `s_last` for the front-matter pass.
+4. **Trim (needed if change 1 costs a page): Listing 5.1.** `lst:ch05-queue` (lines 1178-1218) is
+   40 lines for a standard lazy-deletion heap and repeats its own six-line docstring in the prose
+   above it. Dropping the docstring, `__contains__` and `__len__` saves about a third of a page
+   without losing anything the text needs.
+5. **Trim: the duplicated ratio in `sec:ch05-experiment`.** "in wall-clock time the ratio was
+   only about $1.8$ ($60$~ms against $33$~ms)" and "its repairs are on average nearly twice as
+   fast as a fresh \astar ($0.8$~ms against $1.5$~ms)" are the same measurement (1.82) stated
+   twice, three sentences apart. Keep the second (it carries the per-event meaning) and shorten
+   the first to the totals.
+6. **Trim: the last paragraph of `sec:ch05-lpastar-example`** ("The path is read off at the end
+   ... the tie-break selects this one") repeats the extraction rule already stated in
+   `thm:ch05-consistent-correct` and shown in the right panel of the figure; two sentences suffice.
+7. **A second difficulty-1 exercise.** Round 1's proposal was rightly rejected as a lookup. A
+   conceptual on-ramp that is not a lookup: "In \cref{ex:ch05-dstarlite} the robot walks from
+   $(0,3)$ to $(2,3)$ and $k_m$ stays $0$. Explain why no key in $U$ has to be touched during
+   those two steps, and why line~\ref{alg:ch05-dstarlite:km} then adds $2$ in one lump instead of
+   $1+1$." (Answer: keys are only ever compared inside `ComputeShortestPath`, which is not called
+   while nothing changes; `s_last` remembers the position at which the stored keys were valid.)
+8. **Pitfall "Wrong heuristic direction".** "The search then still terminates and often still
+   finds a path" understates the damage; say explicitly that the path it returns may be *longer
+   than the shortest one*, because the loop test is no longer backed by a lower bound.
+9. **`sec:ch05-km`, last sentence of the paragraph before Table 5.4.** "adding the same constant
+   to all new keys changes no comparison among them" is loose: it is the comparison among
+   *current* keys that is unaffected, while stored keys become lower bounds - which the next
+   sentence already says. Consider "adding the same constant to every key computed from now on
+   leaves every comparison among current keys unchanged".
 
 ## What must be kept
 
-The chapter is in excellent shape and the round-1 revision was carried out with unusual care - the
-reviser even corrected one of my own numbers ("nearly twice as fast", not "three times") from the
-data, and pushed the overfull-box fix past the value I suggested when it turned out to be the legend
-and not the axis width that was too wide. Keep the two-halves structure (LPA* with a fixed start
-first, then the mirror-image D* Lite plus `k_m`); it is the right pedagogical order and Table 2.3, the
-LPA*/D* Lite mirror table, remains the single most useful page in the chapter for someone about to
-implement this. Keep both pseudocode listings exactly as they are: they are faithful to the canonical
-sources line for line, including every edge case the style guide singles out. Keep the whole `k_m`
-treatment - the triangle-inequality argument, Table 2.4's numeric counterexample, the lower-bound and
-reinsert invariant, Exercise 2.4 and its written solution; it is the clearest short account of the key
-modifier I have read, and the solution's explanation of why `k_m` must be *accumulated* rather than
-recomputed from the original start (because the direct heuristic distance can shrink when the robot
-turns back) is better than the original papers'. Above all, keep the intellectual honesty: the chapter
-tells the reader that the LPA* repair costs 13 expansions against A*'s 7 on the toy grid, that the
-first D* Lite search is 4.6x more expensive than a well-tuned A*, that cumulative wall-clock time has
-still not recovered after 40 events, and that 7 of those 40 repairs were slower than starting over -
-and then explains exactly why (the second key component forces the whole f-band). Every one of those
-numbers is machine-generated and reproduces exactly. The five pitfall boxes are all real and all
-distinct, the exercise set is well graded and genuinely solvable from the chapter, and the six written
-solutions are worth more than most textbooks' answer keys.
+Keep the chapter's honesty about its own algorithm; it is still its best feature and it is rare.
+The LPA* worked example ends with the repair costing **13** expansions against A*'s **7** and
+then explains exactly why (two retractions plus the band effect of the second key component);
+`sec:ch05-experiment` reports that in wall-clock time the incremental planner has *not* repaid
+its first search after 40 events (65 ms against 61 ms) and that 7 of the 40 repairs were slower
+than a fresh A*. Keep the dotted third curve of `fig:ch05-experiment` (A* with D* Lite's own
+tie-breaking), which turns an unexplained factor of 4.6 into an explained one, and the
+"Replanning can be slower than A*" pitfall that draws the moral.
 
-## Response to review (round 2)
+Keep `tab:ch05-directions`, the nine-row LPA*/D* Lite mirror table that makes `exr:ch05-directions`
+work; the "Why the two-component key works" argument (`k_2(w)=g(u)+c(u,w)>g(u)=k_2(u)`), the
+cleanest short justification of the second key component I know; the numeric `k_m` table with its
+companion proof exercise `exr:ch05-kmproof`; and all five pitfalls, in particular "Blocking a cell
+changes all of its edges, in both directions", which diagnoses both halves of the mistake and
+explains why the bug stays hidden until the obstacle disappears again. Keep the trace tables
+exactly as they are - they are emitted verbatim by `latex_trace` in `code/ch05_dstar_lite.py`, so
+they cannot drift from the code - and keep the self-test that checks D* Lite against A* after
+every change, including the assertion that the first search expands exactly as many vertices as
+A* with the same tie-breaking.
 
-Both required changes applied; all eight suggestions applied except the one the reviewer
-himself marked as out of scope (`frontmatter/notation.tex`, a Phase-1 file). Nothing was
-removed: the two-halves structure, Table 2.3, both pseudocode listings, the whole `k_m`
-treatment, the five pitfall boxes and every machine-generated number are untouched.
-
-### Required change 1 - Algorithm 2.2 printed after the exercises
-
-**Done.** `chapters/ch05-lpastar-dstarlite.tex` line 677: `\begin{algorithm}[htb]` ->
-`\begin{algorithm}[!htbp]` (the variant the reviewer named as equivalent; it also lifts
-`\topfraction`, which is what actually blocked `t` here). The algorithm body is unchanged,
-line for line.
-
-Verified in the rebuilt PDF (`pdftotext build/only-ch05-lpastar-dstarlite.pdf -`; in the
-single-chapter build the chapter is numbered 4, so read "4.x" for the review's "2.x"):
-the caption "Algorithm 4.2. D* Lite, final version" is now set at the top of book page 75,
-inside 2.6.3 "Pseudocode", one page *before* the "2.7 A worked example: D* Lite repairs a
-plan" heading. The paragraph that introduces it ("Algorithm 2.2 is the final, optimised
-version ...") ends book page 74, and the "Walkthrough" paragraph that cites lines 8, 10, 14,
-15, 18, 20-24, 28, 30, 31, 33, 35, 39, 40 now begins on the very next page, 76. Section 2.7,
-Section 2.10, Listing 2.3's caption and Exercises 2.4 and 2.5 all now follow the algorithm.
-No float page containing only the algorithm was created and no "Text page contains only
-floats" warning appears.
-
-### Required change 2 - Tables 2.5 and 2.6 printed after the exercises
-
-**Done.** Lines 805 and 825: `\begin{table}[tb]` -> `\begin{table}[htbp]` for
-`tab:ch05-dstarlite-trace` and `tab:ch05-dstarlite-repair`; and `\FloatBarrier` inserted on
-its own line immediately before `\section{Properties: correctness, optimality, complexity}`
-(no package change - `placeins` is already loaded by `searchbook.sty`).
-
-Verified: Table 2.5 ("Events of Example 2.7") is on book page 76 and Table 2.6 ("The repair
-in Example 2.7") on book page 77, i.e. both between the "2.7 A worked example" heading
-(page 76) and the "2.8 Properties" heading (page 78), on the same pages as the text that
-discusses them. Figure 2.4 sits with them on page 77.
-
-### Suggestions
-
-* `\cref{sec:ch05-dstarlite}` in the proof sketch of Thm 2.9 -> `\cref{sec:ch05-reverse}`. Done.
-* 2.5, "The change": "eight queued cells" -> "eight **further** queued cells". Done.
-* 2.8, second remark: now reads "within one call of ComputeShortestPath its only cost is at
-  most one extra pop-and-reinsert per queue entry that was inserted before a move (across
-  several calls an entry can be reinserted once per increase of `k_m`)". Done.
-* Table 2.4, last row: "v (no `k_m`)" -> "v, from the stored keys". Done.
-* Solutions: a written solution for Exercise 2.6 (the Week-2 coding exercise) added to
-  `appendices/solutions/ch05-solutions.tex`, giving the expected outcome - path costs must
-  agree at every tick, the three usual bug sources, zero expansions for off-path changes and
-  an order-of-magnitude total saving, the first search several times (about 4.6x) more
-  expensive because the second key component expands the whole f-band, and the warning that
-  wall-clock time need not follow expansions. Solutions now cover 7 of 8 exercises; 2.7 is
-  left open deliberately, since its answer (the crossover value of phi) is the thing the
-  exercise asks the reader to measure.
-* 2.9, original D*: softened to "computes the same paths, **expands no more vertices than D*
-  in the experiments of** \textcite{koenig2005fast}, and fits on half a page". Done.
-* Figure 2.4 caption: added "(the third changed vertex, the gap cell (3,4), simply leaves the
-  queue)", matching the text's "three vertices changed". Done.
-* `frontmatter/notation.tex`: out of scope for this chapter, as the reviewer notes. The five
-  symbols to carry forward remain `\rhs` (lookahead value), `k_m` (key modifier), `\Pred`,
-  `\Succ` and `\dist`.
-
-### Build, code and numbers
-
-* `cd Overleaf && ./build.sh ch05-lpastar-dstarlite` -> **status 0**, no `!` errors, no
-  overfull box and no float warning, no undefined ch05 reference or citation (the remaining
-  `??` are cross-chapter, as expected in a single-chapter build). The one underfull `\hbox`
-  (badness 4859) is the loose line in the fixed-width caption of Listing 2.3; it is
-  independent of page position and was present before this revision.
-* The chapter is still **23 pages** (book pages 65-87 in this build), inside the 24-page cap.
-* `python3 code/ch05_dstar_lite.py` -> `self-test passed in 0.8 s`, exit 0. No code and no
-  `.dat` file was touched, so every quoted number is unchanged and still reproduces; no
-  numeric claim in the text was edited.
+Keep the solutions file as written. The solution of `exr:ch05-secondkey` is a fully worked
+four-vertex counterexample in which `k_1`-only comparison expands one vertex three times and can
+even terminate with the wrong cost; I re-derived all seven expansions and they are correct. Keep
+the `exr:ch05-threshold` solution's insistence that the crossover in time comes long before the
+crossover in expansions. Finally keep the drone box's precise reading of "edge costs change" as
+the rasterised, inflated prediction tube, and `exr:ch05-intruder`, which is the bridge from this
+chapter to `ch:ch20` and `ch:ch24`.
