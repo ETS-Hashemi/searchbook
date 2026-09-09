@@ -332,9 +332,10 @@ $\Delta$ discussion no longer reads as a property of the published algorithm.
 * `python3 code/figures/gen_ch05_examples.py` regenerates all three example figures;
   `figures/data/ch05-replanning.dat` is unchanged because `gen_ch05_replanning.py` was not
   touched, so every number quoted in `sec:ch05-experiment` still matches the code.
-* `./build.sh ch05-lpastar-dstarlite`: no LaTeX errors, no new overfull boxes; the only
-  remaining warnings are the expected undefined references to other chapters in a
-  single-chapter build. Note that latexmk can exit non-zero on this machine when another
-  session rebuilds a different chapter at the same time: `\includeonly` re-reads the other
-  chapters' `.aux` files, their part-page numbers then change between passes, and latexmk
-  reports "needed too many passes". The chapter's own aux entries are stable across passes.
+* `./build.sh ch05-lpastar-dstarlite`: **status 0**, no errors, no undefined references,
+  and the only overfull box in the log is the pre-existing 29 pt one in the front matter
+  (it is in the baseline build too). Chapter: PDF pages 21-44, 24 pages. (Caveat for
+  whoever repeats this: on this machine the same command intermittently exits 12 while
+  other sessions rebuild their own chapters, because `\includeonly` re-reads their
+  `.aux` files mid-write; re-running it clears the failure, and a build in a private
+  output directory is always clean.)

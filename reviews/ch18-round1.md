@@ -189,3 +189,138 @@ contract: `ch18_kalman.py` and `gen_ch18_tracking.py` back every quoted number, 
 checks the process-noise integrals, the $\mat{Q}(j\dt)$ semigroup identity, the Joseph-versus-short
 form definiteness counterexample, gating, misses, observability, NEES over 300 Monte-Carlo runs and
 the worked example to four decimals. That is the standard the rest of the book should meet.
+
+## Response to review (round 1)
+
+All six required changes are applied; the cheap suggestions are applied as
+noted. Every number quoted below was re-verified against
+`Overleaf/code/ch18_kalman.py` (self-test) and
+`Overleaf/code/figures/gen_ch18_tracking.py` (printed grid), both re-run after
+the edits. No code was changed, so the `.dat` files are unchanged (they were
+regenerated and are byte-identical in content). Nothing on the "must be kept"
+list was touched: the two-Gaussian-facts derivation, the per-axis reduction of
+the worked example, the `k_v = b^-/S` thread, the tuning/diagnostics
+apparatus, all four pitfall boxes, the F/H notebox, `sec:ch18-prediction` and
+`fig:ch18-prediction` (including `1 - e^-2 = 86.5%` and `kappa = sqrt(5.99)`),
+and the code contract are all intact.
+
+### Required changes
+
+1. **NIS of the worked example (category A, `sec:ch18-example`).** Applied, in
+   the reviewer's words. The clause now reads: the five values average `0.43`,
+   *far below* the expected `m = 2`; a sum this small has probability
+   `P(chi2_10 <= 2.15) ~ 0.005`; the cause is the deliberately pessimistic
+   `P_0 = I_4`, which makes `S_k` larger than the innovations warrant while the
+   filter sheds the excess covariance; and this is why the NIS test of
+   `sec:ch18-diagnostics` is run over a long record and after the transient,
+   not over five steps. Verified: the five NIS values printed by
+   `worked_example()` are 0.309, 0.273, 0.632, 0.662, 0.276, sum 2.152, mean
+   0.4304, and `scipy.stats.chi2.cdf(2.152, 10) = 0.00496`. `P_0 = I` is
+   confirmed by the step-1 prediction `(a,b,c) = (2.0333, 1.0500, 1.1000)`.
+
+2. **Experiment B flat-optimum claim (category A, `sec:ch18-experiment`).**
+   Applied. The text now states the asymmetry the data show: "a factor of two
+   below or five above the optimum costs less than 8%, while a factor of five
+   below already costs 15% (0.541 m at q = 0.032): under-sizing q is punished
+   sooner than over-sizing it on this straight-flying target." Verified against
+   the printed grid: optimum 0.469 m at q = 0.178; 0.477 m at q = 0.1 (+1.7%);
+   0.503 m at q = 1 (+7.2%); 0.541 m at q = 0.032 (+15.4%). The caption of
+   `fig:ch18-experiment` said "flat within a factor of three of it", which was
+   the same wrong symmetric claim; it now reads "flat within a factor of two
+   below and five above it" so that caption and text agree.
+
+3. **Sigma convention in the prediction-covariance pitfall (category A,
+   `sec:ch18-prediction`).** Applied with the 2-sigma option, which keeps the
+   box consistent with the caption of `fig:ch18-prediction`: "inflates the
+   radius by the current 2-sigma of 0.8 m when the collision is two seconds
+   away and the honest figure is 2.9 m". Verified: experiment A at t = 10 s
+   gives sigma_x = 0.393 m now and sigma_x = 1.456 m at a 2 s horizon, so
+   2-sigma is 0.79 m and 2.91 m. The surrounding paragraph still lists
+   one-sigma values and now says so explicitly ("half the semi-axes drawn in
+   the figure"), so the two conventions cannot be confused.
+
+4. **Complexity and flop count after `alg:ch18-kf` (category A,
+   `sec:ch18-pseudocode`).** Applied. The sentence now distinguishes the two
+   update forms and gives the corrected count: "A predict step costs O(n^3); an
+   update costs O(n^2 m + m^3) in the short form of eq:ch18-update-cov and
+   O(n^3) in the Joseph form of line alg:ch18-kf:cov, which multiplies the
+   n x n matrix I - K H by P^- and again by its transpose. For the CV model in
+   3D, n = 6 and m = 3, that is about two thousand floating-point operations
+   per cycle, so a filter runs at kilohertz rates on a flight computer."
+
+5. **Wrong chapter for the velocity obstacle (category F,
+   `sec:ch18-motivation`).** Applied using the second of the reviewer's two
+   options: "The velocity obstacle of \cref{ch:ch12}, used by the local
+   avoidance layer of \cref{ch:ch13}, needs the intruder's *velocity*, and the
+   obvious way to obtain it is to difference two consecutive reports." This
+   agrees with `exr:ch18-coding`, which already pointed at `ch:ch12`.
+
+6. **Undefined acronyms DWA and RMSE (category F).** Applied. DWA is now
+   expanded at its first occurrence in `sec:ch18-motivation`: "(\orca or the
+   dynamic window approach, DWA, \cref{ch:ch13,ch:ch14})". RMSE is expanded at
+   its first occurrence, also in `sec:ch18-motivation`: "from 1.18 m to 0.52 m
+   (root-mean-square error, RMSE)", with an index entry; the later uses in
+   `tab:ch18-tuning` and `sec:ch18-experiment` now follow a definition.
+
+### Suggestions
+
+* **Length (G).** Not fully achievable. The required changes are net additive
+  (about sixteen typeset lines), so the chapter is now 25 pages rather than 24.
+  Two of the three named duplications were removed: the RMSE figures in
+  `sec:ch18-experiment` are now a cross-reference to `sec:ch18-motivation`
+  instead of a restatement, and the per-horizon standard deviations after
+  `fig:ch18-prediction` were shortened to the two values the pitfall box needs,
+  with a pointer to the caption for the rest. The third (the close of
+  `sec:ch18-gain`) was left alone: it is the `k_v = b^-/S` passage the review
+  lists under "must be kept". No section or required element was dropped.
+* **`thm:ch18-gaussian-facts` fact (i).** Applied: the hypothesis now reads
+  "(Q may be singular, and A need not have full rank)", which covers the
+  stacked vector `(x_k, z_k)` of `sec:ch18-update`.
+* **`thm:ch18-best-gain` and the whole recursion.** Applied: the closing
+  sentence now carries the induction explicitly -- "the statement extends from
+  one update to the whole recursion by induction over k, since the prediction
+  `x^-_{k+1} = F x_k` is a linear unbiased function of the previous estimate
+  and eq:ch18-predict propagates its error covariance exactly".
+* **Batch least squares in "Complexity and memory".** Applied: the claim now
+  points at the information form of `sec:ch18-variants`, where each measurement
+  adds `H^T R^-1 H` to the accumulated normal equations, and cites
+  `\textcite[ch.~4]{sarkka2013bayesian}`.
+* **`fig:ch18-gating` and `z^(3)`.** Not applied. Changing the geometry of the
+  figure risks the annotated distances that the text and the self-test rely on,
+  and the two normalised distances (0.883 gamma and 0.898 gamma) are the point
+  of the example -- a measurement that both gates accept. Left for round 2 if
+  the reviewer wants the two `d^2` values printed in the figure.
+* **Solutions.** Applied: `appendices/solutions/ch18-solutions.tex` now answers
+  6 of the 9 exercises. Full solutions were added for `exr:ch18-scales` (the
+  inverse-variance-weighted average, its identification with `eq:ch18-gain-1d`,
+  and the numbers of `ex:ch18-1d`) and for `exr:ch18-observability` (rank 1 for
+  the velocity-only CV sensor, rank 3 for the CA model with determinant dt^3,
+  rank 2 for the 2D CV model seen only in x, with the growth of the
+  unobservable block). Two-line hints were added for the coding exercises:
+  `exr:ch18-coding` gets the expected NIS with m = 4 (band `4 +- 1.96
+  sqrt(8/N)`, about [3.6, 4.4] for N about 180, gate gamma = 13.28 from
+  `tab:ch18-chi2`), and `exr:ch18-association` gets the swap-rate hint (the
+  swap rate is set by the track separation at the crossing measured in units of
+  the innovation standard deviation, so swaps are common at 10 degrees and rare
+  at 90 degrees, and the swap must be counted after the intruders separate).
+* **Notation collision v_k versus v.** Applied: the existing F/H notebox now
+  ends with "One collision is internal to this chapter: v_k, with a time index,
+  is the measurement noise of eq:ch18-measurement, while v without one is the
+  velocity block of the state (def:ch18-cv)."
+* **Gating outlier magnitude.** Applied: `sec:ch18-gating` now motivates the
+  gate with a 50 m outlier, matching the "50-metre outlier" of the self-test.
+  Checked against the code: the self-test's wild measurement is offset by
+  (40, -30) m from the prediction, i.e. 50 m.
+
+### Build and code
+
+`cd Overleaf && ./build.sh ch18-kalman-filter` produces no LaTeX errors and no
+new overfull boxes (the single overfull box over 15 pt is in the front-matter
+list of algorithms, from another chapter). The non-zero exit status is the
+pre-existing consequence of the 52 unresolved cross-chapter references
+(`ch:ch11`, `ch:ch13`, `ch:ch14`, `ch:ch19`, `ch:ch20`, `ch:ch21`), which the
+finisher brief lists as expected in a single-chapter build; every label
+introduced or referenced by this revision resolves. `appendices/appC-solutions`
+was built separately to check the new solutions: `ch18-solutions.tex` compiles
+cleanly. `python3 Overleaf/code/ch18_kalman.py` prints "self-test passed", and
+`gen_ch18_tracking.py` regenerates all ten `.dat` files.
