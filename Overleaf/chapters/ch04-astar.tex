@@ -24,7 +24,7 @@ Picture a delivery drone that has to cross a city district represented by a
 $100 \times 100$ grid of cells, a quarter of them blocked by buildings.
 Dijkstra's algorithm from \cref{ch:ch03} finds the shortest route, but it does
 so by settling almost every free cell: in the experiment of
-\cref{sec:ch04-variants} it expands about $7\,450$ of the $7\,500$ free cells
+\cref{sec:ch04-experiment} it expands about $7\,450$ of the $7\,500$ free cells
 on such maps. The drone knows something Dijkstra ignores: the goal lies to the
 north-east, and a cell far to the south-west is unlikely to be on the way. \astar
 puts this knowledge into the search. With the Manhattan distance as a guide it
@@ -33,8 +33,8 @@ still guarantees the shortest route.
 
 For a single query this is a convenience. For a swarm it is a necessity. The
 global planner of the hybrid architecture in \cref{ch:ch24} is
-conflict-based search (\cbs) or its bounded-suboptimal variant \ecbs
-(\cref{ch:ch09,ch:ch10}), and every node of their constraint tree calls a
+conflict-based search (\cbs) or its bounded-suboptimal variant, enhanced \cbs
+(\ecbs; \cref{ch:ch09,ch:ch10}), and every node of their constraint tree calls a
 single-agent search for one drone under a set of constraints. A run on a few
 dozen drones can easily make thousands of such calls, and each of them is an
 \astar search in \emph{space-time}: the state of the drone is a cell together
@@ -108,8 +108,10 @@ problems, admissibility and consistency, are the heart of this chapter.
 
 \begin{keyidea}
 Expand the node with the smallest $\fcost = \gcost + \hcost$. If $\hcost$ never
-overestimates the remaining cost, the first goal that \astar expands is reached
-by an optimal path. If in addition $\hcost$ obeys the triangle inequality along
+overestimates the remaining cost, the first goal that \astar \emph{pops} is
+reached by an optimal path, provided a closed node may be re-opened when a
+cheaper path to it turns up (\cref{alg:ch04-astar},
+line~\ref{alg:ch04-astar:reopen}). If in addition $\hcost$ obeys the triangle inequality along
 every edge, no node is ever expanded twice, and \astar is Dijkstra's algorithm
 with its effort focused towards the goal.
 \end{keyidea}
@@ -128,8 +130,9 @@ $s \in V$, a non-empty set of goal nodes $V_\gamma \subseteq V$ (usually a singl
 node $\gamma$), and a \textbf{heuristic function} $\hcost \colon V \to
 \R_{\ge 0}$. The cost of a path is the sum of its edge costs. We write
 $\gcost^*(n)$ for the cost of a cheapest path from $s$ to $n$,
-$\hcost^*(n)$ for the cost of a cheapest path from $n$ to a goal
-($\hcost^*(n) = \infty$ if no goal is reachable), and $C^* = \hcost^*(s)$ for
+$\hcost^* \colon V \to \R_{\ge 0} \cup \{\infty\}$ for the cost of a cheapest
+path from $n$ to a goal ($\hcost^*(n) = \infty$ if no goal is reachable; the
+heuristic $\hcost$ itself is assumed finite everywhere), and $C^* = \hcost^*(s)$ for
 the optimal solution cost.\index{$h^*$, true cost to go}\index{$C^*$, optimal cost}
 \end{definition}
 
@@ -259,7 +262,7 @@ the result. The Manhattan distance is the classic example of a heuristic that is
 perfect for one grid and wrong for another.
 
 \begin{table}[tb]
-  \centering\small
+  \centering\footnotesize
   \caption{Grid heuristics and their properties. ``Exact'' means equal to
   $\hcost^*$ on an obstacle-free grid. A heuristic that is exact on empty grids
   stays admissible with obstacles, because obstacles can only lengthen paths.}
@@ -269,7 +272,7 @@ perfect for one grid and wrong for another.
   Heuristic & 4-connected (cost 1) & 8-connected (costs $1$, $\sqrt{2}$)\\
   \midrule
   Manhattan $d_x + d_y$ & exact on empty grids; consistent & \textbf{not admissible} (diagonal: $2 > \sqrt{2}$)\\
-  Octile $\max + (\sqrt{2}-1)\min$ & consistent (below Manhattan) & exact on empty grids; consistent\\
+  Octile $\max + (\sqrt{2}-1)\min$ & not exact; consistent (below Manhattan) & exact on empty grids; consistent\\
   Euclidean $\sqrt{d_x^2 + d_y^2}$ & consistent & consistent; dominated by octile\\
   Chebyshev $\max(d_x, d_y)$ & consistent; weakest of the four & consistent; exact if diagonals cost 1\\
   \bottomrule
@@ -396,8 +399,10 @@ is popped first. The instance is \code{worked\_example\_grid()} in
   in the corner is the expansion order. The blue line is the returned path of
   cost~13. (a) \astar with the Manhattan heuristic expands 21 cells; note the
   three wasted expansions $(3, 3)$, $(3, 2)$, $(3, 1)$ below the junction at
-  $(3, 4)$, where the heuristic cannot see the wall at $x = 4$. (b) Dijkstra's algorithm ($\hcost = 0$) expands 26 cells,
-  including the whole south-west corner.}
+  $(3, 4)$, where the heuristic cannot see the wall at $x = 4$. (b) Dijkstra's
+  algorithm ($\hcost = 0$) expands 26 cells, five more than \astar: the top-row
+  cells $(0, 5)$, $(1, 5)$, $(2, 5)$ and the bottom-row cells $(3, 0)$,
+  $(4, 0)$, which \astar either leaves in \Open or never generates.}
   \label{fig:ch04-example}
 \end{figure}
 
@@ -676,6 +681,13 @@ more slowly than the true cost, roughly $\hcost^*(n) - \hcost(n) =
 a heuristic with $\hcost = (1-\epsilon)\hcost^*$ still gives exponentially many
 expansions --- which is why \cref{sec:ch04-variants} buys speed by giving up
 optimality rather than by sharpening $\hcost$.
+All of this counts \emph{distinct} nodes. If $\hcost$ is admissible but not
+consistent, line~\ref{alg:ch04-astar:reopen} may fire again and again, and
+Martelli~\cite{martelli1977complexity} builds a family of graphs on which
+\astar re-expands nodes exponentially often in the number of nodes, so the
+$\bigO{\abs{V}}$ expansion count above holds only under
+\cref{thm:ch04-consistent}(i); Pearl~\cite[ch.~3]{pearl1984heuristics}
+discusses the algorithms that repair this.
 The grids of this book are explicit and small enough that this does not bite,
 but the space-time graphs of \cref{sec:ch04-spacetime} and the constraint
 trees of \cref{ch:ch09} are where it starts to.
@@ -1355,7 +1367,7 @@ action, the constraint filter and the duplicate test, in the same order as
 lines~\ref{alg:ch04-spacetime:goal}--\ref{alg:ch04-spacetime:push} of
 \cref{alg:ch04-spacetime}.
 
-\begin{lstlisting}[caption={The expansion step of space-time \astar (from \code{code/ch04\_astar.py}): the goal-stay test, the wait action, the constraint filter and duplicate detection. \code{h} is the static distance table and \code{table} the reservation table.},label={lst:ch04-spacetime}]
+\begin{lstlisting}[caption={The expansion step of space-time \astar (from \code{code/ch04\_astar.py}): the goal-stay test, the wait action, the constraint filter and duplicate detection. \code{h} is the static distance table and \code{table} the reservation table. The \code{closed} set is recorded only for the traces and the figures; correctness needs only \code{parent}.},label={lst:ch04-spacetime}]
     while heap:
         _, (v, t) = heapq.heappop(heap)  # every state is pushed exactly once
         closed.add((v, t))
@@ -1418,7 +1430,8 @@ reused, and every constant factor in \cref{lst:ch04-astar} is multiplied by a
 four-digit number.
 
 \textbf{2. The fallback of the replanning layer.} The reactive layer of
-\cref{ch:ch24} (\orca, \cref{ch:ch13}; DWA, \cref{ch:ch14}) handles the
+\cref{ch:ch24} --- optimal reciprocal collision avoidance (\orca,
+\cref{ch:ch13}) and the dynamic window approach (DWA, \cref{ch:ch14}) --- handles the
 seconds-scale avoidance of an intruder locally. When a manoeuvre has pushed a
 drone so far off its nominal route that the local controller cannot rejoin it,
 the replanning layer asks for a new global path from the current cell, and the

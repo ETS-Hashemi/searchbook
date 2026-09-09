@@ -92,7 +92,9 @@ first search against the cheap repairs it buys.
   those whose goal distance was invalidated or is needed for the detour (dashed). The
   number of expansions is printed under each panel. Note that \dstarlite is repairing a
   search it had already run from the drone's original start ($52$ expansions);
-  \cref{sec:ch05-experiment} accounts for that first search.}
+  \cref{sec:ch05-experiment} accounts for that first search. The newly blocked cell
+  (orange frame) is itself one of the expanded cells: its stale distance is retracted
+  first.}
   \label{fig:ch05-idea}
 \end{figure}
 
@@ -105,7 +107,8 @@ $s$ needs attention. When an edge cost changes, the $\rhs$-value of the affected
 changes but its $\gcost$-value does not, and the disagreement flags the vertex as
 \emph{locally inconsistent}. Inconsistent vertices go into a priority queue, ordered by
 the same kind of key that \astar uses ($\gcost + \hcost$), and are processed in that
-order. Processing a vertex makes it consistent and may make its neighbours inconsistent,
+order. Processing a vertex either makes it consistent or replaces its stale value by a
+larger, honest one, and may make its neighbours inconsistent,
 so the repair spreads outward from the change, but only as far as distance values
 actually differ, and only until the goal is consistent and no queued key is smaller than
 the goal's key. Cells far from the change, or cells whose distance happens to stay the
@@ -154,8 +157,14 @@ $s_{\mathrm{start}}$ and $s_{\mathrm{goal}}$ on a graph whose edge costs change 
 queries. An \textbf{incremental search algorithm} answers each query using information
 saved from the previous queries, and it must return a path of cost
 $\dist(s_{\mathrm{start}}, s_{\mathrm{goal}})$ under the costs current at the time of
-the query.
+the query. In the \textbf{moving-start} variant\index{incremental search!moving start},
+which \dstarlite solves, the goal is fixed but before each query the start vertex is
+replaced by the vertex the agent has moved to, which is required to lie on the path
+returned by the previous query.
 \end{definition}
+
+\Cref{sec:ch05-lpastar,sec:ch05-lpastar-example} treat the fixed-start case (\lpastar);
+\cref{sec:ch05-dstarlite,sec:ch05-dstarlite-example} add the moving start (\dstarlite).
 
 The grids of this chapter are 4-connected with unit costs (\cref{ch:ch02}). A cell is
 either \emph{free} or \emph{blocked}. Blocking a cell $b$ is modelled as an edge-cost
@@ -239,7 +248,8 @@ k(s) = \bigl[\,k_1(s);\; k_2(s)\,\bigr] =
 where $\hcost(s)$ estimates $\dist(s,s_{\mathrm{goal}})$ and is nonnegative and
 consistent: $\hcost(s_{\mathrm{goal}})=0$ and $\hcost(s)\le c(s,s')+\hcost(s')$ for all
 $(s,s')\in E$. Keys are compared \textbf{lexicographically}: $k \le k'$ iff $k_1 < k'_1$,
-or $k_1 = k'_1$ and $k_2 \le k'_2$.
+or $k_1 = k'_1$ and $k_2 \le k'_2$; and $k < k'$ iff $k_1 < k'_1$, or $k_1 = k'_1$ and
+$k_2 < k'_2$.
 \end{definition}
 
 Read $k_1$ as the $\fcost$-value of \astar and $k_2$ as its $\gcost$-value used for
@@ -352,7 +362,10 @@ differently:
     itself must recompute its own $\rhs$ and re-enter the queue if it is not $\infty$
     (line~\ref{alg:ch05-lpastar:undersucc}, note the $\cup\set{u}$). After this step $u$
     is either consistent (both $\infty$) or overconsistent with a fresh, larger key, and
-    will be expanded a second time later as an ordinary \astar expansion.
+    may be expanded a second time later, as an ordinary \astar expansion, if the loop
+    ever reaches its new, larger key; \cref{thm:ch05-expansions} bounds this at one
+    further expansion. Step~10 of \cref{tab:ch05-dstarlite-repair} shows a vertex that is
+    retracted and never re-expanded, because the search stops first.
 \end{itemize}
 
 \LpaMain glues the pieces together: after each search, wait for the environment to
@@ -634,14 +647,10 @@ new keys changes no comparison among them.
 \begin{table}[tb]
   \centering\footnotesize
   \caption{Why the key modifier is needed. A queued vertex $u$ and a vertex $v$ inserted
-  after the robot has moved two cells, $\hcost(s_{\mathrm{old}}, s_{\mathrm{new}})=2$;
+  after the robot has moved two cells, so $\hcost(s_{\mathrm{old}},s_{\mathrm{new}})=k_m=2$;
   $m=\min(\gcost,\rhs)$, and the last two columns are the keys that
-  \protect\DslCalculateKey returns now, without and with the modifier. Without $k_m$ the
-  stale key of $u$ is an \emph{over}estimate and $v$ is wrongly popped first; with
-  $k_m=2$ the stale key is a lower bound and the order is right. The vertex $v$ is
-  inserted after the move, so it has a single stored key in any given run; the two
-  entries $[9;6]$ / $[11;6]$ in its row are the key it receives without and with the
-  modifier.}
+  \protect\DslCalculateKey returns now, without and with the modifier. The row of $v$
+  lists both keys it could receive; it is inserted once.}
   \label{tab:ch05-km}
   \begin{tabular}{@{}lcccccc@{}}
   \toprule
@@ -1001,8 +1010,12 @@ vertices that depend on them are expanded (\cref{exr:ch05-secondkey}).
 The bound also fixes the running time of a call. At most $2|V|$ expansions take place;
 each expansion calls \DslUpdateVertex on $O(\deg u)$ vertices, and each such call
 recomputes an $\rhs$-value in time proportional to the degree of that vertex and
-inserts or removes one queue entry in $O(\log|U|)$ time. A call therefore costs $O\bigl((|V|+|E|)\log|V|\bigr)$ in the worst
-case\index{complexity!of D* Lite}, the same bound as a search from scratch with \astar.
+inserts or removes one queue entry in $O(\log|U|)$ time. A call therefore costs $O\bigl(|E|\,(\Delta + \log|V|)\bigr)$ in the worst
+case\index{complexity!of D* Lite}, where $\Delta$ is the maximum degree of the graph; on
+a 4-connected grid $\Delta = 4$ is a constant and this is
+$O\bigl((|V|+|E|)\log|V|\bigr)$, the same bound as a search from scratch with \astar.
+Recomputing an $\rhs$-value as a minimum over all successors, rather than relaxing one
+edge as \astar does, is what costs the extra factor $\Delta$.
 The saving is not asymptotic: it is that the constant is paid only where stored values
 actually changed.
 
@@ -1020,7 +1033,8 @@ current cell on the changed grid, once with the usual grid tie-breaking (ties am
 equal $\fcost$-values toward the smaller $\hcost$) and once with the tie-breaking of the
 \dstarlite key (toward the smaller $\gcost$). All three count vertex expansions and
 wall-clock time; the curves average over $10$ random grids, and event $0$ is the initial
-search.
+search. The expansion counts below are seed-deterministic and reproduce exactly; the
+wall-clock times were measured on a 2024 laptop and will differ on your machine.
 
 \begin{figure}[tb]
   \centering
@@ -1124,6 +1138,14 @@ indexed binary heap with an explicit \code{decrease\_key} and \code{remove}; it 
 faster in compiled languages but longer to write. Store keys as tuples so that
 comparison is lexicographic, and break ties among equal keys deterministically (here by
 the vertex coordinates), which makes traces reproducible.
+
+\paragraph{Memory.}
+An incremental search keeps two floats per vertex, $\gcost$ and $\rhs$, for the whole
+lifetime of the mission, plus the queue: $\bigO{|V|}$ storage that a search from scratch
+releases as soon as it returns. That is what the savings are bought with, and it is the
+figure to check first on a large map --- the $200\times 200\times 10$ voxel grid of
+\cref{sec:ch05-motivation} needs $400\,000$ vertices, a few megabytes, which a companion
+computer carries easily but a microcontroller may not.
 
 \paragraph{Infinity.}
 Use \code{float("inf")}: it compares, adds and takes minima correctly, and
@@ -1341,8 +1363,9 @@ obstacles during execution, and compare with re-running \astar
   uncertainty tube) is rasterised into blocked cells (hatched). The drone (blue) cannot
   rejoin its nominal route (dashed) with a local manoeuvre, so \dstarlite is run from
   the drone's current cell; only the cells around the tube are updated and the new
-  route (solid blue) is returned to the executive for a conflict re-check. The ``?''
-  marks the non-cooperative intruder, the ``1'' the drone under our control.}
+  route (solid blue) is returned to the executive for a conflict re-check: the drone
+  slips below the predicted region through the one row the tube does not reach. The
+  ``?'' marks the non-cooperative intruder, the ``1'' the drone under our control.}
   \label{fig:ch05-drone}
 \end{figure}
 

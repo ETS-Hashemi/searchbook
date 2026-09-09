@@ -30,8 +30,11 @@ def fmt(x):
 
 
 def panel(lines, grid, xshift, fills=(), labels=None, paths=(), start=None, goal=None,
-          robot=None, cross=None, title=None, font="\\tiny"):
-    """One grid panel at xshift grid units.  fills/paths: lists of (style, cells)."""
+          robot=None, cross=None, title=None, font="\\tiny", frames=()):
+    """One grid panel at xshift grid units.  fills/frames/paths: lists of (style, cells).
+
+    frames are drawn on top of the obstacle fills, so a cell that is both blocked and
+    highlighted stays visible."""
     w, h = grid.width, grid.height
     lines.append("\\begin{scope}[shift={(%g,0)}]" % xshift)
     for style, cells in fills:
@@ -40,6 +43,9 @@ def panel(lines, grid, xshift, fills=(), labels=None, paths=(), start=None, goal
     for (x, y) in sorted(grid.blocked):
         lines.append("\\fill[sbobstacle] (%d,%d) rectangle ++(1,1);" % (x, y))
     lines.append("\\draw[black!40,very thin] (0,0) grid (%d,%d);" % (w, h))
+    for style, cells in frames:
+        for (x, y) in cells:
+            lines.append("\\draw[%s] (%d,%d) rectangle ++(1,1);" % (style, x, y))
     if cross is not None:
         x, y = cross
         lines.append("\\draw[white,line width=1.2pt] (%d.2,%d.2) -- ++(0.6,0.6) (%d.2,%d.8) -- ++(0.6,-0.6);"
@@ -118,7 +124,9 @@ def idea_figure():
           paths=[("sbpath,opacity=0.35", r["path0"]), ("sbpath", a.path)],
           start=r["start"], goal=r["goal"], robot=r["robot"], cross=r["obstacle"],
           title="\\astar from scratch: %d expansions" % a.expansions)
+    assert r["obstacle"] in set(r["expanded"]), "blocked cell should be an expansion"
     panel(lines, grid, grid.width + 1.5, fills=[("sbOrange!35", r["expanded"])],
+          frames=[("sbOrange,line width=1.2pt", [r["obstacle"]])],
           paths=[("sbpath,opacity=0.35", r["path0"]), ("sbpathalt", r["path1"])],
           start=r["start"], goal=r["goal"], robot=r["robot"], cross=r["obstacle"],
           title="\\dstarlite repair: %d expansions" % r["n_rep"])

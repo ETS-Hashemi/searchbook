@@ -478,14 +478,17 @@ def _self_test():
     assert np.trace(P_joseph) > np.trace(P_opt)
 
     # 6. gating rejects a wild measurement, the ungated filter jumps
-    kfg, kfu = kf.copy(), kf.copy()
-    wild = kf.x[:2] + np.array([40.0, -30.0])
+    kfg, kfu, kfp = kf.copy(), kf.copy(), kf.copy()
+    kfp.predict()                       # the prediction both start from
+    wild = kfp.x[:2] + np.array([40.0, -30.0])
     kfg.predict(); resg = kfg.update(wild, gate_prob=0.99)
     kfu.predict(); resu = kfu.update(wild)
     assert not resg.accepted and resu.accepted
     assert resg.nis > chi2_threshold(2, 0.99)
-    assert np.linalg.norm(kfg.x[:2] - kf.x[:2]) < 1.0
-    assert np.linalg.norm(kfu.x[:2] - kf.x[:2]) > 10.0
+    assert np.allclose(kfg.x, kfp.x) and np.allclose(kfg.P, kfp.P)
+    # the ungated filter moves by K y, a jump of metres towards the outlier
+    assert np.allclose(kfu.x - kfp.x, resu.gain @ resu.innovation)
+    assert np.linalg.norm(kfu.x[:2] - kfp.x[:2]) > 1.0
 
     # 7. missing measurements: predict-only steps grow the covariance,
     #    the next update shrinks it
@@ -520,9 +523,13 @@ def _self_test():
     Hv = np.hstack([np.zeros((2, 2)), np.eye(2)])
     assert observability_rank(F, Hv) == 2
     kfv = KalmanFilter(F, Hv, Q, R, x0, P0)
+    var_pos = []
     for _ in range(300):
         kfv.step(truth[-1, 2:] + rng.standard_normal(2))
-    assert kfv.P[0, 0] > 100 * P0[0, 0]        # position variance runs away
+        var_pos.append(kfv.P[0, 0])
+    # the unobserved position variance never converges: it keeps growing
+    assert var_pos[-1] > var_pos[149] > var_pos[49] > P0[0, 0]
+    assert kfv.P[2, 2] < P0[2, 2]              # the observed velocity does
 
     # 10. position + velocity sensor and the 3D constant-acceleration model
     F4, H4, Q4 = cv_model(2, dt, q, measure_velocity=True)

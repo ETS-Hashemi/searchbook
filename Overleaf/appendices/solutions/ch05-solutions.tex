@@ -37,6 +37,30 @@ Wall-clock time need not follow the expansion count: the per-expansion cost of
 ahead in time while losing badly in expansions.
 \end{solution}
 
+\begin{solution}{exr:ch05-threshold}
+Expected outcome. For very small $\phi$ (a handful of changed cells) \dstarlite wins by
+orders of magnitude in \emph{expansions}: most changes touch cells whose goal distance
+does not change at all, and the repair costs almost nothing, while \astar re-expands its
+whole search region every time. The crossover in \emph{time} comes much earlier than the
+crossover in expansions, because one \dstarlite expansion costs several times an \astar
+expansion --- about $28\,\mu$s against $4\,\mu$s in \cref{sec:ch05-experiment} ---
+so \dstarlite can already be losing in seconds while still winning by a factor of ten in
+expansions. Around a $\phi$ of a few per cent on a $100\times 100$ grid the changes are
+no longer local: the repair touches a constant fraction of the vertices,
+\cref{thm:ch05-expansions} then permits up to $2|V|$ expansions plus a
+\DslUpdateVertex on every neighbour of each of them, and a fresh \astar --- which
+expands every vertex at most once and relaxes each edge in $\bigO{1}$ --- is faster. At
+$\phi=0.5$ nothing of the old search survives and \dstarlite is strictly worse.
+The rule for the replanning layer of \cref{ch:ch24} is therefore: count the changed
+cells reported per replanning cycle, keep a running estimate of the two costs, and fall
+back to \astar from scratch above the measured threshold --- and always after a full map
+replacement, a goal change, or a re-localisation that shifts the whole grid, since none
+of the stored values is then worth repairing. Exact numbers are implementation- and
+machine-dependent (a compiled indexed heap moves the crossover to the right, an
+interpreted lazy queue to the left); report your own crossover, in expansions and in
+time, and say which grid and which language produced it.
+\end{solution}
+
 \begin{solution}{exr:ch05-intruder}
 Hint and sketch. (a) For each tick $t\le H$ rasterise the disc of radius $r_t=r_0+\sigma t$ around $\pos_t$, inflated by the drone's own radius, and take $B=\bigcup_t B_t$; raise the cost of every edge into a cell of $B$ to $\infty$ and call \DslUpdateVertex on each such cell and its neighbours, as in \cref{sec:ch05-implementation}. When the next prediction arrives, do \emph{not} rebuild $B$: form the new set $B'$, and call \DslUpdateVertex only on the symmetric difference $B\triangle B'$ (newly blocked cells, and cells released because the intruder has passed or the prediction shifted) and their neighbours. Cells in $B\cap B'$ cost nothing, which is the whole point of an incremental search; keep $B$ between calls so the difference can be formed in $O(|B|+|B'|)$. (b) Blocking the whole tube for the whole horizon is conservative in space \emph{and} in time: a cell that the intruder occupies for two ticks is forbidden for all $H$, so a corridor that would be free by the time the drone reaches it is closed, and the planner either takes a long detour or reports \emph{no path} although a safe schedule exists. A space-time search (\cref{ch:ch04}) over states $(\text{cell},t)$ blocks $(\text{cell},t)$ only for the ticks in which $B_t$ covers the cell; edge changes then touch a single time layer, so the repair is even more local, at the price of a state space $H$ times larger and of a plan that must be re-timed rather than just re-routed. (c) If the goal moves, the $\gcost$-values, which are distances \emph{to the goal}, change with every goal step, and the property that made the backward search cheap is gone; $k_m$ cannot help, because the goal enters the $\gcost$-values and not the heuristic. One must either re-initialise or use Moving Target \dstarlite \cite{sun2010moving}, which salvages the still-valid part of the search tree and discards the rest.
 \end{solution}
