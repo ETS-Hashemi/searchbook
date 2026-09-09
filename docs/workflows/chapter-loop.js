@@ -94,10 +94,16 @@ Apply EVERY required change, and the suggestions where they are cheap, while kee
 Your final output is the structured report: status, pages, notes.`
 }
 
-async function reviewLoop(it) {
+function applyReviewPrompt(it, round) {
+  return `You are the reviser of ${it.title} (${file(it)}) of the textbook in ${ROOT}. A peer reviewer's report ${ROOT}/reviews/${it.id}-round${round}.md (sections Verdict, Required changes, Suggestions, What must be kept) has not been acted on yet. Read ${ROOT}/docs/finisher-brief.md for the rules (your chapter's files only; no git; never edit main.tex, searchbook.sty, references.bib or other chapters), ${ROOT}/STYLE_GUIDE.md, the specification ${ROOT}/docs/specs/${it.id}.md if it exists, and then the review file completely.
+Apply EVERY required change, and the suggestions where they are cheap, while keeping what the reviewer said must be kept; never remove required content to save space. If you are certain a required change is technically wrong, do not apply it and explain why in your response. Rebuild with \`cd ${ROOT}/Overleaf && ./build.sh ${it.stem}\` until the status is 0 with no errors; re-run the chapter's code self-test; make sure every number quoted in the text still matches the code; regenerate .dat files if the code changed. Append a section "## Response to review (round ${round})" to the review file listing each required change and exactly what you did about it. Be economical: at most about 50 tool calls.
+Your final output is the structured report: status, pages, notes.`
+}
+
+async function reviewLoop(it, startRound) {
   const history = []
   let verdict = 'unknown'
-  for (let round = 1; round <= MAX_ROUNDS; round++) {
+  for (let round = (startRound || 1); round <= MAX_ROUNDS; round++) {
     const review = await tryAgent(reviewPrompt(it, round),
       { label: 'review:' + it.id + ':r' + round, phase: 'Review', agentType: 'general-purpose', schema: REVIEW, model: REVIEW_MODEL })
     if (!review) { verdict = 'review-failed'; break }
@@ -106,7 +112,7 @@ async function reviewLoop(it) {
     log(it.id + ' round ' + round + ': ' + review.verdict + ' (' + review.required_changes.length + ' required changes)')
     if (review.verdict === 'Accept') break
     // Budget rule: a third round only if the second verdict is still a major revision.
-    if (round === MAX_ROUNDS || (round === 2 && review.verdict !== 'Major revision')) {
+    if (round === MAX_ROUNDS || (round >= 2 && review.verdict !== 'Major revision')) {
       log(it.id + ': stopping after round ' + round + ' with verdict "' + review.verdict + '"; applying the remaining changes without a further review')
       const rev = await tryAgent(revisePrompt(it, review, round),
         { label: 'revise:' + it.id + ':r' + round, phase: 'Revise', agentType: 'general-purpose', schema: REPORT, model: REVIEW_MODEL })
@@ -125,13 +131,19 @@ async function reviewLoop(it) {
 const results = await pipeline(ITEMS,
   async (it) => {
     if (it.mode === 'review-only') return { status: 'done', pages: 0, notes: 'pre-existing draft; review only' }
+    if (it.mode === 'apply-review') {
+      const rev = await tryAgent(applyReviewPrompt(it, 1),
+        { label: 'apply:' + it.id + ':r1', phase: 'Revise', agentType: 'general-purpose', schema: REPORT, model: REVIEW_MODEL })
+      if (!rev) return null
+      return { status: rev.status, pages: rev.pages, notes: 'applied pending review: ' + (rev.notes || '').slice(0, 200), startRound: 2 }
+    }
     return await tryAgent(writePrompt(it),
       { label: 'write:' + it.id, phase: 'Write', agentType: 'general-purpose', schema: REPORT, ...WRITE_OPTS })
   },
   async (report, it) => {
     if (!report || report.status === 'failed') { log(it.id + ': author failed'); return { id: it.id, verdict: 'author-failed' } }
     if (report.status === 'partial') log(it.id + ': author reports partial - reviewer will catch the gaps')
-    const r = await reviewLoop(it)
+    const r = await reviewLoop(it, report.startRound || 1)
     return { id: it.id, pages: report.pages, authorNotes: (report.notes || '').slice(0, 400), verdict: r.verdict, history: r.history }
   })
 

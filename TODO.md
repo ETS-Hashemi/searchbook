@@ -51,23 +51,23 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [x] 2.03 Ch 3 Dijkstra's Algorithm — written and compiled; reviewed and revised (see review log)
 - [x] 2.04 Ch 4 A* Search (admissible/consistent heuristics, optimality proof, weighted A*, space-time A*) — written and compiled; reviewed and revised (see review log)
 - [x] 2.05 Ch 5 Incremental Search: LPA* and D* Lite — written and compiled; reviewed and revised (see review log)
-- [~] 2.06 Ch 6 Anytime Search: ARA* (and Anytime D* pointer) — [~] author running (relaunched after container restart); text 4 lines so far, 0 figure files, code present
+- [x] 2.06 Ch 6 Anytime Search: ARA* (and Anytime D* pointer) — written and compiled (20 pp); Opus review pending
 
 ### Part III — Multi-Agent Path Finding
 - [x] 2.07 Ch 7 The MAPF Problem (conflict types, objectives, complexity, benchmarks) — written and compiled; reviewed and revised (see review log)
-- [~] 2.08 Ch 8 Prioritized Planning and Space-Time A* (reservation tables, Cooperative A*, incompleteness) — drafted on Fable (19 pp, compiles, code + self-test); Opus review in progress
+- [x] 2.08 Ch 8 Prioritized Planning and Space-Time A* (reservation tables, Cooperative A*, incompleteness) — written and compiled (19 pp); Opus review pending
 - [x] 2.09 Ch 9 Conflict-Based Search (constraint tree, high/low level, optimality, ICBS improvements) — written and compiled; reviewed and revised (see review log)
 - [x] 2.10 Ch 10 Bounded-Suboptimal Search: ECBS (focal search, bounds, benchmarks vs CBS) — written and compiled; reviewed and revised (see review log)
 - [x] 2.11 Ch 11 M*, Push-and-Swap, Push-and-Rotate — written and compiled; reviewed and revised (see review log)
 
 ### Part IV — Local and Reactive Collision Avoidance
-- [~] 2.12 Ch 12 Velocity Obstacles (collision cone, relative velocity, time-to-collision, truncation) — drafted on Fable (22 pp, compiles); Opus review in progress
+- [x] 2.12 Ch 12 Velocity Obstacles (collision cone, relative velocity, time-to-collision, truncation) — written and compiled (22 pp); Opus review pending
 - [x] 2.13 Ch 13 RVO and ORCA (reciprocity, half-planes, linear program, 3D extension) — written and compiled; reviewed and revised (see review log)
 - [x] 2.14 Ch 14 Dynamic Window Approach (dynamic window, objective, admissible velocities) — written and compiled; reviewed and revised (see review log)
-- [~] 2.15 Ch 15 Artificial Potential Fields (attractive/repulsive, local minima, oscillation, remedies) — drafted on Fable (20 pp, compiles); Opus review in progress
+- [x] 2.15 Ch 15 Artificial Potential Fields (attractive/repulsive, local minima, oscillation, remedies) — written and compiled (20 pp); Opus review pending
 
 ### Part V — Sampling-Based Motion Planning
-- [~] 2.16 Ch 16 RRT (sampling, nearest, steer, collision checking, RRT-Connect) — drafted on Fable (20 pp, 1337 lines, compiles); Opus review in progress
+- [x] 2.16 Ch 16 RRT (sampling, nearest, steer, collision checking, RRT-Connect) — written and compiled (20 pp); Opus review pending
 - [ ] 2.17 Ch 17 RRT* and Informed RRT* (rewiring, asymptotic optimality, informed ellipsoid sampling)
 
 ### Part VI — Tracking and Prediction
@@ -77,8 +77,8 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 ### Part VII — Optimization and Control
 - [x] 2.21 Ch 21 Model Predictive Control (receding horizon, constraints, QP formulation, collision constraints) — written and compiled; reviewed and revised (see review log)
-- [~] 2.22 Ch 22 MILP for Planning (big-M obstacle avoidance, scheduling, when it is too expensive) — drafted on Fable (20 pp, compiles); Opus review in progress
-- [~] 2.23 Ch 23 Consensus and Formation Control (graph Laplacian, consensus protocol, formation error, communication radius) — drafted on Fable (23 pp, compiles); Opus review in progress
+- [x] 2.22 Ch 22 MILP for Planning (big-M obstacle avoidance, scheduling, when it is too expensive) — written and compiled (20 pp); Opus review pending
+- [x] 2.23 Ch 23 Consensus and Formation Control (graph Laplacian, consensus protocol, formation error, communication radius) — written and compiled (23 pp); Opus review pending
 
 ### Part VIII — Putting It Together
 - [ ] 2.24 Ch 24 The Hybrid Collision-Avoidance Architecture (layers, decision logic, safety horizon, reconnection, replanning triggers)
@@ -178,6 +178,8 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 15 | 13:55 | 8.2/8.3 produced `Overleaf/searchbook.pdf` and `Overleaf/searchbook-overleaf.zip` (202 files) from the current state | delivered |
 | 24 | 13:00-17:40 | first wave: authors finished Ch 7, 9, 11, 13, 19, 20, 21 (20-24 pp each, all compile); then the session limit hit again (reset 17:40 UTC) before any review completed | 17 drafted files |
 | 26 | 09-08 | review loops finished for Ch 1-5, 7, 9-11, 13, 14, 19-21 and App. A (Ch 1 Accept; 14 others: two Opus rounds, minor items applied). All 12 remaining authors (Ch 6, 8, 12, 15-18, 22-25, App. B) stopped by the WEEKLY Fable limit | 15 reviewed |
+| 29 | 09-09 09:00-13:50 | authors finished Ch 6, 8, 12, 15, 16, 22, 23 (19-23 pp each); fresh Opus reviews of Ch 1, 2, 4, 5, 10 found 3-6 minor items each (not yet applied); then the session limit hit again | 23 chapters drafted |
+| 30 | 09-09 16:15 | fresh workflows (no resume, to avoid re-reviewing): authors for Ch 17, 18, App. B (finish drafts) and Ch 24, 25; first Opus reviews for Ch 6, 8, 12, 15, 16, 22, 23; apply pending reviews + confirming round for Ch 1, 2, 4, 5, 10 | running |
 | 28 | 09-09 08:55 | workflows resumed (cached reviews replay; 12 authors to run). In parallel on Opus: 4.6 bibliography audit via web search (docs/bib-audit.md) and 1.3 notation table (frontmatter/notation.tex) | running |
 | 27 | 09-09 08:50 | full build currently fails on partial figures left by interrupted authors (ch12, ch22); resuming the workflows so those authors finish their chapters | resuming |
 | 25 | 19:15 | workflows resumed from their run IDs: the seven finished authors replay from cache; Opus reviews of Ch 7, 9, 11, 13, 19, 20, 21 and the review-only passes start; remaining authors (Ch 6, 8, 12, 14-18, 22-25, App B) follow | running |
