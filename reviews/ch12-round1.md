@@ -188,3 +188,97 @@ which are exactly the four the spec asks for and are each written from a symptom
 actually observe - the drone box's sharp distinction between a non-cooperative intruder (full
 responsibility, plain VO) and a swarm member (reciprocal), and the 3D section with the tangency
 circle at `(d^2-R^2)/d` are all first-rate and must be kept.
+
+## Response to review (round 1)
+
+All seven required changes were applied. The chapter builds with status 0 and no
+errors (`cd Overleaf && ./build.sh ch12-velocity-obstacles`), the self-test passes
+(`ch12 self-test passed (0.3 s)`), and the three `.dat` files are byte-identical
+after re-running `code/figures/gen_ch12_sim.py`.
+
+### Required changes
+
+1. **`\VoInside` returns `t <= tau` (A).** Fixed. The pseudocode line now reads
+   `\KwRet{$t < \infty$ \textnormal{and} $t \le \ttc$}`, matching
+   `lst:ch12-ttc`. The walkthrough gained a clause saying that the `t < infinity`
+   guard is what makes the limit case work: without it the convention
+   `inf <= inf` would report every collision-free velocity as dangerous, and it is
+   precisely this guard that makes `tau = infinity` test membership in the
+   untruncated `VO_{A|B}`.
+2. **Feasible set in `alg:ch12-choose` (A).** Fixed. Line
+   `alg:ch12-choose:feasible` now reads
+   `F <- {v in S : t_min(v) > tau or t_min(v) = infinity}`, matching
+   `feasible = (tc > tau) | np.isinf(tc)`. The walkthrough keeps the sentence that
+   this is membership in the union of `eq:ch12-feasible`, with the added
+   parenthesis that `t_min = infinity` (no collision at all) counts as safe.
+3. **Proof of `thm:ch12-truncated` (A).** The final sentence was replaced by the
+   scaling argument the reviewer proposed. The identity `t_c(s v) = t_c(v)/s` is
+   now displayed and labelled `eq:ch12-scaling`; for a unit direction `u` inside
+   the cone, `t_c(s u) <= tau` iff `s >= t_c(u)/tau`, so the truncated set meets
+   the ray in the half-line `{s u : s >= t_c(u)/tau}` whose endpoint is exactly
+   where the ray enters `D(p_rel/tau, R/tau)` (shown by rewriting the disc
+   inequality as `|p_rel - (tau s) u| <= R`). The boundary claim now follows.
+   `eq:ch12-scaling` is reused by the new solution to `exr:ch12-truncation`.
+4. **Self-test timing and scope (A).** Rewritten exactly as suggested: "the
+   self-test, including a sample of the experiments of `sec:ch12-experiment`, runs
+   in about 0.3 s; the full sweep of `tab:ch12-crossing` is produced by
+   `code/figures/gen_ch12_sim.py`." Verified: the script prints
+   `ch12 self-test passed (0.3 s)`.
+5. **Caption of `fig:ch12-example`, panel (b) (D).** Changed to "between
+   $t=0.9$ and $t=3.6\,\mathrm{s}$", which is what column `avx` of
+   `figures/data/ch12-example-traj.dat` holds.
+6. **"trivially" (C).** Replaced by "sampling is robust and accepts other cost
+   functions and reachable sets without any change to the rule".
+7. **Missing solutions (E).** `appendices/solutions/ch12-solutions.tex` now holds
+   all eight solutions, in exercise order. The four new blocks follow the
+   reviewer's outlines: `exr:ch12-halfangle` (11.54 deg / 23.07 deg wedge; 7.18 deg
+   / 14.36 deg with `r_A` forgotten; 0 deg with both forgotten; `d = 1.6` m for
+   30 deg; `theta -> 90` deg as `d -> R`), `exr:ch12-truncation` (the scaling
+   identity, `(d-R)/tau = 1.2142` and `sqrt(d^2-R^2)/tau = 1.4`, with both points
+   checked to lie at distance exactly 0.2 from the truncation centre `(1,-0.1)`),
+   `exr:ch12-static` (`v_B = 0` makes `eq:ch12-vo` the identity; the convexity
+   argument for the wedge; wall face at 1.5 m, normal component 0 vs 0.375 m/s)
+   and `exr:ch12-3d` (the proof of `thm:ch12-cone` with 3-vectors, tangency circle
+   at `(d^2-R^2)/d` with radius `R sqrt(d^2-R^2)/d`, evaluated for the self-test
+   geometry `(3,4,12)`). The file compiles with zero errors inside
+   `appC-solutions` (the errors that build reports come from `ch05-solutions`,
+   which is not this chapter's file).
+
+### Suggestions adopted
+
+* **Length.** Kept at 22 chapter pages (folios 115-136) despite the longer proof
+  and the added further-reading sentences, by making the three trims the reviewer
+  identified: the `t_c = 4.559` arithmetic is now worked once, in the worked
+  example (Section 12.5 keeps the `Delta/4 = |v|^2 (R^2 - d^2 sin^2 phi)` identity
+  and points forward); the RVO/HRVO/ORCA remedy is described once, in "Reciprocal
+  variants", with the oscillation section pointing to it; and the closing
+  paragraph of the crossing experiment was shortened.
+* **`t = 5.5` -> `t = 5.1`.** Done; the `tc_pref` column of the trajectory data
+  turns infinite at `t = 5.1` s.
+* **Exact Chapter 2 pointers.** `\cref{ch:ch02}` replaced by
+  `thm:ch02-disc-minkowski` (relative motion), `thm:ch02-tangents` (tangent
+  points), `thm:ch02-ray-circle` (ray-circle intersection) and
+  `thm:ch02-inflation` plus `def:ch02-point-segment-distance` (inflated
+  obstacles). All four resolve in the build.
+* **`closest_boundary_point`.** Now named as a method of `VelocityObstacle` at all
+  three places.
+* **Difficulty spread.** `exr:ch12-3d` promoted to `\difficulty{3} Proof`, giving
+  1,2,2,1,2,2,3,3.
+* **Four decimals.** `gen_ch12_sim.py` now prints `min_sep` with `%.4f`, so
+  `stream k=2,4,8: VO sep 1.0003` can be read off its own output. The `.dat`
+  files are unchanged.
+* **Figure 12.7 caption.** "keeps the distance at the guaranteed minimum $R$
+  ($1.0003$)".
+* **Further reading.** Added the non-linear velocity obstacle of Large, Sekhavat,
+  Shiller and Laugier (ICARCV 2002, new entry `large2002nonlinear` in
+  `bib/ch12-extra.bib`) and a sentence on restricting the union to the `k` nearest
+  neighbours.
+
+### Not changed
+
+Everything on the reviewer's "must be kept" list is untouched: `thm:ch12-cone`
+and its proof, the `Delta/4` identity, the union-of-scaled-discs treatment of
+truncation, all eight figures, the worked example and its trace table, the "what
+is not guaranteed" list, the oscillation section, the `n = 2..8` experiment, the
+four pitfalls, the drone box and the 3D section. No verified number was altered;
+every number quoted in the text was re-checked against the code output.

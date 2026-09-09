@@ -600,7 +600,19 @@ def _self_test() -> None:
         assert sorted(order) == list(range(ri.k))
     plan = plan_with_restarts(ri, rng, tries=5)
     assert plan is None or not validate(ri, plan)
-    # 7. WHCA*: the executed plan of the worked example is conflict-free.
+    # 7. Timing: forty agents on a large grid, median of three instances.
+    times = []
+    for seed in (1, 2, 3):
+        big = random_instance(100, 100, 40, random.Random(seed), 0.2)
+        order = order_longest_first(big)
+        t1 = time.time()
+        plan = prioritized_planning(big, order, heuristic="true")
+        times.append(time.time() - t1)
+        assert plan is None or not validate(big, plan)
+    times.sort()
+    print(f"forty agents on a 100x100 grid with 20% obstacles: "
+          f"{times[0]:.1f}, {times[1]:.1f}, {times[2]:.1f} s (median {times[1]:.1f} s)")
+    # 8. WHCA*: the executed plan of the worked example is conflict-free.
     ex = whca_star(inst, window=6, step=3)
     assert ex is not None and not validate(inst, ex), ex
     print("WHCA* on the worked example: costs", [path_cost(p) for p in ex],
