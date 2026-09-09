@@ -1,0 +1,29 @@
+% Concept figure for Chapter 6: the anytime idea (left) and the three lists of ARA* (right).
+\begin{tikzpicture}[font=\small]
+% ---- left panel: cost of the best path so far against computation time
+\begin{scope}
+  \draw[->,thick,black!70] (0,0) -- (6.6,0) node[below left,sbannot] {computation time};
+  \draw[->,thick,black!70] (0,0) -- (0,3.9) node[right,sbannot] {cost of the best path so far};
+  \draw[dashed,sbGray] (0,1.0) -- (6.4,1.0);
+  \node[sbannot,anchor=east] at (-0.1,1.0) {$C^*$};
+  \draw[sbpath] (1.2,3.1) -- (2.3,3.1) -- (2.3,2.4) -- (3.4,2.4) -- (3.4,1.7) -- (4.8,1.7) -- (4.8,1.0) -- (6.3,1.0);
+  \foreach \x/\y/\l in {1.2/3.1/{$\eps=3$}, 2.3/2.4/{$\eps=2$}, 3.4/1.7/{$\eps=1.5$}, 4.8/1.0/{$\eps=1$}} {
+    \fill[sbBlue] (\x,\y) circle (2.2pt);
+    \node[sbannot,above right,text=sbBlue] at (\x,\y) {\l};
+  }
+  \draw[dotted,black!60] (1.2,0) -- (1.2,3.1);
+  \node[sbannot,below] at (1.2,0) {first path};
+  \draw[sbRed,thick,dashed] (4.0,-0.05) -- (4.0,3.55);
+  \node[text=sbRed,font=\footnotesize,anchor=south] at (4.0,3.55) {deadline};
+  \node[sbannot,align=left,anchor=north west,text=sbRed] at (4.1,3.3) {flown: the $\eps=1.5$\\ path, with its\\ certificate $\eps'$};
+\end{scope}
+% ---- right panel: the three lists and the flow of states between them
+\begin{scope}[xshift=8.3cm,yshift=0.2cm]
+  \node[sbbox,minimum width=2.7cm,minimum height=1.15cm] (open) at (0,2.8) {\Open\\[-1pt] {\scriptsize key $\gcost+\eps\,\hcost$}};
+  \node[sbboxgray,minimum width=2.7cm,minimum height=1.15cm] (closed) at (4.3,2.8) {\Closed\\[-1pt] {\scriptsize expanded this iteration}};
+  \node[sbboxalt,minimum width=2.7cm,minimum height=1.15cm] (incons) at (4.3,0.5) {\textsc{Incons}\\[-1pt] {\scriptsize closed, then improved}};
+  \draw[sbflow] (open) -- node[above,sbannot] {pop the smallest key} (closed);
+  \draw[sbflow] (closed) -- node[right,sbannot,align=left] {$\gcost$ lowered\\ after expansion} (incons);
+  \draw[sbflow] (incons.west) -| node[pos=0.22,below,sbannot,align=center] {next iteration: $\eps$ decreases,\\ keys recomputed, \Closed $\gets\emptyset$} (open.south);
+\end{scope}
+\end{tikzpicture}

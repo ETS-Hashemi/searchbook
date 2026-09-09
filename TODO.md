@@ -77,7 +77,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 ### Part VII — Optimization and Control
 - [x] 2.21 Ch 21 Model Predictive Control (receding horizon, constraints, QP formulation, collision constraints) — written and compiled; reviewed and revised (see review log)
-- [ ] 2.22 Ch 22 MILP for Planning (big-M obstacle avoidance, scheduling, when it is too expensive)
+- [~] 2.22 Ch 22 MILP for Planning (big-M obstacle avoidance, scheduling, when it is too expensive) — drafted on Fable (20 pp, compiles); Opus review in progress
 - [~] 2.23 Ch 23 Consensus and Formation Control (graph Laplacian, consensus protocol, formation error, communication radius) — drafted on Fable (23 pp, compiles); Opus review in progress
 
 ### Part VIII — Putting It Together
