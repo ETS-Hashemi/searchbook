@@ -27,7 +27,7 @@ Everything in \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06,ch:ch07,ch:ch08,ch:ch09,ch:c
 \emph{positions}: a path is a sequence of cells, and time enters, if at all, as
 a discrete index. Such plans are computed before the flight, and they are only
 as good as the map they were computed on. Now picture the moment that the plan
-did not foresee. A delivery drone follows its \cbs route across a park at
+did not foresee. A delivery drone follows its conflict-based-search (\cbs) route across a park at
 $1\,\mathrm{m/s}$ when an unknown quadrotor appears $7\,\mathrm{m}$ away,
 flying at $0.9\,\mathrm{m/s}$ on a course that crosses the drone's own. The
 tracker of \cref{ch:ch18} reports its position and velocity; nothing says that
@@ -51,13 +51,14 @@ computation is a handful of dot products per obstacle, which is why VO and its
 descendants run at hundreds of hertz on board of small vehicles.
 
 In the four-layer architecture of \cref{ch:ch24}, velocity obstacles are the
-\emph{local safety layer}. The global planner (\cbs or \ecbs,
-\cref{ch:ch09,ch:ch10}) produces nominal routes; the prediction layer
+\emph{local safety layer}. The global planner (\cbs or \ecbs, enhanced
+\cbs, \cref{ch:ch09,ch:ch10}) produces nominal routes; the prediction layer
 (\cref{ch:ch18,ch:ch20}) delivers, for every tracked object, an estimated
 position and velocity; the local layer takes over the velocity command whenever
 a predicted collision is closer than a safety horizon and hands control back
-once the danger has passed. The reciprocal variants of \cref{ch:ch13} (RVO and
-\orca) are what the swarm members use among themselves; the plain velocity
+once the danger has passed. The reciprocal variants of \cref{ch:ch13} ---
+reciprocal velocity obstacles (RVO) and optimal reciprocal collision avoidance
+(\orca) --- are what the swarm members use among themselves; the plain velocity
 obstacle of this chapter is what a drone uses against an object that does not
 cooperate.
 
@@ -85,9 +86,10 @@ Two discs move through the plane with constant velocities. Whether they will
 collide does not depend on where either of them is going in absolute terms; it
 depends only on how one moves \emph{relative} to the other. So sit on drone
 $A$. From there, drone $B$ is an object at the relative position
-$\pos_B - \pos_A$ that drifts with the relative velocity $\vel_B - \vel_A$.
+$\pos_B - \pos_A$ that drifts at the rate $\vel_B - \vel_A$, the negative of
+the relative velocity of \cref{def:ch12-relative}.
 Two more simplifications make the picture crisp. First, by the Minkowski-sum
-argument of \cref{ch:ch02}, two discs of radii $r_A$ and $r_B$ overlap exactly
+argument of \cref{thm:ch02-disc-minkowski}, two discs of radii $r_A$ and $r_B$ overlap exactly
 when their centres are closer than $r_A + r_B$; so we may shrink $A$ to a point
 and fatten $B$ to a disc of radius $r_A + r_B$. Second, instead of letting the
 fat disc drift towards the point, let the point move towards the fixed disc
@@ -145,7 +147,7 @@ possible to the preferred one.
 
 Throughout, an \textbf{agent}\index{agent!disc model} is a disc that moves as
 a point mass with a commanded velocity (the point-mass drone model of
-\cref{ch:ch02}): its centre obeys $\pos(t) = \pos + t\,\vel$ as long as the
+\cref{def:ch02-single-integrator}): its centre obeys $\pos(t) = \pos + t\,\vel$ as long as the
 velocity $\vel$ is held. Agent $A$ has centre $\pos_A$, velocity $\vel_A$ and
 radius $r_A$; agent $B$ (a drone, a bird, a static pole) has $\pos_B$, $\vel_B$,
 $r_B$. Velocities may be changed instantaneously; acceleration limits are
@@ -236,7 +238,7 @@ centre $\pos_{\mathrm{rel}}$ to the ray is at most $R$. If $\varphi \le \pi/2$,
 the point of the line $\set{t\vect{u} : t \in \R}$ closest to the centre is at
 $t^* = \pos_{\mathrm{rel}}\cdot\vect{u} = d\cos\varphi \ge 0$, hence on the ray,
 and its distance to the centre is $d\sin\varphi$ (the perpendicular from the
-centre to the line; \cref{ch:ch02}, distance from a point to a segment). If
+centre to the line; \cref{def:ch02-point-segment-distance}). If
 $\varphi > \pi/2$, the closest point of the ray is the origin itself, at
 distance $d > R$, and the ray misses. Therefore the ray meets the disc if and
 only if $\varphi \le \pi/2$ and $d\sin\varphi \le R$, i.e.\ if and only if
@@ -478,7 +480,7 @@ instead needs two more ingredients: what $A$ can fly, and what $A$ wants.
 \label{def:ch12-feasible}
 The \textbf{reachable velocities}\index{reachable velocities} of $A$ are the
 disc $\mathcal{V}_A = \disc{\vect{0}}{v_{\max}}$ of speeds up to the limit
-$v_{\max}$ of \cref{ch:ch02}. The \textbf{preferred
+$v_{\max}$ of \cref{def:ch02-single-integrator}. The \textbf{preferred
 velocity}\index{preferred velocity} $\vel_A^{\mathrm{pref}}$ is the velocity
 $A$ would fly if nothing were in the way; in this chapter it points from
 $\pos_A$ towards the goal at the nominal speed. Given the obstacles
@@ -683,9 +685,11 @@ prints every number quoted below.
 The relative position is $\pos_{\mathrm{rel}} = (5,-5)$, at distance
 $d = \sqrt{50} = 7.071$ in the direction $-45^\circ$, and the half-angle is
 $\theta = \arcsin(1/7.071) = 8.13^\circ$. The two legs of the cone therefore
-point at $-36.87^\circ$ and $-53.13^\circ$, which are the directions
-$(0.8,-0.6)$ and $(0.6,-0.8)$: the tangent points of the circle of radius $1$
-around $(5,-5)$ seen from the origin form $3$--$4$--$5$ triangles. The apex is
+point at $-36.87^\circ$ and $-53.13^\circ$: the leg directions are the
+$3$--$4$--$5$ unit vectors $(0.8,-0.6)$ and $(0.6,-0.8)$, and the tangent
+points of the circle of radius $1$ around $(5,-5)$, seen from the origin, lie
+at distance $\sqrt{d^2-R^2} = 7$ along them, at $(5.6,-4.2)$ and
+$(4.2,-5.6)$. The apex is
 $\vel_B = (0, 0.9)$. The preferred velocity of $A$ is
 $\vel^{\mathrm{pref}} = (1, 0)$, so the relative velocity is
 $\vel = (1,0)-(0,0.9) = (1,-0.9)$. Then $\vel\cdot\vel = 1.81$,
@@ -782,8 +786,9 @@ and $\vel^{\mathrm{pref}}$ would push $A$ into $B$ right now. The chosen
 velocity $(1.05, 0)$ is nevertheless safe with $t_c = \infty$, because $B$ is
 at that moment slightly south of $A$ and any velocity that does not point at
 it misses. This is the untruncated-versus-truncated question in miniature: the
-wedge is almost $90^\circ$ wide ($d \approx R$), yet more than a hundred of
-the samples still lie outside it. Second, the velocity at $t = 6\,\mathrm{s}$
+half-angle is almost $90^\circ$ ($d = 1.0012\,\mathrm{m} \approx R$), so the
+wedge is nearly a half-plane, yet more than a hundred of the samples still lie
+outside it. Second, the velocity at $t = 6\,\mathrm{s}$
 is $(0.998,-0.064)$, which is not on the sample grid: it is the preferred
 velocity itself, now pointing slightly south from $(1.64, 0.22)$ towards the
 goal, which is why line~\ref{alg:ch12-choose:samples} adds it to the candidates.
@@ -824,7 +829,9 @@ feasible set is non-empty, $A$ and $B$ never collide.
 At each decision time $k\dt$ the agents are apart (by induction), the chosen
 velocity is outside $\VO^{\ttc}_{A|B}$, and by \cref{thm:ch12-safety} the
 distance stays above $R$ until $k\dt + \ttc \ge (k+1)\dt$, when the next
-decision is made. \qedhere
+decision is made. The theorem may be applied on each interval separately
+because the centre distance on $[k\dt, (k+1)\dt]$ depends only on the
+velocities held during that interval, and both are constant there. \qedhere
 \end{proof}
 
 The corollary is the reason velocity obstacles are the right tool against a
@@ -975,7 +982,7 @@ line.
   simultaneously (circle) the distance dips below $R$ already for $n=3$ and
   stays below it from $n=5$ on.
   (b)~Path length relative to the straight line: the price of avoidance is
-  $1$--$2\,\%$ in the stream and up to $14\,\%$ in the crowded circle.}
+  $1.4$--$2.3\,\%$ in the stream and up to $14\,\%$ in the crowded circle.}
   \label{fig:ch12-crossing}
 \end{figure}
 
@@ -1113,6 +1120,12 @@ ball $\disc{\vel_B + \pos_{\mathrm{rel}}/\ttc}{R/\ttc}$, which is inscribed in
 the cone. Every plane through the axis cuts the cone in the planar wedge of
 \cref{thm:ch12-cone}.
 \end{proposition}
+\begin{proof}[Proof sketch]
+The proof is the one of \cref{thm:ch12-cone} and \cref{thm:ch12-truncated}
+read with 3-vectors; the only new fact is that the set of directions at angle
+$\le \theta$ from a fixed axis in $\R^3$ is a circular cone rather than a
+wedge. \Cref{exr:ch12-3d} asks for the details. \qedhere
+\end{proof}
 
 \begin{figure}[tb]
   \centering
@@ -1126,10 +1139,7 @@ the cone. Every plane through the axis cuts the cone in the planar wedge of
   \label{fig:ch12-cone3d}
 \end{figure}
 
-\Cref{fig:ch12-cone3d} shows the cone. The proof is the one of
-\cref{thm:ch12-cone} and \cref{thm:ch12-truncated} read with 3-vectors; the
-only new fact is that the set of directions at angle $\le \theta$ from a fixed
-axis in $\R^3$ is a circular cone rather than a wedge. The tangent points form
+\Cref{fig:ch12-cone3d} shows the cone. The tangent points form
 a circle at distance $(d^2-R^2)/d$ from the apex along the axis, of radius
 $R\sqrt{d^2-R^2}/d$. For the implementation this means that \cref{alg:ch12-ttc}
 works verbatim in 3D, which the chapter's code exploits: \code{time\_to\_collision}
@@ -1190,13 +1200,10 @@ The default candidate set has $721$ velocities on ten rings of $72$
 directions, i.e.\ $5^\circ$ in heading and $0.15\,\mathrm{m/s}$ in speed for
 $v_{\max} = 1.5$. Always add the preferred velocity and, to reduce chattering,
 the current velocity to the candidates, and consider a finer ring around
-$\vel^{\mathrm{pref}}$. With a single obstacle the exact projection computed by the
-method \code{closest\_boundary\_point} of \code{VelocityObstacle} is both
-cheaper and better; with many
-obstacles, sampling is robust and accepts other cost functions and reachable
-sets without any change to the rule (the dynamic window of
-\cref{ch:ch14}), while the exact
-solution is the linear program of \orca in \cref{ch:ch13}. The test of all
+$\vel^{\mathrm{pref}}$. With a single obstacle, prefer the exact projection of
+\cref{sec:ch12-variants}; with many obstacles, sampling is robust and accepts
+other cost functions and reachable sets without any change to the rule (the
+dynamic window of \cref{ch:ch14}). The test of all
 candidates against one obstacle is one vectorised NumPy expression
 (\code{ttc\_batch}), which is why the self-test, including a sample of the
 experiments of \cref{sec:ch12-experiment}, runs in about $0.3\,\mathrm{s}$;

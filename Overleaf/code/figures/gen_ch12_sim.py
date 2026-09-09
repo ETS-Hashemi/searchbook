@@ -63,6 +63,10 @@ def example():
         kv = min(k, len(tr.velocities) - 1)
         info = tr.infos[kv][0]
         tc = info["tc_pref"] if info is not None else float("inf")
+        # 99.0 is only a plotting cap: an infinite time to collision cannot be
+        # stored in the .dat file and would break the pgfplots y-axis.  The text
+        # and tab:ch12-trace take their values from the library, not from here,
+        # and print \infty for these samples.
         tc = min(tc, 99.0)
         s0 = sep0[k] if k < len(sep0) else sep0[-1]
         rows.append([tr.times[k], tr.positions[k, 0, 0], tr.positions[k, 0, 1],

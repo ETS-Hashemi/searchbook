@@ -128,11 +128,11 @@ columns. Everything else is built on this table.
 \begin{definition}[Classical MAPF instance]
 \label{def:ch07-instance}
 A \textbf{classical MAPF instance}\index{MAPF!classical}\index{MAPF!instance}
-is written $\langle G, s, g \rangle$ and consists of an undirected graph
+is written $\langle G, s, \gamma \rangle$ and consists of an undirected graph
 $G = (V, E)$, a number $k$ of \textbf{agents}\index{agent} $a_1, \dots, a_k$,
 and two maps
-$s, g \colon \set{1,\dots,k} \to V$ that assign to every agent a
-\textbf{start vertex} $s_i$ and a \textbf{goal vertex} $g_i$. The starts are
+$s, \gamma \colon \set{1,\dots,k} \to V$ that assign to every agent a
+\textbf{start vertex} $s_i$ and a \textbf{goal vertex} $\gamma_i$. The starts are
 pairwise distinct and so are the goals. Time is discrete,
 $t \in \set{0, 1, 2, \dots}$, and all agents act synchronously: in every time
 step each agent either \textbf{moves}\index{move action} along one edge to an
@@ -153,15 +153,15 @@ themselves and the goals among themselves must be distinct.
 \label{def:ch07-path}
 A \textbf{time-indexed path}\index{path!time-indexed} for agent $a_i$ is a
 sequence $\pi_i = (\pi_i[0], \pi_i[1], \dots, \pi_i[T_i])$ of vertices with
-$\pi_i[0] = s_i$, $\pi_i[T_i] = g_i$ and, for every $t < T_i$, either
+$\pi_i[0] = s_i$, $\pi_i[T_i] = \gamma_i$ and, for every $t < T_i$, either
 $\pi_i[t+1] = \pi_i[t]$ (a wait) or $\set{\pi_i[t], \pi_i[t+1]} \in E$ (a
 move). Under the \textbf{stay-at-target}\index{stay-at-target} convention the
 agent remains at its goal after the end of its path: we set
-$\pi_i[t] = g_i$ for all $t > T_i$, so that $\pi_i[t]$ is defined for every
+$\pi_i[t] = \gamma_i$ for all $t > T_i$, so that $\pi_i[t]$ is defined for every
 $t \ge 0$. The \textbf{cost}\index{path!cost (MAPF)} of the path is the time
 of its last arrival at the goal,
 \begin{equation}
-  \cost(\pi_i) = \min \set{ \tau \ge 0 \;:\; \pi_i[t] = g_i \text{ for all } t \ge \tau }.
+  \cost(\pi_i) = \min \set{ t' \ge 0 \;:\; \pi_i[t] = \gamma_i \text{ for all } t \ge t' }.
   \label{eq:ch07-path-cost}
 \end{equation}
 \end{definition}
@@ -566,7 +566,7 @@ is a pair of crossing move edges. This picture is behind every solver of
 \astar; a vertex constraint $\langle a_i, v, t\rangle$ deletes the node
 $(v, t)$ for agent $a_i$, an edge constraint $\langle a_i, u, v, t\rangle$
 deletes its move edge from $(u, t)$ to $(v, t+1)$, and the goal-stay test
-makes sure that the agent can park at $g_i$ for ever once it arrives. What a
+makes sure that the agent can park at $\gamma_i$ for ever once it arrives. What a
 MAPF solver adds is the choice of the constraints; what this chapter adds is
 the detector that tells it which conflict to resolve next.
 
@@ -626,17 +626,17 @@ property of the instance, not a rule.
 \begin{proposition}[Elementary bounds]
 \label{prop:ch07-bounds}
 Let $\dist(u, v)$ be the distance of \cref{ch:ch02} in $G$
-and let $\Pi$ be any solution of $\langle G, s, g\rangle$. Then
+and let $\Pi$ be any solution of $\langle G, s, \gamma\rangle$. Then
 \begin{equation}
-  \sumcost(\Pi) \ge \sum_{i=1}^{k} \dist(s_i, g_i), \qquad
-  \makespan(\Pi) \ge \max_{i} \dist(s_i, g_i), \qquad
+  \sumcost(\Pi) \ge \sum_{i=1}^{k} \dist(s_i, \gamma_i), \qquad
+  \makespan(\Pi) \ge \max_{i} \dist(s_i, \gamma_i), \qquad
   \makespan(\Pi) \le \sumcost(\Pi) \le k \cdot \makespan(\Pi).
   \label{eq:ch07-bounds}
 \end{equation}
 \end{proposition}
 \begin{proof}
-The path $\pi_i$ is at $g_i$ from time $\cost(\pi_i)$ on and makes at most
-one move per step, so $\cost(\pi_i) \ge \dist(s_i, g_i)$; summing or maximising
+The path $\pi_i$ is at $\gamma_i$ from time $\cost(\pi_i)$ on and makes at most
+one move per step, so $\cost(\pi_i) \ge \dist(s_i, \gamma_i)$; summing or maximising
 over $i$ gives the first two inequalities. The third holds because a sum of
 $k$ non-negative numbers lies between their maximum and $k$ times their
 maximum.
@@ -652,7 +652,7 @@ cost is the price of coordination, $5$ and $2$ in \cref{ex:ch07-grid}.
 \begin{theorem}[Feasibility can be decided in polynomial time]
 \label{thm:ch07-feasible}
 Let $G$ be connected and let at least two vertices be empty,
-$k \le \abs{V} - 2$. Whether $\langle G, s, g\rangle$ has a solution can be
+$k \le \abs{V} - 2$. Whether $\langle G, s, \gamma\rangle$ has a solution can be
 decided in polynomial time, and if it has one, a solution with
 $\bigO{\abs{V}^3}$ moves can be constructed in polynomial
 time~\cite{kornhauser1984pebble,dewilde2014push}.
@@ -840,7 +840,7 @@ column $x$ of the file is our vertex $(r, c) = (y, x)$.
 After the line \code{version 1}, every line describes one agent by nine
 fields: a bucket number (a distance group of the single-agent benchmark,
 ignored by MAPF solvers), the name of the map file, its width and height,
-the start $s_x, s_y$, the goal $g_x, g_y$, and the length of the agent's
+the start $s_x, s_y$, the goal $\gamma_x, \gamma_y$, and the length of the agent's
 shortest path as computed by the benchmark's own tools, which you should
 treat as informative only: in the real files it is an \emph{octile} distance
 written as a floating-point number, \code{4.82843} rather than the
@@ -951,7 +951,7 @@ the hashed detectors return identical results, both for the first conflict and
 for the list of all conflicts.
 
 The validator \code{validate\_plan}\index{validator (MAPF)} first checks that
-every path is legal for its agent, that is, starts at $s_i$, ends at $g_i$,
+every path is legal for its agent, that is, starts at $s_i$, ends at $\gamma_i$,
 stays on free cells and moves at most one cell per step, and only then runs
 the detector; an illegal path would otherwise produce misleading conflicts.
 Use it as an oracle for every solver you write in the next four chapters: a
@@ -1102,7 +1102,7 @@ milestone is that you can represent and detect MAPF conflicts correctly, which
 \section{Summary}
 \begin{summary}
 \begin{itemize}
-  \item A classical MAPF instance is $\langle G, s, g\rangle$: an undirected graph, $k$ agents with distinct starts and distinct goals, discrete synchronous time, unit-cost move and wait actions. A plan is one time-indexed path per agent, a table with agents as rows and time steps as columns.
+  \item A classical MAPF instance is $\langle G, s, \gamma\rangle$: an undirected graph, $k$ agents with distinct starts and distinct goals, discrete synchronous time, unit-cost move and wait actions. A plan is one time-indexed path per agent, a table with agents as rows and time steps as columns.
   \item Stay-at-target: an arrived agent keeps its goal cell for ever and blocks it; a path costs the time of its final arrival, and trailing waits at the goal are free.
   \item Classical MAPF forbids vertex and swapping conflicts (edge conflicts are vertex conflicts in disguise) and allows following conflicts and cycle conflicts, the rotation of $m \ge 3$ agents on a fully occupied cycle; the degenerate case $m = 2$ of that rotation is the forbidden swap.
   \item $\sumcost = \sum_i \cost(\pi_i)$ and $\makespan = \max_i \cost(\pi_i)$; the naive plan bounds both from below, $\makespan \le \sumcost \le k\,\makespan$, and three agents suffice for the two objectives to disagree.

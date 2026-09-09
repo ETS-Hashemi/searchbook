@@ -166,3 +166,88 @@ reader will actually observe; the drone box's distinction between a non-cooperat
 (full responsibility, plain VO) and a swarm member (reciprocal) is sharp and correct; and the
 3D section, with the tangency circle at `(d^2-R^2)/d` of radius `R sqrt(d^2-R^2)/d` and the
 `(3,4,12)` self-test, earns its page.
+
+## Response to review (round 2)
+
+All three required changes are applied, plus six of the seven suggestions. Build:
+`cd Overleaf && ./build.sh ch12-velocity-obstacles` exits **0**, no `!` errors, no citation
+warnings, no undefined label belonging to Chapter 12 (the remaining `??` are `ch:ch11`,
+`ch:ch13`, `ch:ch14`, `ch:ch19`, `ch:ch20`, `ch:ch21`). `python3 code/ch12_velocity_obstacles.py`
+prints `ch12 self-test passed (0.2 s)`; `python3 code/figures/gen_ch12_sim.py` regenerates the
+three `.dat` files (content unchanged; only a comment was added to the generator). Chapter body
+is still PDF folios 115-136 = 22 pages.
+
+### Required changes
+
+1. **`sec:ch12-example` - "the wedge is almost $90^\circ$ wide" wrong by a factor of two.**
+   Done, with one number corrected. The sentence now reads: "the half-angle is almost
+   $90^\circ$ ($d = 1.0012\,\mathrm{m} \approx R$), so the wedge is nearly a half-plane, yet
+   more than a hundred of the samples still lie outside it." The half-angle/width confusion is
+   exactly as you diagnosed. I used $d = 1.0012$, not the $1.0017$ of the report: $1.0017$ comes
+   from the $3$-decimal $\pos_A = (0.637, 0.273)$ printed in `tab:ch12-trace`, whereas the code
+   itself reports `VO (A only): min separation 1.0012 at t = 5.0 s` and
+   `figures/data/ch12-example-traj.dat` stores `sep_vo = 1.0012` (from
+   $\pos_A = (0.6367, 0.2727)$). $1.0012$ is also what the paragraph above the table already
+   quotes as "$1.001\,\mathrm{m}$ apart". The half-angle is then $\arcsin(1/1.0012) = 87.2^\circ$
+   and the wedge $174^\circ$ - still "almost $90^\circ$" and "nearly a half-plane", so the
+   wording you asked for stands unchanged.
+
+2. **`sec:ch12-intuition` - "relative velocity" with the sign opposite to
+   `def:ch12-relative`.** Done, verbatim: the sentence now reads "...an object at the relative
+   position $\pos_B - \pos_A$ that drifts at the rate $\vel_B - \vel_A$, the negative of the
+   relative velocity of \cref{def:ch12-relative}." The following sentence, which uses
+   $\vel_A - \vel_B$, is untouched.
+
+3. **Acronyms used before being defined.** Done, verbatim at all three sites:
+   line 30 "follows its conflict-based-search (\cbs) route"; line 54 "(\cbs or \ecbs, enhanced
+   \cbs, \cref{ch:ch09,ch:ch10})"; lines 59-60 "The reciprocal variants of \cref{ch:ch13} ---
+   reciprocal velocity obstacles (RVO) and optimal reciprocal collision avoidance (\orca) ---
+   are what the swarm members use among themselves". RVO and ORCA are now expanded at their
+   first occurrence in the chapter.
+
+### Suggestions
+
+* **`thm:ch12-cone3d` proof in running prose.** Applied. The two sentences are now a
+  `\begin{proof}[Proof sketch] ... \end{proof}` placed directly after the proposition, ending
+  with a pointer to `\cref{exr:ch12-3d}` for the details; the surrounding paragraph keeps the
+  tangency-circle geometry and the implementation remarks.
+* **Duplication between "Exact selection" and "Sampling versus solving exactly".** Applied by
+  merging in the direction you suggested: the geometric statement (projection onto a leg or the
+  truncation arc, $\vel^* = (1, 0.1)$, the multi-obstacle failure and the \orca half-plane) stays
+  in `sec:ch12-variants`; the implementation paragraph now only says "With a single obstacle,
+  prefer the exact projection of \cref{sec:ch12-variants}; with many obstacles, sampling is
+  robust and accepts other cost functions and reachable sets without any change to the rule (the
+  dynamic window of \cref{ch:ch14})." This recovers four lines, not half a page, so the body is
+  still 22 pages; nothing required was cut.
+* **Caption of `fig:ch12-crossing`(b).** Applied: "$1.4$--$2.3\,\%$ in the stream", matching
+  both the body text and `tab:ch12-crossing` (the code prints ratios $1.014$ at $n=2$ up to
+  $1.023$ at $n=8$).
+* **"the tangent points ... form $3$--$4$--$5$ triangles".** Applied: the sentence now reads
+  "the leg directions are the $3$--$4$--$5$ unit vectors $(0.8,-0.6)$ and $(0.6,-0.8)$, and the
+  tangent points of the circle of radius $1$ around $(5,-5)$, seen from the origin, lie at
+  distance $\sqrt{d^2-R^2} = 7$ along them, at $(5.6,-4.2)$ and $(4.2,-5.6)$."
+* **Proof of `cor:ch12-intruder`.** Applied: added "The theorem may be applied on each interval
+  separately because the centre distance on $[k\dt, (k+1)\dt]$ depends only on the velocities
+  held during that interval, and both are constant there."
+* **`\cref{ch:ch02}` in general where an exact label exists.** Applied at all four sites:
+  line 90 Minkowski sum -> `\cref{thm:ch02-disc-minkowski}`; line 148 point-mass model ->
+  `\cref{def:ch02-single-integrator}`; line 239 point-to-segment distance ->
+  `\cref{def:ch02-point-segment-distance}`; line 481 $v_{\max}$ ->
+  `\cref{def:ch02-single-integrator}`. All four resolve in the build.
+* **`figures/data/ch12-example-traj.dat` storing `tc_pref = 99.0`.** Applied: a four-line
+  comment at the `tc = min(tc, 99.0)` line of `code/figures/gen_ch12_sim.py` says that $99$ is a
+  plotting cap for an infinite time to collision, and that the text and `tab:ch12-trace` take
+  their values from the library and print $\infty$.
+* **`bib/ch12-extra.bib`, `large2002nonlinear`.** Not changed. I have no way to verify the exact
+  title wording from this environment, and the style guide forbids guessing; the entry carries
+  no page numbers, so it is left exactly as it stands for the editor to check.
+
+### What must be kept
+
+Untouched: `thm:ch12-cone` and its proof (only the parenthetical pointer to Chapter 2 became an
+exact label), the $\Delta/4 = \norm{\vel}^2(R^2 - d^2\sin^2\varphi)$ identity, the truncation-as-
+union-of-scaled-discs treatment and the rewritten proof of `thm:ch12-truncated` with
+`eq:ch12-scaling`, all eight figures and their captions (only the percentage range in
+`fig:ch12-crossing` changed), `tab:ch12-trace` and every number in the worked example, the
+"what is not guaranteed" list, the oscillation section, the $n = 2..8$ experiment, the four
+pitfalls, the drone box and the 3D section.
