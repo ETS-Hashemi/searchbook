@@ -110,7 +110,8 @@ diagram. Three details matter and are easy to get wrong.
   \item \textbf{Edge reservations.} Two agents that exchange cells between $t$ and $t+1$
         never occupy the same cell at the same time, so vertex reservations alone do not
         catch this swapping conflict. When agent~1 moves from $u$ to $v$ between $t$ and
-        $t+1$, the table also reserves the reverse edge $(v, u)$ at time $t$.
+        $t+1$, the table records that move at time $t$, and no later agent may make
+        the reverse move $v \to u$ in that step.
   \item \textbf{The goal of a later agent.} A later agent may only finish its path at a
         time $T$ after which its goal is never reserved. If a higher-priority agent
         passes through that goal cell at some time $t' > T$, the later agent must wait
@@ -340,9 +341,9 @@ reservation adds the seven vertex entries $((2,t), t)$, the six move entries
 $(((2,t), (2,t+1)), t)$ for $t = 0, \dots, 5$, and parks $(2,6)$ from $t = 6$ on. Agent~2
 then plans against this table. Nothing in it touches the top corridor, so it gets
 $\pi_2(t) = (0, t)$ and reserves the corresponding entries. \Cref{tab:ch08-table} lists
-the table that agent~3 now faces. Only three of its entries matter for agent~3, all in
-column $c = 3$: the vertices $(2,3)$ and $(0,3)$ are taken at $t = 3$, and the move
-$(2,2) \to (2,3)$ at $t = 2$ forbids the reverse move at that time. The goal-stay time
+the table that agent~3 now faces. Only four of its entries matter for agent~3: the vertices $(2,3)$ and $(0,3)$ are
+taken at $t = 3$, the move $(2,2) \to (2,3)$ at $t = 2$ forbids the reverse move at
+that time, and $(0,2)$ is taken at $t = 2$. The goal-stay time
 of agent~3 is $t_g = 3$, the last time at which $(2,3)$ is reserved.
 
 \begin{table}[tb]
@@ -357,7 +358,7 @@ of agent~3 is $t_g = 3$, the last time at which $(2,3)$ is reserved.
   1 & $((2,t), t)$ for $t = 0, \dots, 6$ & $(((2,t),(2,t{+}1)), t)$ for $t = 0, \dots, 5$ & $(2,6)$ from $t = 6$ \\
   2 & $((0,t), t)$ for $t = 0, \dots, 6$ & $(((0,t),(0,t{+}1)), t)$ for $t = 0, \dots, 5$ & $(0,6)$ from $t = 6$ \\
   \midrule
-  seen by 3 & $((2,3), 3)$, $((0,3), 3)$ & $(((2,2),(2,3)), 2)$: no move $(2,3) \to (2,2)$ at $t = 2$ & $t_g = 3$ \\
+  seen by 3 & $((2,3), 3)$, $((0,3), 3)$, $((0,2), 2)$ & $(((2,2),(2,3)), 2)$: no move $(2,3) \to (2,2)$ at $t = 2$ & $t_g = 3$ \\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -449,7 +450,7 @@ are optimal, and nothing in the instance tells you in advance which is which.
 \end{table}
 
 % ---------------------------------------------------------------------
-\section{Properties: soundness, incompleteness, suboptimality, complexity}
+\section[Properties]{Properties: soundness, incompleteness, suboptimality, complexity}
 \label{sec:ch08-properties}
 
 The worked example already displayed the whole character of the method: it is sound,
@@ -494,7 +495,7 @@ not an artefact of a badly chosen order: sometimes there is no good order at all
   (agent~1 ducks into the pocket, agent~2 waits one step) has cost $11$ but is found by
   no order. (b) The same corridor with a long bypass. The best order sends agent~1
   straight ($6$) and agent~2 around ($10$). (c) The optimal plan lets agent~1 use the
-  pocket and agent~2 wait two steps: cost $15$.}
+  pocket and agent~2 wait one step: cost $15$.}
   \label{fig:ch08-counterexamples}
 \end{figure}
 
@@ -536,8 +537,8 @@ of~(a): the corridor is now row~$2$, the pocket is $(3,3)$, and the two agents e
 the corridor ends $(2,0)$ and $(2,6)$. Whichever agent goes first takes the straight
 path of cost $6$ and parks on the other agent's start. The second agent cannot pass it
 in the corridor, by the argument of \cref{thm:ch08-incomplete}, so it takes the
-bypass: one step up, seven along row~$0$ and one down, cost $10$ (or $10$ by the mirror
-image), for a sum of costs of $16$ in both orders. The plan of
+bypass: two steps up, six along row~$0$ and two down, cost $10$ (the same by the
+mirror image), for a sum of costs of $16$ in both orders. The plan of
 \cref{fig:ch08-counterexamples}(c) instead sends agent~1 into the pocket at $t = 4$ and
 lets agent~2 wait at $(2,4)$ during $t = 2, 3$; agent~2 then passes and arrives at
 $t = 7$ while agent~1 leaves the pocket at $t = 5$ and arrives at $t = 8$, sum of costs
@@ -572,8 +573,9 @@ most $T_i$ move entries and one parked entry.
 In practice the searches are far from this bound because the heuristic keeps them
 close to a corridor of width $\bigO{1}$ around the shortest path, and because
 $T_{\max}$ is replaced by the time at which the table stops changing
-(\cref{sec:ch08-implementation}). Forty agents on a $100 \times 100$ grid take well
-under a second in plain \python; the joint search over all agents would not finish in
+(\cref{sec:ch08-implementation}). Forty agents on a $100 \times 100$ grid with
+$20\,\%$ obstacles take about a second in plain \python with the code of this
+chapter; the joint search over all agents would not finish in
 the lifetime of the reader.
 
 \subsection{The positive result: well-formed instances}
@@ -660,7 +662,11 @@ dominance result of \cref{ch:ch04} the space-time search with $\hcost^*$ expands
 more states than with the Manhattan distance, and usually far fewer. On twenty random
 $20 \times 20$ grids with $30\,\%$ obstacles and eight agents each, the self-test of
 \code{code/ch08\_prioritized.py} counts $32\,509$ expansions with the Manhattan
-heuristic and $11\,034$ with the true distance, a factor of three, for the same plans.
+heuristic and $11\,034$ with the true distance, a factor of three, on the same
+instances and orders. The individual paths differ where several shortest paths exist,
+because the two heuristics break these ties differently and a different path of an
+early agent changes what the later agents see; but under both heuristics every path
+is a shortest unblocked one.
 Note what the true distance does \emph{not} know: the other agents. A corridor that is
 closed by a parked drone still looks open to $\hcost^*$, and the search only discovers
 the closure by running into the reservation, as agent~1 does in the order $(3,1,2)$ of
@@ -887,7 +893,7 @@ the search follow one shortest path instead of sweeping the whole $\fcost = C^*$
 \code{validate}, an independent function that walks all pairs of paths through time
 under the stay-at-target convention and reports vertex and swapping conflicts, illegal
 moves and wrong endpoints. The self-test runs it on every plan of every order of the
-examples and on eighty random instances; a planner without such a check will
+examples and on eighty plans of forty random instances; a planner without such a check will
 eventually ship a swap.
 
 \begin{lstlisting}[caption={The reservation table (from \code{code/ch08\_prioritized.py}): vertex entries, move entries and parked goals, with the three blocking tests of \cref{alg:ch08-ca}.},label={lst:ch08-table}]
@@ -1029,8 +1035,8 @@ is. Use $T_{\max} = H + 1 + D$ or collapse the time index beyond $H + 1$ as in
 \begin{dronebox}
 Prioritized planning is the fast global planner of a swarm. Forty drones on a
 $100 \times 100$ grid are forty space-time searches, and with the true-distance
-heuristic and a good order they finish in a fraction of a second, where the optimal
-solvers of \cref{ch:ch09,ch:ch10} may need minutes. In the hybrid architecture of
+heuristic and a good order they finish in about a second in plain \python, and much
+faster in a compiled implementation, where the optimal solvers of \cref{ch:ch09,ch:ch10} may need minutes. In the hybrid architecture of
 \cref{ch:ch24} the global layer is \cbs or \ecbs because they come with guarantees:
 \cbs is complete and optimal, \ecbs is complete and bounded-suboptimal, whereas the
 plan of this chapter can be arbitrarily worse than optimal and may not exist for the
@@ -1166,8 +1172,8 @@ $w = 2, \dots, 12$. For $w \le 5$ the rounds never end and the function returns
 Explain both outcomes: what does the chased agent see at the end of its window, and
 where does the stay-put fallback of \cref{alg:ch08-whca} fire? (c) Why does the
 rotation of line~\ref{alg:ch08-whca:rotate} not help here, and what would? (Hint: with
-the full horizon the order $(2,1)$ succeeds with costs $8$ and $15$: agent~1 hides in
-the pocket while agent~2 passes.)
+the full horizon the order $(2,1)$ succeeds, agent~2 arriving at $t = 8$ and agent~1
+at $t = 15$: agent~1 hides in the pocket while agent~2 passes.)
 \end{exercise}
 
 \begin{exercise}[\difficulty{3} Coding: prioritized planning for two to five agents]

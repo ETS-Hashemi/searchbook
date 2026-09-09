@@ -1,4 +1,675 @@
 \chapter{Consensus and Formation Control}
 \label{ch:ch23}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode are prefixed with "Consensus" to stay unique
+% across the book.
+\SetKwFunction{ConsensusFormationStep}{FormationStep}
+\SetKwFunction{ConsensusSecondOrderStep}{SecondOrderFormationStep}
+
+\begin{objectives}
+\begin{itemize}
+  \item Build the communication graph of a swarm from the drone positions and the radio range, write down its adjacency, degree and Laplacian matrices, and read connectivity and convergence speed off the Laplacian spectrum.
+  \item State the consensus protocol $\dot{\vect{x}} = -\mat{L}\vect{x}$, prove that on a connected graph it drives every drone to the average of the initial states at the rate $\lambda_2$, and choose a safe step size for its discrete-time version.
+  \item Turn consensus into a formation controller by prescribing displacements, pin a leader to a reference path, and explain why the formation is reached only up to a translation.
+  \item Define the formation error and the algebraic connectivity as the two quantities that a formation-flying swarm monitors, and express the communication radius as a hard constraint or as a potential.
+  \item Extend the controller to double-integrator drones and to flocking with separation, alignment and navigation terms, and implement and test all of it in \python.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch23-motivation}
+
+Four camera drones film a moving vehicle from four sides. The images are only
+useful if the drones keep a square of side $2$~m around the target, and the
+drones can only coordinate if every one of them stays within the radio range
+$R_{\mathrm{comm}}$ of at least one other drone. The global planner of the
+hybrid architecture (\cref{ch:ch24}) has produced a conflict-free path for the
+square as a whole with \cbs or \ecbs (\cref{ch:ch09,ch:ch10}); the reactive
+layer (\orca, \cref{ch:ch13}; DWA, \cref{ch:ch14}) will push single drones off
+that path when a bird crosses the scene. Between these two layers something has
+to hold the square together: a controller that lets each drone use only what
+it can hear from its neighbours, that keeps the relative positions, that keeps
+the communication graph connected, that yields to an avoidance manoeuvre and
+that pulls the square back together afterwards. That controller is the subject
+of this chapter, and its two constraints, formation preservation and the
+communication radius, are the last two constraints of the capstone system of
+\cref{ch:ch24}; \cref{ch:ch25} measures how well they are met with the
+formation error and the communication violations defined here.
+
+The controller is built from a single rule, \textbf{consensus}: every drone
+moves its state towards the average of its neighbours' states. Consensus is
+one of the few results in this book with a complete, short and beautiful
+theory. Its convergence is decided by one number, the second-smallest
+eigenvalue $\lambda_2$ of the graph Laplacian, which is positive exactly when
+the communication graph is connected and which is also the rate at which the
+drones agree. Everything else in the chapter, leader--follower tracking,
+displacement-based formation control, second-order control for
+double-integrator drones and flocking, is consensus applied to a shifted or
+extended state.
+
+The chapter proceeds as follows. \Cref{sec:ch23-intuition} gives the rule and
+its picture, \cref{sec:ch23-problem} the graph matrices, the consensus problem,
+the formation and the formation-error metric. \Cref{sec:ch23-algorithm}
+develops the controllers: consensus in continuous and discrete time, pinning a
+leader, formation by displacements and the second-order version.
+\Cref{sec:ch23-example} works through four drones by hand, with the Laplacian
+written out, its eigenvalues and the convergence to a square.
+\Cref{sec:ch23-properties} proves the convergence theorems, including the
+discrete step-size condition and the directed-graph and switching-topology
+results. \Cref{sec:ch23-variants} covers distance-based formations, flocking
+and the communication-range constraints, \cref{sec:ch23-implementation} the
+implementation, and \cref{sec:ch23-drone} the place of the controller in the
+drone system and what happens to the formation during an avoidance manoeuvre.
+
+% ---------------------------------------------------------------------
+\section{The idea in plain words}
+\label{sec:ch23-intuition}
+
+Imagine that each drone holds a number, say its altitude, and that the swarm
+wants to agree on a common altitude without a leader and without anybody
+knowing all the numbers. The rule is: at every instant, move your number
+towards the numbers of the drones you can hear (\cref{fig:ch23-idea}). A drone
+whose neighbours are all higher climbs, a drone in the middle of its
+neighbours stays. Two things follow immediately. Whatever one drone gains, its
+neighbour loses, so the \emph{sum} of the numbers never changes; and the
+\emph{spread} of the numbers can only shrink, because the largest number can
+only go down and the smallest can only go up. If the communication graph is
+connected, the spread shrinks to zero and the swarm settles on the average of
+the initial numbers. How fast it does so depends on how well the graph is
+connected: a long chain of drones agrees slowly, a dense cluster agrees fast.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch23/idea}
+  \caption{Left: the communication graph of six drones with radio range
+  $R_{\mathrm{comm}}$; drone~3 hears drones 2, 4 and 5 and nobody else, so its
+  update uses three neighbours. Right: the consensus rule for one drone. Each
+  grey arrow is the difference $\vect{x}_j - \vect{x}_i$ to a neighbour; their
+  sum (orange) points from $\vect{x}_i$ towards $\abs{N_i}$ times the
+  neighbours' average, so drone $i$ moves towards the average of the drones it
+  can hear.}
+  \label{fig:ch23-idea}
+\end{figure}
+
+Formation control is the same rule applied to a shifted number. Give every
+drone a slot $\vect{o}_i$ in a template of the formation, say the four corners
+of a square, and let the drones run consensus not on their positions but on
+$\pos_i - \vect{o}_i$, the position of the template's origin as drone $i$ sees
+it. When they agree on that origin, every drone is in its slot and the swarm
+is in formation. The template can be placed anywhere: consensus decides
+\emph{where}, the offsets decide the \emph{shape}. If one drone is told where
+the origin should be, for example by the \cbs path, the whole formation
+follows it.
+
+\begin{keyidea}
+Consensus is the rule $\dot{\vect{x}}_i = \sum_{j \in N_i} (\vect{x}_j -
+\vect{x}_i)$, in matrix form $\dot{\vect{x}} = -\mat{L}\vect{x}$ with the
+graph Laplacian $\mat{L}$. On a connected graph it drives every drone to the
+average of the initial states, and the disagreement decays like
+$e^{-\lambda_2 t}$, where $\lambda_2$ is the algebraic connectivity of the
+graph. A formation is consensus on the shifted positions $\pos_i - \vect{o}_i$:
+the drones agree on where the template sits, and the offsets give the shape.
+\end{keyidea}
+
+% ---------------------------------------------------------------------
+\section{Problem statement and notation}
+\label{sec:ch23-problem}
+
+\subsection{The communication graph and its matrices}
+
+\begin{definition}[Communication graph]
+\label{def:ch23-graph}
+A swarm of $n$ drones with positions $\pos_1, \dots, \pos_n \in \R^m$
+($m = 2$ or $3$) forms the \textbf{communication graph}\index{communication graph}
+$G = (V, E)$ with $V = \set{1, \dots, n}$ and an edge $\set{i, j} \in E$ whenever
+drones $i$ and $j$ can exchange messages. For a radio of range
+$R_{\mathrm{comm}}$ this is the \textbf{radius graph}\index{radius graph}
+\begin{equation}
+  \set{i, j} \in E \iff \norm{\pos_i - \pos_j} \le R_{\mathrm{comm}}, \qquad i \ne j.
+  \label{eq:ch23-radius}
+\end{equation}
+The \textbf{neighbourhood}\index{neighbourhood $N_i$} of drone $i$ is
+$N_i = \set{j \given \set{i, j} \in E}$ and its \textbf{degree} is
+$d_i = \abs{N_i}$. The graph is \textbf{directed} when the links are one-way:
+then $(j, i) \in E$ means that $i$ receives from $j$, and $N_i$ is the set of
+drones that $i$ hears. A graph that changes with time is a \textbf{switching
+topology}\index{switching topology}; the radius graph switches whenever a
+pair of drones crosses the distance $R_{\mathrm{comm}}$.
+\end{definition}
+
+The mathematics refresher (\cref{ch:appB}) collects the linear algebra used
+below: symmetric matrices have real eigenvalues and an orthonormal basis of
+eigenvectors, and a symmetric matrix is positive semidefinite exactly when
+its quadratic form is non-negative.
+
+\begin{definition}[Adjacency, degree and Laplacian matrices]
+\label{def:ch23-laplacian}
+The \textbf{adjacency matrix}\index{adjacency matrix} $\mat{A} \in \R^{n
+\times n}$ has $a_{ij} = 1$ if $\set{i, j} \in E$ and $a_{ij} = 0$ otherwise
+(in particular $a_{ii} = 0$); weighted graphs use $a_{ij} > 0$ for the strength
+of the link. The \textbf{degree matrix}\index{degree matrix} is
+$\mat{D} = \diag(d_1, \dots, d_n)$ with $d_i = \sum_j a_{ij}$, and the
+\textbf{graph Laplacian}\index{graph Laplacian}\index{Laplacian|see{graph Laplacian}} is
+\begin{equation}
+  \mat{L} = \mat{D} - \mat{A}, \qquad
+  \ell_{ij} = \begin{cases} d_i & i = j,\\ -a_{ij} & i \ne j. \end{cases}
+  \label{eq:ch23-laplacian}
+\end{equation}
+Its eigenvalues are written in increasing order,
+$\lambda_1 \le \lambda_2 \le \dots \le \lambda_n$; $\lambda_2$ is the
+\textbf{algebraic connectivity}\index{algebraic connectivity $\lambda_2$}
+of the graph \cite{fiedler1973algebraic}. $\vect{1}$ denotes the vector of $n$
+ones.
+\end{definition}
+
+\begin{proposition}[Properties of the Laplacian of an undirected graph]
+\label{prop:ch23-laplacian}
+Let $G$ be undirected with $n$ vertices and let $d_{\max}$ and $d_{\min}$ be its
+largest and smallest degree. Then
+\begin{enumerate}[label=(\roman*)]
+  \item every row of $\mat{L}$ sums to zero: $\mat{L}\vect{1} = \vect{0}$ and
+    $\vect{1}\T \mat{L} = \vect{0}\T$;
+  \item $\mat{L}$ is symmetric and
+    $\vect{x}\T \mat{L} \vect{x} = \sum_{\set{i,j} \in E} a_{ij} (x_i - x_j)^2 \ge 0$
+    for every $\vect{x} \in \R^n$, so $\mat{L}$ is positive semidefinite and
+    $0 = \lambda_1 \le \lambda_2 \le \dots \le \lambda_n$;
+  \item the multiplicity of the eigenvalue $0$ equals the number of connected
+    components of $G$; in particular $\lambda_2 > 0$ if and only if $G$ is
+    connected;
+  \item $\lambda_n \le 2 d_{\max}$;
+  \item if $G$ is not complete then $\lambda_2 \le d_{\min}$, and the complete
+    graph $K_n$ has $\lambda_2 = n$.
+\end{enumerate}
+\end{proposition}
+\begin{proof}
+(i) The diagonal entry $d_i$ of row $i$ equals the sum of the $a_{ij}$ that are
+subtracted in the same row. (ii) Symmetry is inherited from $\mat{A}$. Expand
+$\vect{x}\T \mat{L} \vect{x} = \sum_i d_i x_i^2 - \sum_{i \ne j} a_{ij} x_i x_j$
+and group the terms of each edge: $a_{ij}(x_i^2 + x_j^2 - 2 x_i x_j) =
+a_{ij}(x_i - x_j)^2$. A symmetric matrix with a non-negative quadratic form
+has non-negative eigenvalues, and $\lambda_1 = 0$ by (i). (iii) By (ii),
+$\mat{L}\vect{x} = \vect{0}$ holds if and only if $\vect{x}\T \mat{L} \vect{x} =
+0$, that is, $x_i = x_j$ on every edge, that is, $\vect{x}$ is constant on
+every connected component. The indicator vectors of the components therefore
+span the null space, whose dimension is the number of components. (iv) By
+Gershgorin's theorem every eigenvalue lies in a disc centred at some diagonal
+entry $d_i$ with radius $\sum_{j \ne i} \abs{\ell_{ij}} = d_i$, hence in
+$[0, 2 d_{\max}]$. (v) is Fiedler's theorem \cite{fiedler1973algebraic}: for a
+non-complete graph $\lambda_2$ is at most the vertex connectivity, which is at
+most $d_{\min}$. For $K_n$, $\mat{L} = n\mat{I} - \vect{1}\vect{1}\T$ has the
+eigenvalue $n$ on the whole space orthogonal to $\vect{1}$.
+\end{proof}
+
+Two examples fix the scale of $\lambda_2$. A path of $n$ drones in a line, each
+hearing only its two neighbours, has $\lambda_2 = 2(1 - \cos(\pi/n))$, which is
+$0.27$ for $n = 6$ and shrinks like $\pi^2/n^2$; a complete graph on the same
+six drones has $\lambda_2 = 6$. Connectivity is a matter of degree, and
+$\lambda_2$ measures it on a continuous scale from $0$ (disconnected) upwards.
+
+\subsection{Consensus}
+
+\begin{definition}[Consensus]
+\label{def:ch23-consensus}
+Each drone $i$ holds a state $\vect{x}_i \in \R^m$ (a scalar, a position, a
+velocity, an estimate). The swarm \textbf{reaches consensus}\index{consensus!definition}
+if $\vect{x}_i(t) - \vect{x}_j(t) \to \vect{0}$ for all pairs $i, j$ as
+$t \to \infty$, and \textbf{average consensus}\index{consensus!average} if the
+common limit is the average $\bar{\vect{x}} = \frac{1}{n}\sum_i \vect{x}_i(0)$
+of the initial states. Stacking the states of a scalar problem into
+$\vect{x} = (x_1, \dots, x_n)\T$, the \textbf{disagreement vector}\index{disagreement vector}
+is $\vect{\delta} = \vect{x} - \bar{x}\vect{1}$, the component of $\vect{x}$
+orthogonal to $\vect{1}$; the swarm is in consensus exactly when
+$\vect{\delta} = \vect{0}$. Vector states are handled one coordinate at a time.
+\end{definition}
+
+\subsection{Formations and the formation error}
+
+\begin{definition}[Displacement-based formation]
+\label{def:ch23-formation}
+A \textbf{formation}\index{formation!template} is described by a template of
+offsets $\vect{o}_1, \dots, \vect{o}_n \in \R^m$ in a common frame, one slot per
+drone. The \textbf{desired displacement}\index{formation!desired displacement $\vect{d}_{ij}$}
+from drone $i$ to drone $j$ is
+\begin{equation}
+  \vect{d}_{ij} = \vect{o}_j - \vect{o}_i, \qquad\text{so that}\qquad
+  \vect{d}_{ji} = -\vect{d}_{ij}
+  \quad\text{and}\quad
+  \vect{d}_{ij} + \vect{d}_{jk} + \vect{d}_{ki} = \vect{0}.
+  \label{eq:ch23-dij}
+\end{equation}
+The \textbf{formation graph}\index{formation!graph} $G_F = (V, E_F)$ lists the
+pairs whose displacement is prescribed and measured; it is connected and is
+usually the communication graph, a spanning subgraph of it, or the complete
+graph. The swarm is \textbf{in formation} if $\pos_j - \pos_i = \vect{d}_{ij}$
+for every $\set{i, j} \in E_F$; because $G_F$ is connected this holds if and
+only if $\pos_i = \vect{o}_i + \vect{c}$ for all $i$ and one common translation
+$\vect{c}$.
+\end{definition}
+
+A formation is therefore defined only up to translation, which is exactly what
+the leader supplies. The shifted variable $\vect{y}_i = \pos_i - \vect{o}_i$
+is the position of the template origin as seen by drone $i$, and the swarm is
+in formation if and only if all $\vect{y}_i$ agree. This is the observation
+that turns consensus into formation control in \cref{sec:ch23-formation}.
+
+\begin{definition}[Formation error]
+\label{def:ch23-error}
+The \textbf{formation error}\index{formation error} of the positions
+$\pos = (\pos_1, \dots, \pos_n)$ with respect to the formation
+$(\vect{o}_i)$ and the formation graph $G_F$ is the root-mean-square violation
+of the desired displacements over the edges of $G_F$,
+\begin{equation}
+  e_F(\pos) = \sqrt{\frac{1}{\abs{E_F}} \sum_{\set{i,j} \in E_F}
+    \norm{\pos_j - \pos_i - \vect{d}_{ij}}^2}
+  = \sqrt{\frac{1}{\abs{E_F}} \sum_{\set{i,j} \in E_F}
+    \norm{\vect{y}_j - \vect{y}_i}^2}.
+  \label{eq:ch23-error}
+\end{equation}
+The \textbf{centred formation error} removes the best translation first:
+with $\bar{\vect{y}} = \frac{1}{n}\sum_i \vect{y}_i$,
+\begin{equation}
+  e_c(\pos) = \sqrt{\frac{1}{n} \sum_{i=1}^{n} \norm{\vect{y}_i - \bar{\vect{y}}}^2}.
+  \label{eq:ch23-errorc}
+\end{equation}
+\end{definition}
+
+Both errors have the unit of a length, both are invariant under a translation
+of the whole swarm, and both are zero exactly when the swarm is in formation.
+$e_F$ is the metric used by \cref{ch:ch25}: it only needs the pairs of the
+formation graph, so a drone can compute its own contribution from its
+neighbours' messages. The translation $\bar{\vect{y}}$ that $e_c$ removes is
+the least-squares fit of the template to the current positions, and for the
+complete formation graph the two metrics are proportional,
+$e_F^2 = \frac{2n}{n-1}\, e_c^2$ (\cref{exr:ch23-average}). Two more
+quantities are monitored alongside $e_F$: the \textbf{edge lengths}
+$\ell_{ij} = \norm{\pos_i - \pos_j}$ of the edges that must stay in range, and
+the number of \textbf{communication violations}\index{communication violation},
+the edges of a chosen set $E_{\mathrm{keep}} \subseteq E_F$ that are longer than
+$R_{\mathrm{comm}}$ at a given time.
+
+% ---------------------------------------------------------------------
+\section{The algorithm: consensus and its extensions}
+\label{sec:ch23-algorithm}
+
+\subsection{The consensus protocol}
+\label{sec:ch23-protocol}
+
+The \textbf{consensus protocol}\index{consensus!protocol} of
+\textcite{olfatisaber2004consensus} is the rule of \cref{sec:ch23-intuition}
+written as a differential equation. Drone $i$ moves its state with the velocity
+\begin{equation}
+  \dot{\vect{x}}_i = \sum_{j \in N_i} (\vect{x}_j - \vect{x}_i)
+  = \sum_{j=1}^{n} a_{ij} (\vect{x}_j - \vect{x}_i), \qquad i = 1, \dots, n.
+  \label{eq:ch23-protocol}
+\end{equation}
+The right-hand side is $-d_i \vect{x}_i + \sum_j a_{ij} \vect{x}_j$, which is
+row $i$ of $-\mat{L}\vect{x}$, so the whole swarm obeys the linear system
+\begin{equation}
+  \dot{\vect{x}} = -\mat{L}\vect{x}.
+  \label{eq:ch23-matrix}
+\end{equation}
+Three features of \cref{eq:ch23-protocol} matter for a swarm. The rule is
+\emph{local}: drone $i$ needs only the states of the drones it hears. It is
+\emph{leaderless} and \emph{symmetric}: no drone is special and every message
+is used the same way. And it \emph{conserves the sum}: by
+\cref{prop:ch23-laplacian}(i), $\frac{d}{dt}(\vect{1}\T\vect{x}) =
+-\vect{1}\T\mat{L}\vect{x} = 0$, so the average $\bar{x}$ is a constant of the
+motion. Every drone that runs \cref{eq:ch23-protocol} is therefore computing
+the same number, the average of the initial states, without anybody ever
+collecting them. A gain $k > 0$ in front of the sum only rescales time
+($\vect{x}(t)$ becomes $\vect{x}(kt)$) and is omitted in the analysis.
+
+\subsection{Discrete-time consensus and the step size}
+\label{sec:ch23-discrete}
+
+A drone updates its command at a control period $\dt$, so what it really runs
+is the Euler step of \cref{eq:ch23-matrix} with the step size
+$\eps = k\,\dt$:
+\begin{equation}
+  \vect{x}_{k+1} = (\mat{I} - \eps\mat{L})\,\vect{x}_k, \qquad\text{that is}\qquad
+  \vect{x}_{i,k+1} = \vect{x}_{i,k} + \eps \sum_{j \in N_i} (\vect{x}_{j,k} - \vect{x}_{i,k}).
+  \label{eq:ch23-discrete}
+\end{equation}
+The matrix $\mat{P} = \mat{I} - \eps\mat{L}$ is called the Perron matrix of
+the graph \cite{olfatisaber2007consensus}. Its rows sum to one, and its entries
+$1 - \eps d_i$ on the diagonal and $\eps a_{ij}$ off it are all non-negative if
+and only if $\eps \le 1/d_{\max}$. In that case every drone's new state is a
+weighted average of its own and its neighbours' states, in which it keeps the
+weight $1 - \eps d_i$ on itself, and the maximum can never grow nor the minimum
+shrink. The \textbf{step-size condition}\index{consensus!step-size condition}
+\begin{equation}
+  0 < \eps < \frac{1}{d_{\max}}
+  \label{eq:ch23-stepsize}
+\end{equation}
+is the sufficient condition every drone can check from local information (it
+knows its own degree, and a bound on the largest degree is a design parameter
+of the swarm). The exact condition is $\eps < 2/\lambda_n$, which by
+\cref{prop:ch23-laplacian}(iv) is implied by \cref{eq:ch23-stepsize}; both are
+proved in \cref{thm:ch23-discrete}. Above the exact bound the iteration
+diverges, with the fastest mode of the graph flipping sign at every step; the
+worked example shows this happening.
+
+\subsection{Leader--follower consensus}
+\label{sec:ch23-leader}
+
+Average consensus agrees on a value that nobody chose. To make the swarm
+follow a reference $\vect{r}(t)$, for example the \cbs path of the formation,
+one or more drones are \textbf{pinned}\index{consensus!leader--follower}\index{pinning}
+to it \cite{ren2008distributed}:
+\begin{equation}
+  \dot{\vect{x}}_i = \sum_{j \in N_i} (\vect{x}_j - \vect{x}_i)
+  + b_i\, k_l\, (\vect{r} - \vect{x}_i) + \dot{\vect{r}}, \qquad
+  b_i = \begin{cases} 1 & \text{drone $i$ is pinned,}\\ 0 & \text{otherwise,} \end{cases}
+  \label{eq:ch23-pinned}
+\end{equation}
+with a pinning gain $k_l > 0$. The pinned drones are the
+\textbf{leaders}\index{leader--follower}; the others follow them through the
+graph and never see $\vect{r}$. With $\mat{B} = \diag(b_1, \dots, b_n)$ the
+tracking error $\vect{e} = \vect{x} - \vect{r}\otimes\vect{1}$ (every drone
+compared with the reference) obeys
+\begin{equation}
+  \dot{\vect{e}} = -(\mat{L} + k_l \mat{B})\,\vect{e},
+  \label{eq:ch23-pinnedmatrix}
+\end{equation}
+and \cref{prop:ch23-leader} shows that $\mat{L} + k_l\mat{B}$ is positive
+definite whenever the graph is connected and at least one drone is pinned, so
+that $\vect{e} \to \vect{0}$. The \textbf{feed-forward}\index{feed-forward}
+term $\dot{\vect{r}}$ in \cref{eq:ch23-pinned} is the velocity of the reference,
+which the leader knows from its path and the followers can receive from it
+through the graph. Without it the followers still converge, but to a
+formation that trails the reference by a constant lag proportional to the speed
+(\cref{exr:ch23-secondorder}); \cref{fig:ch23-leader} shows the difference.
+
+\subsection{Formation control by displacements}
+\label{sec:ch23-formation}
+
+The \textbf{displacement-based formation controller}\index{formation control!displacement-based}
+\cite{oh2015survey,ren2008distributed} replaces the difference of the states
+by the difference minus the desired displacement:
+\begin{equation}
+  \dot{\pos}_i = \sum_{j \in N_i} (\pos_j - \pos_i - \vect{d}_{ij}).
+  \label{eq:ch23-formation}
+\end{equation}
+Drone $i$ moves towards the point $\pos_j - \vect{d}_{ij}$ where it should be
+according to each neighbour $j$, and it stops when it is there for all of them.
+With $\vect{d}_{ij} = \vect{o}_j - \vect{o}_i$ and the shifted variables
+$\vect{y}_i = \pos_i - \vect{o}_i$ the summand is $\vect{y}_j - \vect{y}_i$,
+so that
+\begin{equation}
+  \dot{\vect{y}}_i = \sum_{j \in N_i} (\vect{y}_j - \vect{y}_i),
+  \qquad \dot{\vect{y}} = -\mat{L}\vect{y} \text{ in every coordinate}:
+  \label{eq:ch23-shift}
+\end{equation}
+the shifted variables run the plain consensus protocol
+\cref{eq:ch23-matrix}. The offsets never appear in the dynamics of
+$\vect{y}$; they only decide what the agreement means. Consequently every
+theorem about consensus is a theorem about formation control: on a connected
+graph the $\vect{y}_i$ converge to their initial average
+$\bar{\vect{y}} = \frac{1}{n}\sum_i (\pos_i(0) - \vect{o}_i)$, and the drones
+settle at $\pos_i = \vect{o}_i + \bar{\vect{y}}$, the template translated by the
+initial centroid shift (\cref{thm:ch23-formation}). Pinning a leader to
+$\vect{r} + \vect{o}_i$ as in \cref{eq:ch23-pinned} pins the template origin to
+$\vect{r}$ and makes the formation follow the path.
+
+\begin{pitfall}[Inconsistent displacement vectors]
+Every $\vect{d}_{ij}$ must satisfy \cref{eq:ch23-dij}. If drone $i$ wants $j$
+two metres to its east but $j$ wants $i$ one metre to its west, the pair
+never settles: the sum of the displacement terms over the graph is no longer
+zero, and the centroid of the swarm drifts with a constant velocity while the
+relative positions converge to a compromise (\cref{exr:ch23-inconsistent}).
+The same happens when the vectors do not close around a cycle,
+$\vect{d}_{12} + \vect{d}_{23} + \vect{d}_{31} \ne \vect{0}$: no set of
+positions satisfies all edges, the controller minimises the residual and a
+formation error remains for ever. The safe way is to store the offsets
+$\vect{o}_i$ and to compute $\vect{d}_{ij} = \vect{o}_j - \vect{o}_i$ on the
+fly, which makes both conditions automatic; never store the $\vect{d}_{ij}$
+themselves.
+\end{pitfall}
+
+\Cref{alg:ch23-formation} is one control period of drone $i$ with all of the
+above combined. It is written from the point of view of a single drone, because
+that is how it runs: there is no central computer that assembles
+$\mat{L}$.
+
+\begin{algorithm}[htb]
+\caption{One control period of the displacement-based formation controller on drone $i$}
+\label{alg:ch23-formation}
+\KwIn{own position $\pos_i$ and offset $\vect{o}_i$; messages $(\pos_j, \vect{o}_j)$ from every neighbour $j \in N_i$, i.e.\ every drone within $R_{\mathrm{comm}}$; gains $k$, $k_l$; control period $\dt$; speed limit $v_{\max}$; if drone $i$ is pinned ($b_i = 1$), the reference $\vect{r}$ and its velocity $\dot{\vect{r}}$; optional extra velocity $\vel_i^{\mathrm{extra}}$ (avoidance, range keeping)}
+\KwOut{the velocity command $\vel_i$ and the new position $\pos_i$}
+\Fn{\ConsensusFormationStep{$i$}}{
+  $\vel_i \gets \vect{0}$\;
+  \ForEach{$j \in N_i$}{
+    $\vect{d}_{ij} \gets \vect{o}_j - \vect{o}_i$\label{alg:ch23-formation:dij}\;
+    $\vel_i \gets \vel_i + k\,(\pos_j - \pos_i - \vect{d}_{ij})$\label{alg:ch23-formation:sum}\tcp*{consensus on $\pos - \vect{o}$}
+  }
+  \If{$b_i = 1$}{
+    $\vel_i \gets \vel_i + k_l\,(\vect{r} + \vect{o}_i - \pos_i)$\label{alg:ch23-formation:pin}\tcp*{pin the leader to the reference}
+  }
+  $\vel_i \gets \vel_i + \dot{\vect{r}} + \vel_i^{\mathrm{extra}}$\label{alg:ch23-formation:ff}\tcp*{feed-forward and extra terms}
+  \If{$\norm{\vel_i} > v_{\max}$}{
+    $\vel_i \gets v_{\max}\,\vel_i / \norm{\vel_i}$\label{alg:ch23-formation:sat}\;
+  }
+  $\pos_i \gets \pos_i + \dt\,\vel_i$\label{alg:ch23-formation:step}\tcp*{or hand $\vel_i$ to the autopilot}
+  broadcast $(\pos_i, \vect{o}_i)$\label{alg:ch23-formation:send}\;
+  \KwRet{$\vel_i$, $\pos_i$}\;
+}
+\end{algorithm}
+
+Line~\ref{alg:ch23-formation:dij} derives the displacement from the offsets,
+which is why the message carries $\vect{o}_j$ (or a slot number from which
+$\vect{o}_j$ is looked up). Line~\ref{alg:ch23-formation:sum} is
+\cref{eq:ch23-formation} with the gain $k$; with all offsets zero it is the
+consensus protocol \cref{eq:ch23-protocol}, and over the whole swarm
+lines~\ref{alg:ch23-formation:sum} and~\ref{alg:ch23-formation:step} are the
+discrete-time protocol \cref{eq:ch23-discrete} with $\eps = k\dt$, so the
+gain and the period must satisfy $k\dt < 1/d_{\max}$.
+Line~\ref{alg:ch23-formation:pin} is the pinning term of
+\cref{eq:ch23-pinned} applied to the template origin: the leader is pulled to
+$\vect{r} + \vect{o}_i$, its own slot of a template whose origin is on the
+reference. Line~\ref{alg:ch23-formation:ff} adds the reference velocity, which
+is known to the leader from its path and is forwarded to the followers, and the
+extra velocities of \cref{sec:ch23-range}: the safety term of the reactive
+layer and the range-keeping term. Line~\ref{alg:ch23-formation:sat} enforces
+the speed limit of \cref{ch:ch02} without changing the direction, and
+line~\ref{alg:ch23-formation:step} is the Euler step, which on a real drone is
+replaced by sending $\vel_i$ to the velocity controller of the autopilot.
+Line~\ref{alg:ch23-formation:send} closes the loop: the position that drone
+$i$ broadcasts now is what its neighbours use in their next period. The whole
+period costs $\bigO{\abs{N_i}\,m}$ operations, one message in from each
+neighbour and one message out.
+
+\subsection{Second-order consensus for double-integrator drones}
+\label{sec:ch23-second}
+
+A quadrotor is not a first-order system that can set its velocity at will: to
+a good approximation it is the double integrator $\ddot{\pos}_i = \ctrl_i$ of
+\cref{ch:ch02}, whose input is an acceleration. Feeding the velocity of
+\cref{eq:ch23-formation} through an inner velocity loop works when that loop
+is fast; when the formation loop and the dynamics interact, one uses the
+\textbf{second-order consensus}\index{consensus!second-order}\index{double integrator!consensus}
+protocol \cite{ren2008distributed,olfatisaber2007consensus}
+\begin{equation}
+  \ctrl_i = \sum_{j \in N_i} \bigl[ k_p (\pos_j - \pos_i - \vect{d}_{ij})
+  + k_v (\vel_j - \vel_i) \bigr] - k_d (\vel_i - \dot{\vect{r}})
+  + b_i \bigl[ k_p (\vect{r} + \vect{o}_i - \pos_i) + k_v (\dot{\vect{r}} - \vel_i) \bigr].
+  \label{eq:ch23-second}
+\end{equation}
+The first sum is the displacement term of \cref{eq:ch23-formation} used as a
+spring. The second sum is consensus on the velocities: it damps the relative
+motion of neighbours. The term $-k_d(\vel_i - \dot{\vect{r}})$ is absolute
+damping towards the reference velocity (with $\dot{\vect{r}} = \vect{0}$ it
+brings the swarm to rest), and the last bracket is the pinning of the leader.
+Without any velocity term ($k_v = k_d = 0$) the drones are masses connected by
+springs and oscillate for ever; with $k_v > 0$ or $k_d > 0$ every mode of the
+formation decays (\cref{prop:ch23-second}). In the shifted variables the
+swarm obeys $\ddot{\vect{y}} = -k_p\mat{L}\vect{y} - k_v\mat{L}\dot{\vect{y}}
+- k_d\dot{\vect{y}}$ plus the pinning terms, which is again the Laplacian
+acting on every coordinate. \Cref{alg:ch23-second} is the corresponding
+control period.
+
+\begin{algorithm}[htb]
+\caption{One control period of the second-order formation controller on drone $i$}
+\label{alg:ch23-second}
+\KwIn{own $\pos_i$, $\vel_i$, $\vect{o}_i$; messages $(\pos_j, \vel_j, \vect{o}_j)$ from $j \in N_i$; gains $k_p$, $k_v$, $k_d$; period $\dt$; reference $\vect{r}$, $\dot{\vect{r}}$ if pinned}
+\KwOut{acceleration command $\ctrl_i$; updated $\vel_i$, $\pos_i$}
+\Fn{\ConsensusSecondOrderStep{$i$}}{
+  $\ctrl_i \gets -k_d (\vel_i - \dot{\vect{r}})$\;
+  \ForEach{$j \in N_i$}{
+    $\ctrl_i \gets \ctrl_i + k_p (\pos_j - \pos_i - (\vect{o}_j - \vect{o}_i)) + k_v (\vel_j - \vel_i)$\label{alg:ch23-second:sum}\;
+  }
+  \If{$b_i = 1$}{$\ctrl_i \gets \ctrl_i + k_p (\vect{r} + \vect{o}_i - \pos_i) + k_v (\dot{\vect{r}} - \vel_i)$\;}
+  $\vel_i \gets \vel_i + \dt\,\ctrl_i$; \ $\pos_i \gets \pos_i + \dt\,\vel_i$\label{alg:ch23-second:step}\tcp*{semi-implicit Euler}
+  broadcast $(\pos_i, \vel_i, \vect{o}_i)$\;
+  \KwRet{$\ctrl_i$, $\vel_i$, $\pos_i$}\;
+}
+\end{algorithm}
+
+Line~\ref{alg:ch23-second:sum} needs the neighbours' velocities as well as
+their positions, so the messages double in size, and
+line~\ref{alg:ch23-second:step} updates the velocity before the position
+(semi-implicit Euler), which keeps the oscillatory modes of the spring system
+stable for the step sizes used in practice.
+
+% ---------------------------------------------------------------------
+\section{A worked example}
+\label{sec:ch23-example}
+
+\begin{example}[Four drones, one Laplacian, three controllers]
+\label{ex:ch23-square}
+Four drones hover at the planar positions
+$\pos_1 = (0, 0)$, $\pos_2 = (2, 0)$, $\pos_3 = (1, 1.5)$ and
+$\pos_4 = (3.5, 3)$ (metres) with a radio range $R_{\mathrm{comm}} = 3$~m.
+The pairwise distances are $\ell_{12} = 2$, $\ell_{13} = \ell_{23} = 1.80$,
+$\ell_{34} = 2.92$, $\ell_{24} = 3.35$ and $\ell_{14} = 4.61$, so the radius
+graph has the four edges $\set{1,2}, \set{1,3}, \set{2,3}, \set{3,4}$
+(\cref{fig:ch23-square}a, grey), the degrees $(2, 2, 3, 1)$ and
+\[
+  \mat{A} = \begin{pmatrix} 0&1&1&0\\ 1&0&1&0\\ 1&1&0&1\\ 0&0&1&0 \end{pmatrix}, \qquad
+  \mat{L} = \mat{D} - \mat{A} = \begin{pmatrix} 2&-1&-1&0\\ -1&2&-1&0\\ -1&-1&3&-1\\ 0&0&-1&1 \end{pmatrix}.
+\]
+Every row sums to zero. The eigenvalues are $\lambda_1 = 0$, $\lambda_2 = 1$,
+$\lambda_3 = 3$ and $\lambda_4 = 4$ (their sum, $8$, is the trace of
+$\mat{L}$), with the eigenvectors $\vect{1}$, $(1, 1, 0, -2)\T$,
+$(1, -1, 0, 0)\T$ and $(1, 1, -3, 1)\T$; multiply $\mat{L}$ by each to check.
+The graph is connected ($\lambda_2 > 0$), its \textbf{Fiedler vector}\index{Fiedler vector}
+$(1, 1, 0, -2)\T$ separates the leaf drone~4 from drones~1 and~2 across the
+bottleneck edge $\set{3,4}$, and the \textbf{time constant}\index{consensus!time constant $1/\lambda_2$}
+of consensus is $1/\lambda_2 = 1$~s. The bounds on the discrete step size are
+$1/d_{\max} = 1/3$ and $2/\lambda_4 = 1/2$.
+
+\emph{Consensus on the altitudes.} Let the drones agree on a common altitude
+starting from $\vect{z}(0) = (10, 4, 7, 1)\T$~m, whose average is $5.5$~m.
+\Cref{tab:ch23-consensus} lists the exact solution of $\dot{\vect{z}} =
+-\mat{L}\vect{z}$ and the disagreement norm $\norm{\vect{\delta}(t)}$ next to
+the bound $e^{-\lambda_2 t}\norm{\vect{\delta}(0)}$ of
+\cref{cor:ch23-rate}. Drone~4, which hears only drone~3, is the slow one; after
+$3$~s the bound leaves $5\%$ of the initial disagreement and after $5$~s
+$0.7\%$, and the actual disagreement is smaller still because its components
+along the faster modes $\lambda_3$ and $\lambda_4$ have long vanished.
+
+\emph{Discrete time.} \Cref{tab:ch23-discrete} iterates
+\cref{eq:ch23-discrete} from the same altitudes with $\eps = 0.25 < 1/3$ and
+with $\eps = 0.6 > 1/2$. The first run is a slowed-down copy of the continuous
+one (drone~3, which sits at the average of its neighbours, does not move at
+all in the first step because $\eps \cdot 3 \cdot 0 = 0$); the second run
+overshoots at every step, the mode $(1, 1, -3, 1)\T$ of $\lambda_4$ is
+multiplied by $1 - 0.6 \cdot 4 = -1.4$ each time, and the altitudes fly apart.
+
+\emph{Formation.} Now let the drones form the square with the offsets
+$\vect{o}_1 = (0, 0)$, $\vect{o}_2 = (2, 0)$, $\vect{o}_3 = (2, 2)$,
+$\vect{o}_4 = (0, 2)$ on the same fixed graph, which also serves as the
+formation graph. The shifted variables are $\vect{y} = \pos - \vect{o} =
+\bigl((0,0), (0,0), (-1, -0.5), (3.5, 1)\bigr)$; drones~1 and~2 already agree,
+drone~4 is far off. Their average, the centroid shift, is
+$\bar{\vect{y}} = (0.625, 0.125)$, so \cref{thm:ch23-formation} predicts the
+final positions $\vect{o}_i + \bar{\vect{y}}$: $(0.625, 0.125)$,
+$(2.625, 0.125)$, $(2.625, 2.125)$ and $(0.625, 2.125)$, the square translated by
+$\bar{\vect{y}}$ (\cref{fig:ch23-square}a, circles). The initial formation error
+over the four edges is $e_F(0) = 2.5$~m (the edge $\set{3,4}$ alone contributes
+$\norm{(4.5, 1.5)}^2 = 22.5$~m$^2$ to the mean of squares) and the centred error
+is $e_c(0) = 1.794$~m. \Cref{tab:ch23-formation} follows both errors under
+\cref{eq:ch23-formation}; they decay with the time constant $1$~s of
+$\lambda_2$, and $e_F$ drops below $1\%$ of its initial value after $4.06$~s.
+All numbers in this example are produced by \code{worked\_example()} in
+\code{code/ch23\_consensus.py}.
+\end{example}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Consensus on the altitudes of \cref{ex:ch23-square}: the exact
+  solution of $\dot{\vect{z}} = -\mat{L}\vect{z}$, the disagreement norm and
+  the bound $e^{-\lambda_2 t}\norm{\vect{\delta}(0)}$ with $\lambda_2 = 1$. The
+  average $5.5$~m is conserved in every row.}
+  \label{tab:ch23-consensus}
+  \begin{tabular}{@{}rccccrr@{}}
+  \toprule
+  $t$ [s] & $z_1$ & $z_2$ & $z_3$ & $z_4$ & $\norm{\vect{\delta}(t)}$ & bound\\
+  \midrule
+  0   & 10.000 & 4.000 & 7.000 & 1.000 & 6.708 & 6.708\\
+  0.5 & 7.315 & 5.976 & 5.703 & 3.006 & 3.127 & 4.069\\
+  1   & 6.376 & 6.077 & 5.527 & 4.019 & 1.815 & 2.468\\
+  2   & 5.778 & 5.763 & 5.501 & 4.958 & 0.663 & 0.908\\
+  3   & 5.600 & 5.599 & 5.500 & 5.301 & 0.244 & 0.334\\
+  5   & 5.513 & 5.513 & 5.500 & 5.473 & 0.033 & 0.045\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Discrete-time consensus $\vect{z}_{k+1} = (\mat{I} - \eps\mat{L})\vect{z}_k$
+  on \cref{ex:ch23-square}. Left: $\eps = 0.25$ satisfies
+  $\eps < 1/d_{\max} = 1/3$ and converges. Right: $\eps = 0.6$ exceeds the
+  exact bound $2/\lambda_4 = 0.5$ and diverges; the sign of the pattern
+  $(1, 1, -3, 1)$ flips at every step.}
+  \label{tab:ch23-discrete}
+  \begin{tabular}{@{}r cccc c cccc@{}}
+  \toprule
+  & \multicolumn{4}{c}{$\eps = 0.25$} & & \multicolumn{4}{c}{$\eps = 0.6$}\\
+  \cmidrule{2-5}\cmidrule{7-10}
+  $k$ & $z_1$ & $z_2$ & $z_3$ & $z_4$ & & $z_1$ & $z_2$ & $z_3$ & $z_4$\\
+  \midrule
+  0 & 10.000 & 4.000 & 7.000 & 1.000 & & 10.000 & 4.000 & 7.000 & 1.000\\
+  1 & 7.750 & 6.250 & 5.500 & 2.500 & & 4.600 & 9.400 & 3.400 & 4.600\\
+  2 & 6.812 & 6.438 & 5.500 & 3.250 & & 6.760 & 2.920 & 8.440 & 3.880\\
+  3 & 6.391 & 6.297 & 5.500 & 3.812 & & 5.464 & 8.536 & 1.384 & 6.616\\
+  4 & 6.145 & 6.121 & 5.500 & 4.234 & & 4.859 & 2.402 & 11.262 & 3.477\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Formation error of \cref{ex:ch23-square} under the
+  displacement-based controller \cref{eq:ch23-formation} with $k = 1$: the
+  edge RMS error $e_F$, the centred error $e_c$ and the bound
+  $e_c(0)\,e^{-\lambda_2 t}$ of \cref{thm:ch23-formation}.}
+  \label{tab:ch23-formation}
+  \begin{tabular}{@{}rrrr@{}}
+  \toprule
+  $t$ [s] & $e_F(t)$ [m] & $e_c(t)$ [m] & $e_c(0)\,e^{-\lambda_2 t}$ [m]\\
+  \midrule
+  0 & 2.500 & 1.794 & 1.794\\
+  1 & 0.542 & 0.541 & 0.660\\
+  2 & 0.197 & 0.197 & 0.243\\
+  3 & 0.072 & 0.072 & 0.089\\
+  5 & 0.010 & 0.010 & 0.012\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch23/square}
+  \caption{The four drones of \cref{ex:ch23-square} converging into a square
+  under \cref{eq:ch23-formation}. (a) Trajectories from the initial positions
+  (dots) along the fixed communication graph (grey) to the final square
+  (circles), which is the template translated by the centroid shift
+  $\bar{\vect{y}} = (0.625, 0.125)$; drones~1 and~2 move although they already
+  agree with each other, because the template origin they end up on is the
+  average of all four. (b) The formation error decays with the time constant
+  $1/\lambda_2 = 1$~s; the dotted line is the bound of \cref{thm:ch23-formation}.}
+  \label{fig:ch23-square}
+\end{figure}
+
+%%PART2%%

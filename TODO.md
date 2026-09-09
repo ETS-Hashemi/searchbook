@@ -61,7 +61,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [x] 2.11 Ch 11 M*, Push-and-Swap, Push-and-Rotate — written and compiled; reviewed and revised (see review log)
 
 ### Part IV — Local and Reactive Collision Avoidance
-- [ ] 2.12 Ch 12 Velocity Obstacles (collision cone, relative velocity, time-to-collision, truncation)
+- [~] 2.12 Ch 12 Velocity Obstacles (collision cone, relative velocity, time-to-collision, truncation) — drafted on Fable (22 pp, compiles); Opus review in progress
 - [x] 2.13 Ch 13 RVO and ORCA (reciprocity, half-planes, linear program, 3D extension) — written and compiled; reviewed and revised (see review log)
 - [x] 2.14 Ch 14 Dynamic Window Approach (dynamic window, objective, admissible velocities) — written and compiled; reviewed and revised (see review log)
 - [ ] 2.15 Ch 15 Artificial Potential Fields (attractive/repulsive, local minima, oscillation, remedies)

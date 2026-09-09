@@ -144,7 +144,7 @@ possible to the preferred one.
 \subsection{Relative motion}
 
 Throughout, an \textbf{agent}\index{agent!disc model} is a disc that moves as
-a point mass with a commanded velocity (the single-integrator model of
+a point mass with a commanded velocity (the point-mass drone model of
 \cref{ch:ch02}): its centre obeys $\pos(t) = \pos + t\,\vel$ as long as the
 velocity $\vel$ is held. Agent $A$ has centre $\pos_A$, velocity $\vel_A$ and
 radius $r_A$; agent $B$ (a drone, a bird, a static pole) has $\pos_B$, $\vel_B$,
@@ -176,7 +176,7 @@ agents keep their velocities, the centre of $B$ seen from the centre of $A$ is
 \end{equation}
 which is the position of a \emph{fixed} disc centre $\pos_{\mathrm{rel}}$ seen
 from a point that has moved to $t\,\vel_{\mathrm{rel}}$. By the Minkowski-sum
-proposition for two discs in \cref{ch:ch02}, the discs overlap at time $t$ if
+argument for two discs of \cref{ch:ch02}, the discs overlap at time $t$ if
 and only if $\norm{\pos_B(t)-\pos_A(t)} \le R$, that is,
 \begin{equation}
   \text{$A$ and $B$ collide at time $t\ge0$}
@@ -642,7 +642,7 @@ real vehicles, which observe each other's motion and decide at the same time,
 and it is the source of the oscillation studied in
 \cref{sec:ch12-oscillation}. Agents that do not avoid simply follow their
 preferred velocity; they model the non-cooperative intruder. The Euler step in
-line~\ref{alg:ch12-simulate:move} is exact for the single-integrator model,
+line~\ref{alg:ch12-simulate:move} is exact for a point mass with a commanded velocity,
 because the velocity is constant during the step. The time step must be
 shorter than the horizon, $\dt \le \ttc$, so that a velocity chosen to be
 safe for $\ttc$ seconds is safe until the next decision
@@ -702,7 +702,7 @@ revisited in $0.1\,\mathrm{s}$.
   where they come closest. $A$'s detour is barely visible: it passes in front
   of $B$ by flying a little faster and a little to the left. (b)~The velocity
   components of $A$ over time: it speeds up to $1.2\,\mathrm{m/s}$ between
-  $t=1$ and $t=3.5\,\mathrm{s}$ and returns to its preferred velocity once
+  $t=1$ and $t=3.6\,\mathrm{s}$ and returns to its preferred velocity once
   $B$ has passed. (c)~Centre distance over time with and without avoidance;
   the dashed line is $R = 1$. Without avoidance the discs overlap from
   $t=4.6$ to $5.9\,\mathrm{s}$; with VO the distance never drops below
@@ -722,8 +722,8 @@ $t = 1\,\mathrm{s}$ the closest feasible sample is $(1.2, 0)$: fly straight but
 faster. This is the typical VO solution to a crossing: it is cheaper to pass in
 front of a slower vehicle than to wait for it, and it turns the collision into
 a miss because the relative velocity $(1.2,-0.9)$ passes the disc on the far
-side (its discriminant is negative). Between $t=4$ and $t=5\,\mathrm{s}$ the
-agent adds a small northward component, at $t = 5.0\,\mathrm{s}$ the centres are
+side (its discriminant is negative). From $t=3.7\,\mathrm{s}$ the agent adds a
+small northward component, $\vel_A = (1.046, 0.092)$, at $t = 5.0\,\mathrm{s}$ the centres are
 $1.001\,\mathrm{m}$ apart, and by $t=5.5\,\mathrm{s}$ the preferred velocity is
 feasible again ($t_c = \infty$): $A$ heads for its goal, arriving after a path
 of length $10.027\,\mathrm{m}$ instead of $10$. Without avoidance the centres
@@ -853,8 +853,8 @@ less dramatically, when many wedges overlap; the experiment of
 One evaluation of \cref{alg:ch12-ttc} costs three dot products. With $m$
 candidate velocities and $k$ obstacles, \cref{alg:ch12-choose} costs
 $\bigO{mk}$, and one step of \cref{alg:ch12-simulate} with $n$ avoiding agents
-costs $\bigO{n^2 m}$; for $m = 722$ this is about $5 \cdot 10^5$ evaluations
-per step for $n = 8$, which NumPy handles in a few milliseconds. Restricting
+costs $\bigO{n^2 m}$; for $m = 722$ this is $n(n-1)m \approx 4 \cdot 10^4$
+evaluations per step for $n = 8$, which NumPy handles in a few milliseconds. Restricting
 each agent to its $k$ nearest neighbours, as every real implementation does,
 makes the step linear in $n$.
 
@@ -899,7 +899,7 @@ symmetry, returns to $(-1,0)$. One step later both are heading straight at
 each other again, step aside again, and so on. \Cref{fig:ch12-oscillation}
 shows the result: the lateral velocity of $A$ changes sign $51$ times in
 $100$ steps, and although the minimum distance stays at $1.002 \ge R$ the
-velocity command chatters between $\pm0.18$ and $0$ at every step. A real
+velocity command chatters between roughly $\pm0.2$ and $0$ at every step. A real
 drone cannot follow such a command, and the manoeuvre it executes is not the
 one that was analysed.
 
@@ -956,27 +956,30 @@ line.
   Without avoidance every scenario collides. One VO agent among
   non-cooperative intruders (stream) keeps the distance at exactly $R$ for
   every $k$, as \cref{cor:ch12-intruder} promises. When all agents apply VO
-  simultaneously (circle) the distance dips below $R$ from $n=5$ on.
+  simultaneously (circle) the distance dips below $R$ already for $n=3$ and
+  stays below it from $n=5$ on.
   (b)~Path length relative to the straight line: the price of avoidance is
   $1$--$2\,\%$ in the stream and up to $14\,\%$ in the crowded circle.}
   \label{fig:ch12-crossing}
 \end{figure}
 
 \begin{table}[tb]
-  \centering\small
-  \caption{The experiment of \cref{fig:ch12-crossing}. ``Pairs $<R$'' counts
-  the pairs of agents whose centre distance dropped below $R$ at some step,
-  ``empty'' the number of decisions at which no sampled velocity was feasible.}
+  \centering\footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \caption{The experiment of \cref{fig:ch12-crossing}. $d_{\min}$ is the minimum
+  centre distance over the run, ``pairs $<R$'' counts the pairs of agents whose
+  centre distance dropped below $R$ at some step, and ``empty'' the number of
+  decisions at which no sampled velocity was feasible.}
   \label{tab:ch12-crossing}
   \begin{tabular}{@{}r rrr rrrrr@{}}
   \toprule
   & \multicolumn{3}{c}{stream: one VO agent, $k=n$ intruders} & \multicolumn{5}{c}{circle: $n$ VO agents}\\
   \cmidrule(lr){2-4}\cmidrule(lr){5-9}
-  $n$ & min dist none & min dist VO & path ratio & min dist none & min dist VO & path ratio & pairs $<R$ & empty\\
+  $n$ & $d_{\min}$ none & $d_{\min}$ VO & path ratio & $d_{\min}$ none & $d_{\min}$ VO & path ratio & pairs $<R$ & empty\\
   \midrule
   2 & 0.000 & 1.000 & 1.014 & 0.038 & 1.009 & 1.008 & 0 & 0\\
-  3 & 0.000 & 1.000 & 1.019 & 0.016 & 0.990 & 1.010 & 1 & 0\\
-  4 & 0.000 & 1.000 & 1.019 & 0.021 & 1.001 & 1.014 & 0 & 0\\
+  3 & 0.000 & 1.000 & 1.019 & 0.016 & 0.990 & 1.009 & 1 & 0\\
+  4 & 0.000 & 1.000 & 1.019 & 0.021 & 1.000 & 1.014 & 0 & 0\\
   5 & 0.000 & 1.000 & 1.019 & 0.024 & 0.976 & 1.048 & 4 & 1\\
   6 & 0.000 & 1.000 & 1.020 & 0.007 & 0.914 & 1.142 & 6 & 5\\
   7 & 0.000 & 1.000 & 1.018 & 0.003 & 0.936 & 1.061 & 4 & 4\\
@@ -992,9 +995,10 @@ and pays for it with $1.4$--$2.3\,\%$ extra path; it even arrives earlier than
 the $12\,\mathrm{s}$ of the straight flight, in $11.3$--$11.5\,\mathrm{s}$,
 because its avoidance manoeuvre is mostly ``speed up and pass in front''.
 Among agents that all apply the rule simultaneously, the picture degrades
-with density: up to $n = 4$ the runs are clean, but from $n = 5$ on the
-minimum distance falls below $R$ (to $0.914$ for $n=6$, an overlap of
-$9\,\%$ of the combined radius), several pairs graze each other, decisions
+with density: for $n = 2$ and $n = 4$ the runs are clean, at $n = 3$ one pair
+grazes ($0.990$), and from $n = 5$ on the minimum distance falls below $R$ at
+every density (to $0.914$ for $n=6$, an overlap of $9\,\%$ of the combined
+radius), several pairs graze each other, decisions
 with an empty feasible set appear, and the paths lengthen by up to $14\,\%$
 as agents oscillate around the crowded centre. None of these are head-on
 crashes, and $n = 8$ agents on a circle of radius $6$ with $R = 1$ is a
@@ -1130,7 +1134,7 @@ same 3D form.
 \label{sec:ch12-implementation}
 
 The file \code{code/ch12\_velocity\_obstacles.py} implements everything in this
-chapter in about 350 lines: the plane-geometry helpers copied from
+chapter in about 650 lines: the plane-geometry helpers copied from
 \code{code/ch02\_toolbox.py}, the time to collision and membership test
 (\cref{lst:ch12-ttc}), a \code{VelocityObstacle} class that exposes the apex,
 the tangent directions, the truncation disc and the exact projection onto the

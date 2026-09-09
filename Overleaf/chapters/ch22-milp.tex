@@ -355,12 +355,14 @@ with a square of side $2 d_{\min}$ centred on the other drone, and it gets
 the same treatment with four binaries $c^{ij}_{k,1}, \dots, c^{ij}_{k,4}$
 per pair and step:
 \begin{equation}
-  x^i_k - x^j_k \ge d_{\min} - M c^{ij}_{k,1}, \quad
-  x^j_k - x^i_k \ge d_{\min} - M c^{ij}_{k,2}, \quad
-  y^i_k - y^j_k \ge d_{\min} - M c^{ij}_{k,3}, \quad
-  y^j_k - y^i_k \ge d_{\min} - M c^{ij}_{k,4}, \quad
-  \sum_{q=1}^{4} c^{ij}_{k,q} \le 3.
-  \label{eq:ch22-sep}
+\begin{aligned}
+  x^i_k - x^j_k &\ge d_{\min} - M c^{ij}_{k,1}, &
+  x^j_k - x^i_k &\ge d_{\min} - M c^{ij}_{k,2},\\
+  y^i_k - y^j_k &\ge d_{\min} - M c^{ij}_{k,3}, &
+  y^j_k - y^i_k &\ge d_{\min} - M c^{ij}_{k,4},\\
+  c^{ij}_{k,1} + c^{ij}_{k,2} + c^{ij}_{k,3} + c^{ij}_{k,4} &\le 3.
+\end{aligned}
+\label{eq:ch22-sep}
 \end{equation}
 The tight constant is now $M = d_{\min} + (X_{\max} - X_{\min})$ for the
 $x$-rows and $M = d_{\min} + (Y_{\max} - Y_{\min})$ for the $y$-rows, because
@@ -454,10 +456,12 @@ $s^i_{k,d} \ge 0$ per input component:
   \label{eq:ch22-fuel}
 \end{equation}
 At the optimum $s^i_{k,d} = \abs{u^i_{k,d}}$, because a larger $s$ would only
-cost more. The \textbf{minimum-peak} cost $J_{\mathrm{peak}} = \max_{i,k}
-\norm{\ctrl^i_k}_\infty$ uses a single auxiliary $s$ with $-s \le u^i_{k,d}
-\le s$ for all $i, k, d$: the $\infty$-norm needs one variable where the
-1-norm needs one per component. The \textbf{minimum-time}\index{minimum-time
+cost more. The \textbf{minimum-peak} cost $J_{\mathrm{peak}} = \sum_i \max_k
+\norm{\ctrl^i_k}_\infty$, the sum of the drones' peak accelerations, uses one
+auxiliary $s^i$ per drone with $-s^i \le u^i_{k,d} \le s^i$ for all $k, d$:
+an $\infty$-norm needs one variable where the 1-norm needs one per
+component. (A single $s$ shared by all drones would bound only the largest
+peak and leave the inputs of the other drones undetermined below it.) The \textbf{minimum-time}\index{minimum-time
 objective} cost of \textcite{richards2002aircraft} needs binaries again:
 $y^i_k \in \set{0,1}$ marks the arrival step of drone $i$,
 \begin{equation}
@@ -557,8 +561,8 @@ also infeasible. The branch $b_{2,3} = 0$ (pass below, $y_2 \le -0.5$) has an
 integral relaxation of cost $6$: the extra $2$ pays for the lateral
 excursion $y = (0, -0.333, -0.5, -0.167, 0)$. Its sibling $b_{2,3} = 1$
 forces $b_{2,4} = 0$ through the sum constraint, ``pass above'', a mirror
-image with the same cost $6$, and it is pruned by the bound. Seven nodes and
-six LPs settle the problem; enumerating the $4^4 = 256$ ways of choosing one
+image with the same cost $6$, and it is pruned by the bound. Seven nodes, one LP
+each, settle the problem; enumerating the $4^4 = 256$ ways of choosing one
 active side per step, which the self-test does as a check, gives the same
 optimum $6$.
 \end{example}
@@ -634,7 +638,7 @@ state variables, $48$ inputs, $48$ slacks, $96$ obstacle binaries and $48$
 separation binaries, $344$ variables in all, and $388$ constraint rows:
 $8$ initial and $8$ terminal conditions, $96$ dynamics rows, $96$ slack rows,
 $120$ obstacle rows ($2$ drones $\times$ $12$ steps $\times$ $5$ rows) and
-$60$ separation rows. HiGHS solves it in about $1.8$~s after $366$
+$60$ separation rows. HiGHS solves it in about $1.2$~s after $366$
 branch-and-bound nodes. The optimal fuel is $J_{\mathrm{fuel}} = 12.02$~m/s
 of total velocity change. Both drones go over the top; A climbs to $y =
 6.5$ while B stays on the edge $y = 5.5$, and at step $k = 6$ ($t = 3$~s)
@@ -656,9 +660,9 @@ $2$~m at every sampled instant.
   \toprule
   Objective & Variables & Constraints & Binaries & B\&B nodes & Time [s] & Optimum\\
   \midrule
-  minimum fuel & 344 & 388 & 144 & 366 & 1.8 & $12.02$~m/s\\
-  minimum peak & 298 & 388 & 144 & 1 & 0.13 & $0.889$~m/s$^2$\\
-  minimum time & 368 & 486 & 168 & 1 & 0.43 & $4.5 + 4.5$~s\\
+  minimum fuel & 344 & 388 & 144 & 366 & 1.2 & $12.02$~m/s\\
+  minimum peak & 298 & 388 & 144 & 1 & 0.09 & $0.889 + 0.889$~m/s$^2$\\
+  minimum time & 368 & 486 & 168 & 1 & 0.28 & $4.5 + 4.5$~s\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -678,8 +682,9 @@ $2$~m at every sampled instant.
   \label{fig:ch22-example}
 \end{figure}
 
-The minimum-peak objective gives a smooth plan with $\norm{\ctrl}_\infty \le
-0.889$~m/s$^2$ whose relaxation is already integral: the block hardly matters
+The minimum-peak objective gives a smooth plan in which neither drone
+exceeds $0.889$~m/s$^2$ (objective $0.889 + 0.889$) and whose relaxation is
+already integral: the block hardly matters
 when the drones fly slowly. The minimum-time objective (right panel) brings
 both drones home in $4.5$~s each, the discrete optimum of the arrival
 binaries, at the price of $16.0$~m/s of velocity change and of the behaviour
@@ -945,15 +950,12 @@ constraint that \cbs would need a new branching rule for.
 \label{sec:ch22-other}
 
 The trajectory MILP of \cref{def:ch22-problem} extends in the directions a
-drone swarm needs. A \emph{moving} obstacle whose predicted position at
-step $k$ comes from \cref{ch:ch20} is a different rectangle $O_k$ per step,
-inflated by the prediction uncertainty; the encoding does not change. A
-\emph{three-dimensional} box needs six binaries per step, and a convex
-polygon or polyhedron with $r$ faces needs $r$; a Euclidean separation
-disc is approximated from inside by a regular polygon with $r$ sides at the
-cost of $r$ binaries per pair and step. The \emph{minimum-time} objective
-\cref{eq:ch22-time} and the time-window constraints of the exercises turn
-the MILP into a scheduler. Run in a \emph{receding horizon}, the MILP
+drone swarm needs. Moving obstacles with predicted positions, boxes in
+three dimensions, polygonal obstacles and polygonal separation discs were
+listed at the end of \cref{sec:ch22-bigm,sec:ch22-separation}; each costs
+binaries and nothing else. The \emph{minimum-time} objective
+\cref{eq:ch22-time} and the time-window constraints of
+\cref{exr:ch22-time,exr:ch22-schedule} turn the MILP into a scheduler. Run in a \emph{receding horizon}, the MILP
 becomes the mixed-integer variant of the MPC of \cref{ch:ch21}, treated by
 \textcite{borrelli2017predictive} under the name hybrid MPC: only the
 first input is applied, the plan is shifted by one step and re-solved, and
@@ -996,8 +998,11 @@ add the $4N$ separation binaries, and the time rises from about $1$~s at
 $N = 12$ through $3$~s at $N = 16$ to $12$~s at $N = 20$; at $N = 24$ the
 solver hits the limit with a gap of $30$--$40$\,\%. With three drones the
 limit is hit at every horizon: at $N = 12$ the incumbent is within $9$\,\%
-of the bound, at $N = 24$ the gap exceeds $50$\,\%. GAPFOURSIX The number
-of binaries, \cref{tab:ch22-binaries}, is not the whole story; what the
+of the bound, at $N = 24$ the gap exceeds $50$\,\%. With four to six
+drones the incumbent after $30$~s is $40$--$80$\,\% above the bound, and at
+$N = 24$ five or six drones leave the solver time for only two or three
+nodes: each LP relaxation, with $2\,000$ binaries and $3\,000$ variables,
+takes seconds. The number of binaries, \cref{tab:ch22-binaries}, is not the whole story; what the
 solver fights is the weak relaxation of the big-$M$ rows and the symmetry
 of a crossing, where the mirror image of every plan is another plan of the
 same cost. Instances in which the drones interact less, a formation
@@ -1142,8 +1147,8 @@ model, the size of the corner-cutting margins of
 number of binaries, which grows as $1/\dt$. Halving $\dt$ in
 \cref{ex:ch22-two} ($N = 24$, $\dt = 0.25$~s) reduces the mid-step
 penetration of the block from $0.146$ to $0.017$~m and leaves the fuel
-almost unchanged ($12.04$~m/s), but the solve takes about $20$~s and
-$4\,000$ nodes instead of $1.8$~s and $366$. A coarse step with the margins
+almost unchanged ($12.04$~m/s), but the solve takes about $14$~s and
+$4\,100$ nodes instead of $1.2$~s and $366$. A coarse step with the margins
 of \cref{prop:ch22-intersample}, followed by an \emph{a posteriori} check
 of the continuous motion with \code{continuous\_check}, is usually the
 better bargain.\index{time discretisation!MILP}

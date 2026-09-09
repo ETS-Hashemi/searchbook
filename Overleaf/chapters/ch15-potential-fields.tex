@@ -1,4 +1,511 @@
 \chapter{Artificial Potential Fields}
 \label{ch:ch15}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode are prefixed with "Apf" to stay unique
+% across the book.
+\SetKwFunction{ApfForce}{ApfForce}
+\SetKwFunction{ApfDescend}{ApfDescend}
+\SetKwFunction{ApfDistance}{Distance}
+
+\begin{objectives}
+\begin{itemize}
+  \item Explain how a potential that is low at the goal and high near obstacles turns navigation into gradient descent, and write down Khatib's attractive and repulsive potentials with their forces.
+  \item Derive the forces from the potentials, evaluate them by hand at a given point, and trace the discrete-time controller with a velocity limit.
+  \item Reproduce the four classic failure modes -- local minima, goals that cannot be reached next to obstacles, oscillation, and blocked passages -- and explain each with a formula, not only with a picture.
+  \item Apply the standard remedies, state what navigation functions and harmonic potentials guarantee, and use a potential field as a local layer under a global plan.
+  \item Extend the field to several drones with inter-agent repulsion and relate it to Reynolds's flocking rules and to consensus.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch15-motivation}
+
+A drone of the swarm is following the path that the global planner of
+\cref{ch:ch09} assigned to it when a bird, or a drone that is not part of the
+swarm, appears three metres ahead. The on-board computer has perhaps ten
+milliseconds per control cycle, and in that time it must produce a velocity
+command that moves the drone away from the intruder and, as soon as it can,
+back towards its goal. The oldest and simplest answer is the
+\textbf{artificial potential field}\index{artificial potential field} (APF) of
+Khatib~\cite{khatib1986realtime}: imagine a landscape over the map that slopes
+down towards the goal and rises steeply around every obstacle, and let the
+drone roll downhill. The command is the negative gradient of that landscape.
+Per obstacle it costs one distance query, one subtraction and one square root;
+there is no search, no queue and no optimisation. Khatib proposed it for the
+real-time control of manipulators and mobile robots in 1986, and the idea has
+been re-invented in every robotics laboratory since.
+
+The method has an equally old list of defects. Five years after Khatib, Koren
+and Borenstein~\cite{koren1991potential} catalogued the situations in which a
+potential field traps the robot, refuses to let it through a doorway, or makes
+it oscillate against a wall, and they abandoned the approach for their own
+robots. Every one of these failures has a precise mathematical cause, and in
+this chapter you will produce each of them on purpose, in a few lines of
+\python, and see what the cause is. That is exactly what the Week~7 milestone
+of the study plan (\cref{ch:appA}) asks for: \emph{know when local methods
+work and when they fail}. The week pairs this chapter with the dynamic window
+approach of \cref{ch:ch14}; both are short-horizon, local methods, and the
+coding exercise (\cref{exr:ch15-coding}) asks you to implement one of them and
+to construct its failure cases.
+
+In the hybrid architecture of \cref{ch:ch24} the safety layer is \orca or the
+dynamic window approach, not a potential field, and \cref{sec:ch15-drone}
+explains why. Potential fields nevertheless survive inside modern swarm
+systems in three places: as the soft inter-agent spacing term that keeps
+drones apart when nothing else is active, as the spring-like terms of
+formation control (\cref{ch:ch23}), and as penalty terms inside the cost
+functions of model predictive control (\cref{ch:ch21}). Understanding the
+plain method, including its failures, is the prerequisite for using those
+descendants well.
+
+The chapter proceeds as follows. \Cref{sec:ch15-intuition} gives the picture
+and \cref{sec:ch15-problem} the potentials, their gradients and the
+derivations. \Cref{sec:ch15-algorithm} states the controller as pseudocode,
+\cref{sec:ch15-example} evaluates the forces by hand on a one-obstacle scene
+and checks the numbers against the code, and \cref{sec:ch15-properties}
+collects what can be proved: continuity, descent, safety in continuous time,
+and the conditions under which the goal is the minimum of the field.
+\Cref{sec:ch15-failures} is the heart of the chapter: the four failure modes,
+each with a runnable example and a figure, and the Koren--Borenstein critique.
+\Cref{sec:ch15-remedies} presents the remedies, from navigation functions to
+random walks, and the experiment that maps the basin of a local minimum;
+\cref{sec:ch15-swarm} adds inter-agent repulsion and the connection to flocking
+and consensus; \cref{sec:ch15-implementation,sec:ch15-drone} cover the
+implementation and the place of the method in the drone system.
+
+% ---------------------------------------------------------------------
+\section{The idea in plain words}
+\label{sec:ch15-intuition}
+
+Think of a marble on a hilly table (\cref{fig:ch15-idea}a). The table is
+shaped so that the goal is the lowest point and every obstacle sits on top of
+a steep hill. Released anywhere, the marble rolls downhill: away from the
+hills, towards the goal. The height of the table is the
+\textbf{potential}\index{potential} $U(\pos)$, a scalar function of the
+position $\pos$. The direction of steepest descent at $\pos$ is the negative
+gradient $-\nabla U(\pos)$, and this vector is the \textbf{force}\index{force
+(potential field)} that the field exerts on the drone. The drone does not
+plan a path; at every control cycle it evaluates one vector and follows it.
+
+The potential is built from two kinds of terms (\cref{fig:ch15-idea}b). The
+\emph{attractive} term is a bowl centred at the goal; its gradient always
+points straight at the goal, and the further away the drone is, the harder it
+pulls. Each \emph{repulsive} term is a wall around one obstacle; it is zero
+beyond an \emph{influence distance} $\rho_0$, grows as the drone approaches
+the obstacle, and becomes infinite on its boundary, so that the drone can
+never touch it. Forces are vectors, so they add: the command is the sum of the
+attraction and of the repulsions of every obstacle within range. That is the
+whole method. Everything else in this chapter is about the two words that the
+picture hides. Downhill is a \emph{local} notion: the marble finds the lowest
+point of the valley it is in, which need not be the goal. And the drone is
+not a marble in continuous time but a computer that takes finite steps.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch15/idea}
+  \caption{(a) A one-dimensional potential: the goal is the global minimum,
+  the obstacle a peak, and the drone follows the negative gradient. The dip
+  to the left of the obstacle is a local minimum; a drone released there
+  never leaves it. (b) In the plane the attractive force $\vect{F}_{\mathrm{att}}$
+  points at the goal, the repulsive force $\vect{F}_{\mathrm{rep}}$ points away
+  from the nearest point of the obstacle, and the command is their sum; the
+  repulsion is zero outside the dashed circle of radius $\rho_0$ around the
+  obstacle.}
+  \label{fig:ch15-idea}
+\end{figure}
+
+\begin{keyidea}
+Add a bowl at the goal to a wall around every obstacle and move against the
+gradient of the sum. The command is cheap and smooth, and in continuous time
+it never touches an obstacle. But the gradient only sees the slope under the
+drone's feet: the drone stops wherever attraction and repulsion cancel, and
+that point is the goal only if you were lucky with the scene.
+\end{keyidea}
+
+% ---------------------------------------------------------------------
+\section{Problem statement and notation}
+\label{sec:ch15-problem}
+
+\subsection{Workspace, clearance and the navigation task}
+
+\begin{definition}[Potential-field navigation problem]
+\label{def:ch15-problem}
+The drone is a point moving in a workspace $\mathcal{W} \subseteq \R^2$ (or
+$\R^3$); its physical radius is absorbed by inflating the obstacles, as in
+\cref{ch:ch02}. The obstacles $O_1, \dots, O_m$ are closed sets, the free
+space is $\Cfree = \mathcal{W} \setminus \bigcup_i O_i$, and the goal is a
+point $\pos_{\mathrm{g}} \in \Cfree$. The \textbf{clearance}\index{clearance}
+to obstacle $i$ is the distance
+\begin{equation}
+  \rho_i(\pos) = \min_{\vect{o} \in O_i} \norm{\pos - \vect{o}},
+  \label{eq:ch15-clearance}
+\end{equation}
+and $\nabla \rho_i(\pos)$ is its gradient, the unit vector that points from
+the closest point of $O_i$ towards $\pos$ (it is defined wherever that closest
+point is unique). A \textbf{potential}\index{potential} is a continuously
+differentiable function $U \colon \Cfree \to \R_{\ge 0}$; its
+\textbf{force}\index{force (potential field)} is $\vect{F}(\pos) = -\nabla
+U(\pos)$. The task is to choose $U$ so that a drone that follows $\vect{F}$
+from a given start reaches $\pos_{\mathrm{g}}$ without leaving $\Cfree$.
+\end{definition}
+
+For a disc obstacle with centre $\vect{c}$ and radius $r$ the clearance is
+$\rho(\pos) = \norm{\pos - \vect{c}} - r$ and $\nabla\rho = (\pos - \vect{c}) /
+\norm{\pos - \vect{c}}$; for a segment it is the point-to-segment distance of
+\cref{ch:ch02} and $\nabla\rho$ points away from the closest point of the
+segment. The code of this chapter uses discs, which is not a restriction:
+inflating a polygon by the drone radius rounds its corners anyway, and any
+convex obstacle can be handled by the same two quantities, a distance and a
+unit vector.
+
+\subsection{The attractive potential}
+
+\begin{definition}[Attractive potential]
+\label{def:ch15-attractive}
+Let $d(\pos) = \norm{\pos - \pos_{\mathrm{g}}}$ and $k_{\mathrm{att}} > 0$. The
+\textbf{quadratic attractive potential}\index{artificial potential
+field!attractive potential} and its force are
+\begin{equation}
+  U_{\mathrm{att}}(\pos) = \tfrac12\, k_{\mathrm{att}}\, d(\pos)^2,
+  \qquad
+  \vect{F}_{\mathrm{att}}(\pos) = -\nabla U_{\mathrm{att}}(\pos)
+  = -k_{\mathrm{att}}\,(\pos - \pos_{\mathrm{g}}).
+  \label{eq:ch15-uatt}
+\end{equation}
+The \textbf{conic} attractive potential is $U_{\mathrm{att}}(\pos) =
+k_{\mathrm{att}}\, d^*\, d(\pos)$ for a constant $d^* > 0$, with the force
+$-k_{\mathrm{att}} d^* (\pos - \pos_{\mathrm{g}}) / d(\pos)$ of constant
+magnitude $k_{\mathrm{att}} d^*$. The \textbf{hybrid} potential is quadratic
+for $d \le d^*$ and conic beyond:
+\begin{equation}
+  U_{\mathrm{att}}(\pos) =
+  \begin{cases}
+    \tfrac12\, k_{\mathrm{att}}\, d^2 & d \le d^*,\\[2pt]
+    k_{\mathrm{att}}\, d^*\, d - \tfrac12\, k_{\mathrm{att}}\, (d^*)^2 & d > d^*,
+  \end{cases}
+  \qquad
+  \vect{F}_{\mathrm{att}}(\pos) =
+  \begin{cases}
+    -k_{\mathrm{att}}\, (\pos - \pos_{\mathrm{g}}) & d \le d^*,\\[2pt]
+    -k_{\mathrm{att}}\, d^*\, (\pos - \pos_{\mathrm{g}})/d & d > d^*.
+  \end{cases}
+  \label{eq:ch15-hybrid}
+\end{equation}
+\end{definition}
+
+The gradient of $\tfrac12 d^2 = \tfrac12 (\pos - \pos_{\mathrm{g}})\T(\pos -
+\pos_{\mathrm{g}})$ is $\pos - \pos_{\mathrm{g}}$, and the gradient of $d$ is
+the unit vector $(\pos - \pos_{\mathrm{g}})/d$, which gives the two forces.
+Each form has one defect. The quadratic force grows without bound with the
+distance: a drone $100$ units from its goal would be commanded a speed of
+$100\,k_{\mathrm{att}}$, and near an obstacle such a pull can overwhelm any
+repulsion. The conic force has constant magnitude, which is what a drone far
+from its goal should feel, but it is discontinuous at the goal, where the unit
+vector flips direction; a drone under a conic potential never settles but
+chatters across the goal. The hybrid form \cref{eq:ch15-hybrid} takes the
+bounded force far away and the smooth bowl near the goal; the constant
+$-\tfrac12 k_{\mathrm{att}} (d^*)^2$ makes $U_{\mathrm{att}}$ continuous at $d
+= d^*$, and both branches give a force of magnitude $k_{\mathrm{att}} d^*$
+there, so the force is continuous as well (\cref{exr:ch15-conic}). This is
+the form recommended by Choset et al.~\cite{choset2005principles}. In practice
+the controller of \cref{sec:ch15-algorithm} clips the commanded speed at
+$v_{\max}$, and clipping the quadratic force is the same as using the hybrid
+potential with $d^* = v_{\max}/k_{\mathrm{att}}$: the direction is identical
+and the magnitude is capped at the same value. The examples of this chapter
+therefore use the quadratic bowl with $k_{\mathrm{att}} = 1$ together with
+the speed limit $v_{\max} = 1$, and the code offers $d^*$ as an option.
+
+\subsection{The repulsive potential}
+
+\begin{definition}[Repulsive potential, Khatib 1986]
+\label{def:ch15-repulsive}
+Let $k_{\mathrm{rep}} > 0$ and let $\rho_0 > 0$ be the
+\textbf{influence distance}\index{artificial potential field!influence
+distance}. The \textbf{repulsive potential}\index{artificial potential
+field!repulsive potential} of obstacle $i$ is
+\begin{equation}
+  U_{\mathrm{rep},i}(\pos) =
+  \begin{cases}
+    \tfrac12\, k_{\mathrm{rep}} \left( \dfrac{1}{\rho_i(\pos)} - \dfrac{1}{\rho_0} \right)^{\!2}
+      & \rho_i(\pos) \le \rho_0,\\[8pt]
+    0 & \rho_i(\pos) > \rho_0.
+  \end{cases}
+  \label{eq:ch15-urep}
+\end{equation}
+Its force is $\vect{F}_{\mathrm{rep},i} = -\nabla U_{\mathrm{rep},i}$, namely
+\begin{equation}
+  \vect{F}_{\mathrm{rep},i}(\pos) =
+  \begin{cases}
+    k_{\mathrm{rep}} \left( \dfrac{1}{\rho_i(\pos)} - \dfrac{1}{\rho_0} \right)
+      \dfrac{1}{\rho_i(\pos)^2}\, \nabla \rho_i(\pos)
+      & \rho_i(\pos) \le \rho_0,\\[8pt]
+    \vect{0} & \rho_i(\pos) > \rho_0.
+  \end{cases}
+  \label{eq:ch15-frep}
+\end{equation}
+\end{definition}
+
+The derivation is one application of the chain rule. Inside the influence
+region write $g(\pos) = 1/\rho_i(\pos) - 1/\rho_0$, so that $U_{\mathrm{rep},i}
+= \tfrac12 k_{\mathrm{rep}} g^2$ and $\nabla U_{\mathrm{rep},i} =
+k_{\mathrm{rep}}\, g\, \nabla g$. Since $\nabla (1/\rho_i) = -\rho_i^{-2}
+\nabla \rho_i$,
+\[
+  \nabla U_{\mathrm{rep},i}
+  = k_{\mathrm{rep}} \left( \frac{1}{\rho_i} - \frac{1}{\rho_0} \right)
+    \left( -\frac{1}{\rho_i^2} \right) \nabla \rho_i,
+\]
+and the force is the negative of this. It points along $\nabla\rho_i$, that
+is, straight away from the closest point of the obstacle, and its magnitude
+$k_{\mathrm{rep}} (1/\rho_i - 1/\rho_0)/\rho_i^2$ behaves like
+$k_{\mathrm{rep}}/\rho_i^3$ as $\rho_i \to 0$: the wall is infinitely high
+and infinitely steep at the obstacle boundary. At $\rho_i = \rho_0$ both the
+potential and the force are zero, so they join continuously with the zero
+outside. Khatib called this the FIRAS potential
+(\emph{force involving artificial repulsion from the surface});
+the subtraction of $1/\rho_0$ is what limits the influence of an obstacle to
+its neighbourhood, so that a drone in open space feels only the goal.
+
+\subsection{The total potential and its critical points}
+
+\begin{definition}[Total potential, critical points]
+\label{def:ch15-total}
+The total potential and the total force are
+\begin{equation}
+  U(\pos) = U_{\mathrm{att}}(\pos) + \sum_{i=1}^{m} U_{\mathrm{rep},i}(\pos),
+  \qquad
+  \vect{F}(\pos) = \vect{F}_{\mathrm{att}}(\pos) + \sum_{i=1}^{m} \vect{F}_{\mathrm{rep},i}(\pos).
+  \label{eq:ch15-total}
+\end{equation}
+A point with $\vect{F}(\pos) = \vect{0}$ is a \textbf{critical
+point}\index{critical point} of $U$. It is a \textbf{local
+minimum}\index{artificial potential field!local minimum} if $U$ does not
+decrease in any direction from it, and a \textbf{saddle} if $U$ decreases in
+some directions and increases in others. The \textbf{basin}\index{basin of a
+local minimum} of a local minimum is the set of starts from which the descent
+ends there.
+\end{definition}
+
+\Cref{fig:ch15-surface} shows the total potential of the scene used
+throughout the chapter: one disc of radius~$1$ centred at $(4, 4)$, the goal
+at $(8, 4)$, $k_{\mathrm{att}} = k_{\mathrm{rep}} = 1$ and $\rho_0 = 2$. The
+bowl is unmistakable, and so is the chimney around the disc. What the surface
+does not show at this scale is the feature that matters most: on the far
+side of the disc, on the line from the drone through the disc to the goal,
+the slope of the bowl and the slope of the chimney cancel at one point, and
+that point is a critical point that is not the goal (\cref{sec:ch15-localmin}).
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch15/surface}
+  \caption{The total potential $U$ of the one-disc scene (goal at $(8,4)$,
+  disc of radius $1$ at $(4,4)$, $k_{\mathrm{att}} = k_{\mathrm{rep}} = 1$,
+  $\rho_0 = 2$), clipped at $U = 40$. The quadratic bowl is centred at the
+  goal; the repulsive term is zero beyond $\rho_0 = 2$ from the disc and rises
+  to infinity at its boundary. Notice how gentle the bowl is compared with the
+  chimney: close to the obstacle the attraction is negligible, far from it the
+  obstacle is invisible.}
+  \label{fig:ch15-surface}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\section{The algorithm}
+\label{sec:ch15-algorithm}
+
+The method has two parts: the evaluation of the force at a point
+(\cref{alg:ch15-force}) and the loop that turns the force into motion
+(\cref{alg:ch15-descend}). \Cref{alg:ch15-force} is
+\cref{eq:ch15-hybrid,eq:ch15-frep,eq:ch15-total} written out, with one
+addition at line~\ref{alg:ch15-force:gnron}: the optional factor $d^{\,n}$ of
+Ge and Cui~\cite{ge2000new} that cures the second failure mode of
+\cref{sec:ch15-failures}. With $n = 0$ the line is skipped and the function
+computes Khatib's original force.
+
+\begin{algorithm}[htb]
+\caption{The potential-field force at a point: hybrid attraction, Khatib repulsion, optional GNRON factor}
+\label{alg:ch15-force}
+\KwIn{position $\pos$, goal $\pos_{\mathrm{g}}$, obstacles $O_1, \dots, O_m$ with distance queries; gains $k_{\mathrm{att}}, k_{\mathrm{rep}}$, influence distance $\rho_0$, switch distance $d^*$ ($\infty$ for a purely quadratic bowl), exponent $n \ge 0$ ($n = 0$ for Khatib's original)}
+\KwOut{the force $\vect{F}(\pos) = -\nabla U(\pos)$}
+\Fn{\ApfForce{$\pos$, $\pos_{\mathrm{g}}$, $O_{1..m}$}}{
+  $\vect{d} \gets \pos - \pos_{\mathrm{g}}$; $d \gets \norm{\vect{d}}$\;
+  \eIf{$d \le d^*$}{$\vect{F} \gets -k_{\mathrm{att}}\, \vect{d}$\tcp*{quadratic bowl}\label{alg:ch15-force:att}}{$\vect{F} \gets -k_{\mathrm{att}}\, d^*\, \vect{d}/d$\tcp*{conic far away: constant magnitude}}
+  \ForEach{obstacle $O_i$}{
+    $(\rho, \nabla\rho) \gets \ApfDistance{$O_i$, $\pos$}$\tcp*{clearance and unit vector away from $O_i$}\label{alg:ch15-force:dist}
+    \If{$\rho < \rho_0$}{
+      $\vect{F}_i \gets k_{\mathrm{rep}}\, (1/\rho - 1/\rho_0)\, \rho^{-2}\, \nabla\rho$\label{alg:ch15-force:rep}\;
+      \If{$n \ge 1$}{$\vect{F}_i \gets d^{\,n}\, \vect{F}_i - \tfrac{n}{2}\, k_{\mathrm{rep}}\, (1/\rho - 1/\rho_0)^2\, d^{\,n-1}\, \vect{d}/d$\tcp*{GNRON correction, \cref{sec:ch15-gnron}}\label{alg:ch15-force:gnron}}
+      $\vect{F} \gets \vect{F} + \vect{F}_i$\label{alg:ch15-force:sum}\;
+    }
+  }
+  \KwRet{$\vect{F}$}\;
+}
+\end{algorithm}
+
+\begin{algorithm}[htb]
+\caption{Gradient-descent controller with a velocity limit and local-minimum detection}
+\label{alg:ch15-descend}
+\KwIn{start $\pos_0$, goal $\pos_{\mathrm{g}}$, obstacles $O_{1..m}$; speed limit $v_{\max}$, control period $\dt$, goal tolerance $\eps_{\mathrm{g}}$, horizon $K_{\max}$, stuck window $W$ (steps) and stuck tolerance $\delta$}
+\KwOut{the path $\pos_0, \pos_1, \dots$ and a status in $\{$reached, collision, stuck, timeout$\}$}
+\Fn{\ApfDescend{$\pos_0$, $\pos_{\mathrm{g}}$, $O_{1..m}$}}{
+  \For{$k \gets 0$ \KwTo $K_{\max} - 1$}{
+    \If{$\norm{\pos_k - \pos_{\mathrm{g}}} \le \eps_{\mathrm{g}}$}{\KwRet{(reached, $\pos_{0..k}$)}\label{alg:ch15-descend:goal}}
+    \If{$\min_i \rho_i(\pos_k) \le 0$}{\KwRet{(collision, $\pos_{0..k}$)}\label{alg:ch15-descend:hit}}
+    \If{$k \ge W$ \KwAnd $\norm{\pos_k - \pos_{k-W}} < \delta$}{\KwRet{(stuck, $\pos_{0..k}$)}\tcp*{no progress: a local minimum}\label{alg:ch15-descend:stuck}}
+    $\vel \gets$ \ApfForce{$\pos_k$, $\pos_{\mathrm{g}}$, $O_{1..m}$}\label{alg:ch15-descend:force}\;
+    \If{$\norm{\vel} > v_{\max}$}{$\vel \gets v_{\max}\, \vel / \norm{\vel}$\tcp*{velocity limit: keep the direction, cap the speed}\label{alg:ch15-descend:clip}}
+    $\pos_{k+1} \gets \pos_k + \dt\, \vel$\label{alg:ch15-descend:step}\;
+  }
+  \KwRet{(timeout, $\pos_{0..K_{\max}}$)}\;
+}
+\end{algorithm}
+
+\paragraph{Walkthrough of \cref{alg:ch15-force}.}
+Line~\ref{alg:ch15-force:att} is the attraction; with $d^* = \infty$ it is
+always the quadratic branch. Line~\ref{alg:ch15-force:dist} is the only
+geometric operation of the whole method: a query that returns the clearance to
+one obstacle and the unit vector away from its closest point. For discs this
+is a subtraction and a norm; for polygons it is the point-to-segment distance
+of \cref{ch:ch02} applied to every edge; for a grid map it is a look-up in a
+precomputed distance transform (\cref{sec:ch15-implementation}). An obstacle
+further away than $\rho_0$ contributes nothing, so a spatial index that
+returns only the obstacles within $\rho_0$ makes the loop independent of the
+size of the map. Line~\ref{alg:ch15-force:rep} is \cref{eq:ch15-frep};
+line~\ref{alg:ch15-force:sum} adds the vectors, which is where all the
+trouble of \cref{sec:ch15-failures} originates, because a sum of vectors can
+be zero.
+
+\paragraph{Walkthrough of \cref{alg:ch15-descend}.}
+The loop is explicit Euler integration of the differential equation
+$\dot{\pos} = \vect{F}(\pos)$ with step $\dt$ (line~\ref{alg:ch15-descend:step}),
+guarded by three tests. Line~\ref{alg:ch15-descend:goal} stops within a
+tolerance $\eps_{\mathrm{g}}$ of the goal; a tolerance is needed because the
+quadratic bowl makes the drone approach the goal exponentially and never
+arrive exactly (\cref{exr:ch15-conic}). Line~\ref{alg:ch15-descend:hit}
+reports a collision; in continuous time it can never fire
+(\cref{thm:ch15-descent}), in discrete time it can
+(\cref{sec:ch15-oscillation}). Line~\ref{alg:ch15-descend:stuck} is the
+\textbf{local-minimum detector}\index{artificial potential field!local-minimum
+detection}: if the drone has moved less than $\delta$ during the last $W$
+steps it is declared stuck. This is the only way a gradient method can notice
+a local minimum: the force there is zero or nearly zero, so the drone simply
+stops, and without the test the loop would run until the horizon. The
+detector also fires when the drone circles a point or chatters across it,
+because the displacement over the window stays small.
+
+Line~\ref{alg:ch15-descend:clip} is the \textbf{velocity limit}\index{velocity
+limit}. The force of \cref{alg:ch15-force} is a vector with the units of a
+velocity only by convention: Khatib's original applied $\vect{F}$ as a force
+to a mass with viscous damping, $m\ddot{\pos} = \vect{F} - b\dot{\pos}$, and
+the marble of \cref{sec:ch15-intuition} obeys that second-order law. Almost
+every mobile-robot implementation uses the first-order form instead, $\vel =
+\vect{F}$, and sends $\vel$ to the velocity controller of the vehicle; this is
+also what the double-integrator drone of \cref{ch:ch02} receives from its
+outer loop. The magnitude of $\vect{F}$ is then arbitrary and can be
+enormous: $k_{\mathrm{rep}}/\rho^3$ at a clearance of a few centimetres. The
+clip keeps the direction of the force, which is the information the field
+carries, and caps the speed at what the drone can fly. It also bounds every
+step by $\dt\, v_{\max}$, which \cref{sec:ch15-oscillation} shows to be the
+difference between a controller that oscillates and one that crashes.
+
+\paragraph{Parameters.}
+The controller has two gains and three lengths. $k_{\mathrm{att}}$ scales the
+pull towards the goal, $k_{\mathrm{rep}}$ the push from obstacles, and only
+their ratio matters for the shape of the trajectory once the speed is
+clipped. $\rho_0$ decides how early an obstacle is felt; a large $\rho_0$
+gives smooth, early avoidance and many overlapping influence regions, a small
+one gives late, sharp reactions. $\dt$ and $v_{\max}$ set the step length. The
+chapter uses $k_{\mathrm{att}} = k_{\mathrm{rep}} = 1$, $\rho_0 = 2$, $v_{\max}
+= 1$, $\dt = 0.01$, $\eps_{\mathrm{g}} = 0.05$, $W = 100$ and $\delta =
+10^{-3}$ unless stated otherwise; \cref{tab:ch15-params} in
+\cref{sec:ch15-implementation} summarises what each one does to the behaviour.
+
+% ---------------------------------------------------------------------
+\section{A worked example}
+\label{sec:ch15-example}
+
+\begin{example}[One drone, one obstacle]
+\label{ex:ch15-disc}
+The scene is that of \cref{fig:ch15-surface}: a disc obstacle of radius $1$
+centred at $(4, 4)$, the goal $\pos_{\mathrm{g}} = (8, 4)$, the gains
+$k_{\mathrm{att}} = k_{\mathrm{rep}} = 1$ and the influence distance $\rho_0 =
+2$, so the repulsion acts within $3$ units of the disc centre (the dashed
+circle in \cref{fig:ch15-field}). We evaluate the forces at three probe
+points, $A = (0.5, 4)$ far to the left, $B = (2.5, 4)$ on the axis half a unit
+from the disc, and $C = (3, 5.3)$ above and to the left of it, and then run
+\cref{alg:ch15-descend} from the start $(0, 4.5)$. The instance is
+\code{worked\_example()} in \code{ch15\_potential\_fields.py}, and every
+number below is printed by its self-test.
+\end{example}
+
+\emph{Point $A = (0.5, 4)$.} The distance to the disc centre is $3.5$, so the
+clearance is $\rho = 2.5 > \rho_0$ and the repulsion is zero. The attraction
+is $\vect{F}_{\mathrm{att}} = -(\pos - \pos_{\mathrm{g}}) = -(0.5 - 8,\, 4 - 4)
+= (7.5, 0)$. The potential is $U = \tfrac12 \cdot 7.5^2 = 28.125$. With the
+speed limit the drone moves at speed $1$ straight towards the goal.
+
+\emph{Point $B = (2.5, 4)$.} Now $\rho = 1.5 - 1 = 0.5$ and $\nabla\rho =
+(-1, 0)$, the direction away from the centre. The attraction is $(5.5, 0)$.
+The repulsion has the magnitude $(1/0.5 - 1/2)/0.5^2 = 1.5/0.25 = 6$, so
+$\vect{F}_{\mathrm{rep}} = (-6, 0)$ and the total force is $(-0.5, 0)$: the
+drone is pushed \emph{back}, away from the goal, although it is only half a
+unit from the obstacle boundary and the goal is straight ahead. The potential
+is $\tfrac12 \cdot 5.5^2 + \tfrac12 \cdot 1.5^2 = 15.125 + 1.125 = 16.25$.
+Somewhere between $A$ and $B$ the horizontal force changes sign, and at that
+point a drone on the axis stops (\cref{sec:ch15-localmin}).
+
+\emph{Point $C = (3, 5.3)$.} The offset from the centre is $(-1, 1.3)$, of
+length $\sqrt{2.69} = 1.6401$, so $\rho = 0.6401$ and $\nabla\rho = (-0.6097,
+0.7926)$. The attraction is $(5, -1.3)$. The repulsion has magnitude
+$(1/0.6401 - 0.5)/0.6401^2 = 2.5928$ and equals $(-1.5805, 2.0547)$; the
+total force is $(3.4195, 0.7547)$, of magnitude $3.5018$. The drone is
+deflected upwards, over the obstacle, while still making progress towards
+the goal. \Cref{tab:ch15-forces} collects the three evaluations.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The forces of \cref{ex:ch15-disc} at the three probe points of
+  \cref{fig:ch15-field} ($k_{\mathrm{att}} = k_{\mathrm{rep}} = 1$, $\rho_0 =
+  2$). At $B$ the repulsion beats the attraction although the goal is straight
+  ahead; at $C$ the two forces are at an angle and their sum turns the drone
+  around the obstacle.}
+  \label{tab:ch15-forces}
+  \begin{tabular}{@{}lcccccc@{}}
+  \toprule
+  Point & $\pos$ & $\rho$ & $\vect{F}_{\mathrm{att}}$ & $\vect{F}_{\mathrm{rep}}$ & $\vect{F}$ & $U$\\
+  \midrule
+  $A$ & $(0.5, 4)$ & $2.5$    & $(7.5, 0)$   & $(0, 0)$            & $(7.5, 0)$          & $28.125$\\
+  $B$ & $(2.5, 4)$ & $0.5$    & $(5.5, 0)$   & $(-6, 0)$           & $(-0.5, 0)$         & $16.250$\\
+  $C$ & $(3, 5.3)$ & $0.6401$ & $(5, -1.3)$  & $(-1.5805, 2.0547)$ & $(3.4195, 0.7547)$  & $13.909$\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch15/field}
+  \caption{The force field of \cref{ex:ch15-disc}: the small arrows show the
+  direction of $\vect{F}$ on a grid, the dashed circle is the influence
+  boundary $\rho = \rho_0$, and the red dots are the probe points of
+  \cref{tab:ch15-forces}. The blue curve is the trajectory of
+  \cref{alg:ch15-descend} from $(0, 4.5)$: it bends over the disc, passes it
+  with a minimum clearance of $0.519$ and reaches the goal after $1\,099$
+  steps of $\dt = 0.01$. Notice the arrows on the axis between $x = 1$ and
+  $x = 3$, which first point right and then left: on that segment the two
+  forces cancel at one point.}
+  \label{fig:ch15-field}
+\end{figure}
+
+\Cref{fig:ch15-field} shows the trajectory from $(0, 4.5)$. The drone starts
+half a unit above the axis, flies straight until it enters the influence
+circle, is deflected over the top of the disc, and curves back down to the
+goal, which it reaches after $1\,099$ steps, that is, $10.99$ time units, with
+a minimum clearance of $0.519$. The path is $8.957$ units long, against a
+straight-line distance of $8.016$; the detour around the obstacle costs about
+$12\,\%$. During the first $7.5$ units the drone flies at the speed limit; the
+last stretch is the exponential approach of the quadratic bowl, in which the
+speed equals the distance to the goal and the final $0.05$ are never
+reached exactly, which is why the goal tolerance is needed. The same run
+with the hybrid potential ($d^* = 2$) gives a trajectory that is
+indistinguishable by eye, because the clip has already turned the bowl into
+a cone far from the goal.
+
