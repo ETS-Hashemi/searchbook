@@ -203,3 +203,84 @@ Table 24.5 pairing each claim with its assumption and the ch25 metric that measu
 keep the five pitfall boxes, the research-directions section (each with a formulation *and* an
 evaluation), and Exercise 24.8, which is a genuine Week-12 capstone rather than a homework
 problem.
+
+## Response to review (round 1)
+
+All eight required changes are applied; the chapter builds with status 0 and no errors,
+`python3 code/ch24_hybrid.py` passes its self-test (201 cycles), and
+`python3 code/figures/gen_ch24_scenario.py` was re-run so every `.dat` file and generated
+TikZ figure matches the current code.
+
+**Required changes**
+
+1. *(A) Table 24.3, estimated intruder velocity.* `HybridSimulation.step` now records
+   `est_v` (and `est_P`) per cycle; `gen_ch24_scenario.py` prints `hist[ib]["est_v"]`
+   instead of the final filter state. The trace row at `t = 3.5` now reads
+   velocity `(-0.61, 0.04)`, which is what the script prints. Truth values unchanged.
+2. *(A) Growth law of the inflation (sec:ch24-uncertainty).* The first clause is replaced by
+   the full extrapolation `sigma_p^2 + 2 s sigma_pv + s^2 sigma_v^2 + (1/3) q s^3`, with the
+   velocity term named as the dominant one at these look-aheads and the cubic term as the one
+   that takes over later. The paragraph now quotes the filter covariance at the trigger
+   (0.0041, 0.0035, 0.0060), the resulting variances 0.004, 0.019, 0.056, 0.124 m^2 and the
+   split at s = 3 s (0.054 velocity, 0.045 cubic). `gen_ch24_scenario.py` prints all of these
+   (it uses the effective intensity q*dt of the code's discrete white-noise-acceleration Q,
+   which reproduces the reviewer's 0.0041, 0.0188, 0.0556, 0.1243). The sigma values and the
+   conclusion about the 0.86 m inflation are unchanged.
+3. *(A) Dimensional consistency of eq:ch24-comm.* The gain `k_C` (units 1/s) is now in the
+   equation, in the text ("like k_F ... k_C = 1 in the code"), as a row of Table 24.4, and in
+   the code (`k_comm=1.0` in `PARAMS`, used in `preferred_velocity`). The value 1 keeps every
+   number of the run identical.
+4. *(A) Proof of Proposition 24.4.* The false clause is gone; so is the weaker sentence it
+   sat in. The proof now closes with "A conflict between the repaired pair and a third drone
+   is impossible by construction, because every non-pair path is reserved in R'."
+5. *(C) a_max.* Example 24.1 now states `a_max = 1 m/s^2`, and Table 24.4 has the row
+   "v_cruise; v_max; a_max | 1; 1.5; 1".
+6. *(A) Drone A's reconnection at t = 9.1 s.* Rewritten as "seven of the eight candidates
+   would need more than v_max (up to 4.61 m/s) and the only slow enough one, j = 13 with
+   Delta = 1, crosses the predicted tube". Verified against the code: the needed speeds are
+   4.61, 2.68, 2.09, 1.81 (Delta = 0, j = 10..13) and 2.18, 1.76, 1.56, 1.44 (Delta = 1),
+   so only (j, Delta) = (13, 1) reaches the segment test.
+7. *(F) Notation collision on k.* The reconnection waypoint index is now `j` (and `j_0` for
+   the first index not yet passed, `t_j` for the arrival time) in Definition 24.3,
+   Algorithm 24.3, Algorithm 24.1 (lines reconnect/shift), Table 24.2, Table 24.3,
+   sec:ch24-logic, sec:ch24-horizon and Exercise 24.3; the sample counter inside
+   `SegmentFree` is now `u` and its teammate index `m`; `K` (look-ahead) and `k` (number of
+   agents, including the O(n k) claim) are untouched. The glossary "Reconnection" entry
+   (both `appendices/glossary.tex` and `appendices/glossary/ch24-terms.tex`) and
+   `appendices/solutions/ch24-solutions.tex` follow. The code's log string
+   "back on the plan at k=%d" became "at waypoint %d" in the file and in Listing 11.3.
+8. *(G) Length.* All four passages were cut as prescribed: the table-of-contents paragraph of
+   sec:ch24-motivation is one sentence naming sec:ch24-scenario and sec:ch24-guarantees; the
+   shared-track arithmetic of "Choosing the horizon" is gone (the detection-range formula and
+   the "8 m against a 6 m sensor" fact stay, with a pointer to Exercise 24.1); "What the run
+   shows" keeps only the teammate separation, the two infeasible cycles, the price of safety
+   and the pointer to ch:ch25; the first paragraph of sec:ch24-intuition keeps the analogy and
+   one clause per layer. Three further redundant sentences were tightened to absorb the
+   additions above. The chapter body is now 24 pages (PDF pages 27-50), against 25 before.
+   No required content was removed.
+
+**Suggestions adopted**
+
+* "almost all of it A's detour" is now "over half of them A's detour along row 6, the rest
+  C's descent to row 1 and B's extra wait".
+* The solutions file now covers seven of the eight exercises: hints were added for
+  exr:ch24-particles, exr:ch24-states, exr:ch24-formation and exr:ch24-dwa.
+* The objectives box says "the five pitfalls".
+* Citations outside Further reading: sharon2015cbs/barer2014ecbs at Proposition 24.1,
+  vandenberg2011orca at Proposition 24.3, koenig2002dstarlite where D* Lite is chosen in
+  sec:ch24-replan, stern2019mapf at Definition 24.1 (honig2018trajectory is already tied to
+  eq:ch24-reference in the Further-reading paragraph).
+* Definition 24.2 now says t_c is a time to loss of margin, strictly earlier than an impact.
+* Proposition 24.3 now names the two extra ORCA assumptions (velocity held constant over tau;
+  velocity-controlled single integrators, "which a real quadrotor is not").
+* The "72 cells" claim is now "70 predicted cells over five layers, seven of them in the
+  first, plus the two teammates' current cells" (the trace table keeps the printed total 72).
+* Table 24.1's Guarantee column points at Propositions 24.1/24.2, 24.3 and 24.4.
+* `figures/ch24/architecture.tex`: the re-check label was shortened, clearing the 13.2 pt
+  overfull box. The 29.1 pt box is the book-wide list of algorithms, outside this chapter.
+
+**Not done**
+
+* Nothing required was skipped, and no required content was removed to save space. The one
+  suggestion left alone is the 29.1 pt overfull box, which the review itself locates in the
+  book-wide list of algorithms rather than in this chapter.

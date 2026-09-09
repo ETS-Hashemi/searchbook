@@ -172,3 +172,75 @@ Table 2.1 (I re-derived 1.082 at 22.5 degrees and 1.128 analytically, both right
 generated double-integrator figure and the corrected Figure 2.5; keep the drone box, which maps
 every tool onto a layer of Chapter 24. The bibliography is clean: all eleven cited keys resolve,
 the five anchors demanded by the spec are present, and nothing is fabricated.
+
+## Response to review (round 2)
+
+All three required changes are applied; the build is status 0 with no errors and no
+undefined references belonging to Chapter 2, the self-test of `code/ch02_toolbox.py`
+passes unchanged, and no code or `.dat` file needed to change (no quoted number moved).
+
+### Required change 1 (A) --- `def:ch02-path-length`, line 264
+
+Applied verbatim as prescribed. The false identity `L(pi)=cost(pi)` is gone; the
+definition now reads "On a grid with the costs of Definition 2.5 a path that contains no
+wait has $L(\pi)=\cost(\pi)$; a time-indexed path with $w$ waits before its arrival has
+$\cost(\pi)=L(\pi)+w\,c_{\text{wait}}$, so for unit costs $\cost(\pi)=T(\pi)$ while
+$L(\pi)$ counts only the distance flown (in Example 2.20, $L(\pi_B)=2$ but
+$\cost(\pi_B)=T(\pi_B)=3$)." The sum of costs 6 of Table 2.3 is now reachable from the
+text: $3+3$ arrival times, not $3+2$ lengths.
+
+### Required change 2 (F) --- one symbol for the time horizon
+
+The horizon is now `$T_{\max}$` everywhere, and `H` is the grid height only.
+Changed: Definition 2.11 (`def:ch02-time-expanded-graph`, vertex set
+$V\times\set{0,\dots,T_{\max}}$, "for every $t<T_{\max}$"); the paragraph at line 208
+($\abs{V}(T_{\max}+1)$ vertices, $T_{\max}(\abs{V}+2\abs{E})$ edges); Definition 2.12
+(sequence $\pi=(v_0,\dots,v_{T_{\max}})$, $v_{T_{\max}}=g$, "the last index $T_{\max}$ is
+the horizon", "occupies $g$ at every time $t>T_{\max}$", "$T(\pi)\le T_{\max}$"), whose
+closing sentence now reads "Chapter 7 writes the horizon of agent $i$'s stored path as
+$T_i$ and the plan horizon as $T=\max_i T_i$."; Definition 2.13 ("when $t$ exceeds the
+*horizon* of $\pi_i$", replacing "length", which is $L(\pi)$); Definition 2.38
+(`def:ch02-big-o`, "the horizon $T_{\max}$"); Exercise 2.4 and its solution in
+`appendices/solutions/ch02-solutions.tex`. `frontmatter/notation.tex` line 75 now reads
+`$(v,t)$, $T_{\max}$ & space-time state (vertex $v$ at step $t$); planning horizon &
+\cref{ch:ch02}`. (This is the one file I touched outside the chapter's own set; the edit
+is confined to the row that names Chapter 2 as its defining chapter, as the review
+required.) A grep confirms every remaining "horizon" in the chapter is either
+$T_{\max}$, the reactive-layer safety horizon $\tau$, or ordinary prose; every remaining
+`H` is the grid height of Definitions 2.5, 2.6, Example 2.20 and Exercise 2.1.
+
+### Required change 3 (G) --- solution label
+
+`\begin{solution}{exr:ch02-diagonal}` is now `\begin{solution}{exr:ch02-diagonal-cost}`.
+To prove the fix rather than trust the single-chapter build, I compiled a standalone
+document containing the chapter *and* `appendices/solutions/ch02-solutions.tex`: it
+builds with status 0, every solution head resolves to a real exercise number (no
+`Exercise ??`), and the only undefined references are `ch:chNN` of other chapters.
+
+### Suggestions
+
+Applied: Example 2.20 and the following pitfall now say the radius-0.4 agents *collide*
+("their separation 0.707 drops below the collision distance"), so the strict test of
+Definition 2.19 stays visible; Proposition 2.36 adds "with $\vect{e}_1$ normalised so
+that $e_{1,x}\ge0$", naming `covariance_ellipse` as the code that makes that choice; the
+proof of Proposition 2.28 now opens its converse with "assume $r_1+r_2>0$ (if both radii
+vanish the two sides are the single point $\vect{c}_1+\vect{c}_2$ and the claim is
+trivial)"; Definition 2.26 drops the `\neq` from its opening and keeps the degenerate
+case in the body; the caption of Table 2.1 now credits `worked_example` and names the
+four printed keys `stretch2`, `stretch3`, `stretch2_straight`, `stretch3_straight`.
+Exercise 2.10 has a solution now: checkpoints only, with the 6- vs 26-connected costs
+$6$ and $1+\sqrt2+\sqrt3\approx4.146$ to $(3,2,1)$ on an empty lattice (matching
+`lattice_path_cost`), the hand-computed 3D closest approach $t^*=3$~s,
+$d_{\min}=\sqrt3\approx1.732$~m, $t_c\approx2.293$~s for $R=2$, and the argument that
+stale pops plus successful pops never exceed pushes because each pop consumes one pushed
+heap entry.
+
+Of the four page-saving cuts I took two: the second half of the paragraph at line 697
+(the `gen_chNN_slug.py` sentence that restates line 27) is deleted, and the first clause
+of line 522 now reads "The horizon $\tau$ of Definition 2.30 is the form in which the
+safety layer of Chapter 24 asks the question", dropping the restatement of the clamp. I
+did not delete the one-line paragraph at line 251: it carries the only `\cref` to
+Table 2.2, which the style guide requires. I did not thin the 39.3/86.5 figures in the
+"68--95 rule" pitfall, since the review's keep-list keeps that pitfall with its numbers
+and the repetition is the point of a warning box. The chapter body is still printed
+pages 21--42 (22 pages); the two cuts freed lines, not a page.

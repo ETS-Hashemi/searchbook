@@ -240,8 +240,9 @@ Applied exactly as specified, plus the three trims of Suggestions 4-6 in the sam
   a path}`, before `\section{The algorithm: \dstarlite}` and before the sectioning command
   of `sec:ch05-dstarlite-example`. (`placeins` is loaded by `searchbook.sty`, line 70.)
 
-New page map of `build/only-ch05-lpastar-dstarlite.pdf` (PDF page numbers; the chapter
-still occupies pages 21-44, i.e. **24 pages**, exactly as before):
+New page map of `build/only-ch05-lpastar-dstarlite.pdf` (PDF page numbers of the same
+single-chapter build the review used, in which the chapter starts on page 21; it still
+ends on page 44, i.e. **24 pages**, exactly as before the revision):
 
 | Float | was on | is now on | its section |
 |---|---|---|---|
@@ -251,6 +252,11 @@ still occupies pages 21-44, i.e. **24 pages**, exactly as before):
 | Table 5.4 (`tab:ch05-km`) | 32 | **30** | 5.6.2 (discussed on the same page) |
 | Algorithm 5.2 | 33 | **32** | 5.6.3 (walkthrough on p. 31) |
 | Tables 5.5, 5.6 | 34, 34 | **33, 34** | 5.7 |
+
+The same relative placement holds when the chapter is built on its own (chapter pages
+1-24, Algorithm 5.1 on chapter page 5 in Section 5.4, Tables 5.1-5.2 on chapter pages 7-8,
+Table 5.3 on 9, Table 5.4 on 10, Algorithm 5.2 on 12 with its walkthrough on 10-11), so
+the improvement does not depend on where the chapter happens to start in the book.
 
 Every float now prints inside the section that discusses it, and the block of four
 consecutive float-only pages (old 31-34) is gone. The line-by-line walkthrough of
