@@ -17,7 +17,7 @@ Biber and MakeIndex automatically; nothing else is required.
 
 ### Compiling only one chapter (fast compiles / free plan timeouts)
 
-The full book contains hundreds of TikZ figures and takes a few minutes to compile.
+The full book (about 700 pages, roughly 170 TikZ/pgfplots figures) takes 8-12 minutes to compile with pdfLaTeX.
 If your compile times out, open `main.tex` and uncomment the line
 
 ```latex
@@ -51,3 +51,12 @@ Requires a TeX Live installation with `pdflatex`, `biber`, `makeindex` and `late
 | `code/figures/*.py` | Scripts that regenerate the data/figure files |
 | `references.bib` | Bibliography (Biber) |
 | `latexmkrc` | Build configuration (used by Overleaf and `build.sh`) |
+| `tools/assemble_glossary.py` | Rebuilds `appendices/glossary.tex` from `appendices/glossary/*-terms.tex` |
+| `tools/thin_dat.py` | Thins oversized `.dat` files so pdfLaTeX does not run out of memory |
+| `package.sh` | Assembles the glossary, builds the book, writes `searchbook.pdf` and `searchbook-overleaf.zip` |
+
+## Memory
+
+pdfLaTeX's default main memory (5,000,000 words, the same on Overleaf) is enough for the whole
+book. If you add a figure with thousands of plotted points and see `TeX capacity exceeded`,
+thin its data file with `python3 tools/thin_dat.py 1500 figures/data/<file>.dat`.

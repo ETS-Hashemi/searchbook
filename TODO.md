@@ -153,7 +153,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 - [ ] 8.1 Full clean build with zero errors; record page count and remaining warnings
 - [ ] 8.2 Produce `Overleaf/searchbook.pdf`
 - [ ] 8.3 Produce the Overleaf package `Overleaf/searchbook-overleaf.zip` (main.tex at the root of the zip) and test that it unzips into a compilable project
-- [ ] 8.4 Update `README.md` (repo root and `Overleaf/`) with upload/compile instructions
+- [x] 8.4 Update `README.md` (repo root and `Overleaf/`) with upload/compile instructions — both READMEs updated (layout, production process, tools, memory note)
 - [ ] 8.5 Final QA of the PDF: open, check TOC, every chapter has figures/tables/examples/exercises, index and bibliography present
 - [ ] 8.6 Commit, push, merge into `main`, remove the working branch (single-branch policy)
 

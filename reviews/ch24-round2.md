@@ -198,3 +198,82 @@ hints for `exr:ch24-particles`, `exr:ch24-states`, `exr:ch24-formation` and `exr
 being substantive and consistent with the chapter - the bimodal-prediction discussion in
 `exr:ch24-particles` and the leader-avoids rule in `exr:ch24-formation`(c) are genuinely
 instructive.
+
+## Response to review (round 2)
+
+All four required changes are applied; the build is status 0 with no errors, the
+self-test of `code/ch24_hybrid.py` passes (201 cycles), and every number quoted in
+the chapter is unchanged.
+
+**Required change 1 (category A) — process-noise intensity inconsistent by a factor of ten.**
+Applied exactly as prescribed; no number and no line of the code's `Q` was touched.
+(a) `chapters/ch24-hybrid-architecture.tex`, Example 24.1 (`ex:ch24-scenario`) now reads
+"tracked by the constant-velocity Kalman filter of \cref{ch:ch18}, in its discrete
+white-noise-acceleration form with acceleration variance $\sigma_a^2 = 0.05$ m$^2$/s$^4$
+per axis, equivalent to a continuous intensity $q = \sigma_a^2\,\dt = 0.005$ m$^2$/s$^3$
+at the $10$ Hz observation rate."
+(b) In `sec:ch24-uncertainty` the extrapolation now names the constant: "... $+\tfrac13 q s^3$
+in the filter's position, cross and velocity variances, with $q = 0.005$ m$^2$/s$^3$ for the
+tracker of \cref{ex:ch24-scenario}". The arithmetic of the paragraph is now reproducible:
+$\tfrac13(0.005)(27) = 0.045$, total $0.0041 + 0.021 + 0.054 + 0.045 = 0.124$ m$^2$ at
+$s = 3$ s, hence $\sigma(3) = 0.35$ m and the inflation $0.86$ m used by `sec:ch24-horizon`
+and `fig:ch24-horizon`.
+(c) The docstring of `IntruderTracker` (`code/ch24_hybrid.py`, line 328) now says the process
+noise comes from the *discrete* white-noise-acceleration model with acceleration variance `q`
+per axis, whose equivalent continuous intensity is `q*dt` — the value the $\tfrac13 q s^3$
+growth law of the chapter uses. `Q` itself is unchanged, so no simulated number moved.
+
+**Required change 2 (category A) — the horizon and the reversal form of `eq:ch24-tauh`.**
+`sec:ch24-horizon` (formerly "satisfies the first two conditions") now reads: "so $\tau_h = 3$ s
+clears the hand-over condition and the stop form of \cref{eq:ch24-tauh} ($1.6$ s) with room to
+spare, and falls $0.1$ s short of the reversal form ($3.1$ s); the single-integrator drones of
+the scenario are never asked to reverse, but a double-integrator drone would need
+$\tau_h \ge 3.1$ s (\cref{exr:ch24-dwa}). The inflation is still below the lane spacing of $2$ m."
+$\tau_h$ was **not** raised, so the whole run is unchanged.
+
+**Required change 3 (category C) — free symbol $t$ in `\HybridSegment`.**
+Both occurrences inside the function now use its own argument $t_a$:
+line `alg:ch24-reconnect:pred` tests $h = (t' - t_a)/\dt$ and line `alg:ch24-reconnect:mate`
+tests $\tilde{\pos}_m(t' - t_a)$. The single call site passes $t_a = t$, so nothing else changes.
+
+**Required change 4 (category F) — the waypoint index in the solution to `exr:ch24-offsets`.**
+That sentence now reads $j_0$ (from $t/\Delta T - t_0^i$), the arrival time $t_j = (t_0^i + j + \Delta)\Delta T$
+and $t_0^i \gets t_0^i + j + \Delta$, consistent with the chapter, the glossary and the other
+solutions. The optional part was taken too: the label `alg:ch24-reconnect:k0` is renamed
+`alg:ch24-reconnect:j0` in the chapter and in the solution that `\ref`s it (no other file refers to it).
+
+### Suggestions
+
+* **architecture figure overfull hbox — fixed.** The offender was not the layer width but the
+  single-line label "observations $\meas_k$ of the intruder" on the world-model arrow, which
+  reached $x = 13.5$ cm. It is now broken over two lines; the picture measures $421.6$ pt against
+  a text width of $443.9$ pt (was $460.7$ pt), and the $13.22856$ pt overfull box is gone from the
+  log. Layer widths and column positions are unchanged, so the diagram is exactly as praised.
+  The only overfull box left in the build ($29.1$ pt, "Rapidly-exploring random tree with goal
+  bias") is a list-of-algorithms entry of ch16 in the shared front matter, not a ch24 file.
+* **`gen_ch24_scenario.py` cell split — done.** It now prints
+  `72 blocked cells = 70 predicted (7, 10, 13, 16, 24 in layers 10-14) + 2 teammate cells`,
+  matching "70 predicted cells over five layers, seven of them in the first, plus the two
+  teammates' current cells".
+* **`k=5 delay=1` in the reconnection log — done.** The log key and the printed label are now
+  `j` (`t=  4.9  C at (5.46, 2.39): j=5 delay=1 (ok)`); the two self-test assertions were updated
+  with it and still pass.
+* **`exr:ch24-horizon`(b) — done.** The statement now gives $v_{\mathrm{cruise}} = 1.5$ m/s, and the
+  solution applies the chapter's formula as written: $(1.5+3)(2+20\cdot0.05)+1+0.5 = 15$ m, with the
+  $16.5$ m variant for a drone already at $v_{\max}$ given as the second case.
+* **Trigger at $h = 0$ — done.** A clause after `def:ch24-inside` now states what the executive does
+  when $t_c = 0$: it enters Avoiding with $t_c = 0$ and builds the ORCA half-plane at $h_c = 0$, from
+  the current relative position — the most aggressive manoeuvre available, a recovery rather than a
+  prevention — and stays in Avoiding until the margin is positive for $n_{\mathrm{clear}}$ cycles.
+* **`period_prediction` — done.** `tab:ch24-parameters` has a new row naming the parameter, its value
+  $0.1$ s and the fact that it equals $\dt$ here, which is why the layer table reads "every control cycle".
+* **ch25 experiment-matrix row pointers (Table 24.5)** — not done. It requires editing against another
+  chapter's table numbering, which is outside this chapter's files and would break if ch25's matrix is
+  still being revised.
+
+Nothing on the "must be kept" list was touched: the four-layer diagram and its rates, `sec:ch24-world`,
+the state machine and Algorithm 24.1, Definition 24.2, the $\kappa_p$ derivation, Proposition 24.2 and
+its proof, the worked scenario with its trace table, `fig:ch24-recheck` and drone C's delayed
+reconnection, the "What is not guaranteed" list, the five pitfall boxes, the research directions,
+Exercise 24.8, the rewritten inflation-growth paragraph (only $q$ is now named), the gain $k_C$, the
+proof of Proposition 24.4 and the seven solutions.
