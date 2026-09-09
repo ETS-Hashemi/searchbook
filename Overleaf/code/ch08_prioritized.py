@@ -18,6 +18,7 @@ from __future__ import annotations
 import heapq
 import itertools
 import random
+import sys
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -600,9 +601,10 @@ def _self_test() -> None:
         assert sorted(order) == list(range(ri.k))
     plan = plan_with_restarts(ri, rng, tries=5)
     assert plan is None or not validate(ri, plan)
-    # 7. Timing: forty agents on a large grid, median of three instances.
+    # 7. Timing: forty agents on a large grid.  One instance by default,
+    #    the median of three with the command-line flag "--bench".
     times = []
-    for seed in (1, 2, 3):
+    for seed in ((1, 2, 3) if "--bench" in sys.argv else (2,)):
         big = random_instance(100, 100, 40, random.Random(seed), 0.2)
         order = order_longest_first(big)
         t1 = time.time()
@@ -610,8 +612,13 @@ def _self_test() -> None:
         times.append(time.time() - t1)
         assert plan is None or not validate(big, plan)
     times.sort()
-    print(f"forty agents on a 100x100 grid with 20% obstacles: "
-          f"{times[0]:.1f}, {times[1]:.1f}, {times[2]:.1f} s (median {times[1]:.1f} s)")
+    if len(times) == 3:
+        print(f"forty agents on a 100x100 grid with 20% obstacles: "
+              f"{times[0]:.1f}, {times[1]:.1f}, {times[2]:.1f} s "
+              f"(median {times[1]:.1f} s)")
+    else:
+        print(f"forty agents on a 100x100 grid with 20% obstacles: {times[0]:.1f} s"
+              f" (run with --bench for three instances and their median)")
     # 8. WHCA*: the executed plan of the worked example is conflict-free.
     ex = whca_star(inst, window=6, step=3)
     assert ex is not None and not validate(inst, ex), ex

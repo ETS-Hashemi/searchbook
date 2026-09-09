@@ -204,12 +204,21 @@ turns that goal into a static obstacle and the search fails at once.
 \begin{definition}[Well-formed instance]
 \label{def:ch08-wellformed}
 Let $P = \set{s_1, \dots, s_k, g_1, \dots, g_k}$ be the set of all
-\textbf{endpoints}\index{endpoint}. An instance is
+\textbf{endpoints}\index{endpoint}, and assume that they are pairwise distinct,
+$\abs{P} = 2k$. An instance is
 \textbf{well-formed}\index{well-formed instance} if for every agent $i$ there is a path
 in $G$ from $s_i$ to $g_i$ that visits no endpoint of $P$ other than $s_i$ and $g_i$. In
 words: every agent can reach its goal without passing through the start or goal of any
 other agent~\cite{cap2015prioritized}.
 \end{definition}
+
+Distinctness is not a technicality. If some $g_j$ were the start $s_i$ of another
+agent, the revised rule would turn $g_j$ into a static obstacle for agent~$j$ and its
+own search would fail at once, as noted after \cref{def:ch08-order}; the completeness
+theorem of \cref{sec:ch08-properties} would then be false for the very instances the
+definition is meant to describe. The function \code{is\_well\_formed} of
+\code{code/ch08\_prioritized.py} therefore tests distinctness first and only then runs
+the $k$ breadth-first searches.
 
 Well-formedness is a property of the map and the endpoints alone; it does not depend on
 time or on the priority order, and it is cheap to test with $k$ breadth-first searches
@@ -468,9 +477,9 @@ and then proves the one positive result.
 \begin{proposition}[Soundness and per-agent optimality]
 \label{thm:ch08-sound}
 If \cref{alg:ch08-pp} returns a plan, the plan is valid: no two paths have a vertex or
-swapping conflict. Moreover, if $\hcost$ is admissible, \cref{alg:ch08-ca} returns a path whenever an
-unblocked one with arrival time at most $T_{\max}$ exists, and the path of every agent
-is a shortest path among all paths that avoid the agents planned before it and arrive
+swapping conflict. Moreover, \cref{alg:ch08-ca} returns a path whenever an unblocked one with arrival
+time at most $T_{\max}$ exists. If in addition $\hcost$ is admissible, the path of
+every agent is a shortest path among all paths that avoid the agents planned before it and arrive
 no later than $T_{\max}$.
 \end{proposition}
 \begin{proof}
@@ -582,10 +591,12 @@ In practice the searches are far from this bound because the heuristic keeps the
 close to a corridor of width $\bigO{1}$ around the shortest path, and because
 $T_{\max}$ is replaced by the time at which the table stops changing
 (\cref{sec:ch08-implementation}). Forty agents on a $100 \times 100$ grid with
-$20\,\%$ obstacles take a few seconds in plain \python with the code of this chapter:
-the self-test plans three such instances and prints times of about $2$, $4$ and $7$
-seconds, a median of roughly $4$ seconds, on the laptop used for this book; the spread
-comes from the instances, not from the machine, and your own times will differ. A compiled
+$20\,\%$ obstacles take a few seconds in plain \python with the code of this chapter.
+The self-test plans one such instance and prints its time; \code{python3
+code/ch08\_prioritized.py --bench} plans three of them and prints the three times and
+their median, so that you can compare your own machine. Expect a few seconds per
+instance, with a spread of about a factor of three between instances of the same size:
+the spread comes from the instances, not from the machine. A compiled
 implementation is far faster, and the joint search over all agents would not finish in
 the lifetime of the reader.
 
@@ -615,9 +626,10 @@ are distinct from starts. Hence $(s_i, t)$ is free for all $t$, and staying ther
 creates no swap either.
 
 \emph{Going is unblocked.} After time $T^*_j$ every earlier agent is parked on its own
-goal, so $R$ contains no timed vertex entry and no move entry with $t \ge T^*_j$; the
-only blocked cells are the goals $g_{\sigma(m)}$, $m < j$, which $P_i$ avoids by
-construction. $P_i$ also avoids the starts of the lower-priority agents, which are the
+goal, so $R$ contains no timed vertex entry with $t > T^*_j$ and no move entry with
+$t \ge T^*_j$; the wait-then-go path is still at $s_i$ at time $T^*_j$, a cell that no
+earlier agent ever reserved. The only blocked cells at times $t > T^*_j$ are the goals
+$g_{\sigma(m)}$, $m < j$, which $P_i$ avoids by construction. $P_i$ also avoids the starts of the lower-priority agents, which are the
 static obstacles $B$ of agent $i$. So each step of $P_i$, taken at a time $\ge T^*_j$,
 is an unblocked successor.
 
@@ -671,7 +683,8 @@ answered and resumed when a new cell is needed; for the maps of this book the fu
 breadth-first search is simpler and costs one pass over the grid per agent.
 
 The true distance is consistent and dominates the Manhattan distance, so for a single
-agent against a fixed table every state with $\fcost < C^*$ that the search with
+agent against a fixed table, writing $C^*$ for the arrival time of the optimal
+unblocked path, every state with $\fcost < C^*$ that the search with
 $\hcost^*$ expands is also expanded with the Manhattan distance
 (\cref{thm:ch04-surely}); the states with $\fcost = C^*$ are left to the tie-breaking
 rule. Across a whole prioritized run the guarantee is weaker still, because the two
@@ -700,7 +713,11 @@ it, the agents are ignored and the search follows the true-distance heuristic al
 which means it completes the path as if no other agent existed (the static obstacles
 are still respected, because $\hcost^*$ is the distance on the real map). Every agent is
 planned in this way, its first $\delta$ steps ($\delta = w/2$ is typical) are executed,
-and then all agents replan from their new positions with a fresh table.
+and then all agents replan from their new positions with a fresh table. An agent whose
+plan is shorter than $\delta$, because it arrives inside the window, repeats its last
+cell for the remaining steps -- the listing writes
+\code{moves += [path[-1]] * (step - len(moves))}, the stay-at-target convention once
+more.
 \Cref{alg:ch08-whca} gives the loop and \cref{fig:ch08-window} the picture.
 
 \begin{algorithm}[htb]
@@ -740,8 +757,11 @@ line~\ref{alg:ch08-whca:table} is relative to the current round: time $0$ is now
 entries beyond $t = w$ are invisible. A cell that a higher-priority agent has parked on
 inside the window is the exception: the goal-stay check of \cref{alg:ch08-ca} then
 reports $t_g = \infty$, the search fails at once, and the agent takes the stay-put
-branch of line~\ref{alg:ch08-whca:search}, which is one of the two ways in which a
-windowed plan loses its guarantee.
+branch of line~\ref{alg:ch08-whca:search}: it stays where it is with no guarantee at
+all, and an agent planned earlier in the same round may be walking straight into it.
+This is how the windowed plans of \cref{exr:ch08-whca} come to contain a collision. The
+other way is the window itself: beyond $t = w$ the table is empty, so a plan that looks
+safe now can be invalidated by the next round.
 Second, line~\ref{alg:ch08-whca:rotate} rotates the priority order between rounds so
 that no agent is always the last to be planned; without it the lowest-priority agent
 can be pushed around indefinitely. Third, the loop has no termination guarantee. Two
@@ -1187,17 +1207,19 @@ Is this heuristic still admissible? Give an instance in which it overestimates, 
 state a condition under which it is exact.
 \end{exercise}
 
-\begin{exercise}[\difficulty{2} Oscillation in WHCA\textsuperscript{*}]
+\begin{exercise}[\difficulty{3} Oscillation and collision in WHCA\textsuperscript{*}]
 \label{exr:ch08-whca}
 Two agents exchange the ends of a corridor of nine cells $(1,0), \dots, (1,8)$ whose
 only pocket is $(0,1)$. (a) Simulate \cref{alg:ch08-whca} by hand with $w = 2$ and
 $\delta = 1$ from the moment the agents are adjacent, and show that they back off and
-advance for ever. (b) Run \code{whca\_star} with $\delta = 1$ and windows
-$w = 2, \dots, 12$. For every one of them the rounds never end and the function returns
-\code{None}, even when $w$ is larger than the whole corridor. Explain why a bigger
-window does not help: which of the two agents sees the other one at all in a given
-round, and what does the agent that is planned second do when every cell in front of it
-is reserved? (c) Why does the
+advance for ever. (b) Run \code{whca\_star} with $\delta = 1$ and
+windows $w = 2, \dots, 12$ and check every returned plan with \code{validate}. For
+$w \le 5$ the rounds never end and the function returns \code{None}. For $w \ge 6$ it
+returns an executed plan that the validator rejects: the two agents pass through each
+other. Explain both outcomes. Which of the two agents sees the other one at all in a
+given round? What happens to the agent that is planned second when every cell in front
+of it is reserved, and which branch of \cref{alg:ch08-whca} does it then take?
+(c) Why does the
 rotation of line~\ref{alg:ch08-whca:rotate} not help here, and what would? (Hint: with
 the full horizon the order $(2,1)$ succeeds, agent~2 arriving at $t = 8$ and agent~1
 at $t = 15$: agent~1 hides in the pocket while agent~2 passes.)
