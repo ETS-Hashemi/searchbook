@@ -51,14 +51,9 @@ the velocity error from $16.8$~m/s to $0.79$~m/s, at the cost of a few small mat
 report.
 
 In the hybrid architecture of \cref{ch:ch24} the filter is the core of the
-\emph{prediction layer}: it tracks the intruder, hands its state and
-covariance to the local safety layer (\orca or the dynamic window approach,
-DWA, \cref{ch:ch13,ch:ch14})
-and to the trajectory predictors of \cref{ch:ch20}, and its covariance,
-propagated a few seconds ahead, gives the growing uncertainty ellipses with
-which the safety layer inflates the intruder's radius. It is the Week~9 topic
-of the study plan (\cref{ch:appA}), whose milestone is precisely that your
-planner receives a stable estimated state instead of raw observations.
+\emph{prediction layer}, and it is the Week~9 topic of the study plan
+(\cref{ch:appA}); \cref{sec:ch18-drone} sets out the interface it offers the
+rest of the system.
 
 \begin{figure}[tb]
   \centering
@@ -617,8 +612,9 @@ kilohertz rates on a flight computer.
 \end{algorithm}
 
 \Cref{alg:ch18-track} wraps the two steps in the loop that the prediction
-layer of \cref{ch:ch24} runs; the four subsections below fill in its gating,
-missing-measurement, initialisation and prediction lines. After $M_{\max}$
+layer of \cref{ch:ch24} runs;
+\cref{sec:ch18-gating,sec:ch18-missing,sec:ch18-init,sec:ch18-prediction}
+fill in its gating, missing-measurement, initialisation and prediction lines. After $M_{\max}$
 consecutive misses (line~\ref{alg:ch18-track:drop}) the covariance has grown
 so much that any measurement would pass the gate, and the track is dropped
 and restarted.
@@ -1340,10 +1336,8 @@ Jacobians in place of $\mat{F}$ and $\mat{H}$.
 \section{Implementation notes}
 \label{sec:ch18-implementation}
 
-\Cref{lst:ch18-core} is the heart of \code{ch18\_kalman.py}: a class that
-holds the model and the belief, with \code{predict} and \code{update}
-methods. The rest of the file builds the CV and CA models, initialises
-tracks, simulates measurements with misses and outliers, runs the diagnostics
+\Cref{lst:ch18-core} is the heart of \code{ch18\_kalman.py}. The rest of the
+file builds the CV and CA models, initialises tracks, simulates measurements with misses and outliers, runs the diagnostics
 of \cref{sec:ch18-diagnostics}, associates measurements with several tracks
 and predicts ahead; its self-test checks the worked example to four
 decimals, the process-noise integrals, the identity
@@ -1459,8 +1453,9 @@ intruder --- a CV filter with gating and two-point initialisation
 are visible, and a health count of consecutive misses --- and \emph{delivers},
 at every cycle, $(\hat{\state}_k,\mat{P}_k)$ and the predictions
 $(\hat{\state}_{k+j\mid k},\mat{P}_{k+j\mid k})$ up to the horizon
-(\cref{eq:ch18-ahead}). The local safety layer (\orca in \cref{ch:ch13}, DWA
-in \cref{ch:ch14}) takes the predicted position and velocity as the obstacle
+(\cref{eq:ch18-ahead}). The local safety layer (\orca in \cref{ch:ch13}, the
+dynamic window approach, DWA, in \cref{ch:ch14}) takes the predicted position
+and velocity as the obstacle
 and inflates its radius by $\kappa\,\sigma_{\max}(h)$; the time-to-collision
 trigger of \cref{ch:ch24} is evaluated on the same prediction; the
 constant-velocity predictor of \cref{ch:ch20} is \cref{eq:ch18-ahead} itself,

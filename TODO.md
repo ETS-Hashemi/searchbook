@@ -71,7 +71,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [~] 2.17 Ch 17 RRT* and Informed RRT* (rewiring, asymptotic optimality, informed ellipsoid sampling) — drafted on Fable (20 pp, 1403 lines, compiles); Opus review in progress
 
 ### Part VI — Tracking and Prediction
-- [~] 2.18 Ch 18 The Kalman Filter (linear-Gaussian model, predict/update, tuning, constant-velocity tracking) — drafted on Fable (24 pp, 1650 lines, compiles); Opus review in progress
+- [x] 2.18 Ch 18 The Kalman Filter (linear-Gaussian model, predict/update, tuning, constant-velocity tracking) — written and compiled (24 pp); reviewed and revised (see review log)
 - [x] 2.19 Ch 19 EKF, UKF and Particle Filters — written and compiled; reviewed and revised (see review log)
 - [x] 2.20 Ch 20 Trajectory Prediction (constant-velocity baselines, LSTM, Transformers, ADE/FDE, uncertainty) — written and compiled; reviewed and revised (see review log)
 
@@ -121,7 +121,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 - [ ] 5.15 Ch 15 — review/revise until Accept
 - [ ] 5.16 Ch 16 — review/revise until Accept
 - [ ] 5.17 Ch 17 — review/revise until Accept
-- [ ] 5.18 Ch 18 — review/revise until Accept
+- [x] 5.18 Ch 18 — review/revise until Accept — two Opus rounds (Minor 6 -> Minor 2), all applied; loop complete
 - [~] 5.19 Ch 19 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [~] 5.20 Ch 20 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [~] 5.21 Ch 21 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
@@ -219,4 +219,5 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | Ch 21 | 1-2 | Minor revision (9) -> Minor revision (3), applied | see reviews/ch21-round1.md, ch21-round2.md | minor items applied, unreviewed |
 | Ch 24 | 1-2 | Minor (8) -> Minor (4), all applied | see reviews/ch24-round*.md | loop complete |
 | Ch 25 | 1-2 | Minor (6) -> Minor (5), all applied | see reviews/ch25-round*.md | loop complete |
+| Ch 18 | 1-2 | Minor (6) -> Minor (2), all applied | see reviews/ch18-round*.md | loop complete |
 | App. A | 1-2 | Minor revision (6) -> Minor revision (9), applied | see reviews/appA-round1.md, appA-round2.md | minor items applied, unreviewed |

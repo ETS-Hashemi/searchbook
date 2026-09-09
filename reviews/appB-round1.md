@@ -176,3 +176,98 @@ plots true level sets from generated data. Keep the three pitfalls - "do not for
 "check every Jacobian numerically" and "heap entries must be comparable" - which are the three
 mistakes that actually cost readers days, and keep the `heapq`/`dict`/lazy-deletion paragraph,
 which is the exact idiom the search chapters use.
+
+## Response to review (round 1)
+
+All five required changes are applied, plus six of the cheap suggestions. Only
+`Overleaf/appendices/appB-math-refresher.tex` was touched; no numbers, figures, code or
+`.dat` files changed, and nothing the reviewer asked to keep was removed. The build is
+status 0 with no `!` errors and no undefined citations; the only overfull box (29.10 pt,
+front-matter *List of Algorithms*) is the pre-existing one the review told me not to chase.
+`python3 code/figures/gen_appB_numbers.py` still passes every assert in 0.03 s and
+reproduces the `figures/data/appB-gradient-descent.dat` file byte for byte. The appendix
+still occupies PDF pages 28-47 (20 pages), unchanged.
+
+### Required changes
+
+1. **`thm:appB-conditioning` non-degeneracy (A).** *Done.* The hypothesis of
+   \cref{thm:appB-conditioning} now reads "jointly Gaussian with a non-singular
+   covariance", and `eq:appB-joint` carries the condition explicitly:
+   `\qquad \mat{\Sigma}_{ba} = \mat{\Sigma}_{ab}\T,\quad \mat{\Sigma} \succ \mat{0}.`
+   (no overfull box). The false sentence before \cref{thm:appB-affine} is replaced by the
+   reviewer's wording: "A singular $\Sigma \succeq 0$ has no density;
+   \cref{thm:appB-affine} still holds for it, because a degenerate Gaussian is defined by
+   its mean and covariance through its characteristic function, while the conditioning
+   formula of \cref{thm:appB-conditioning} needs $\Sigma_{bb} \succ 0$ (or the
+   Moore--Penrose pseudo-inverse $\Sigma_{bb}^{+}$ in place of $\Sigma_{bb}^{-1}$)."
+   One consequential edit the review did not list: `thm:appB-linear-update`, which applies
+   the conditioning theorem, now states `P > 0` and `R > 0` in its hypothesis (the joint
+   covariance of $(x, z)$ is then $M\,\mathrm{diag}(P, R)\,M^\mathsf{T}$ with
+   $M = [[I, 0],[H, I]]$ invertible, hence non-singular, so the corollary still follows).
+   Nothing else downstream changed.
+
+2. **`thm:appB-local-global` second sentence (A).** *Done, with the optional constrained
+   condition.* The statement now reads "If moreover $\mathcal{C} = \R^n$ and $f$ is
+   differentiable, then $x^*$ is a global minimiser iff $\nabla f(x^*) = 0$; on a general
+   convex $\mathcal{C}$ the first-order condition is instead
+   $\nabla f(x^*)\T(x - x^*) \ge 0$ for all $x \in \mathcal{C}$." The proof was extended
+   accordingly (sufficiency from the tangent-plane inequality, necessity by moving along
+   the segment towards $x$, cited to \cite[Section~4.2]{boyd2004convex}), it now says
+   "an *unconstrained* minimiser has zero gradient", it states the reviewer's
+   counterexample ($f(x) = x$ on $[0,1]$, $x^* = 0$, $\nabla f(x^*) = 1$), and it points at
+   \cref{fig:appB-lp} as the picture of the constrained condition ($-c$ inside the cone of
+   the active normals).
+
+3. **`thm:appB-vertex` "Otherwise" clause (A).** *Done, in the reviewer's form.* The
+   theorem now reads: "Every LP \cref{eq:appB-lp} either is infeasible ($P = \emptyset$),
+   or is unbounded ($c\T z \to -\infty$ on $P$), or attains its optimum. In the last case,
+   if $P$ has at least one vertex---which holds in particular for the standard form with
+   $z \ge 0$---then some vertex of $P$ is optimal." The
+   \textcite[Chapter~13]{nocedal2006numerical} pointer is unchanged.
+
+4. **`tab:appB-gaussian` unreferenced (D).** *Done.* The paragraph that ends "...the
+   precisions of prior and measurement simply add." now continues: "\Cref{tab:appB-gaussian}
+   collects these identities in the form in which \cref{ch:ch18,ch:ch19} use them."
+
+5. **Citation locator in the proof of `thm:appB-affine` (H).** *Done.*
+   `\cite[Chapter~4]{sarkka2013bayesian}` is now `\cite{sarkka2013bayesian}`; I did not have
+   a copy at hand to verify the appendix locator, so the locator is dropped as
+   `STYLE_GUIDE.md` section 3 prescribes.
+
+### Suggestions
+
+* **Strong convexity in `thm:appB-gd`.** *Adopted:* the hypothesis is now the first-order
+  form $f(y) \ge f(x) + \nabla f(x)\T(y - x) + (\mu/2)\norm{y - x}^2$, with
+  "(equivalently $\nabla^2 f \succeq \mu I$ when $f$ is twice differentiable)".
+* **`eq:appB-derivs` proviso.** *Adopted:* "The fourth expression holds only for
+  $x \ne c$, because $\norm{x - c}$ is not differentiable at its own centre", and the
+  sentence on the repulsive potential of \cref{ch:ch15} now ends "---a formula that the
+  code must guard at zero clearance, where the gradient is undefined."
+* **Symbol overloading.** *Adopted, without renaming:* B.5 opens with "Throughout this
+  section $A$ is the adjacency matrix and $L$ the Laplacian of a graph, not the generic
+  matrix of \cref{sec:appB-linalg} or the Cholesky factor of \cref{thm:appB-psd-tests}."
+* **"\cref{thm:appB-affine} in reverse".** *Adopted:* now "(\cref{thm:appB-affine} with
+  $A = L$ and $b = \mu$)".
+* **Simplex and degenerate pivots.** *Adopted:* "never worsening the objective and
+  improving it away from degenerate pivots, until no neighbour is better, which by
+  convexity is a global optimum (an anti-cycling rule such as Bland's guarantees
+  termination)".
+* **Branch-and-bound termination.** *Adopted:* "The method terminates, for bounded integer
+  variables, because every branch cuts away a slice...".
+* **Trailing space at line 1051.** *Adopted:* removed.
+* **Self-check items.** *Not adopted.* The spec says "No code/solutions" and does not ask
+  for exercises, Appendix A set the precedent, and the appendix is already 5 pages over the
+  spec's 12-15; adding half a page of exercises would push it further without a required
+  need. The review does not list this as required.
+* **Length trim (ADMM half-sentence, free-variable splitting, closing sentences of the
+  gradient-descent paragraph).** *Not adopted*, as the reviewer recommends keeping all of
+  it; the required changes added roughly fifteen lines and the appendix still ends on the
+  same PDF page as before.
+
+### Note on the build
+
+While these edits were made, other agents were rebuilding `ch18` and `ch22`, which
+truncates the shared `build/chapters/*.aux` files that `build.sh` `\@input`s; a build run
+during that window reports `File ended while scanning use of \@newl@bel` for
+`chapters/ch18-kalman-filter.aux`. The final run against complete `.aux` files exits 0 with
+no errors, as recorded above.

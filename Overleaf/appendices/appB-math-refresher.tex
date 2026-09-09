@@ -365,12 +365,15 @@ book are
   \label{eq:appB-derivs}
 \end{equation}
 together with $\mat{J}_{\mat{A}\vect{x}} = \mat{A}$ and
-$\nabla^2(\tfrac12\vect{x}\T\mat{A}\vect{x}) = \mat{A}$. The attractive
+$\nabla^2(\tfrac12\vect{x}\T\mat{A}\vect{x}) = \mat{A}$. The fourth expression
+holds only for $\vect{x} \ne \vect{c}$, because $\norm{\vect{x} - \vect{c}}$ is
+not differentiable at its own centre. The attractive
 potential of \cref{ch:ch15} is the third expression with $\vect{c}$ the goal,
 so its force $-\nabla U$ points at the goal; the repulsive potential is a
 function of the clearance to an obstacle, and by the chain rule its gradient
 is a multiple of the unit vector in the fourth expression, which points away
-from the obstacle.
+from the obstacle---a formula that the code must guard at zero clearance,
+where the gradient is undefined.
 
 \begin{proposition}[Taylor expansion]
 \label{thm:appB-taylor}
@@ -496,14 +499,19 @@ semi-axes are $k\sqrt{\lambda_i}$: a large eigenvalue is a direction of large
 uncertainty. In two dimensions the probability mass inside $\mathcal{E}_k$ is
 $1 - e^{-k^2/2}$, that is $39.3\,\%$ for $k = 1$ and $86.5\,\%$ for $k = 2$, a
 consequence of \cref{thm:appB-chi2} below. A singular $\mat{\Sigma} \succeq
-\mat{0}$ has no density, but the two theorems that follow still hold for it.
+\mat{0}$ has no density; \cref{thm:appB-affine} still holds for it, because a
+degenerate Gaussian is defined by its mean and covariance through its
+characteristic function, while the conditioning formula of
+\cref{thm:appB-conditioning} needs $\mat{\Sigma}_{bb} \succ \mat{0}$ (or the
+Moore--Penrose pseudo-inverse $\mat{\Sigma}_{bb}^{+}$ in place of
+$\mat{\Sigma}_{bb}\inv$).
 
 \begin{theorem}[Affine transformations of Gaussians]
 \label{thm:appB-affine}
 If $\state \sim \Normal(\vect{\mu}, \mat{\Sigma})$ in $\R^n$ and $\vect{y} = \mat{A}\state + \vect{b}$ with $\mat{A} \in \R^{m \times n}$, then $\vect{y} \sim \Normal(\mat{A}\vect{\mu} + \vect{b},\ \mat{A}\mat{\Sigma}\mat{A}\T)$.
 \end{theorem}
 \begin{proof}
-The mean and the covariance follow from \cref{thm:appB-cov-rules}. For the shape, take first $m = n$ and $\mat{A}$ invertible: substituting $\state = \mat{A}\inv(\vect{y} - \vect{b})$ into \cref{eq:appB-gaussian} and multiplying by the change-of-variables factor $\abs{\det\mat{A}\inv}$ gives exactly the density $\Normal(\vect{y}; \mat{A}\vect{\mu} + \vect{b}, \mat{A}\mat{\Sigma}\mat{A}\T)$, because $(\mat{A}\mat{\Sigma}\mat{A}\T)\inv = \mat{A}^{-\mathsf{T}}\mat{\Sigma}\inv\mat{A}\inv$ and $\det(\mat{A}\mat{\Sigma}\mat{A}\T) = (\det\mat{A})^2\det\mat{\Sigma}$. A non-square $\mat{A}$ of full row rank is extended to an invertible matrix, and the extra coordinates are integrated out with the marginalisation half of \cref{thm:appB-conditioning}, whose proof does not use this theorem; the remaining cases follow with characteristic functions \cite[Chapter~4]{sarkka2013bayesian}. \qedhere
+The mean and the covariance follow from \cref{thm:appB-cov-rules}. For the shape, take first $m = n$ and $\mat{A}$ invertible: substituting $\state = \mat{A}\inv(\vect{y} - \vect{b})$ into \cref{eq:appB-gaussian} and multiplying by the change-of-variables factor $\abs{\det\mat{A}\inv}$ gives exactly the density $\Normal(\vect{y}; \mat{A}\vect{\mu} + \vect{b}, \mat{A}\mat{\Sigma}\mat{A}\T)$, because $(\mat{A}\mat{\Sigma}\mat{A}\T)\inv = \mat{A}^{-\mathsf{T}}\mat{\Sigma}\inv\mat{A}\inv$ and $\det(\mat{A}\mat{\Sigma}\mat{A}\T) = (\det\mat{A})^2\det\mat{\Sigma}$. A non-square $\mat{A}$ of full row rank is extended to an invertible matrix, and the extra coordinates are integrated out with the marginalisation half of \cref{thm:appB-conditioning}, whose proof does not use this theorem; the remaining cases follow with characteristic functions \cite{sarkka2013bayesian}. \qedhere
 \end{proof}
 
 In particular the sum of independent Gaussians is Gaussian with the sums of
@@ -513,12 +521,12 @@ noise enters the prediction step of \cref{ch:ch18}.
 
 \begin{theorem}[Marginal and conditional of a joint Gaussian]
 \label{thm:appB-conditioning}
-Let $\state = (\state_a, \state_b)$ be jointly Gaussian,
+Let $\state = (\state_a, \state_b)$ be jointly Gaussian with a non-singular covariance,
 \begin{equation}
   \begin{bmatrix}\state_a\\ \state_b\end{bmatrix} \sim
   \Normal\left(\begin{bmatrix}\vect{\mu}_a\\ \vect{\mu}_b\end{bmatrix},
   \begin{bmatrix}\mat{\Sigma}_{aa} & \mat{\Sigma}_{ab}\\ \mat{\Sigma}_{ba} & \mat{\Sigma}_{bb}\end{bmatrix}\right),
-  \qquad \mat{\Sigma}_{ba} = \mat{\Sigma}_{ab}\T .
+  \qquad \mat{\Sigma}_{ba} = \mat{\Sigma}_{ab}\T,\quad \mat{\Sigma} \succ \mat{0}.
   \label{eq:appB-joint}
 \end{equation}
 Then the \textbf{marginal}\index{Gaussian!marginal} of $\state_b$ is $\Normal(\vect{\mu}_b, \mat{\Sigma}_{bb})$ (and likewise for $\state_a$), and the \textbf{conditional}\index{Gaussian!conditional} density of $\state_a$ given $\state_b$ is Gaussian,
@@ -551,7 +559,7 @@ Integrating over $\state_a$ removes the first factor, which is a density in $\st
 
 \begin{corollary}[Linear-Gaussian measurement update]
 \label{thm:appB-linear-update}
-Let $\state \sim \Normal(\vect{\mu}, \mat{P})$ and $\meas = \mat{H}\state + \vect{v}$ with $\vect{v} \sim \Normal(\vect{0}, \mat{R})$ independent of $\state$. Then $(\state, \meas)$ is jointly Gaussian with $\Cov(\meas) = \mat{H}\mat{P}\mat{H}\T + \mat{R} =: \mat{S}$ and $\Cov(\state, \meas) = \mat{P}\mat{H}\T$, and
+Let $\state \sim \Normal(\vect{\mu}, \mat{P})$ with $\mat{P} \succ \mat{0}$, and let $\meas = \mat{H}\state + \vect{v}$ with $\vect{v} \sim \Normal(\vect{0}, \mat{R})$, $\mat{R} \succ \mat{0}$, independent of $\state$ (so the joint covariance below is non-singular, as \cref{thm:appB-conditioning} requires). Then $(\state, \meas)$ is jointly Gaussian with $\Cov(\meas) = \mat{H}\mat{P}\mat{H}\T + \mat{R} =: \mat{S}$ and $\Cov(\state, \meas) = \mat{P}\mat{H}\T$, and
 \begin{equation}
   \state \mid \meas \sim \Normal\left(\vect{\mu} + \Kgain(\meas - \mat{H}\vect{\mu}),\ \mat{P} - \Kgain\mat{H}\mat{P}\right),\qquad \Kgain = \mat{P}\mat{H}\T\mat{S}\inv .
   \label{eq:appB-kalman-update}
@@ -566,6 +574,8 @@ gain $\Kgain$: \cref{ch:ch18} derives it from this corollary, and
 \cref{thm:appB-woodbury} turns $\mat{P} - \Kgain\mat{H}\mat{P}$ into the
 information form $(\mat{P}\inv + \mat{H}\T\mat{R}\inv\mat{H})\inv$, in which
 the precisions of prior and measurement simply add.
+\Cref{tab:appB-gaussian} collects these identities in the form in which
+\cref{ch:ch18,ch:ch19} use them.
 
 \begin{example}[Conditioning the Gaussian of \cref{ex:appB-eigen}]
 \label{ex:appB-conditioning}
@@ -659,7 +669,8 @@ is $\sqrt{\hat{p}(1-\hat{p})/N}$, the error bar to attach to a collision rate
 estimated from $N$ random scenarios (\cref{ch:ch25}). To draw from
 $\Normal(\vect{\mu}, \mat{\Sigma})$, draw $\vect{\xi} \sim \Normal(\vect{0},
 \mat{I})$ and set $\state = \vect{\mu} + \mat{L}\vect{\xi}$ with the Cholesky
-factor $\mat{L}\mat{L}\T = \mat{\Sigma}$ (\cref{thm:appB-affine} in reverse). Drawing $N = 10\,000$ samples this way from the Gaussian of \cref{ex:appB-conditioning} and counting those with $d^2 \le 4$ gives $\hat{p} = 0.8695$ with standard error $0.0034$, within $1.5$ standard errors of the exact value $1 - e^{-2} = 0.8647$ of \cref{thm:appB-chi2} below.
+factor $\mat{L}\mat{L}\T = \mat{\Sigma}$ (\cref{thm:appB-affine} with
+$\mat{A} = \mat{L}$ and $\vect{b} = \vect{\mu}$). Drawing $N = 10\,000$ samples this way from the Gaussian of \cref{ex:appB-conditioning} and counting those with $d^2 \le 4$ gives $\hat{p} = 0.8695$ with standard error $0.0034$, within $1.5$ standard errors of the exact value $1 - e^{-2} = 0.8647$ of \cref{thm:appB-chi2} below.
 When samples can only be drawn from another density $q$, \textbf{importance
 sampling}\index{importance sampling} weights them by $w^{(i)} \propto
 p(\state^{(i)})/q(\state^{(i)})$, normalised to sum to one; the particle
@@ -720,10 +731,10 @@ line of optimization is the following fact.
 
 \begin{proposition}[Local minima of convex functions are global]
 \label{thm:appB-local-global}
-Let $f$ be convex on a convex set $\mathcal{C}$ and let $\vect{x}^*$ be a local minimiser: $f(\vect{x}^*) \le f(\vect{x})$ for all $\vect{x} \in \mathcal{C}$ within some distance $\eps > 0$ of $\vect{x}^*$. Then $f(\vect{x}^*) \le f(\vect{x})$ for all $\vect{x} \in \mathcal{C}$. If $f$ is differentiable on $\R^n$, $\vect{x}^*$ is a global minimiser iff $\nabla f(\vect{x}^*) = \vect{0}$.
+Let $f$ be convex on a convex set $\mathcal{C}$ and let $\vect{x}^*$ be a local minimiser: $f(\vect{x}^*) \le f(\vect{x})$ for all $\vect{x} \in \mathcal{C}$ within some distance $\eps > 0$ of $\vect{x}^*$. Then $f(\vect{x}^*) \le f(\vect{x})$ for all $\vect{x} \in \mathcal{C}$. If moreover $\mathcal{C} = \R^n$ and $f$ is differentiable, then $\vect{x}^*$ is a global minimiser iff $\nabla f(\vect{x}^*) = \vect{0}$; on a general convex $\mathcal{C}$ the first-order condition is instead $\nabla f(\vect{x}^*)\T(\vect{x} - \vect{x}^*) \ge 0$ for all $\vect{x} \in \mathcal{C}$.
 \end{proposition}
 \begin{proof}
-Suppose $f(\vect{y}) < f(\vect{x}^*)$ for some $\vect{y} \in \mathcal{C}$. The points $\vect{x}_\theta = \theta\vect{y} + (1-\theta)\vect{x}^*$ lie in $\mathcal{C}$ and satisfy $f(\vect{x}_\theta) \le \theta f(\vect{y}) + (1-\theta)f(\vect{x}^*) < f(\vect{x}^*)$ for every $\theta \in (0, 1]$; for $\theta$ small enough $\vect{x}_\theta$ is within $\eps$ of $\vect{x}^*$, contradicting local minimality. For the second claim, a differentiable convex function satisfies $f(\vect{y}) \ge f(\vect{x}) + \nabla f(\vect{x})\T(\vect{y} - \vect{x})$ for all $\vect{x}, \vect{y}$, that is, its graph lies above its tangent planes \cite[Section~3.1]{boyd2004convex}, so a zero gradient makes $\vect{x}$ a global minimiser; conversely, a minimiser of a differentiable function has zero gradient. \qedhere
+Suppose $f(\vect{y}) < f(\vect{x}^*)$ for some $\vect{y} \in \mathcal{C}$. The points $\vect{x}_\theta = \theta\vect{y} + (1-\theta)\vect{x}^*$ lie in $\mathcal{C}$ and satisfy $f(\vect{x}_\theta) \le \theta f(\vect{y}) + (1-\theta)f(\vect{x}^*) < f(\vect{x}^*)$ for every $\theta \in (0, 1]$; for $\theta$ small enough $\vect{x}_\theta$ is within $\eps$ of $\vect{x}^*$, contradicting local minimality. For the second claim, a differentiable convex function satisfies $f(\vect{y}) \ge f(\vect{x}) + \nabla f(\vect{x})\T(\vect{y} - \vect{x})$ for all $\vect{x}, \vect{y}$, that is, its graph lies above its tangent planes \cite[Section~3.1]{boyd2004convex}. On $\mathcal{C} = \R^n$ a zero gradient therefore makes $\vect{x}$ a global minimiser, and conversely an unconstrained minimiser of a differentiable function has zero gradient. On a general convex $\mathcal{C}$ the same inequality gives $f(\vect{x}) \ge f(\vect{x}^*) + \nabla f(\vect{x}^*)\T(\vect{x} - \vect{x}^*) \ge f(\vect{x}^*)$ whenever the stated condition holds; and if $\nabla f(\vect{x}^*)\T(\vect{x} - \vect{x}^*) < 0$ for some $\vect{x} \in \mathcal{C}$, then $f$ decreases along the segment from $\vect{x}^*$ towards $\vect{x}$, which lies in $\mathcal{C}$, so $\vect{x}^*$ is not optimal \cite[Section~4.2]{boyd2004convex}. The gradient need not vanish at a constrained optimum: $f(x) = x$ on $\mathcal{C} = [0, 1]$ is minimised at $x^* = 0$ with $\nabla f(x^*) = 1$. \Cref{fig:appB-lp} draws the constrained condition for a linear programme, where $-\vect{c}$ lies in the cone of the normals of the active constraints at the optimal vertex, so no feasible direction decreases the objective. \qedhere
 \end{proof}
 
 For twice differentiable $f$ the test is the Hessian: $f$ is convex on $\R^n$
@@ -800,12 +811,14 @@ the level lines are parallel to it.
 
 \begin{theorem}[Vertex optimality]
 \label{thm:appB-vertex}
-If the LP \cref{eq:appB-lp} has an optimal solution and $P$ has at least one vertex, then some vertex of $P$ is optimal. Otherwise the LP is infeasible ($P = \emptyset$) or unbounded ($\vect{c}\T\vect{z} \to -\infty$ on $P$).
+Every LP \cref{eq:appB-lp} either is infeasible ($P = \emptyset$), or is unbounded ($\vect{c}\T\vect{z} \to -\infty$ on $P$), or attains its optimum. In the last case, if $P$ has at least one vertex---which holds in particular for the standard form with $\vect{z} \ge \vect{0}$---then some vertex of $P$ is optimal.
 \end{theorem}
 
 A proof is in \textcite[Chapter~13]{nocedal2006numerical}. The simplex
-method walks from vertex to adjacent vertex, improving the objective at every
-step until no neighbour is better, which by convexity is a global optimum;
+method walks from vertex to adjacent vertex, never worsening the objective and
+improving it away from degenerate pivots, until no neighbour is better, which
+by convexity is a global optimum (an anti-cycling rule such as Bland's
+guarantees termination);
 interior-point methods approach the optimum through the inside of $P$ and are
 polynomial in the worst case. \Cref{ch:ch22} calls such solvers through
 \code{scipy.optimize}, and branch and bound (\cref{sec:appB-milp}) solves a
@@ -874,8 +887,8 @@ an exact method \cite{wolsey1998integer}:
   \item If the relaxed solution is integral, it is the best solution of this subproblem; make it the incumbent if it is better than the current one.
   \item Otherwise pick a variable $z_j$ with fractional value $v$ and \emph{branch}: create two subproblems with the extra constraint $z_j \le \lfloor v\rfloor$ and $z_j \ge \lceil v\rceil$ respectively, and repeat.
 \end{enumerate}
-The method terminates because every branch cuts away a slice of the relaxed
-region that contains no integer point, and it is exact because a subproblem is
+The method terminates, for bounded integer variables, because every branch
+cuts away a slice of the relaxed region that contains no integer point, and it is exact because a subproblem is
 pruned only when it provably contains nothing better than the incumbent; its
 running time is exponential in the worst case but often small in practice,
 the trade-off that \cref{ch:ch22} explores.
@@ -920,7 +933,7 @@ $f$; the question is how small.
 
 \begin{proposition}[Convergence of gradient descent]
 \label{thm:appB-gd}
-Let $f$ be convex and differentiable with an $L$-Lipschitz gradient, $\norm{\nabla f(\vect{x}) - \nabla f(\vect{y})} \le L\norm{\vect{x} - \vect{y}}$, and let $\vect{x}^*$ be a minimiser. With a constant step $\alpha \le 1/L$ the iterates of \cref{eq:appB-gd} satisfy $f(\vect{x}_k) - f(\vect{x}^*) \le \norm{\vect{x}_0 - \vect{x}^*}^2/(2\alpha k)$. If in addition $f$ is $\mu$-strongly convex, $\nabla^2 f \succeq \mu\mat{I}$, then $\norm{\vect{x}_k - \vect{x}^*} \le (1 - \alpha\mu)^{k}\norm{\vect{x}_0 - \vect{x}^*}$ for $\alpha \le 1/L$: the error shrinks geometrically, at a rate governed by the condition number $L/\mu$.
+Let $f$ be convex and differentiable with an $L$-Lipschitz gradient, $\norm{\nabla f(\vect{x}) - \nabla f(\vect{y})} \le L\norm{\vect{x} - \vect{y}}$, and let $\vect{x}^*$ be a minimiser. With a constant step $\alpha \le 1/L$ the iterates of \cref{eq:appB-gd} satisfy $f(\vect{x}_k) - f(\vect{x}^*) \le \norm{\vect{x}_0 - \vect{x}^*}^2/(2\alpha k)$. If in addition $f$ is $\mu$-strongly convex, $f(\vect{y}) \ge f(\vect{x}) + \nabla f(\vect{x})\T(\vect{y} - \vect{x}) + \tfrac{\mu}{2}\norm{\vect{y} - \vect{x}}^2$ for all $\vect{x}, \vect{y}$ (equivalently $\nabla^2 f \succeq \mu\mat{I}$ when $f$ is twice differentiable), then $\norm{\vect{x}_k - \vect{x}^*} \le (1 - \alpha\mu)^{k}\norm{\vect{x}_0 - \vect{x}^*}$ for $\alpha \le 1/L$: the error shrinks geometrically, at a rate governed by the condition number $L/\mu$.
 \end{proposition}
 
 Proofs are in \textcite[Chapter~9]{boyd2004convex} and
@@ -960,6 +973,9 @@ adaptive step sizes are remedies for the narrow-valley effect.
 
 \subsection{Adjacency, degree and Laplacian matrices}
 
+Throughout this section $\mat{A}$ is the adjacency matrix and $\mat{L}$ the
+Laplacian of a graph, not the generic matrix of \cref{sec:appB-linalg} or the
+Cholesky factor of \cref{thm:appB-psd-tests}.
 An undirected graph $G = (V, E)$ with $n$ vertices numbered $1, \dots, n$ is
 the communication network of \cref{ch:ch23}: the vertices are drones and an
 edge $\set{i, j}$ means that $i$ and $j$ can exchange messages. The
@@ -1048,7 +1064,7 @@ goal $\gamma$ and the priority $\fcost = \gcost + \hcost$, with the frontier in
 \Open and the expanded nodes in \Closed. A 4- or 8-connected grid is such a
 graph with $\abs{E} \le 4\abs{V}$ or $8\abs{V}$, and the space-time graph of
 \cref{ch:ch04,ch:ch08} has the $(T+1)\abs{V}$ states $(v, t)$, $t = 0, \dots,
-T$, with a wait edge from $(v, t)$ to $(v, t+1)$ beside the move edges. 
+T$, with a wait edge from $(v, t)$ to $(v, t+1)$ beside the move edges.
 
 % ---------------------------------------------------------------------
 \section{Complexity and data structures}

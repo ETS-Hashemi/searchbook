@@ -185,3 +185,113 @@ caption of `fig:ch18-prediction`. Also keep the two new solutions (`exr:ch18-sca
 `exr:ch18-observability`) and the two coding hints - the $m=4$ NIS band with $\gamma=13.28$ and
 the swap-rate hint - which are exactly the numbers a reader needs to know whether their own
 implementation is working.
+
+## Response to review (round 2)
+
+Build after the revision: `cd Overleaf && ./build.sh ch18-kalman-filter` exits **0**, no `!`
+error, no undefined label/reference/citation belonging to this chapter (the remaining `??` are
+cross-chapter refs, expected in a single-chapter build). The worst overfull box inside the
+chapter is unchanged at 9.92 pt; the only box above 15 pt (29.10 pt) is the front-matter list
+of algorithms and belongs to another chapter. `python3 code/ch18_kalman.py` prints
+`self-test passed in 3.26 s`. No code was touched, so no `.dat` file needed regenerating and
+every number quoted in the chapter still comes from the two scripts.
+
+**The chapter now occupies pages 25-48 of `build/only-ch18-kalman-filter.pdf`: 24 pages,
+at the ceiling.**
+
+### Required change 1 (C) --- the garbled $\mat{Q}$ sentence in `sec:ch18-models`
+
+Applied, in the form the review proposed. The passage now reads: "... an unknown acceleration
+moves both in the same direction. Dropping the off-diagonal term is a common shortcut and a
+mild error; using $\mat{Q}=q\,\mat{I}$ regardless of $\dt$ is just as common and much worse
+(\cref{sec:ch18-implementation})." Two shortcuts, two verbs, two severities, one forward
+reference to the pitfall box.
+
+### Required change 2 (G) --- one page of repeated prose
+
+All five trims were applied as specified, and no figure, table, box, definition, proof,
+pitfall, exercise or spec item was dropped.
+
+* **`alg:ch18-track` walkthrough.** Reduced to the first sentence and the drop rule; the
+  retelling of lines `init`, `predict`, `miss`, `nis`, `gate` and `deliver` is gone. The first
+  sentence now points at the four subsections that fill those lines in
+  (`\cref{sec:ch18-gating,sec:ch18-missing,sec:ch18-init,sec:ch18-prediction}`) instead of
+  paraphrasing them.
+* **Tuning paragraph.** Now starts "In \cref{fig:ch18-tuning} the small value pays for its
+  smoothness in the turn ..."; the retelling of the caption and of the table header is gone,
+  the $56\%$ and "doubles" numbers are kept.
+* **Worked example.** The four-number recap is replaced by "The velocity estimate recovers
+  from its wrong start, and both final errors fall inside the standard deviations the filter
+  reports." The following sentence on $d^2_k$ and the whole corrected NIS discussion are
+  untouched.
+* **Gate paragraph.** The sentence restating `def:ch18-gate` and the caption of
+  `fig:ch18-gating` is gone; the price/benefit sentence and the self-test outlier sentence are
+  kept.
+* **Experiment B.** The enumeration of grid points is gone. Kept: the optimum
+  ($0.469$ m at $q=0.178$), the $0.477$/$0.503$/$0.541$ readings that carry the "under-sizing
+  is punished sooner" asymmetry, the raw-RMSE comparison ("the position RMSE stays below the
+  raw $1.126$~m over the whole grid"), the explanation of the velocity asymmetry --- now
+  stated correctly as running *the other way* from the position asymmetry --- the contrast
+  with the turning target of `fig:ch18-tuning`, and the NIS-rule closing observation.
+
+Those five trims alone left the chapter at 25 pages with eleven lines spilling onto page 49,
+so two further pieces of pure repetition were removed, in the spirit of the "or equivalent
+ones of your choosing" clause:
+
+* The third paragraph of `sec:ch18-motivation` was an almost verbatim preview of the drone box
+  of `sec:ch18-drone` (same layers, same chapters, same Week-9 milestone sentence). It is now
+  one sentence: the filter is the core of the prediction layer and the Week-9 topic, and
+  `\cref{sec:ch18-drone}` sets out the interface. The DWA expansion that lived in the deleted
+  sentence was moved to the drone box, which is now the first use of the abbreviation, so the
+  round-1 "expand DWA at first use" item is preserved.
+* The half-sentence of `sec:ch18-implementation` describing `KalmanFilter` as "a class that
+  holds the model and the belief, with `predict` and `update` methods" duplicated the caption
+  of `lst:ch18-core` directly above it. The rest of that paragraph, including the full
+  self-test contract, is untouched.
+
+### Suggestions
+
+* **`fig:ch18-gating`.** Adopted. A two-line annotation `$d^2=0.883\gamma$ to A /
+  $0.899\gamma$ to B` now sits just below $\meas^{(3)}$, on a light background, in the gap
+  outside both ellipses; no marker, gate or arrow moved. The two values are the exact
+  normalised distances of the drawn geometry (I recomputed them from the ellipse centres,
+  rotations and semi-axes: $0.8830$ and $0.8992$; the review's $0.898$ for B is $0.899$ to
+  three decimals). The page was rendered to check the annotation does not collide with
+  anything.
+* **Prediction pitfall.** Adopted: "$\mat{P}_k$ ... *while measurements keep arriving* it
+  converges to a small steady value and never grows, however long you track", which removes
+  the contradiction with `sec:ch18-missing`.
+* **"Constant gain" variant.** Adopted verbatim: "but no transient phase of large gains, so it
+  converges slowly from a poor start, and no covariance output for the safety layer".
+* **`alg:ch18-track:nis`.** Adopted: the line now carries `\tcp*{reused in \KalmanUpdate}`.
+  It does not overflow the algorithm box (the worst overfull in the chapter is unchanged).
+* **Solutions.** Adopted: `exr:ch18-tuning` now has a hint covering where the minimum moves on
+  a manoeuvring target, the reversed asymmetry of the curve, what the diagnostics select, and
+  the CA-versus-CV trade (CA wins in the turn, loses on the straight legs, which is the
+  argument for the IMM estimator). All 9 exercises are now answered or hinted. Verified by
+  building `appC-solutions`: the new solution typesets with no error.
+* **`thm:ch18-best-gain`.** Adopted: the two-colon sentence is split, so the induction now
+  starts its own sentence ("The statement extends from one update to the whole recursion by
+  induction over $k$, since ...").
+* **Notation table (front matter, not this chapter's file).** Not actioned, as instructed:
+  `frontmatter/notation.tex` lines 159-160 attribute $\vect{w}_k,\vect{v}_k$ and
+  $\vect{y}_k,\mat{S}_k$ to `\cref{ch:ch19}`, although all four are defined in this chapter
+  (`eq:ch18-motion`, `eq:ch18-measurement`, `eq:ch18-innovation`, `eq:ch18-S`). **The
+  front-matter owner should change those two rows to `\cref{ch:ch18}`.** This is repeated in
+  the final report.
+
+### What was kept
+
+Nothing on the "must be kept" list was touched. Specifically still present and unchanged: the
+corrected NIS discussion of the worked example; the asymmetric reading of the RMSE-versus-$q$
+curve of experiment B with its contrast to the turning target; the single $2\sigma$ convention
+across the prediction pitfall, the paragraph before it and the caption of
+`fig:ch18-prediction`; the split complexity claim after `alg:ch18-kf`; the
+`ch:ch12`/`ch:ch13` velocity-obstacle attribution; the RMSE expansion at first use (and DWA,
+now expanded at its new first use); the two-Gaussian-facts derivation strategy;
+`eq:ch18-example-recursion` and the trace table; the $k_v=b^-/S$ thread; the whole
+tuning-and-diagnostics apparatus; all four pitfall boxes; the $\mat{F}/\mat{H}$ notebox;
+`sec:ch18-prediction` with $1-e^{-2}=86.5\%$ and $\kappa=\sqrt{5.99}$; the two round-1
+solutions and the two coding hints; and the code contract. Figure, table, algorithm, listing,
+pitfall, definition and exercise counts are unchanged (8/3/2/1/4/.../9), and all eight figures
+are still `\cref`-referenced.
