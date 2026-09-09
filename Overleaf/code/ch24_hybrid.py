@@ -554,10 +554,13 @@ PARAMS = dict(
     n_clear=5,                # cycles without predicted conflict before Reconnecting
     k_look=6,                 # waypoints searched forward by Reconnect
     delay_max=1,              # largest admissible delay (time shift), steps
-    drift_max=2.5,            # largest tolerated drift from the plan, m
+    drift_max=3.5,            # largest tolerated drift from the plan, m
     t_avoid_max=8.0,          # longest stay in Avoiding, s
-    r_comm=7.5,               # communication range, m
+    r_comm=8.5,               # communication range, m
+    ell_act=7.5,              # link length at which the communication pull acts, m
     k_form=0.5,               # formation correction gain, 1/s
+    period_prediction=0.1,    # rate of the prediction layer, s (control cycle: DT)
+    replan_period=1.0,        # a drone replans at most once per this many seconds
     sigma_z=0.15, q_kf=0.05,  # measurement noise (m) and process noise of the KF
     seed=24,
 )
@@ -598,6 +601,7 @@ class Drone:
     clear_count: int = 0
     replans: int = 0
     reconnections: int = 0
+    t_last_replan: float = -INF
 
     def plan_position(self, t: float):
         return path_position(self.path, self.t0, t)
@@ -635,7 +639,10 @@ class HybridSimulation:
         self.history: List[dict] = []
         self.recheck_log: List[dict] = []
         self.reconnect_log: List[dict] = []
+        self.trigger_profiles: List[dict] = []
         self.orca_infeasible = 0
+        self.clock = RateSchedule({"control": DT, "prediction": self.p["period_prediction"]})
+        self.pred = None
 
     # -- world -----------------------------------------------------------
     def intruder_true(self, t: Optional[float] = None):
@@ -678,25 +685,28 @@ class HybridSimulation:
             out.append(pt)
         return out
 
-    def predicted_conflict(self, d: Drone, pred):
-        """(inside, t_c, worst margin): the safety-horizon test of the
-        chapter.  A conflict is inside the horizon when the predicted
-        separation minus the uncertainty inflation drops below R_safe
-        within tau_h seconds."""
-        if pred is None:
-            return False, None, INF
+    def conflict_profile(self, d: Drone, pred):
+        """Over the safety horizon: the look-ahead times s, the predicted
+        separation sep(s) and the uncertainty inflation kappa*sigma(s)."""
         means, covs = pred
         n = min(int(round(self.p["tau_h"] / DT)), len(means) - 1)
         times = [i * DT for i in range(n + 1)]
         own = self.intended_positions(d, times)
-        worst, t_c = INF, None
-        for i in range(n + 1):
-            sep = float(np.linalg.norm(own[i] - means[i]))
-            m = sep - self.p["kappa"] * sigma_max(covs[i]) - self.R_safe
-            if m < worst:
-                worst = m
-            if m < 0 and t_c is None:
-                t_c = times[i]
+        sep = [float(np.linalg.norm(own[i] - means[i])) for i in range(n + 1)]
+        infl = [self.p["kappa"] * sigma_max(covs[i]) for i in range(n + 1)]
+        return times, sep, infl, own
+
+    def predicted_conflict(self, d: Drone, pred):
+        """(inside, t_c, worst margin): the safety-horizon test of the
+        chapter.  A conflict is inside the horizon when the predicted
+        separation minus the uncertainty inflation drops below R_safe
+        within tau_h seconds; t_c is the first such look-ahead time."""
+        if pred is None:
+            return False, None, INF
+        times, sep, infl, _ = self.conflict_profile(d, pred)
+        margin = [sep[i] - infl[i] - self.R_safe for i in range(len(times))]
+        worst = min(margin)
+        t_c = next((times[i] for i in range(len(times)) if margin[i] < 0), None)
         return t_c is not None, t_c, worst
 
     # -- local layer ---------------------------------------------------------
@@ -722,8 +732,8 @@ class HybridSimulation:
         if mates:
             nearest = min(mates, key=lambda o: np.linalg.norm(o.pos - d.pos))
             gap = np.linalg.norm(nearest.pos - d.pos)
-            if gap > 0.8 * self.p["r_comm"]:
-                v = v + (nearest.pos - d.pos) / gap * (gap - 0.8 * self.p["r_comm"])
+            if gap > self.p["ell_act"]:
+                v = v + (nearest.pos - d.pos) / gap * (gap - self.p["ell_act"])
         n = np.linalg.norm(v)
         if n > self.p["v_max"]:
             v = v / n * self.p["v_max"]
@@ -852,10 +862,11 @@ class HybridSimulation:
         starts = [o.t0 for o in self.drones]
         conflict = first_conflict(paths, starts, self.names, t_from)
         entry = dict(t=self.t, drone=changed.name, conflict=str(conflict) if conflict else None,
-                     repaired=None)
+                     repaired=None, before=[(o.name, list(o.path), o.t0) for o in self.drones])
         if conflict is not None:
             subset = [o for o in self.drones if o.name in (conflict.i, conflict.j)]
             t_start = int(math.ceil(self.t + 0.5))
+            entry["subset"], entry["t_start"] = [o.name for o in subset], t_start
             res = Reservation()
             for o in self.drones:
                 if o not in subset:
@@ -869,12 +880,17 @@ class HybridSimulation:
                     o.target, o.target_time, o.target_index = centre(p[0]), float(t_start), 0
                     if o.state == NOMINAL:
                         self.transition(o, RECONNECTING, "repaired by local CBS")
+        entry["after"] = [(o.name, list(o.path), o.t0) for o in self.drones]
         self.recheck_log.append(entry)
         return entry
 
     # -- the state machine ---------------------------------------------------
     def transition(self, d: Drone, new: str, reason: str) -> None:
         self.log.append((round(self.t, 2), d.name, d.state, new, reason))
+        if new == AVOIDING and self.pred is not None:   # keep the trigger's evidence
+            times, sep, infl, own = self.conflict_profile(d, self.pred)
+            self.trigger_profiles.append(dict(t=self.t, drone=d.name, times=times, sep=sep,
+                                              infl=infl, own=own, means=self.pred[0][:len(times)]))
         d.state, d.t_state, d.clear_count = new, self.t, 0
 
     def decide(self, d: Drone, pred) -> np.ndarray:
@@ -906,7 +922,8 @@ class HybridSimulation:
                 v_pref = self.preferred_velocity(d, with_formation=False)
                 return self.local_layer(d, v_pref, pred, t_c, with_intruder=True)[0]
         if d.state == REPLANNING:
-            if self.replan(d, pred):
+            if self.t - d.t_last_replan >= self.p["replan_period"] and self.replan(d, pred):
+                d.t_last_replan = self.t
                 self.recheck(d)
                 self.transition(d, RECONNECTING, "new path from the current cell")
                 inside, t_c, margin = self.predicted_conflict(d, pred)
@@ -924,15 +941,18 @@ class HybridSimulation:
 
     # -- one control cycle -----------------------------------------------------
     def step(self) -> None:
-        # prediction layer: observe the intruder when in range
+        """One control cycle: prediction layer at its own rate, then one
+        decision per drone from a common snapshot, then the motion."""
         p_true = self.intruder_true()
-        if self.detected_at is None and any(
-                np.linalg.norm(p_true - d.pos) <= self.p["sense_range"] for d in self.drones):
-            self.detected_at = self.t
-        if self.detected_at is not None:
-            z = p_true + self.rng.normal(0.0, self.p["sigma_z"], 2)
-            self.tracker.update(z)
-        pred = self.prediction()
+        if self.clock.due("prediction", self.t):
+            if self.detected_at is None and any(
+                    np.linalg.norm(p_true - d.pos) <= self.p["sense_range"] for d in self.drones):
+                self.detected_at = self.t
+            if self.detected_at is not None:          # observe, filter, predict
+                z = p_true + self.rng.normal(0.0, self.p["sigma_z"], 2)
+                self.tracker.update(z)
+            self.pred = self.prediction()
+        pred = self.pred
         # decisions from one snapshot of the teammates' states
         commands = [self.decide(d, pred) for d in self.drones]
         for d, v in zip(self.drones, commands):
@@ -979,7 +999,34 @@ class HybridSimulation:
 
 
 # ---------------------------------------------------------------------
-# 7. A second example: two drones replan in the same cycle
+# 7. Rates: which module runs in which control cycle
+# ---------------------------------------------------------------------
+#
+#   module (layer)          interface                          rate
+#   global planner (1)      cbs(grid, starts, goals) -> paths  once, before take-off
+#   tracker (2)             update(z); predict_horizon(n)      period_prediction
+#   local layer (3)         local_layer(d, v_pref, pred, ..)   every control cycle DT
+#   replanner (4)           replan(d, pred); recheck(d)        on demand, >= replan_period apart
+#   executive               decide(d, pred) -> velocity        every control cycle DT
+
+
+class RateSchedule:
+    """A module with period T runs in the first cycle at or after its due
+    time; the executive asks ``due(name, t)`` once per cycle."""
+
+    def __init__(self, periods: Dict[str, float]):
+        self.periods = dict(periods)
+        self.next_due = {name: 0.0 for name in periods}
+
+    def due(self, name: str, t: float) -> bool:
+        if t + EPS < self.next_due[name]:
+            return False
+        self.next_due[name] = t + self.periods[name]
+        return True
+
+
+# ---------------------------------------------------------------------
+# 8. A second example: two drones replan in the same cycle
 # ---------------------------------------------------------------------
 
 
@@ -1005,7 +1052,7 @@ def simultaneous_replan_example():
 
 
 # ---------------------------------------------------------------------
-# 8. Worked example and self-test
+# 9. Worked example and self-test
 # ---------------------------------------------------------------------
 
 
@@ -1061,14 +1108,24 @@ def _self_test() -> None:
     # 4. after the intruder has passed, every drone is back on a plan that is
     #    conflict-free against the others and reaches the goal
     assert all(d.state == NOMINAL for d in sim.drones)
-    assert first_conflict([d.path for d in sim.drones], [d.t0 for d in sim.drones]) is None
+    assert first_conflict([d.path for d in sim.drones], [d.t0 for d in sim.drones],
+                          t_from=int(math.floor(sim.t))) is None
     assert all(d.arrived(sim.t) for d in sim.drones), [d.pos for d in sim.drones]
+    assert sim.t < 25.0, sim.t
+    # 4b. the re-check inside the scenario found and repaired a conflict
+    assert any(e["repaired"] for e in sim.recheck_log)
+    # 4c. one reconnection succeeded and one failed before a replan
+    assert any(e["k"] is not None for e in sim.reconnect_log)
+    assert any(e["k"] is None for e in sim.reconnect_log)
     # 5. the re-check repairs a pair of simultaneous replans
     ex = simultaneous_replan_example()
     assert ex["conflict"] is not None and ex["repaired"] is not None and ex["after"] is None
     # 6. the Kalman prediction inflation grows with the horizon
     means, covs = sim.tracker.predict_horizon(30)
     assert sigma_max(covs[-1]) > sigma_max(covs[0])
+    # 7. the rate schedule runs a 0.3 s module in every third 0.1 s cycle
+    clock = RateSchedule({"slow": 0.3})
+    assert sum(clock.due("slow", round(i * DT, 6)) for i in range(30)) == 10
     print("ch24_hybrid.py: all self-tests passed (%d cycles simulated)" % len(sim.history))
 
 
