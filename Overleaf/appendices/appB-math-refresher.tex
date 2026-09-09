@@ -11,11 +11,11 @@
 \begin{objectives}
 After working through this appendix you will be able to
 \begin{itemize}
-  \item manipulate vectors, matrices and block matrices with the identities that the filtering, control and consensus chapters rely on, and recognise a positive (semi)definite matrix when you meet one;
-  \item linearise a nonlinear map with its Jacobian, judge the error of the linearisation, and step a double integrator forward exactly;
-  \item write down the density of a multivariate Gaussian, transform it affinely, condition it on some of its variables, and gate a measurement with the Mahalanobis distance;
-  \item tell a convex problem from a non-convex one, read the KKT conditions, and say what a linear, a quadratic and a mixed-integer program is and how each is solved;
-  \item form the Laplacian of a graph and explain why its second eigenvalue measures how well the graph is connected;
+  \item use the matrix identities (transpose, inverse, eigen-decomposition, definiteness, block matrices, Schur complement, least squares) that the filtering, control and consensus chapters rely on;
+  \item linearise a nonlinear map with its Jacobian, bound the error, and step a double integrator forward exactly;
+  \item write down a multivariate Gaussian, transform it affinely, condition it on a measurement, and gate with the Mahalanobis distance;
+  \item tell a convex problem from a non-convex one, read the KKT conditions, and say what linear, quadratic and mixed-integer programs are and how each is solved;
+  \item form the Laplacian of a graph and explain why its second eigenvalue measures connectivity;
   \item read a complexity bound and choose the right \python data structure for a search.
 \end{itemize}
 \end{objectives}
@@ -285,7 +285,7 @@ and $\mat{M}$ is invertible iff $\mat{S}$ is, with
 If instead $\mat{A}$ is invertible and $\mat{S}' = \mat{D} - \mat{C}\mat{A}\inv\mat{B}$, the same statements hold with the roles of the blocks exchanged; in particular $\det\mat{M} = \det\mat{A}\,\det\mat{S}'$, $(\mat{M}\inv)_{22} = \mat{S}'^{-1}$ and $(\mat{M}\inv)_{11} = \mat{A}\inv + \mat{A}\inv\mat{B}\mat{S}'^{-1}\mat{C}\mat{A}\inv$.
 \end{theorem}
 \begin{proof}
-Multiply out the right-hand side of \cref{eq:appB-block-fact} with \cref{eq:appB-block-product}: the product of the last two factors is $\begin{bsmallmatrix}\mat{S} & \mat{0}\\ \mat{C} & \mat{D}\end{bsmallmatrix}$, and multiplying by the first factor gives $\begin{bsmallmatrix}\mat{S} + \mat{B}\mat{D}\inv\mat{C} & \mat{B}\\ \mat{C} & \mat{D}\end{bsmallmatrix} = \mat{M}$. The outer factors are block-triangular with identity diagonal blocks, so their determinant is $1$ and their inverses are obtained by negating the off-diagonal block; the determinant of the middle factor is $\det\mat{S}\det\mat{D}$. Inverting the three factors in reverse order and multiplying out gives \cref{eq:appB-block-inverse}. The second statement is the first one applied to $\mat{M}$ with its block rows and block columns swapped. \qedhere
+Multiplying out the right-hand side of \cref{eq:appB-block-fact} with \cref{eq:appB-block-product} gives back $\mat{M}$. The outer factors are block-triangular with identity diagonal blocks, so they have determinant $1$ and are inverted by negating the off-diagonal block; the middle factor has determinant $\det\mat{S}\det\mat{D}$ and is inverted block by block. Inverting the three factors in reverse order and multiplying out gives \cref{eq:appB-block-inverse}. The second statement is the first applied to $\mat{M}$ with its block rows and block columns swapped. \qedhere
 \end{proof}
 
 In \cref{ex:appB-eigen} the Schur complement of the $(2,2)$ entry is $2.0 -
@@ -326,14 +326,7 @@ Write $\vect{r} = \mat{A}\vect{x}^* - \vect{b}$, let $\vect{x}$ be arbitrary and
 
 \begin{example}[Fitting a constant-velocity line]
 \label{ex:appB-lsq}
-A drone is seen at the positions $0.0$, $1.1$ and $1.9$\,m at the times $t = 0, 1, 2$\,s along one axis. The model $p(t) = p_0 + v t$ is linear in the unknowns $\vect{x} = (p_0, v)\T$, so
-\begin{equation*}
-  \mat{A} = \begin{bmatrix} 1 & 0\\ 1 & 1\\ 1 & 2\end{bmatrix},\quad
-  \vect{b} = \begin{bmatrix} 0.0\\ 1.1\\ 1.9\end{bmatrix},\quad
-  \mat{A}\T\mat{A} = \begin{bmatrix} 3 & 3\\ 3 & 5\end{bmatrix},\quad
-  \mat{A}\T\vect{b} = \begin{bmatrix} 3.0\\ 4.9\end{bmatrix},
-\end{equation*}
-and \cref{eq:appB-normal} gives $p_0 = 0.05$\,m and $v = 0.95$\,m/s. The residuals $\mat{A}\vect{x}^* - \vect{b} = (0.05, -0.10, 0.05)\T$ have squared norm $0.015$ and are orthogonal to both columns of $\mat{A}$, which is what the normal equations say.
+A drone is seen at the positions $0.0$, $1.1$ and $1.9$\,m at the times $t = 0, 1, 2$\,s along one axis. The model $p(t) = p_0 + vt$ is linear in $\vect{x} = (p_0, v)\T$, with rows $(1, t)$ in $\mat{A}$ and $\vect{b} = (0.0, 1.1, 1.9)\T$, so $\mat{A}\T\mat{A} = \begin{bsmallmatrix} 3 & 3\\ 3 & 5\end{bsmallmatrix}$, $\mat{A}\T\vect{b} = (3.0, 4.9)\T$, and \cref{eq:appB-normal} gives $p_0 = 0.05$\,m and $v = 0.95$\,m/s. The residuals $\mat{A}\vect{x}^* - \vect{b} = (0.05, -0.10, 0.05)\T$ have squared norm $0.015$ and are orthogonal to both columns of $\mat{A}$, which is what the normal equations say.
 \end{example}
 
 Least squares is the quiet workhorse of Parts VI and VII: the Kalman update
@@ -686,17 +679,12 @@ is $\sqrt{\hat{p}(1-\hat{p})/N}$, the error bar to attach to a collision rate
 estimated from $N$ random scenarios (\cref{ch:ch25}). To draw from
 $\Normal(\vect{\mu}, \mat{\Sigma})$, draw $\vect{\xi} \sim \Normal(\vect{0},
 \mat{I})$ and set $\state = \vect{\mu} + \mat{L}\vect{\xi}$ with the Cholesky
-factor $\mat{L}\mat{L}\T = \mat{\Sigma}$ (\cref{thm:appB-affine} in reverse).
+factor $\mat{L}\mat{L}\T = \mat{\Sigma}$ (\cref{thm:appB-affine} in reverse). Drawing $N = 10\,000$ samples this way from the Gaussian of \cref{ex:appB-conditioning} and counting those with $d^2 \le 4$ gives $\hat{p} = 0.8695$ with standard error $0.0034$, within $1.5$ standard errors of the exact value $1 - e^{-2} = 0.8647$ of \cref{thm:appB-chi2} below.
 When samples can only be drawn from another density $q$, \textbf{importance
 sampling}\index{importance sampling} weights them by $w^{(i)} \propto
 p(\state^{(i)})/q(\state^{(i)})$, normalised to sum to one; the particle
 filter of \cref{ch:ch19} is a sequential version of this idea
 \cite{doucet2001sequential}.
-
-\begin{example}[Mass inside the $2\sigma$ ellipse]
-\label{ex:appB-montecarlo}
-Drawing $N = 10\,000$ samples from the Gaussian of \cref{ex:appB-conditioning} with the Cholesky factor of \cref{ex:appB-eigen} and counting those with $d^2 \le 4$ gives $\hat{p} = 0.8695$, with standard error $\sqrt{\hat{p}(1-\hat{p})/N} = 0.0034$. The exact value $1 - e^{-2} = 0.8647$ lies within $1.5$ standard errors of the estimate.
-\end{example}
 
 \subsection{Mahalanobis distance and chi-square gating}
 \label{sec:appB-gating}
@@ -914,7 +902,7 @@ the trade-off that \cref{ch:ch22} explores.
 
 \begin{example}[Branch and bound by hand]
 \label{ex:appB-bnb}
-Maximise $5z_1 + 4z_2$ subject to $6z_1 + 4z_2 \le 24$, $z_1 + 2z_2 \le 6$, $z_1, z_2 \ge 0$ and integer. The relaxation (node~1) has the optimum $(3, 1.5)$ with value $21$, so no integer solution can exceed $21$. Branching on $z_2$ gives node~2 ($z_2 \le 1$), whose relaxation is $(3.33, 1)$ with value $20.67$, and node~3 ($z_2 \ge 2$), whose relaxation is $(2, 2)$ with value $18$. Branching node~2 on $z_1$ gives node~4 ($z_1 \le 3$) with the integral optimum $(3, 1)$ of value $19$, which becomes the incumbent, and node~5 ($z_1 \ge 4$), whose relaxation $(4, 0)$ is integral with value $20$ and replaces it. Node~3 is now pruned: its bound $18$ cannot beat $20$, so none of its integer points needs to be examined. The optimum is $(4, 0)$ with value $20$, which an enumeration of all feasible integer points confirms; rounding the relaxed optimum to $(3, 2)$ would have been infeasible and rounding it to $(3, 1)$ suboptimal.
+Maximise $5z_1 + 4z_2$ subject to $6z_1 + 4z_2 \le 24$, $z_1 + 2z_2 \le 6$, $z_1, z_2 \ge 0$ and integer. The relaxation (node~1) has the optimum $(3, 1.5)$ with value $21$, so no integer solution can exceed $21$. Branching on $z_2$ gives node~2 ($z_2 \le 1$) with relaxed optimum $(3.33, 1)$ and bound $20.67$, and node~3 ($z_2 \ge 2$) with $(2, 2)$ and bound $18$. Branching node~2 on $z_1$ gives node~4 ($z_1 \le 3$), whose relaxation $(3, 1)$ is integral with value $19$ and becomes the incumbent, and node~5 ($z_1 \ge 4$), whose relaxation $(4, 0)$ is integral with value $20$ and replaces it. Node~3 is pruned: its bound $18$ cannot beat $20$. The optimum is $(4, 0)$ with value $20$, which enumerating all feasible integer points confirms; rounding the relaxed optimum to $(3, 2)$ would be infeasible and to $(3, 1)$ suboptimal.
 \end{example}
 
 \paragraph{Big-$M$ constraints.}
@@ -1069,21 +1057,19 @@ The graph is connected, so $\lambda_2 = 1 > 0$, and $\lambda_n = 4 \le 2d_{\max}
 
 The search chapters use a directed graph $G = (V, E)$ with a cost $c(u, v)
 \ge 0$ on every edge, successors $\Succ(u) = \set{v : (u, v) \in E}$ and
-predecessors $\Pred(u)$. A path $\pi = (v_0, v_1, \dots, v_m)$ follows edges
-from $v_0$ to $v_m$ and costs $\cost(\pi) = \sum_{i} c(v_{i}, v_{i+1})$; the
-\textbf{shortest-path distance}\index{shortest-path distance} $\dist(u, v)$
-is the least cost of a path from $u$ to $v$, or $\infty$ if there is none,
-and it satisfies the triangle inequality $\dist(u, w) \le \dist(u, v) +
-\dist(v, w)$. \Cref{ch:ch03} computes $\dist(s, \cdot)$ from a start $s$ and
-writes it $\delta(s, v)$; \cref{ch:ch04} keeps for every node the cost
-$\gcost(n)$ of the best path found so far, a heuristic estimate $\hcost(n)$
-of $\dist(n, \gamma)$ to the goal $\gamma$, and the priority $\fcost = \gcost
-+ \hcost$, and stores the frontier in \Open and the expanded nodes in
-\Closed. A 4- or 8-connected grid is such a graph with $\abs{E} \le
-4\abs{V}$ or $8\abs{V}$ edges, and a space-time graph
-(\cref{ch:ch04,ch:ch08}) has the states $(v, t)$ for $t = 0, \dots, T$, so
-$(T + 1)\abs{V}$ of them, with a wait edge from $(v, t)$ to $(v, t+1)$
-alongside the move edges. 
+predecessors $\Pred(u)$. A path $\pi = (v_0, \dots, v_m)$ follows edges and
+costs $\cost(\pi) = \sum_i c(v_i, v_{i+1})$; the \textbf{shortest-path
+distance}\index{shortest-path distance} $\dist(u, v)$ is the least cost of a
+path from $u$ to $v$, $\infty$ if there is none, and it satisfies the triangle
+inequality $\dist(u, w) \le \dist(u, v) + \dist(v, w)$. \Cref{ch:ch03}
+computes $\dist(s, \cdot)$ from a start $s$ and writes it $\delta(s, v)$;
+\cref{ch:ch04} keeps for every node the cost $\gcost(n)$ of the best path
+found so far, a heuristic estimate $\hcost(n)$ of $\dist(n, \gamma)$ to the
+goal $\gamma$ and the priority $\fcost = \gcost + \hcost$, with the frontier in
+\Open and the expanded nodes in \Closed. A 4- or 8-connected grid is such a
+graph with $\abs{E} \le 4\abs{V}$ or $8\abs{V}$, and the space-time graph of
+\cref{ch:ch04,ch:ch08} has the $(T+1)\abs{V}$ states $(v, t)$, $t = 0, \dots,
+T$, with a wait edge from $(v, t)$ to $(v, t+1)$ beside the move edges. 
 
 % ---------------------------------------------------------------------
 \section{Complexity and data structures}
@@ -1176,17 +1162,15 @@ expected time.
 
 \begin{dronebox}
 Each layer of the hybrid architecture of \cref{ch:ch24} leans on one part of
-this appendix. The global planner (\cbs, \ecbs; \cref{ch:ch09,ch:ch10}) lives
-on the graphs, heaps and hash tables of \cref{sec:appB-graphs,sec:appB-complexity}.
-The prediction layer (\cref{ch:ch18,ch:ch19,ch:ch20}) is the Gaussian algebra of
-\cref{sec:appB-probability}: affine maps for the predict step, conditioning for
-the update, chi-square gates for rejecting stray detections, and gradient
-descent for its learned models. The local layer (\cref{ch:ch13,ch:ch14}) is the
-convex geometry of half-planes and the double-integrator step of
-\cref{sec:appB-calculus}. The control and formation layers (\cref{ch:ch21,ch:ch22,ch:ch23})
-are quadratic and mixed-integer programs, KKT multipliers and the Laplacian
-spectrum. When a chapter's first pages send you here, read only the
-section named and return.
+this appendix: the global planner (\cref{ch:ch09,ch:ch10}) on the graphs,
+heaps and hash tables of \cref{sec:appB-graphs,sec:appB-complexity}; the
+prediction layer (\cref{ch:ch18,ch:ch19,ch:ch20}) on the Gaussian algebra and
+gating of \cref{sec:appB-probability} and the gradient descent of
+\cref{sec:appB-gd}; the local layer (\cref{ch:ch13,ch:ch14}) on the convex
+geometry of half-planes and the double-integrator step; the control and
+formation layers (\cref{ch:ch21,ch:ch22,ch:ch23}) on quadratic and
+mixed-integer programs, KKT multipliers and the Laplacian spectrum. When a
+chapter sends you here, read only the section it names and return.
 \end{dronebox}
 
 % ---------------------------------------------------------------------
@@ -1236,11 +1220,6 @@ Apply \cref{thm:appB-woodbury} to $\mat{P} - \mat{P}\mat{H}\T(\mat{H}\mat{P}\mat
 \begin{exercise}[\difficulty{2}]
 \label{exr:appB-conditioning}
 In \cref{ex:appB-conditioning}, condition on $x = 3$ instead and find the distribution of $y$. Check that the variance shrinks by the same factor $1 - \rho^2$.
-\end{exercise}
-
-\begin{exercise}[\difficulty{2}]
-\label{exr:appB-lp}
-Replace the objective of \cref{ex:appB-lp} by $2z_1 + 2z_2$. Find all optimal solutions, explain why there is more than one, and give the KKT multipliers at the vertex $(3, 1)$.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
