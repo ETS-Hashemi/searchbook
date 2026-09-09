@@ -95,7 +95,7 @@ Which connectivity should you use? \Cref{tab:ch02-connectivity} lists the \textb
 
 \begin{table}[tb]
 \centering\small
-\caption{Neighbourhoods on grids and lattices. The stretch is the worst-case ratio between the cost of the cheapest lattice path and the straight-line distance in an empty space, attained in the direction that the available moves imitate worst. The numbers are computed by \code{lattice\_stretch} in \code{ch02\_toolbox.py}.}
+\caption{Neighbourhoods on grids and lattices. The stretch is the worst-case ratio between the cost of the cheapest lattice path and the straight-line distance in an empty space, attained in the direction that the available moves imitate worst. The four values are printed by \code{worked\_example} in \code{ch02\_toolbox.py} as \code{stretch2}, \code{stretch3}, \code{stretch2\_straight} and \code{stretch3\_straight}.}
 \label{tab:ch02-connectivity}
 \begin{tabular}{@{}lclll@{}}
 \toprule
@@ -195,7 +195,7 @@ Space-time states are the reason why a planner can let two agents share a corrid
 
 \begin{definition}[Time-expanded graph]
 \label{def:ch02-time-expanded-graph}
-The \textbf{time-expanded graph}\index{time-expanded graph} of $G$ with horizon $H$ is the directed graph with vertex set $V\times\set{0,\dots,H}$ and, for every $t<H$, the \textbf{wait edges} $\bigl((v,t),(v,t+1)\bigr)$ for all $v\in V$ and the \textbf{move edges} $\bigl((u,t),(v,t+1)\bigr)$ for all $(u,v)\in E$, weighted as in \cref{def:ch02-space-time-state}.
+The \textbf{time-expanded graph}\index{time-expanded graph} of $G$ with horizon $T_{\max}$ is the directed graph with vertex set $V\times\set{0,\dots,T_{\max}}$ and, for every $t<T_{\max}$, the \textbf{wait edges} $\bigl((v,t),(v,t+1)\bigr)$ for all $v\in V$ and the \textbf{move edges} $\bigl((u,t),(v,t+1)\bigr)$ for all $(u,v)\in E$, weighted as in \cref{def:ch02-space-time-state}.
 \end{definition}
 
 \begin{figure}[tb]
@@ -205,11 +205,11 @@ The \textbf{time-expanded graph}\index{time-expanded graph} of $G$ with horizon 
   \label{fig:ch02-time-expanded}
 \end{figure}
 
-\Cref{fig:ch02-time-expanded} shows a base graph with three vertices and its time-expanded graph with three layers. Note what the construction costs: $\abs{V}\,(H+1)$ vertices and $H\,(\abs{V}+2\abs{E})$ edges for an undirected $G$ (\cref{exr:ch02-time-expanded}). Nobody stores this graph. The planner keeps $G$ and generates the successors of $(v,t)$ on demand with a function like \code{space\_time\_successors} in the toolbox, which returns the wait successor and one move successor per free neighbour, all at time $t+1$. Since all edges point forward in time, the time-expanded graph is acyclic; a search in it terminates even without a closed set, though a closed set still saves work.
+\Cref{fig:ch02-time-expanded} shows a base graph with three vertices and its time-expanded graph with three layers. Note what the construction costs: $\abs{V}\,(T_{\max}+1)$ vertices and $T_{\max}\,(\abs{V}+2\abs{E})$ edges for an undirected $G$ (\cref{exr:ch02-time-expanded}). Nobody stores this graph. The planner keeps $G$ and generates the successors of $(v,t)$ on demand with a function like \code{space\_time\_successors} in the toolbox, which returns the wait successor and one move successor per free neighbour, all at time $t+1$. Since all edges point forward in time, the time-expanded graph is acyclic; a search in it terminates even without a closed set, though a closed set still saves work.
 
 \begin{definition}[Time-indexed path, arrival time, stay-at-goal convention]
 \label{def:ch02-time-indexed-path}
-A \textbf{time-indexed path}\index{time-indexed path} for an agent with start $s$ and goal $g$ is a sequence $\pi=(v_0,v_1,\dots,v_H)$ with $v_0=s$, $v_H=g$ and, for every $t<H$, either $v_{t+1}=v_t$ (a wait) or $(v_t,v_{t+1})\in E$ (a move); the last index $H$ is the \textbf{horizon}\index{horizon} of the stored list. The agent occupies $v_t$ at time $t$, and by the \textbf{stay-at-goal convention}\index{stay-at-goal convention} it occupies $g$ at every time $t>H$. The \textbf{arrival time}\index{arrival time} $T(\pi)$ is the smallest $t$ such that $v_{t'}=g$ for all $t'\ge t$; an agent that passes through $g$ and leaves again has not arrived. The two indices differ: $T(\pi)\le H$, with equality exactly when the path ends without a trailing wait at the goal. \Cref{ch:ch07} uses the same two letters, writing the horizon of agent $i$'s stored path as $T_i$.
+A \textbf{time-indexed path}\index{time-indexed path} for an agent with start $s$ and goal $g$ is a sequence $\pi=(v_0,v_1,\dots,v_{T_{\max}})$ with $v_0=s$, $v_{T_{\max}}=g$ and, for every $t<T_{\max}$, either $v_{t+1}=v_t$ (a wait) or $(v_t,v_{t+1})\in E$ (a move); the last index $T_{\max}$ is the \textbf{horizon}\index{horizon} of the stored list. The agent occupies $v_t$ at time $t$, and by the \textbf{stay-at-goal convention}\index{stay-at-goal convention} it occupies $g$ at every time $t>T_{\max}$. The \textbf{arrival time}\index{arrival time} $T(\pi)$ is the smallest $t$ such that $v_{t'}=g$ for all $t'\ge t$; an agent that passes through $g$ and leaves again has not arrived. The two indices differ: $T(\pi)\le T_{\max}$, with equality exactly when the path ends without a trailing wait at the goal. \Cref{ch:ch07} writes the horizon of agent $i$'s stored path as $T_i$ and the plan horizon as $T=\max_i T_i$.
 \end{definition}
 
 The stay-at-goal convention matters for multi-agent planning: an agent that has landed still occupies its cell, and a later agent must route around it (\cref{ch:ch07,ch:ch08}). The arrival time is the individual cost that the multi-agent objectives of \cref{sec:ch02-costs} add up. It is computed by \code{path\_time} in the toolbox, which walks backwards from the end of the sequence while the vertex equals the goal.
@@ -219,7 +219,7 @@ The stay-at-goal convention matters for multi-agent planning: an agent that has 
 
 \begin{definition}[Plan]
 \label{def:ch02-plan}
-A \textbf{plan}\index{plan} for $k$ agents is a tuple $\Pi=(\pi_1,\dots,\pi_k)$ of time-indexed paths, one per agent, all with the same time step. The position of agent $i$ at time $t$ is $v^i_t$ (\cref{ch:ch07} writes the same position as $\pi_i[t]$), extended by the stay-at-goal convention when $t$ exceeds the length of $\pi_i$. Which pairs of positions count as a \emph{conflict} is a modelling choice fixed in \cref{ch:ch07}; this chapter only measures how close the agents come.
+A \textbf{plan}\index{plan} for $k$ agents is a tuple $\Pi=(\pi_1,\dots,\pi_k)$ of time-indexed paths, one per agent, all with the same time step. The position of agent $i$ at time $t$ is $v^i_t$ (\cref{ch:ch07} writes the same position as $\pi_i[t]$), extended by the stay-at-goal convention when $t$ exceeds the horizon of $\pi_i$. Which pairs of positions count as a \emph{conflict} is a modelling choice fixed in \cref{ch:ch07}; this chapter only measures how close the agents come.
 \end{definition}
 
 \begin{definition}[Trajectory]
@@ -261,7 +261,7 @@ The \textbf{length}\index{path!length} of a path $\pi=(v_0,\dots,v_k)$ whose ver
 L(\pi)=\sum_{i=1}^{k}\norm{\pos(v_i)-\pos(v_{i-1})}.
 \label{eq:ch02-path-length}
 \end{equation}
-Waiting adds nothing to the length. On a grid with the costs of \cref{def:ch02-grid}, $L(\pi)=\cost(\pi)$.
+Waiting adds nothing to the length. On a grid with the costs of \cref{def:ch02-grid} a path that contains no wait has $L(\pi)=\cost(\pi)$; a time-indexed path with $w$ waits before its arrival has $\cost(\pi)=L(\pi)+w\,c_{\text{wait}}$, so for unit costs $\cost(\pi)=T(\pi)$ while $L(\pi)$ counts only the distance flown (in \cref{ex:ch02-costs}, $L(\pi_B)=2$ but $\cost(\pi_B)=T(\pi_B)=3$).
 \end{definition}
 
 \begin{definition}[Travel time]
@@ -300,7 +300,7 @@ For a plan on a graph the separation can be evaluated at the integer times only 
 
 \begin{example}[Two agents on a small grid]
 \label[example]{ex:ch02-costs}
-Take an empty 4-connected grid with $W=4$ and $H=3$. Agent $A$ goes from $(0,1)$ to $(3,1)$ along the middle row, agent $B$ from $(1,2)$ down to $(1,0)$. If both move without waiting, $\pi_A=\bigl((0,1),(1,1),(2,1),(3,1)\bigr)$ and $\pi_B'=\bigl((1,2),(1,1),(1,0)\bigr)$ put both agents in cell $(1,1)$ at $t=1$: the separation is $0$. Let $B$ wait one step first, $\pi_B=\bigl((1,2),(1,2),(1,1),(1,0)\bigr)$. \Cref{tab:ch02-costs-trace} traces the plan $\Pi=(\pi_A,\pi_B)$. The lengths are $L(\pi_A)=3$ and $L(\pi_B)=2$, the travel times are $T(\pi_A)=3$ and $T(\pi_B)=3$, hence $\makespan(\Pi)=3$ and $\sumcost(\Pi)=6$. At integer times the minimum separation is $1$. Between $t=1$ and $t=2$, however, $A$ moves from $(1,1)$ to $(2,1)$ while $B$ moves from $(1,2)$ to $(1,1)$; in the middle of that step, at $t=1.5$, the agents are at $(1.5,1)$ and $(1,1.5)$, only $\sqrt{0.5}\approx0.707$ apart. With a body radius of $0.3$ cells (collision distance $0.6$) the plan is safe; with a radius of $0.4$ (collision distance $0.8$) the two agents touch although they never share a cell.
+Take an empty 4-connected grid with $W=4$ and $H=3$. Agent $A$ goes from $(0,1)$ to $(3,1)$ along the middle row, agent $B$ from $(1,2)$ down to $(1,0)$. If both move without waiting, $\pi_A=\bigl((0,1),(1,1),(2,1),(3,1)\bigr)$ and $\pi_B'=\bigl((1,2),(1,1),(1,0)\bigr)$ put both agents in cell $(1,1)$ at $t=1$: the separation is $0$. Let $B$ wait one step first, $\pi_B=\bigl((1,2),(1,2),(1,1),(1,0)\bigr)$. \Cref{tab:ch02-costs-trace} traces the plan $\Pi=(\pi_A,\pi_B)$. The lengths are $L(\pi_A)=3$ and $L(\pi_B)=2$, the travel times are $T(\pi_A)=3$ and $T(\pi_B)=3$, hence $\makespan(\Pi)=3$ and $\sumcost(\Pi)=6$. At integer times the minimum separation is $1$. Between $t=1$ and $t=2$, however, $A$ moves from $(1,1)$ to $(2,1)$ while $B$ moves from $(1,2)$ to $(1,1)$; in the middle of that step, at $t=1.5$, the agents are at $(1.5,1)$ and $(1,1.5)$, only $\sqrt{0.5}\approx0.707$ apart. With a body radius of $0.3$ cells (collision distance $0.6$) the plan is safe; with a radius of $0.4$ (collision distance $0.8$) the two agents collide, since their separation $0.707$ drops below the collision distance, although they never share a cell.
 \end{example}
 
 \begin{table}[tb]
@@ -320,7 +320,7 @@ $t$ & $A$ & $B$ & $d_{AB}(t)$ & closest approach in $[t,t+1]$ & Comment\\
 \end{table}
 
 \begin{pitfall}[A conflict-free plan is not automatically collision-free]
-The conflict definitions of \cref{ch:ch07} look at integer times and at swaps along an edge. \Cref{ex:ch02-costs} shows a plan without any such conflict in which two agents of radius $0.4$ cells still touch halfway through a step. Grid planning is physically safe only if the agents are small compared with the cell (a collision distance below $\sqrt{0.5}\approx0.71$ cells for perpendicular crossings), or if you inflate the cells, add a check along the straight-line motion, or forbid such crossings as an extra conflict type. \Cref{ch:ch25} reports the minimum separation of an execution precisely so that this gap between the model and the physics becomes visible.
+The conflict definitions of \cref{ch:ch07} look at integer times and at swaps along an edge. \Cref{ex:ch02-costs} shows a plan without any such conflict in which two agents of radius $0.4$ cells still collide halfway through a step, their separation dropping below the collision distance. Grid planning is physically safe only if the agents are small compared with the cell (a collision distance below $\sqrt{0.5}\approx0.71$ cells for perpendicular crossings), or if you inflate the cells, add a check along the straight-line motion, or forbid such crossings as an extra conflict type. \Cref{ch:ch25} reports the minimum separation of an execution precisely so that this gap between the model and the physics becomes visible.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
@@ -421,7 +421,7 @@ For $\vect{a},\vect{b}\in\R^n$ the \textbf{dot product}\index{dot product} is $\
 
 \begin{definition}[Distance from a point to a segment]
 \label{def:ch02-point-segment-distance}
-Let $\vect{a}\neq\vect{b}$ be the endpoints of a segment and $\vect{p}$ a point. With
+Let $\vect{a}$ and $\vect{b}$ be the endpoints of a segment and $\vect{p}$ a point. With
 \begin{equation}
 s=\min\Bigl(1,\ \max\Bigl(0,\ \frac{(\vect{p}-\vect{a})\cdot(\vect{b}-\vect{a})}{\norm{\vect{b}-\vect{a}}^2}\Bigr)\Bigr),
 \qquad \vect{q}=\vect{a}+s\,(\vect{b}-\vect{a}),
@@ -461,7 +461,7 @@ Substitute $\vect{x}=\vect{o}+t\vect{d}$ into $\norm{\vect{x}-\vect{c}}^2=r^2$ a
 $\disc{\vect{c}_1}{r_1}\oplus\disc{\vect{c}_2}{r_2}=\disc{\vect{c}_1+\vect{c}_2}{r_1+r_2}$. In particular, two discs $\disc{\pos_A}{r_A}$ and $\disc{\pos_B}{r_B}$ overlap if and only if $\norm{\pos_B-\pos_A}\le r_A+r_B$, i.e.\ if and only if the point $\pos_B-\pos_A$ lies in $\disc{\vect{0}}{r_A+r_B}$.
 \end{proposition}
 \begin{proof}
-If $\vect{x}=\vect{a}+\vect{b}$ with $\norm{\vect{a}-\vect{c}_1}\le r_1$ and $\norm{\vect{b}-\vect{c}_2}\le r_2$, the triangle inequality gives $\norm{\vect{x}-\vect{c}_1-\vect{c}_2}\le r_1+r_2$. Conversely, if $\vect{w}=\vect{x}-\vect{c}_1-\vect{c}_2$ has $\norm{\vect{w}}\le r_1+r_2$, take $\vect{a}=\vect{c}_1+\frac{r_1}{r_1+r_2}\vect{w}$ and $\vect{b}=\vect{c}_2+\frac{r_2}{r_1+r_2}\vect{w}$; then $\vect{a}+\vect{b}=\vect{x}$ and both points lie in their discs. The overlap statement is \cref{thm:ch02-inflation} applied with $\mathcal{O}=\disc{\pos_B}{r_B}$ and the robot $\disc{\pos_A}{r_A}$. \qedhere
+If $\vect{x}=\vect{a}+\vect{b}$ with $\norm{\vect{a}-\vect{c}_1}\le r_1$ and $\norm{\vect{b}-\vect{c}_2}\le r_2$, the triangle inequality gives $\norm{\vect{x}-\vect{c}_1-\vect{c}_2}\le r_1+r_2$. Conversely, assume $r_1+r_2>0$ (if both radii vanish the two sides are the single point $\vect{c}_1+\vect{c}_2$ and the claim is trivial); if $\vect{w}=\vect{x}-\vect{c}_1-\vect{c}_2$ has $\norm{\vect{w}}\le r_1+r_2$, take $\vect{a}=\vect{c}_1+\frac{r_1}{r_1+r_2}\vect{w}$ and $\vect{b}=\vect{c}_2+\frac{r_2}{r_1+r_2}\vect{w}$; then $\vect{a}+\vect{b}=\vect{x}$ and both points lie in their discs. The overlap statement is \cref{thm:ch02-inflation} applied with $\mathcal{O}=\disc{\pos_B}{r_B}$ and the robot $\disc{\pos_A}{r_A}$. \qedhere
 \end{proof}
 
 This is the \emph{relative frame} that \cref{ch:ch12,ch:ch13} use throughout: put drone $A$ at the origin as a point, and replace drone $B$ by a disc of radius $r_A+r_B$ at the relative position $\pos_B-\pos_A$. The next primitive describes the directions in which that disc is visible from the origin.
@@ -519,7 +519,7 @@ $D(t)^2=\norm{\pos}^2+2t\,(\pos\cdot\vel)+t^2\norm{\vel}^2$ is a parabola in $t$
 Drone $A$ is at the origin and flies along the $x$-axis at $1$~m/s; drone $B$ is at $(4,2)$ and flies straight down at $1$~m/s. Then $\pos=(4,2)$ and $\vel=(0,-1)-(1,0)=(-1,-1)$. From \cref{eq:ch02-tca}, $t^*=-(\pos\cdot\vel)/(\vel\cdot\vel)=-(-6)/2=3$~s and $d_{\min}=\abs{\pos\times\vel}/\norm{\vel}=\abs{4\cdot(-1)-2\cdot(-1)}/\sqrt2=2/\sqrt2=\sqrt2\approx1.414$~m. If both drones have radius $0.75$~m, the collision distance is $R=1.5>\sqrt2$, and \cref{eq:ch02-ttc} gives the first contact at $t_c=3-\sqrt{2.25-2}/\sqrt2\approx2.646$~s. If both have radius $0.5$~m then $R=1<\sqrt2$ and they pass each other safely. The toolbox functions \code{time\_of\_closest\_approach} and \code{time\_to\_collision} return exactly these numbers; \cref{fig:ch02-closest-approach} draws the situation.
 \end{example}
 
-Two remarks close the toolkit. A horizon $\ttc$ turns ``will they ever collide?'' into ``will they collide within the next $\ttc$ seconds?'', the question the safety layer of \cref{ch:ch24} asks; the toolbox clamps $t^*$ to $[0,\ttc]$. And everything here carries over to three dimensions, except that the cross product becomes a vector (use its norm in \cref{eq:ch02-tca}) and the two tangent lines become a cone with the same half-angle $\theta=\arcsin(r/d)$.
+Two remarks close the toolkit. The horizon $\ttc$ of \cref{def:ch02-closest-approach} is the form in which the safety layer of \cref{ch:ch24} asks the question. And everything here carries over to three dimensions, except that the cross product becomes a vector (use its norm in \cref{eq:ch02-tca}) and the two tangent lines become a cone with the same half-angle $\theta=\arcsin(r/d)$.
 
 % ---------------------------------------------------------------------
 \section{Uncertainty: random vectors, Gaussians and Bayes' rule}
@@ -572,7 +572,7 @@ Let $\mat{\Sigma}=\mat{E}\mat{\Lambda}\mat{E}\T$ be the eigen-decomposition of a
 \state(\varphi)=\vect{\mu}+k\bigl(\sqrt{\lambda_1}\cos\varphi\;\vect{e}_1+\sqrt{\lambda_2}\sin\varphi\;\vect{e}_2\bigr),\qquad \varphi\in[0,2\pi),
 \label{eq:ch02-ellipse-param}
 \end{equation}
-and the major axis makes the angle $\operatorname{atan2}(e_{1,y},e_{1,x})$ with the $x$-axis. In two dimensions the probability mass inside $\mathcal{E}_k$ is $1-e^{-k^2/2}$: $39.3\%$ for $k=1$, $86.5\%$ for $k=2$ and $98.9\%$ for $k=3$.
+and the major axis makes the angle $\operatorname{atan2}(e_{1,y},e_{1,x})$ with the $x$-axis, with $\vect{e}_1$ normalised so that $e_{1,x}\ge0$ (an eigenvector has no canonical sign, and this is the choice \code{covariance\_ellipse} makes). In two dimensions the probability mass inside $\mathcal{E}_k$ is $1-e^{-k^2/2}$: $39.3\%$ for $k=1$, $86.5\%$ for $k=2$ and $98.9\%$ for $k=3$.
 \end{proposition}
 \begin{proof}
 Substitute $\vect{y}=\mat{E}\T(\state-\vect{\mu})$. Since $\mat{E}$ is orthogonal, $\mat{\Sigma}\inv=\mat{E}\mat{\Lambda}\inv\mat{E}\T$ and the quadratic form becomes $y_1^2/\lambda_1+y_2^2/\lambda_2=k^2$, an axis-aligned ellipse with semi-axes $k\sqrt{\lambda_i}$, which \cref{eq:ch02-ellipse-param} parametrises; $\state=\vect{\mu}+\mat{E}\vect{y}$ rotates it back onto the eigenvectors. For the mass, note that $\vect{y}$ scaled by $\mat{\Lambda}^{-1/2}$ is a standard Gaussian in $\R^2$, whose squared norm is $\chi^2$-distributed with two degrees of freedom, i.e.\ exponential with mean $2$; hence $\Prob(\text{inside }\mathcal{E}_k)=1-e^{-k^2/2}$. \qedhere
@@ -610,7 +610,7 @@ where $p(\state)$ is the \textbf{prior}\index{Bayes' rule} (what you believed be
 
 \begin{definition}[Big-O notation]
 \label{def:ch02-big-o}
-For functions $f,g\colon\N\to[0,\infty)$ we write $f(n)=\bigO{g(n)}$\index{big-O notation} if there are constants $c>0$ and $n_0$ such that $f(n)\le c\,g(n)$ for all $n\ge n_0$. The running time of a search is expressed in the sizes of its input: the numbers of vertices $\abs{V}$ and edges $\abs{E}$, the branching factor $b$, the horizon $T$, the number of agents $k$.
+For functions $f,g\colon\N\to[0,\infty)$ we write $f(n)=\bigO{g(n)}$\index{big-O notation} if there are constants $c>0$ and $n_0$ such that $f(n)\le c\,g(n)$ for all $n\ge n_0$. The running time of a search is expressed in the sizes of its input: the numbers of vertices $\abs{V}$ and edges $\abs{E}$, the branching factor $b$, the horizon $T_{\max}$, the number of agents $k$.
 \end{definition}
 
 Big-O hides constants, and in \python the constants are large: a loop iteration costs about a hundred nanoseconds, while NumPy does the same work per element roughly a hundred times faster, because the loop runs in C. \Cref{tab:ch02-operations} lists the operations that the book's code relies on. Two of them deserve a closer look, because getting them wrong turns an $\bigO{n\log n}$ search into an $\bigO{n^2}$ one.
@@ -694,7 +694,7 @@ PyBullet, gym-pybullet-drones \cite{panerati2021learning} & optional & physics s
 \end{tabularx}
 \end{table}
 
-The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, listed in \cref{tab:ch02-stack}. The code is one file per chapter, \code{Overleaf/code/chNN\_slug.py} (\code{ch02\_toolbox.py} here, \code{ch04\_astar.py} for \astar), self-contained apart from NumPy and the occasional import from an earlier chapter, and ending in an \code{if \_\_name\_\_ == "\_\_main\_\_":} block that runs a self-test of \code{assert} statements in a few seconds; every number quoted in a worked example comes from running it. Figures whose content is computed---a trajectory, a set of samples, a benchmark---are produced by scripts \code{Overleaf/code/figures/gen\_chNN\_slug.py} with fixed random seeds, which write whitespace-separated data files into \code{Overleaf/figures/data/} for the TikZ figure to read.
+The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, listed in \cref{tab:ch02-stack}. The code is one file per chapter, \code{Overleaf/code/chNN\_slug.py} (\code{ch02\_toolbox.py} here, \code{ch04\_astar.py} for \astar), self-contained apart from NumPy and the occasional import from an earlier chapter, and ending in an \code{if \_\_name\_\_ == "\_\_main\_\_":} block that runs a self-test of \code{assert} statements in a few seconds; every number quoted in a worked example comes from running it.
 
 \Cref{lst:ch02-grid-neighbors} shows the successor function of the toolbox grid, the one function that the searches of \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06} call most often; note the corner-cutting test and the two edge costs of \cref{def:ch02-grid}. In the same file \code{tangent\_points} transcribes \cref{eq:ch02-tangent-points} of \cref{thm:ch02-tangents} line for line, \code{time\_of\_closest\_approach} transcribes \cref{eq:ch02-tca} and \code{time\_to\_collision} is a one-line call to \code{ray\_circle\_intersection} in the relative frame. The class \code{LazyPQ} in \code{code/ch02\_toolbox.py} implements \cref{alg:ch02-lazypq} line for line, and counts its pushes and stale pops.
 
@@ -765,7 +765,7 @@ A single cell of a large grid is blocked. Using the cell-centre rule of \code{Gr
 
 \begin{exercise}[\difficulty{3}]
 \label{exr:ch02-time-expanded}
-Let $G=(V,E)$ be undirected. Show that its time-expanded graph with horizon $H$ has $\abs{V}(H+1)$ vertices and $H(\abs{V}+2\abs{E})$ edges, that it is acyclic, and that its paths from $(s,0)$ to $(g,H)$ correspond one-to-one to the time-indexed paths of \cref{def:ch02-time-indexed-path} with horizon $H$.
+Let $G=(V,E)$ be undirected. Show that its time-expanded graph with horizon $T_{\max}$ has $\abs{V}(T_{\max}+1)$ vertices and $T_{\max}(\abs{V}+2\abs{E})$ edges, that it is acyclic, and that its paths from $(s,0)$ to $(g,T_{\max})$ correspond one-to-one to the time-indexed paths of \cref{def:ch02-time-indexed-path} with horizon $T_{\max}$.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3}]

@@ -279,11 +279,16 @@ $\Delta$ discussion no longer reads as a property of the published algorithm.
 1. **`fig:ch05-dstarlite-example` shows only g-values.** `dsl_labels` in
    `code/figures/gen_ch05_examples.py` now follows the same rule as `lpa_labels`: a cell
    is labelled `g` when it is locally consistent and `g/rhs` when it is not, and is left
-   blank only when both values are $\infty$. The middle panel now shows $4/\infty$ at
-   $(3,3)$ and $\infty/8$ at $(2,3)$ (the retracted cell and the cell that lost its
-   successor), so the orange colouring has a visible reason. Figure regenerated; the
-   caption now says "written $\gcost/\rhs$ for the cells where the two disagree, as in
-   \cref{fig:ch05-lpastar-example}".
+   blank only when it holds no finite value at all. The middle panel now shows $5/7$ at
+   $(2,3)$ and $4/\infty$ at $(3,3)$, so the two orange cells carry the reason they are
+   inconsistent; the third changed vertex, the gap cell $(3,4)$, has $\gcost=\rhs=\infty$
+   after the change and so has nothing to print, which is exactly the "simply leaves the
+   queue" that the caption already explains. Labels that sit under the robot disc or the
+   obstacle cross now get a white plate and the disc is drawn before them, so nothing is
+   split by a marker. Figure regenerated; the caption now says "written $\gcost/\rhs$
+   where the two disagree, as in \cref{fig:ch05-lpastar-example}; cells without a number
+   still have $\gcost=\infty$." Cells that were only ever queued stay blank, as in the
+   reviewed version, so the panel did not gain twenty-six $\infty/k$ labels.
 2. **Heap complexity.** The priority-queue paragraph of `sec:ch05-implementation` now says
    that stale entries are only discarded when they surface, that the heap therefore grows
    with the number of insertions rather than with $|U|$, that every operation costs

@@ -261,3 +261,10 @@ kept.
 **Side effect.** The listing `lst:ch25-paired` was updated in the two lines where
 `paired_compare()` changed, so the printed code still matches the file. The chapter body
 grew from 23 to 24 PDF pages, which is the budget.
+
+*Build note.* `./build.sh ch25-experiments` in the shared working tree currently returns 12
+because three foreign `build/chapters/*.aux` files (ch05, ch18, ch24) are being rewritten by
+other chapters' builds while this one runs, which truncates them mid-`\@writefile`. Building
+the identical sources (md5-verified) in a private copy of `Overleaf/` gives status 0, no
+errors, no undefined in-chapter references and no overfull box over 15 pt; the failure is a
+shared-build-directory race, not this chapter.
