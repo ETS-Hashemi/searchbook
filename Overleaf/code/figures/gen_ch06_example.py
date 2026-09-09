@@ -20,7 +20,7 @@ from ch06_arastar import (ARAStar, EXAMPLE_GOAL, EXAMPLE_SCHEDULE,  # noqa: E402
 
 OUT = os.path.join(os.path.dirname(HERE), "..", "figures", "ch06", "example.tex")
 SCALE = 0.52
-GAP = 0.9            # gap between the panels in grid units
+GAP = 1.2            # gap between the panels in grid units
 HATCH = r"\fill[pattern=north east lines,pattern color=sbOrange!70] (%d,%d) rectangle ++(1,1);"
 
 
@@ -57,8 +57,8 @@ def panel(lines, grid, sol, prev_path, shift):
     gx, gy = sol.path[-1]
     lines.append(r"\node[sbstart,font=\tiny] at (%.1f,%.1f) {S};" % (sx + 0.5, sy + 0.5))
     lines.append(r"\node[sbgoal,font=\tiny] at (%.1f,%.1f) {G};" % (gx + 0.5, gy + 0.5))
-    lines.append(r"\node[sbannot,anchor=north,align=center,text=black] at (%.1f,-0.55) "
-                 r"{$\eps=%g$: cost $%.2f$, $\eps'=%.2f$\\ %d expansions};"
+    lines.append(r"\node[sbannot,anchor=north,align=center,text=black,font=\scriptsize] at (%.1f,-0.55) "
+                 r"{$\eps=%g$: cost $%.2f$\\ $\eps'=%.2f$, %d expansions};"
                  % (w / 2, sol.eps, sol.cost, sol.eps_bound, sol.expansions))
     lines.append(r"\end{scope}")
 
@@ -74,7 +74,7 @@ def main():
         panel(lines, grid, sol, prev, i * (grid.width + GAP) * SCALE)
         prev = sol.path
     # legend below the panels
-    y0 = -1.75
+    y0 = -2.6
     x0 = 0.0
     items = [(r"\fill[sbclosed]", "expanded (\\Closed)"),
              (r"\fill[sbopen]", "in \\Open at the end"),
@@ -84,10 +84,10 @@ def main():
     for fill, text in items:
         lines.append(r"%s (%.2f,%.2f) rectangle ++(0.6,0.6);" % (fill, x, y0))
         lines.append(r"\draw[black!40,very thin] (%.2f,%.2f) rectangle ++(0.6,0.6);" % (x, y0))
-        lines.append(r"\node[sbannot,anchor=west] at (%.2f,%.2f) {%s};" % (x + 0.7, y0 + 0.3, text))
-        x += 5.7
+        lines.append(r"\node[sbannot,anchor=west,font=\scriptsize] at (%.2f,%.2f) {%s};" % (x + 0.7, y0 + 0.3, text))
+        x += 6.0
     lines.append(r"\draw[sbpathalt,line width=1.1pt] (%.2f,%.2f) -- ++(1.0,0);" % (x, y0 + 0.3))
-    lines.append(r"\node[sbannot,anchor=west] at (%.2f,%.2f) {previous path};" % (x + 1.1, y0 + 0.3))
+    lines.append(r"\node[sbannot,anchor=west,font=\scriptsize] at (%.2f,%.2f) {previous path};" % (x + 1.1, y0 + 0.3))
     lines.append(r"\end{tikzpicture}")
     with open(OUT, "w") as f:
         f.write("\n".join(lines) + "\n")

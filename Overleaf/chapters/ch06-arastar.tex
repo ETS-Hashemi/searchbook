@@ -57,15 +57,12 @@ one planner repairs the search when the \emph{map} changes, the other when the
 
 The chapter proceeds as follows. \Cref{sec:ch06-intuition} explains the anytime
 idea and why restarting weighted \astar wastes work, \cref{sec:ch06-problem}
-fixes the notation, and \cref{sec:ch06-algorithm} gives the pseudocode with a
-line-by-line walkthrough. \Cref{sec:ch06-example} runs three iterations by hand
-on an $8 \times 6$ grid, \cref{sec:ch06-properties} proves the suboptimality
-guarantee and the sharper bound $\eps'$, and \cref{sec:ch06-schedule} studies
-the choice of the $\eps$ schedule with an experiment on random grids.
-\Cref{sec:ch06-variants} introduces Anytime \dstar, the combination of \arastar
-with \dstarlite, \cref{sec:ch06-implementation} discusses the implementation
-and its pitfalls, and \cref{sec:ch06-drone} places the algorithm in the drone
-system.
+fixes the notation, \cref{sec:ch06-algorithm} gives the pseudocode,
+\cref{sec:ch06-example} runs three iterations by hand on an $8 \times 6$ grid,
+\cref{sec:ch06-properties} proves the guarantees, \cref{sec:ch06-schedule}
+studies the $\eps$ schedule with an experiment, \cref{sec:ch06-variants}
+introduces Anytime \dstar, and \cref{sec:ch06-implementation,sec:ch06-drone}
+cover the implementation and the place of the algorithm in the drone system.
 
 % ---------------------------------------------------------------------
 \section{The idea in plain words}
@@ -308,10 +305,9 @@ remembering is that $\gamma$ is never expanded, and once it has a finite
 $\gcost$ it is always in \Open.\index{ARA*!goal never expanded} Line~\ref{alg:ch06-improvepath:pop} pops the
 best state and line~\ref{alg:ch06-improvepath:close} closes it; a closed state
 is not popped again in this iteration. The relaxation on
-line~\ref{alg:ch06-improvepath:relax} is that of Dijkstra's algorithm and
-\astar: a strictly cheaper path to $n'$ updates $\gcost(n')$ and the parent
-pointer, \emph{whatever list $n'$ is in}. The improvement is always recorded;
-what depends on the list is what happens next. If $n'$ is not closed it goes
+line~\ref{alg:ch06-improvepath:relax} is that of \astar: a strictly cheaper
+path to $n'$ updates $\gcost(n')$ and the parent pointer \emph{whatever list
+$n'$ is in}; only what happens next depends on the list. If $n'$ is not closed it goes
 into \Open (line~\ref{alg:ch06-improvepath:open}) with a fresh key, or its key
 is updated if it is there already. If $n'$ is closed
 (line~\ref{alg:ch06-improvepath:incons}), \astar with re-opening would put it
@@ -684,14 +680,11 @@ base.)
 All three cases are contradictory, so the claim holds.
 \end{proof}
 
-Two remarks. The proof uses the consistency of $\hcost$ in Case~2 only, and it
-uses it for the \emph{uninflated} heuristic; the inflated key is not
-consistent, which is why closed states can be improved at all
-(\cref{fig:ch06-incons}). \Cref{exr:ch06-proof} shows that with a merely
-admissible heuristic the theorem is false. Second, the theorem holds for
-every call of \AraImprovePath, whatever the $\gcost$-values inherited from
-earlier iterations with larger $\eps$: the induction is over the expansions
-of the current call, and Cases~1 and~2 do not care when a value was computed.
+The proof uses the consistency of $\hcost$ in Case~2 only, and for the
+\emph{uninflated} heuristic; with a merely admissible heuristic the theorem is
+false (\cref{exr:ch06-proof}). It holds for every call, whatever
+$\gcost$-values were inherited from earlier iterations with larger $\eps$:
+Cases~1 and~2 do not care when a value was computed.
 
 \begin{proposition}[The certificate is valid]
 \label{thm:ch06-certificate}
@@ -759,13 +752,9 @@ $\eps = 1$ and $\gcost(\gamma) \ge C^*$. (iv) is the loop condition on
 line~\ref{alg:ch06-improvepath:while}, which is false at once.
 \end{proof}
 
-Part~(iv) is the reason why several consecutive iterations of the experiment
-in \cref{sec:ch06-experiment} cost nothing: the path found with $\eps = 3$ is
-already good enough to pass the termination test for $\eps = 2.5$ and $2$.
-Part~(iii) also tells what \cref{alg:ch06-main} does after the last
-iteration: with $\eps = 1$ the remaining search is plain \astar on the
-inconsistent states, so the total work of \arastar is bounded by the number of
-iterations times the work of \astar, and in practice is far below that.
+Part~(iv) is why consecutive iterations of the experiment in
+\cref{sec:ch06-experiment} can cost nothing, and part~(iii) says what the last
+iteration is: plain \astar on the inconsistent states.
 
 \paragraph{Complexity.}
 With a binary heap one iteration takes $\bigO{(\abs{V} + \abs{E}) \log \abs{V}}$
@@ -847,11 +836,10 @@ Five observations.
         the termination test for $\eps = 2.5$ and $2$
         (\cref{thm:ch06-properties}(iv)). They cost only the re-keying of
         \Open, and the certificate stays where it was. Restarting weighted
-        \astar at those $\eps$ costs $224$ and $244$ expansions and does
-        improve the path a little, to $7\,\%$ and $5\,\%$ above optimal,
-        because a fresh search with a smaller weight explores differently.
-        This is the honest side of \arastar: it delivers the guarantee, not
-        the best path that the effort could have bought.
+        \astar at those $\eps$ costs $224$ and $244$ expansions and improves
+        the path a little, to $7\,\%$ and $5\,\%$ above optimal: \arastar
+        delivers the guarantee, not the best path the effort could have
+        bought.
   \item The work is spent at the end. The three iterations with $\eps \le
         1.25$ cost $1\,243$ of the $1\,541$ expansions: with a small $\eps$
         the search behaves like \astar and must rule out every cell with
@@ -862,10 +850,9 @@ Five observations.
         $215$ expansions and a near-optimal one ($1.01\,C^*$, certificate
         $1.23$) after $733$.
   \item The certificate lags behind the truth: at $\eps = 1.25$ the path is
-        within $1.1\,\%$ of optimal but the certificate says $22.6\,\%$. The
-        gap closes only when the lower bound $L$ rises, that is, when the
-        cheap cells near the start have been expanded, which is what the last
-        iterations do.
+        within $1.1\,\%$ of optimal but the certificate says $22.6\,\%$; the
+        gap closes only when the last iterations expand the cheap cells near
+        the start and $L$ rises.
 \end{enumerate}
 
 \subsection{Choosing the schedule}
@@ -881,11 +868,9 @@ the work is spent between the first path and the optimal one. A large jump
 such as $3 \to 1$ turns \arastar into weighted \astar followed by \astar:
 the second iteration does nearly all the work of \astar, nothing is published
 in between, and a deadline that falls inside it finds only the first path.
-Small decrements cost almost nothing when they produce zero-work iterations,
-and they produce a path whenever a decrease does trigger expansions, so it is
-better to err on the side of small steps: $0.2$ is a common value, and a
-geometric decrease $\eps_{k+1} = \eps_k / \rho$ with $\rho$ around $1.2$
-behaves similarly. A refinement uses the certificate: since $\eps'_k \le
+Small decrements are nearly free when they produce zero-work iterations and
+publish a path whenever they do not, so err on the side of small steps; $0.2$
+is a common value. A refinement uses the certificate: since $\eps'_k \le
 \eps_k$ is what has already been achieved, an inflation factor above $\eps'_k$
 cannot improve the published guarantee, and the next iteration may start at
 $\eps_{k+1} = \max(1, \eps'_k - \Delta)$. On \cref{ex:ch06-grid} this rule
@@ -956,11 +941,9 @@ version~\cite{likhachev2008anytime}.
         the keys are recomputed and \Closed is emptied before the next
         search.
 \end{itemize}
-The price is the complexity of two mechanisms in one algorithm, and the
-familiar traps of \cref{ch:ch05} (the key modifier, the two endpoints of a
-changed edge) come along. When the map is static, use \arastar; when the map
-changes but the deadline is generous, use \dstarlite; when both bite, use
-AD\textsuperscript{*}.
+The price is two mechanisms in one algorithm, with the traps of \cref{ch:ch05}
+included. Static map: \arastar; changing map and a generous deadline:
+\dstarlite; both: AD\textsuperscript{*}.
 
 \subsection{Other anytime searches}
 
@@ -974,9 +957,8 @@ found rather than once per $\eps$, at the price of re-expanding states many
 times, which \arastar's postponement avoids.\index{anytime weighted A*} The certificate of both algorithms is the
 ratio of an incumbent solution to a lower bound, the same reasoning by which
 \ecbs (\cref{ch:ch10}) bounds the suboptimality of a multi-agent plan.
-Anytime versions of sampling-based planners are the subject of
-\cref{ch:ch17}: \rrtstar is anytime by construction, with improvements that
-arrive per sample rather than per $\eps$, and without a certificate.
+\rrtstar (\cref{ch:ch17}) is anytime by construction, improving per sample
+rather than per $\eps$, without a certificate.
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
@@ -1099,15 +1081,13 @@ well under a second.
 \begin{pitfall}[Treating the inflated key as if it were consistent]
 With $\eps > 1$ the key $\gcost + \eps\,\hcost$ is not consistent even when
 $\hcost$ is, and \cref{fig:ch06-incons} shows the consequence: a closed state
-can receive a cheaper path later. Three wrong reactions are common. Ignoring
+can receive a cheaper path later. Two wrong reactions are common. Ignoring
 the improvement (``the state is closed, skip it'') leaves a wrong
 $\gcost$-value and a wrong parent pointer, and the next iteration cannot
 repair what it does not know; the certificate then rests on a false $L$.
 Re-opening the state at once, as \astar does, keeps the bound but gives up
 the ``once per iteration'' property, and on inflated keys a state can be
-re-expanded many times before the iteration ends. Popping the goal and
-testing it there, as in \cref{ch:ch04}, works but throws the goal out of
-\Open, so the next iteration must remember to put it back. The right move is
+re-expanded many times before the iteration ends. The right move is
 the one on line~\ref{alg:ch06-improvepath:incons}: record the improvement,
 put the state into \textsc{Incons}, and expand it in the next iteration.
 \index{ARA*!pitfalls}
@@ -1167,8 +1147,7 @@ because the pointer path is valid at every moment, an interrupted iteration
 never leaves the drone without a path. \emph{Read the certificate, not
 $\eps$.} The executive of \cref{ch:ch24} can commit to a path with $\eps' \le
 1.2$ and spend a further cycle on one with $\eps' = 1.6$; the true ratio is
-usually much better than the certificate, but the certificate is what can be
-guaranteed, and in a safety argument that is the number that counts.
+usually far better, but only the certificate can be guaranteed.
 \emph{Search backward when the start moves.} A drone that flies while the
 planner improves changes its start; the forward search of this chapter keeps
 its guarantee only for the part of the path not yet flown, which is why the

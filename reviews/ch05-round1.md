@@ -1,334 +1,231 @@
 # Review of Chapter 5 (Incremental Search: LPA* and D* Lite) - round 1
 
-Reviewed artefacts: `Overleaf/chapters/ch05-lpastar-dstarlite.tex` (1443 lines),
+Reviewed artefacts: `Overleaf/chapters/ch05-lpastar-dstarlite.tex` (1482 lines),
 `Overleaf/figures/ch05/{idea,consistency,lpastar-example,dstarlite-example,replanning-experiment,drone-replanning}.tex`,
 `Overleaf/code/ch05_dstar_lite.py`, `Overleaf/code/figures/gen_ch05_examples.py`,
 `Overleaf/code/figures/gen_ch05_replanning.py`, `Overleaf/figures/data/ch05-replanning.dat`,
 `Overleaf/appendices/solutions/ch05-solutions.tex`, `Overleaf/appendices/glossary/ch05-terms.tex`,
 `Overleaf/bib/ch05-extra.bib`, `Overleaf/references.bib`, `Overleaf/frontmatter/notation.tex`,
-`Overleaf/chapters/ch02-toolbox.tex`, `Overleaf/chapters/ch04-astar.tex`,
-against `STYLE_GUIDE.md` §9 (A-H), `docs/specs/ch05.md` and `docs/core-idea.txt` (Week 2).
+against `STYLE_GUIDE.md` section 9 (A-H), `docs/specs/ch05.md` and `docs/core-idea.txt` (Week 2).
 
-**Build.** `cd Overleaf && ./build.sh ch05-lpastar-dstarlite` -> status 0, no `!` errors, no undefined
-references or citations belonging to this chapter (the `??` in the PDF are all cross-chapter refs, as
-expected in a single-chapter build). Two overfull `\hbox`es above the 15 pt threshold, both from figure
-files (see change 8). Output: 45-page PDF; the chapter itself is book pages 13-35, i.e. **23 pages** -
-inside the 24-page cap, about 5 pages above the 16-18 page target of `docs/specs/ch05.md`. No cuts are
-*required*: the excess is content, not padding (two full worked examples with four trace tables and
-three code listings). Trimming ideas are in Suggestions.
+Checks performed.
 
-**Code.** `python3 code/ch05_dstar_lite.py` -> `self-test passed in 0.8 s` (exit 0). I re-ran
-`lpastar_example()`, `dstar_lite_example()`, `idea_scenario(3)` and a copy of
-`gen_ch05_replanning.py` redirected to a scratch file, and compared every number in the text against
-the output. **All expansion counts, keys, rhs-values and trace rows reproduce exactly**: LPA* first
-search 5 expansions / cost 4; repair 13 expansions, cost 6, A* from scratch 7 expansions; every row of
-Tables 2.1 and 2.2 is byte-identical to the LaTeX the code emits; D* Lite initial search 10 expansions,
-k(S)=[7;7], cost 7; repair 12 expansions with k_m=2, 3 updated vertices, no reinsert firing, A* from
-(2,3) also 12; goal at t=9; Figure 2.1's "26 expansions" and "6 expansions" (over 4 distinct cells);
-and the experiment section's 1285/279/1247 expansions, factor 4.6, 14 166 vs 1 031, ratio ~14,
-crossover at event 4, 203 on-path events (mean 49.3, median 4, max 1704), 197 off-path events (mean
-1.5, zero in 68 %), 28 us vs 4.1 us per expansion. The regenerated `.dat` matches the committed one in
-every expansion column exactly. **One quoted claim is contradicted by that same data** (change 2).
-
-**Pseudocode.** Algorithm 2.1 matches LPA* (Koenig, Likhachev & Furcy, AIJ 2004, Fig. 1) line for line,
-and Algorithm 2.2 matches the final version of D* Lite (Koenig & Likhachev, AAAI 2002, Fig. 3) line for
-line, including `s_last`, the `k_old < CalculateKey(u)` reinsert test, `Pred(u) ∪ {u}` on
-underconsistency, `UpdateVertex` on the *tail* of a changed edge, and the once-per-batch
-`k_m += h(s_last, s_start)`. Keys, the loop condition and the argmin step all agree with the spec.
+* **Build.** `./build.sh ch05-lpastar-dstarlite` exits 0. No `!` errors. The only undefined
+  references are to chapters not built in the single-chapter run (`ch:ch06`, `ch:ch09`,
+  `ch:ch10`, `ch:ch13`, `ch:ch14`, `ch:ch18`, `ch:ch20`, `ch:ch24`, `ch:appA`, `ch:appB`);
+  none belongs to this chapter. The single overfull box in the log (29.1 pt, "Rapidly-exploring
+  random tree with goal bias") is a line of the global *List of Algorithms* from Chapter 16, not
+  from Chapter 5. **Length: pages 18-40 of the single-chapter PDF, i.e. 23 chapter pages**,
+  inside the 24-page ceiling (above the 16-18 pages of the spec; see the Suggestions).
+* **Code.** `python3 code/ch05_dstar_lite.py` -> `self-test passed in 0.5 s`.
+* **Numbers.** I re-ran `lpastar_example`, `dstar_lite_example`, `gen_ch05_examples.py` and
+  `gen_ch05_replanning.py` and compared every number in the text against the output.
+  Every entry of Tables 5.1, 5.4, 5.5 and 5.6 is byte-identical with the LaTeX rows emitted by
+  `latex_trace`; 5 / 13 / 10 / 12 expansions, `k(S)=[7;7]`, `k_m=2`, `g(3,3)=4`, 3 updated
+  vertices, costs 4 -> 6 and 7 -> 7, A*-from-scratch 7 and 12 expansions, `t=9`, all confirmed.
+  The idea figure (seed 3) reproduces 52 / 26 / 6 expansions. All experiment numbers
+  (1285, 279, 1247, 1031, 14166, ratio 13.7, crossover at event 4, 197 off-path events at mean
+  1.5 and 68 % zeros, 203 on-path events at mean 49 / median 4 / max 1704, factor 4.6) match
+  `figures/data/ch05-replanning.dat` exactly, and the timings quoted (32.3 ms, 1.26 ms,
+  33 vs 60 ms, 65 vs 61 ms, 0.82 vs 1.49 ms, 7 slower events with 5.187 vs 1.661 ms,
+  28 us vs 4 us per expansion) are all derivable from the committed `.dat` file. Expansion
+  counts are seed-deterministic and reproduce on a different machine; only wall-clock times move.
+* **Canonical sources.** Pseudocode compared line by line against Koenig & Likhachev (AAAI 2002,
+  final version) and Koenig, Likhachev & Furcy (AIJ 2004): key definition with `k_m`, the
+  `k_old < CalculateKey(u)` reinsert test, `g(u) <- inf` plus `Pred(u) u {u}` on underconsistency,
+  `UpdateVertex` on the *tail* of a changed edge, `k_m += h(s_last, s_start)` once per batch
+  *before* the edge updates, and `s_last <- s_start` in the same branch: all correct. The
+  `rhs(s_start) != g(s_start)` form of the loop test is the one prescribed by the spec.
+* **Bibliography.** All nine keys resolve; author/venue/volume/pages of `koenig2002dstarlite`
+  (AAAI 2002, 476-483), `koenig2004lpa` (AIJ 155(1-2):93-146), `koenig2005fast`
+  (T-RO 21(3):354-363), `stentz1994optimal` (ICRA 1994, 3310-3317), `likhachev2005anytime`
+  (ICAPS 2005, 262-271), `ferguson2006field` (JFR 23(2):79-101), `sun2010moving` (AAMAS 2010)
+  and `stentz1995focussed` (IJCAI 1995, 1652-1659) are all ones I can vouch for. No fabrication
+  found. 23 distinct `\index` entries (27 calls), well above the minimum of 15.
+* **Spec coverage.** Every "must cover" item of `docs/specs/ch05.md` is present, including the
+  three-panel D* Lite figure, the numeric `k_m` illustration, the generated 50x50 experiment,
+  the five required pitfalls, the four variants, the drone box, and 8 exercises with the Week-2
+  coding exercise, a hand trace and a `k_m` proof.
 
 ## Verdict
 
-**Minor revision.** Four required changes are in category A (one invalid step in a proof sketch, one
-number/claim the code contradicts, one wrong quantitative claim about grid path quality, one
-over-general tie-breaking claim), one in D and four in F/G. Every one of them is local: a sentence, a
-caption, a `\section` optional argument, or a `scale=` value. Nothing in the chapter's structure,
-algorithms, examples, experiment or exercises needs rework.
+**Minor revision.** The chapter is technically sound, complete against the spec and the Week-2
+training plan, and its worked examples are fully reproduced by the code. Six required changes
+remain; every one of them is local (one sentence, one definition, one figure script, one
+solution entry).
 
 ## Required changes
 
-1. **`ch05-lpastar-dstarlite.tex` line 944, proof sketch of Theorem 2.9 (`thm:ch05-expansions`) - the
-   consistency inequality is written the wrong way round, so the "hence" does not follow.**
-   The text has
-   `$\hcost(s_{\mathrm{start}},u) \le \hcost(s_{\mathrm{start}},s') + c(u,s')$ for the edge $(u,s')$`.
-   For the edge `(u,s')` with `u ∈ Pred(s')`, the chapter's own consistency condition
-   (§2.6.1, line 539) gives the *opposite* orientation, and that is the one the argument needs:
-   from `g(s') + h(s_start,s') ≥ g(u) + h(s_start,u)` one gets `g(s') ≥ g(u) + h(s_start,u) - h(s_start,s')`,
-   and only `h(s_start,s') ≤ h(s_start,u) + c(u,s')` turns this into `c(u,s') + g(s') ≥ g(u)`.
-   As printed, the inequality bounds `h(s_start,u) - h(s_start,s')` from *above* by `c(u,s')`, which
-   yields nothing.
-   *Fix:* replace line 944 by
-   `$\hcost(s_{\mathrm{start}},s') \le \hcost(s_{\mathrm{start}},u) + c(u,s')$ for the`
-   and keep the rest of the sentence unchanged (the following clause `hence $c(u,s')+\gcost(s')\ge\gcost(u)$`
-   then follows immediately). Optionally add half a sentence saying that this is
-   \cref{sec:ch05-reverse}'s condition applied to the edge $(u,s')$, $u\in\Pred(s')$. (Category **A**)
+1. **Location:** `sec:ch05-properties`, the last paragraph of the section
+   ("The bound also fixes the running time of a call ... A call therefore costs
+   $O((|V|+|E|)\log|V|)$ in the worst case, the same bound as a search from scratch with A*").
+   **Problem:** the stated bound does not follow from the cost model given two sentences
+   earlier, and is wrong for graphs of unbounded degree. Because `UpdateVertex(s)` recomputes
+   `rhs(s)` as a minimum over *all* successors of `s`, the work of one call is
+   `sum over expanded u, over s in Pred(u), of O(deg(s) + log|V|)`, which is
+   `O(|E|(Delta + log|V|))` with `Delta` the maximum degree, not `O((|V|+|E|)\log|V|)`.
+   For a dense graph (`Delta = Theta(|V|)`) the true bound is `Theta(|V|^3)` against the
+   claimed `Theta(|V|^2 log|V|)`. A* from scratch really is `O((|V|+|E|)\log|V|)` because it
+   relaxes each edge in `O(1)` instead of recomputing a minimum.
+   **Fix:** replace the sentence by: "A call therefore costs `O(|E|(\Delta + \log|V|))`, where
+   `\Delta` is the maximum degree of the graph; on a 4-connected grid `\Delta = 4` is a
+   constant and this is `O((|V|+|E|)\log|V|)`, the same bound as a search from scratch with
+   A*. Recomputing an `rhs`-value as a minimum over all successors, rather than relaxing one
+   edge as A* does, is what costs the extra factor `\Delta`."
+   **Category:** A.
 
-2. **`ch05-lpastar-dstarlite.tex` lines 1022-1023, §2.8.1 - "although it is faster at every single one
-   of them" is false in the chapter's own data.**
-   In `figures/data/ch05-replanning.dat` the mean D* Lite time exceeds the mean A* time at 7 of the 40
-   events: event 2 (1.37 vs 1.25 ms), 4 (2.21 vs 1.47), 5 (4.92 vs 1.52), 13 (5.19 vs 1.65), 16 (1.67
-   vs 1.66), 26 (2.66 vs 1.65) and 37 (2.34 vs 1.25). The claim also contradicts the sentence four
-   lines later that "the largest single repair expanded 1 704 vertices, several times the cost of an
-   A* search".
-   *Fix:* replace "although it is faster at every single one of them ($0.8$~ms against $1.5$~ms on
-   average)" with something like "although its repairs are on average three times faster than a fresh
-   \astar ($0.8$~ms against $1.5$~ms); at $7$ of the $40$ events, where the obstacle closed a corridor,
-   the repair was nevertheless the slower of the two (up to $5.2$~ms against $1.6$~ms)". Keep the
-   averages - they are correct. (Category **A**)
+2. **Location:** `def:ch05-problem` (Definition 5.1, "Incremental shortest-path problem"),
+   section `sec:ch05-problem`.
+   **Problem:** the definition fixes "a sequence of shortest-path queries between *the same two
+   vertices* `s_start` and `s_goal`". That excludes D* Lite, which is the chapter's main
+   subject and whose whole point is a start vertex that moves (objectives bullet 3,
+   `sec:ch05-reverse`). The chapter's own problem statement therefore does not cover the
+   algorithm it goes on to develop, and the reader who takes the definition literally will not
+   see what `k_m` is for.
+   **Fix:** add a second, labelled clause to the definition, e.g.: "In the **moving-start**
+   variant, which D* Lite solves, the goal is fixed but before each query the start vertex is
+   replaced by the vertex the agent has moved to, which is required to lie on the path returned
+   by the previous query." Then add one sentence after the definition pointing forward:
+   "Sections 5.4-5.5 treat the fixed-start case (LPA*); Sections 5.6-5.7 add the moving start
+   (D* Lite)."
+   **Category:** A (definition), with a pedagogical effect (C).
 
-3. **`ch05-lpastar-dstarlite.tex` lines 1057-1059, §2.9 "Field D*" - the 8 % figure is attributed to
-   4-connected grids as well, which is wrong by a factor of five.**
-   The ~8 % bound (max ratio `sqrt(4-2*sqrt(2)) ≈ 1.082` between octile and Euclidean distance) holds
-   for **8**-connected grids. On a 4-connected grid the worst case is `sqrt(2) ≈ 1.41`, i.e. up to
-   about 41 % longer.
-   *Fix:* rewrite as "Paths on a grid are restricted to a few headings: up to about $41\%$ longer than
-   the true shortest path on a 4-connected grid and up to about $8\%$ longer on an 8-connected one."
-   (Category **A**)
+3. **Location:** `sec:ch05-lpastar`, paragraph "Walkthrough.", second bullet
+   (underconsistent case): "After this step `u` is either consistent (both `inf`) or
+   overconsistent with a fresh, larger key, **and will be expanded a second time later** as an
+   ordinary A* expansion."
+   **Problem:** the second expansion is not guaranteed, and the chapter's own worked example
+   contradicts it: in `tab:ch05-dstarlite-repair`, step 10 retracts `(1,3)` and re-inserts it
+   with key `[11;8]`; the loop stops at step 12 with `k(s_start)=[9;7]`, so `(1,3)` is never
+   expanded again and keeps `g = inf`. The correct statement is the upper bound of
+   `thm:ch05-expansions` ("at most twice"), not a promise of a second expansion.
+   **Fix:** replace "and will be expanded a second time later as an ordinary A* expansion" by
+   "and may be expanded a second time later, as an ordinary A* expansion, if the loop ever
+   reaches its new, larger key; `thm:ch05-expansions` bounds this at one further expansion.
+   Step 10 of `tab:ch05-dstarlite-repair` shows a vertex that is retracted and never
+   re-expanded, because the search stops first."
+   **Category:** A.
 
-4. **`ch05-lpastar-dstarlite.tex` lines 362-363, §2.4 "Why the two-component key works" - the claim
-   `$k_2(u) < k_2(w)$ whenever $k_1(u)=k_1(w)$` is stated in general but only holds when `w` is
-   overconsistent.**
-   With `u` underconsistent, `k2(u) = g(u)`; but `k2(w) = min(g(w), rhs(w))`, and if `w` is itself
-   underconsistent then `k2(w) = g(w)`, which can be smaller than `g(u)` (e.g. `g(w)=1`,
-   `rhs(w)=g(u)+c(u,w)=6`, `g(u)=5`). The sentence as printed asserts a false inequality.
-   *Fix:* qualify it, e.g. "If $w$ is overconsistent, then $k_2(w)=\rhs(w)=\gcost(u)+c(u,w) > \gcost(u)
-   = k_2(u)$ because $c(u,w)>0$, so $u$ comes first among the ties and the stale value is withdrawn
-   before $w$ is recomputed; if $w$ is itself underconsistent it is retracted in the same way before it
-   can be expanded with a stale value." (Category **A**)
+4. **Location:** `Overleaf/figures/ch05/drone-replanning.tex` (figure `fig:ch05-drone`),
+   lines with `\node[sbintruder] at (9,0.5) {?}`, the tube polygon starting at
+   `(8.6,0.2) -- (9.4,0.2)`, and the replanned route `... -- (8.5,0.5) -- (10.5,0.5) -- ...`.
+   **Problem:** the blue "D* Lite route" runs horizontally at `y = 0.5` from `x = 8.5` to
+   `x = 10.5`, so it passes exactly through the intruder marker at `(9,0.5)` and through cell
+   `(9,0)`, which lies inside the drawn red uncertainty tube but is *not* among the hatched
+   cells. The figure that is supposed to show a safe replan shows the drone flying through the
+   predicted intruder region and over the intruder symbol; it also contradicts its own caption
+   ("A predicted intruder trajectory ... is rasterised into blocked cells (hatched)"), because
+   the bottom of the tube is not rasterised. The gap in row 0 cannot simply be hatched: it is
+   the only opening in the wall of blocked cells in column 9, so hatching it would leave no
+   path at all.
+   **Fix:** lift the predicted region off row 0 so that the gap the drone uses is visibly
+   outside it. Concretely: change the tube polygon base from `(8.6,0.2) -- (9.4,0.2)` to
+   `(8.6,1.2) -- (9.4,1.2)`, move the intruder node from `(9,0.5)` to the cell centre
+   `(9.5,1.5)`, and start the red velocity arrow at `(9.5,1.5)` instead of `(9,0.5)`. The
+   hatched set `(9,1) ... (9,8)` then needs `(9,1)` removed (the intruder's own cell should be
+   hatched, so keep `(9,1)` hatched and instead reroute the blue path one row lower, which it
+   already is) - after the shift, row 0 is free of both the tube and the marker and the
+   existing blue route is correct without further change. Add to the caption: "the drone slips
+   below the predicted region through the one row the tube does not reach."
+   **Category:** D.
 
-5. **`ch05-lpastar-dstarlite.tex` lines 85-89, caption of `fig:ch05-idea` - the headline comparison
-   "26 expansions vs 6 expansions" omits the initial search and therefore overstates the case.**
-   `gen_ch05_examples.py` reports that the 6-expansion repair follows an initial D* Lite search of
-   **52** expansions on the same map, whereas the A* panel is a single 26-expansion search. The chapter
-   is scrupulously honest about this later (§2.8, §2.8.1, the last pitfall), but the reader's first
-   figure currently reads as an unqualified 4x win.
-   *Fix:* add one clause to the caption, e.g. "D* Lite is repairing a search it had already run from
-   the drone's original start ($52$ expansions); \cref{sec:ch05-experiment} accounts for that first
-   search." Optionally mirror it in the text at lines 78-81. (Category **D**)
+5. **Location:** `sec:ch05-intuition` ("an incremental search touches only the orange cells,
+   **four cells** in six expansions") and the caption of `fig:ch05-idea`
+   ("D* Lite expands only the orange cells"), generated by
+   `Overleaf/code/figures/gen_ch05_examples.py`.
+   **Problem:** the generator emits `\fill[sbOrange!35] (6,6) rectangle ++(1,1);` for the newly
+   blocked cell and then, 14 lines later, `\fill[sbobstacle] (6,6) rectangle ++(1,1);` on top of
+   it. The fourth orange cell is therefore invisible: the reader counts three orange cells and
+   cannot reconcile that with "four cells". (The blocked cell *is* legitimately one of the six
+   expansions - it is the underconsistent retraction - so the count in the text is right and
+   the drawing is wrong.)
+   **Fix:** in `gen_ch05_examples.py`, after the obstacle fill, draw the newly blocked cell with
+   an orange frame, e.g. `\draw[sbOrange,line width=1.2pt] (6,6) rectangle ++(1,1);`, and
+   regenerate `figures/ch05/idea.tex` (`python3 code/figures/gen_ch05_examples.py`). Extend the
+   caption with "the newly blocked cell (orange frame) is itself one of the expanded cells: its
+   stale distance is retracted first."
+   **Category:** D.
 
-6. **`ch05-lpastar-dstarlite.tex` line 759 - the running head of §2.7 collides with the chapter title.**
-   On PDF page 21 `pdftotext -layout` shows `Chapter 2. Incremental Search: LPA* and2.7` /
-   `D*ALite` / `worked example: the robot moves and an obstacle appears`: the two heads overlap, unlike
-   on every other page.
-   *Fix:* give the section a short running title:
-   `\section[A worked example: \dstarlite repairs a plan]{A worked example: the robot moves and an obstacle appears}`.
-   This also shortens the over-long ToC line. (Category **G**)
-
-7. **`ch05-lpastar-dstarlite.tex` line 1208 vs line 1210 - the caption of Listing 2.3 and the docstring
-   inside it name different line numbers for the same code.**
-   The caption resolves to "lines 35-40 of Main" (via `\ref{alg:ch05-dstarlite:km}`--`\ref{alg:ch05-dstarlite:replan}`),
-   while the first line of the quoted docstring says `"""Lines 28'-35': process cells whose blocked
-   status flipped.` (the numbering of the original AAAI paper). A reader who follows the caption will
-   look for lines that do not exist in Algorithm 2.2.
-   *Fix:* change the docstring in `code/ch05_dstar_lite.py` (`notify_changed_cells`, ~line 305) to
-   `"""Process cells whose blocked status flipped (Alg. D* Lite, main loop).` and re-copy the listing
-   verbatim, so that code and caption agree. (Category **G**)
-
-8. **`figures/ch05/consistency.tex` line 2 and `figures/ch05/replanning-experiment.tex` lines 4/16 -
-   two overfull `\hbox`es above the 15 pt threshold of `STYLE_GUIDE.md` §7.**
-   Log: `Overfull \hbox (22.95328pt too wide)` right after `consistency.tex` is read, and
-   `Overfull \hbox (34.55225pt too wide)` right after the pgfplots figure.
-   *Fix:* in `consistency.tex` change `[scale=1, ...]` to `[scale=0.92, ...]`; in
-   `replanning-experiment.tex` change both `width=0.5\textwidth` to `width=0.46\textwidth` and
-   `xshift=1.6cm` to `xshift=1.1cm`. Re-build and confirm both warnings are gone. (Category **G**)
-
-9. **`ch05-lpastar-dstarlite.tex` §2.3, lines 127-133 - no bridge from Chapter 4's notation to this
-   chapter's.**
-   Chapter 4 (`def:ch04-problem`) writes the start node `s`, the goal `\gamma`, and uses
-   `\gcost^*(n)`/`\hcost^*(n)` for true distances; Chapter 5 introduces `s_{\mathrm{start}}`,
-   `s_{\mathrm{goal}}` and `\dist(u,v)` without a word. A reader working alone will wonder whether
-   `\gcost` here is the same object as `\gcost` there (it is not: here it is a *stored* value that may
-   lag). `\rhs`, `k_m`, `\Pred`, `\Succ` and `\dist` are also absent from
-   `frontmatter/notation.tex` (currently a placeholder).
-   *Fix:* add one sentence after line 133, e.g. "In the notation of \cref{ch:ch04}, $s_{\mathrm{start}}$
-   is the start node $s$, $s_{\mathrm{goal}}$ the goal $\gamma$, and $\dist(s_{\mathrm{start}},n)$ the
-   true distance $\gcost^*(n)$; unlike in \cref{ch:ch04}, $\gcost(s)$ here is a value stored from an
-   earlier search and may be stale." Also list `\rhs`, `k_m`, `\Pred`, `\Succ`, `\dist` in your final
-   report as notation-table additions for Phase 1. (Category **F**)
+6. **Location:** `Overleaf/appendices/solutions/ch05-solutions.tex`; exercise
+   `exr:ch05-threshold` in `sec:ch05-exercises`.
+   **Problem:** the file contains seven `\begin{solution}` blocks
+   (`states`, `handtrace`, `secondkey`, `kmproof`, `directions`, `coding`, `intruder`) for eight
+   exercises; `exr:ch05-threshold` has none. The book's reader works alone, and every other
+   exercise of this chapter (and of Chapters 3 and 4) has at least a hint, so the omission
+   leaves the only exercise about *when incremental search stops paying off* unanswered - the
+   very point the second pitfall of `sec:ch05-implementation` asks the reader to internalise.
+   **Fix:** add a `\begin{solution}{exr:ch05-threshold}` block with the expected outcome:
+   for very small `phi` D* Lite wins by orders of magnitude in expansions; the crossover in
+   *time* comes much earlier than the crossover in *expansions* because a D* Lite expansion
+   costs several times an A* expansion (28 us vs 4 us in `sec:ch05-experiment`); around
+   `phi` of a few per cent on a 100x100 grid the repair touches a constant fraction of the
+   vertices, `thm:ch05-expansions` then allows up to `2|V|` expansions plus `UpdateVertex` on
+   every neighbour of each, and a fresh A* is faster; the rule for `ch:ch24` is to count changed
+   cells per replanning cycle and fall back to A* above the measured threshold (and always
+   after a full map replacement or a goal change). State that exact numbers are
+   implementation-dependent and that the student should report their own crossover.
+   **Category:** E.
 
 ## Suggestions
 
-* §2.8 line 956: "Two remarks put the bound in perspective" is followed by *First*, *Second* and
-  *Third*. Say "Three remarks", or fold the third into the second.
-* §2.8 heading promises "complexity" but no time bound is stated. One sentence would close it: within a
-  call, at most `2|V|` expansions, each doing `O(deg(u))` `UpdateVertex` calls of `O(deg + log|U|)`, so
-  `O((|V|+|E|) log|V|)` worst case per call - the same as a fresh A*, with the constant paid only where
-  values actually changed.
-* The band effect is explained four times (end of §2.5, §2.8 "Third", §2.8.1, and the last pitfall).
-  Cutting the §2.5 occurrence to a forward reference would save ~a third of a page and remove the only
-  real repetition in the chapter.
-* Listing 2.1 (39 lines) is generic heap infrastructure. Keeping only `insert`, `remove`, `_purge` and
-  `top_key` would save ~2/3 of a page without losing anything the text discusses.
-* `figures/ch05/drone-replanning.tex` draws the intruder as a node containing `?` and the drone as a
-  node containing `1`. Neither is explained in the caption; add "the `?` marks the non-cooperative
-  intruder, `1` the drone under our control".
-* §2.9 mentions "its Focussed variant" of D* without a citation. Stentz, *The Focussed D\* Algorithm
-  for Real-Time Replanning*, IJCAI 1995, is the right entry if you want one; otherwise drop the clause.
-* CBS, ECBS, ORCA and DWA appear expanded only as macros in the drone box; `STYLE_GUIDE.md` §3 asks for
-  a definition at first use in *every* chapter. LPA* is likewise only expanded in §2.4, after four
-  earlier uses - move "Lifelong Planning \astar" into the second paragraph of §2.1.
-* `appendices/solutions/ch05-solutions.tex` covers 4 of the 8 exercises (the same ratio as ch03), and
-  the four it covers are excellent. Exercises 2.5 (reversal) and 2.8 (intruder tube) would benefit most
-  from a short hint, since both are conceptual and have no code to check against.
-* Table 2.4's "stored key" column shows "[9;6] or [11;6]" for `v`, which is really two different
-  scenarios in one cell. Splitting it into two rows, or adding a footnote, would make the point land
-  faster.
+* **Trim, if the page budget matters.** At 23 pages the chapter is at the top of the allowed
+  range (the spec asks for 16-18). The only genuine duplication I found is around
+  `tab:ch05-km`: the caption (7 lines) explains the whole table, and the paragraph immediately
+  after it ("`\Cref{tab:ch05-km}` gives numbers. Vertex `u` was inserted before the move with
+  key `[4+6;4]` ...") walks through the same six numbers a second time. Cutting the caption
+  back to two sentences ("Why the key modifier is needed. `m = min(g,rhs)`; the last two columns
+  are the keys `CalculateKey` returns now, without and with the modifier.") would save about
+  half a page without losing anything. Everything else in the chapter is required content.
+* **Define the strict key order.** `def:ch05-key` defines only `k <= k'`, while both algorithms
+  and the reinsert test use `<`. Add the one clause: "and `k < k'` iff `k_1 < k'_1`, or
+  `k_1 = k'_1` and `k_2 < k'_2`."
+* **Notation table.** `frontmatter/notation.tex` line 84 advertises the symbol `\key(s)`
+  (typeset *key*(s)), but the chapter writes `k(s)`, `k_1`, `k_2` throughout. Either use `\key`
+  in `eq:ch05-key` or change the notation row to `k(s)`. While that row is being touched,
+  `s_start`, `s_goal` and `s_last` deserve their own line: the chapter is the first to use them
+  and explicitly maps them onto `s` and `gamma` of `ch:ch04`. (Front-matter edits belong to the
+  consistency pass, not to this chapter's reviser.)
+* **Machine-dependent numbers.** `sec:ch05-experiment` quotes wall-clock times to two
+  significant digits. The expansion counts are seed-deterministic and reproduce exactly; the
+  times do not (on my machine the same script produced 23 ms instead of 32 ms for the initial
+  search, with identical expansion counts). One clause - "on the reference machine of
+  `\cref{ch:ch02}`" or "on a 2024 laptop" - would keep the claim honest without changing any
+  number.
+* **`sec:ch05-intuition`, "Processing a vertex makes it consistent."** True for the
+  overconsistent case only; the underconsistent case can leave the vertex overconsistent. The
+  walkthrough in `sec:ch05-lpastar` says this correctly. Consider "Processing a vertex either
+  makes it consistent or replaces its stale value by a larger, honest one" so the intuition
+  section is not contradicted 4 pages later.
+* **Memory.** The implementation notes cover the queue, infinity, edge scanning and
+  termination but never state the storage cost. One sentence ("two floats per vertex,
+  `O(|V|)`, kept for the lifetime of the mission - this is what an incremental search buys its
+  savings with") would complete the picture and pre-empt the natural question for a
+  200x200x10 map from `sec:ch05-motivation`.
+* **Exercise spread.** One exercise at difficulty 1, four at 2, three at 3. A second
+  difficulty-1 item - for example "given the `g`/`rhs` values in the middle panel of
+  `fig:ch05-lpastar-example`, list the queue in pop order" - would make the on-ramp gentler.
 
 ## What must be kept
 
-This is a strong, unusually well-verified chapter, and most of it should not be touched. The two-halves
-structure - LPA* first with a fixed start, then the mirror-image D* Lite plus `k_m` - is exactly the
-right pedagogical order, and Table 2.3 (the LPA*/D* Lite mirror table) is the single most useful page
-in the chapter for a reader who has to implement this. Both pseudocode listings are faithful to the
-canonical sources line for line, including the edge cases the style guide singles out (`Pred(u) ∪ {u}`
-on underconsistency, `UpdateVertex` on the tail, once-per-batch `k_m`). Every number in both worked
-examples, in Figure 2.1 and in the whole experiment section is machine-generated and reproduces
-exactly - including the honest, and rare, admissions that the LPA* repair costs 13 expansions against
-A*'s 7 on the toy grid, that the first D* Lite search is 4.6x more expensive than a well-tuned A*, and
-that cumulative wall-clock time has not recovered after 40 events. That intellectual honesty, and the
-explanation of *why* (the second key component forces the whole `f`-band), is the best thing in the
-chapter; keep it verbatim. The five pitfall boxes are all real, all distinct, and all the mistakes
-people actually make. The `k_m` treatment (triangle-inequality argument, Table 2.4's numeric
-counterexample, the lower-bound/reinsert invariant, and Exercise 2.4 asking for the proof) is the
-clearest short account of the key modifier I have read. The exercise set is well graded and genuinely
-solvable from the chapter, the Week-2 coding exercise is present and complete with its 8-connectivity
-part, and the four written solutions - especially the `k1`-only counterexample for Exercise 2.3 - are
-worth more than most textbooks' answer keys.
+The chapter is unusually honest about its own algorithm, and that honesty is its best feature:
+the LPA* worked example ends with the repair costing **13** expansions against A*'s **7** and
+then explains exactly why (two retractions plus the band effect of the second key component),
+and `sec:ch05-experiment` shows that in wall-clock time the incremental planner has *not* repaid
+its first search after 40 events. Most textbook treatments quietly omit both facts. Keep them,
+keep the third (dotted) curve of `fig:ch05-experiment` that runs A* with D* Lite's own
+tie-breaking - it is what makes the comparison fair and turns a puzzling factor of 4.6 into an
+explained one - and keep the "Replanning can be slower than A*" pitfall that draws the moral.
 
----
-
-## Response to review (round 1)
-
-All nine required changes are applied. Chapter file: `Overleaf/chapters/ch05-lpastar-dstarlite.tex`;
-code: `Overleaf/code/ch05_dstar_lite.py`; figures: `Overleaf/figures/ch05/`; solutions:
-`Overleaf/appendices/solutions/ch05-solutions.tex`; bibliography: `Overleaf/bib/ch05-extra.bib`.
-
-### Required changes
-
-1. **(A) Consistency inequality in the proof sketch of `thm:ch05-expansions`.** Accepted; the
-   reviewer is right that the printed orientation does not support the deduction. The sentence
-   now reads: "The consistency condition of \cref{sec:ch05-dstarlite}, applied to the edge
-   $(u,s')$ with $u \in \Pred(s')$, reads $\hcost(s_{\mathrm{start}},s') \le
-   \hcost(s_{\mathrm{start}},u) + c(u,s')$, hence $c(u,s') + \gcost(s') \ge \gcost(u)$".
-   The chain now runs: key order gives $\gcost(s') \ge \gcost(u) + \hcost(s_\mathrm{start},u) -
-   \hcost(s_\mathrm{start},s')$, and the (correctly oriented) consistency inequality turns that
-   into $c(u,s') + \gcost(s') \ge \gcost(u)$. The cross-reference points at the section where
-   the condition is stated, so the reader can check the orientation.
-
-2. **(A) "faster at every single one of them" in Sec. 2.8.1.** Accepted, with one correction to
-   the suggested wording. Replaced by: "although its repairs are on average nearly twice as fast
-   as a fresh \astar ($0.8$~ms against $1.5$~ms); at $7$ of the $40$ events, those in which the
-   obstacle forced a long detour, the repair was nevertheless the slower of the two (up to
-   $5.2$~ms against $1.6$~ms)." The reviewer's draft said "three times faster", but
-   $1.493/0.822 = 1.82$, so "nearly twice as fast" is what the data support; the two averages
-   themselves are kept as they were. Re-verified against `figures/data/ch05-replanning.dat`:
-   exactly 7 of the 40 events have `dsl_ms > astar_ms` (events 2, 4, 5, 13, 16, 26, 37), the
-   largest being $5.187$~ms against $1.645$~ms. Those 7 events all have well above-median
-   D* Lite expansion counts (42-174 against a median of 4), which is why the clause attributes
-   them to a long detour rather than to a corridor specifically.
-
-3. **(A) Field D* paragraph, 8% attributed to 4-connected grids.** Accepted verbatim: "Paths on
-   a grid are restricted to a few headings: up to about $41\%$ longer than the true shortest
-   path on a 4-connected grid and up to about $8\%$ longer on an 8-connected one."
-
-4. **(A) The $k_2(u) < k_2(w)$ claim in Sec. 2.4.** Accepted; the reviewer's counterexample is
-   correct. The sentence is now split into the two cases: if $w$ is overconsistent then
-   $k_2(w) = \rhs(w) = \gcost(u)+c(u,w) > \gcost(u) = k_2(u)$ because $c(u,w)>0$, so $u$ comes
-   first among the ties; if $w$ is itself underconsistent it is retracted in the same way before
-   it can be expanded with a stale value.
-
-5. **(D) Caption of `fig:ch05-idea`.** Accepted, and mirrored in the text as the reviewer
-   suggested. The caption now ends "Note that \dstarlite is repairing a search it had already
-   run from the drone's original start ($52$ expansions); \cref{sec:ch05-experiment} accounts
-   for that first search." Sec. 2.2 gained the matching sentence. The number $52$ was re-checked
-   by re-running `code/figures/gen_ch05_examples.py`, which prints "initial search 52, repair 6,
-   A* from scratch 26" and regenerates the three example figures byte-identically.
-
-6. **(G) Running head of Sec. 2.7.** Accepted verbatim:
-   `\section[A worked example: \dstarlite repairs a plan]{A worked example: the robot moves and
-   an obstacle appears}`. `pdftotext -layout` now shows the two heads separated on that page,
-   and the ToC line is one line.
-
-7. **(G) `lst:ch05-main` caption vs. the quoted docstring.** Accepted. The docstring in
-   `code/ch05_dstar_lite.py` is now `"""Process cells whose blocked status flipped (D* Lite main
-   loop).` and the listing was re-copied so that it is again byte-identical to the file. A check
-   over all three listings confirms each is a verbatim substring of `ch05_dstar_lite.py`.
-   (The AAAI line numbering `26'-27'` in the docstring of `move`, which no listing quotes, was
-   left alone.)
-
-8. **(G) Two overfull `\hbox`es.** Accepted and taken further, because the reviewer's numbers
-   fixed only one of them. `figures/ch05/consistency.tex` is now `[scale=0.92, ...]`, which
-   removes the $22.95$~pt box. For `figures/ch05/replanning-experiment.tex`, narrowing the axes
-   to `0.46\textwidth` and `xshift=1.1cm` left a residual $15.47$~pt box, because the culprit is
-   the three-column legend, whose width does not depend on the axis width. Both axes are now
-   `width=0.45\textwidth` with `xshift=0.9cm`, and the legend is `font=\scriptsize` with
-   `column sep=0.2cm` and anchored at `(1.14,-0.34)`. **The chapter build now reports zero
-   overfull `\hbox`es of any size.**
-
-9. **(F) Bridge from Chapter 4's notation.** Accepted, with one addition. A new paragraph after
-   the notation list in Sec. 2.3 reads: "This is the notation of \cref{ch:ch04} in new clothes:
-   $s_{\mathrm{start}}$ is the start node $s$ of \cref{def:ch04-problem}, $s_{\mathrm{goal}}$ is
-   the goal $\gamma$, and $\dist(s_{\mathrm{start}},n)$ is the true distance written
-   $\gcost^*(n)$ there. One symbol changes meaning, and it is the important one: in
-   \cref{ch:ch04}, $\gcost(n)$ is the cost of the best path found *so far in the current
-   search*, whereas here $\gcost(s)$ is a value stored from an *earlier* search that may be
-   stale until the repair reaches it." The notation-table additions
-   ($\rhs$, $k_m$, $\Pred$, $\Succ$, $\dist$) are listed in the final report;
-   `frontmatter/notation.tex` is not this chapter's file and was not touched.
-
-### Suggestions
-
-Applied:
-
-* "Two remarks" is now "Three remarks" in Sec. 2.8.
-* A running-time paragraph was added after the remarks: at most $2|V|$ expansions per call, each
-  calling `UpdateVertex` on $O(\deg u)$ vertices at a cost of the vertex degree plus
-  $O(\log|U|)$, hence $O((|V|+|E|)\log|V|)$ per call, the same bound as a fresh \astar, with the
-  constant paid only where stored values actually changed.
-* `figures/ch05/drone-replanning` caption now explains the two glyphs: the "?" is the
-  non-cooperative intruder, the "1" the drone under our control.
-* Stentz's Focussed D* is now cited (`stentz1995focussed`, IJCAI 1995, added to
-  `bib/ch05-extra.bib`, which is this chapter's bibliography file).
-* CBS, ECBS, ORCA and DWA are expanded at first use in the drone box, and "Lifelong Planning
-  \astar" was moved into Sec. 2.1 where \lpastar first appears.
-* Table 2.4: the cell now reads `[9;6] / [11;6]` and the caption explains that $v$ has a single
-  stored key in any given run, the two entries being the key it receives without and with the
-  modifier.
-* Short hints were written for the two conceptual exercises without code to check against,
-  `exr:ch05-directions` (the reversal, including exactly which lines of `Main` exist only
-  because the start moves) and `exr:ch05-intruder` (rasterising the tube, updating only the
-  symmetric difference on the next prediction, what blocking the whole tube for the whole
-  horizon costs, and why a moving goal breaks the backward search).
-  `appendices/solutions/ch05-solutions.tex` now covers 6 of the 8 exercises.
-
-Not applied, with reasons:
-
-* **Trimming Listing 2.1 to four methods.** The listing is 39 lines, inside the style guide's
-  45-line limit, and every listing in the chapter is currently a byte-exact substring of
-  `ch05_dstar_lite.py`. Cutting `__init__`, `__contains__` and the class docstring, which is
-  where the lazy-deletion invariant ("a heap entry is live only if its key equals
-  `key_of[vertex]`") is actually stated, would cost the one thing the surrounding text discusses
-  in exchange for two thirds of a page.
-* **Reducing the band-effect explanation in Sec. 2.5 to a forward reference.** The four
-  occurrences serve different purposes (a first observation on the toy trace, the theorem's
-  third remark, the measured factor $4.6$, and the pitfall), and the reviewer's own "what must
-  be kept" paragraph names this honesty as the best thing in the chapter. Left as it is rather
-  than risk thinning it.
-
-### Verification
-
-* `cd Overleaf && ./build.sh ch05-lpastar-dstarlite`: no `!` errors from this chapter's files, no
-  overfull `\hbox` of any size, and the only undefined references are the expected cross-chapter
-  ones (`ch:ch01`-`ch:ch03`, `ch:ch06`-`ch:ch25`, `ch:appA`, `ch:appB`) plus zero undefined
-  citations. Occasional `File ended while scanning use of \@writefile` messages naming
-  `build/chapters/ch11-*.aux`, `ch19-*.aux` or `ch21-*.aux` come from other chapters' `.aux`
-  files being rewritten concurrently in the shared `build/` directory; they disappear on a rerun
-  and are not produced by this chapter's sources.
-* `python3 code/ch05_dstar_lite.py`: self-test passes in 0.8 s.
-* `python3 code/figures/gen_ch05_examples.py`: reproduces `idea.tex`, `lpastar-example.tex` and
-  `dstarlite-example.tex` byte-identically and prints the $52/6/26$ expansion counts quoted in
-  Sec. 2.2 and its figure caption.
-* `python3 code/figures/gen_ch05_replanning.py` was re-run: every expansion column of
-  `figures/data/ch05-replanning.dat` is byte-identical, and only the three wall-clock columns
-  move with machine load, so the reviewer-verified `.dat` (the one all quoted timings were
-  checked against) was restored rather than overwritten. Only a docstring changed in the Python
-  file, so no numeric output could change.
+Keep `tab:ch05-directions`, the LPA*/D* Lite mirror table: nine rows that let a reader convert
+one algorithm into the other without re-reading either, and the reason `exr:ch05-directions`
+works. Keep the two-component-key argument in "Why the two-component key works"
+(`k_2(w) = g(u)+c(u,w) > g(u) = k_2(u)`), which is the cleanest short explanation of the second
+key component I have read. Keep the numeric `k_m` table with its companion proof exercise
+`exr:ch05-kmproof`; together they cover the one part of D* Lite that implementers get wrong.
+Keep all five pitfalls, in particular "Blocking a cell changes all of its edges, in both
+directions", which diagnoses both halves of the mistake and explains why the bug stays hidden
+until the obstacle disappears again. Keep the trace tables exactly as they are: they are emitted
+verbatim by `latex_trace` in `code/ch05_dstar_lite.py`, so they cannot drift from the code.
+Finally keep the drone box's precise reading of "edge costs change" as the rasterised, inflated
+prediction tube, and `exr:ch05-intruder`, which is the bridge from this chapter to
+`ch:ch20` and `ch:ch24`.
