@@ -42,7 +42,8 @@ $C^*$. Enhanced \cbs (\ecbs)\index{ECBS} by Barer, Sharon, Stern and
 Felner~\cite{barer2014ecbs} is the bounded-suboptimal version of \cbs. On the
 same sixteen-drone instances, \ecbs with $w = 1.5$ solves all ten in about
 $23$ milliseconds each, and its plans are on average $7\,\%$ more expensive
-than the optimum, far below the guaranteed $50\,\%$. The mechanism behind it,
+than the optimum (an average over the two instances \cbs could solve), far
+below the guaranteed $50\,\%$. The mechanism behind it,
 \textbf{focal search}\index{focal search}, is thirty years older than \cbs:
 Pearl and Kim's $\astar_\eps$~\cite{pearl1982studies} keeps the ordinary
 \astar queue as a ruler and lets a second heuristic pick, among the nodes that
@@ -138,7 +139,7 @@ $\fcost_{\min}$ it saw when it stopped, which is a lower bound on the
 constrained optimum of that drone. A node stores one such bound per drone,
 their sum $\mathrm{LB}(N)$ orders \Open, and the smallest $\mathrm{LB}(N)$ in
 \Open, called $\mathrm{LB}$, is a lower bound on $C^*$. \Focal is the set of
-open nodes with $\cost(N) \le w\,\mathrm{LB}$. When a conflict-free node is
+open nodes with $N.\cost \le w\,\mathrm{LB}$. When a conflict-free node is
 taken from \Focal, its cost is at most $w\,\mathrm{LB} \le w\,C^*$.
 
 \begin{keyidea}
@@ -162,20 +163,20 @@ agent $a_i$ at every time step; $\pi_i[t] = \gamma_i$ for all $t$ after the
 final arrival, and the cost $\cost(\pi_i)$ is the time of that final arrival.
 A solution $\Pi = (\pi_1, \dots, \pi_k)$ must be free of vertex conflicts
 $\langle i, j, v, t\rangle$ and swapping conflicts $\langle i, j, u, v, t\rangle$;
-its cost is the sum of costs $\cost(\Pi) = \sum_i \cost(\pi_i)$, and $C^*$ is
+its cost is the sum of costs $\sumcost(\Pi) = \sum_i \cost(\pi_i)$, and $C^*$ is
 the smallest cost of any solution. Cells are written $(r, c)$ with row $r$
 counted from the top and column $c$ from the left. A vertex constraint
 $\langle i, v, t\rangle$ forbids agent $a_i$ to be at $v$ at time $t$; an edge
 constraint $\langle i, u, v, t\rangle$ forbids it to move from $u$ to $v$
 between $t$ and $t+1$. A constraint-tree (CT) node $N$ holds a set of
 constraints $N.\mathcal{C}_i$ for every agent, one path $N.\pi_i$ per agent
-that respects $N.\mathcal{C}_i$, and the resulting $\cost(N) = \sum_i
+that respects $N.\mathcal{C}_i$, and the resulting $N.\cost = \sum_i
 \cost(N.\pi_i)$. This is the setting of \cbs in \cref{ch:ch09}.
 
 \begin{definition}[Bounded-suboptimal algorithm]
 \label{def:ch10-bounded}
 Let $w \ge 1$. A solution $\Pi$ is \textbf{$w$-suboptimal}\index{w-suboptimal
-solution@$w$-suboptimal solution} if $\cost(\Pi) \le w\,C^*$. An algorithm
+solution@$w$-suboptimal solution} if $\sumcost(\Pi) \le w\,C^*$. An algorithm
 with parameter $w$ is \textbf{bounded-suboptimal}\index{bounded
 suboptimality!definition} if, on every solvable instance, it returns a
 $w$-suboptimal solution. The number $w$ is the \textbf{suboptimality
@@ -244,7 +245,7 @@ because every such solution respects the constraints of $N$ and the paths of
 different agents are bounded separately. \Cref{sec:ch10-properties} shows that
 $\mathrm{LB} \le C^*$ at all times, which is what the high-level \Focal
 \begin{equation}
-  \Focal = \set{N \in \Open : \cost(N) \le w\,\mathrm{LB}}
+  \Focal = \set{N \in \Open : N.\cost \le w\,\mathrm{LB}}
   \label{eq:ch10-focal-high}
 \end{equation}
 relies on.
@@ -394,30 +395,30 @@ $w = 4/3$ (\cref{exr:ch10-lowlevel-threshold}).
 
 \Cref{alg:ch10-ecbs} is the high level. Compared with \cbs, three things
 change: every node carries per-agent lower bounds, \Open is ordered by
-$\mathrm{LB}(N)$ instead of $\cost(N)$, and the node to expand is chosen from
+$\mathrm{LB}(N)$ instead of $N.\cost$, and the node to expand is chosen from
 \Focal by $h_c$.
 
 \begin{algorithm}[htb]
 \caption{\ecbs: the high level}
 \label{alg:ch10-ecbs}
 \KwIn{MAPF instance with agents $a_1, \dots, a_k$, factor $w \ge 1$}
-\KwOut{a conflict-free solution $\Pi$ with $\cost(\Pi) \le w\,C^*$, or \emph{failure}}
+\KwOut{a conflict-free solution $\Pi$ with $\sumcost(\Pi) \le w\,C^*$, or \emph{failure}}
 \Fn{\EcbsHighLevel{instance, $w$}}{
   $R.\mathcal{C}_i \gets \emptyset$ for $i = 1, \dots, k$\;
   \ForEach{$i = 1, \dots, k$}{$(R.\pi_i, R.\mathrm{lb}_i) \gets$ \EcbsLowLevel{$a_i$, $\emptyset$, $(R.\pi_1, \dots, R.\pi_{i-1})$, $w$}\label{alg:ch10-ecbs:root}\;}
-  $\cost(R) \gets \sum_i \cost(R.\pi_i)$; $\mathrm{LB}(R) \gets \sum_i R.\mathrm{lb}_i$; $h_c(R) \gets$ number of conflicts among $R$'s paths\;
+  $R.\cost \gets \sum_i \cost(R.\pi_i)$; $\mathrm{LB}(R) \gets \sum_i R.\mathrm{lb}_i$; $h_c(R) \gets$ number of conflicts among $R$'s paths\;
   \Open $\gets \set{R}$\;
   \While{\Open $\ne \emptyset$}{
-    $\mathrm{LB} \gets \min_{N \in \Open} \mathrm{LB}(N)$; \Focal $\gets \set{N \in \Open : \cost(N) \le w\,\mathrm{LB}}$\label{alg:ch10-ecbs:band}\;
+    $\mathrm{LB} \gets \min_{N \in \Open} \mathrm{LB}(N)$; \Focal $\gets \set{N \in \Open : N.\cost \le w\,\mathrm{LB}}$\label{alg:ch10-ecbs:band}\;
     $N \gets \argmin_{N' \in \Focal} h_c(N')$ (ties: smaller cost, then older node); remove $N$ from \Open\label{alg:ch10-ecbs:pop}\;
-    \If{$h_c(N) = 0$}{\KwRet $N$'s paths\tcp*{$\cost(N) \le w\,\mathrm{LB} \le w\,C^*$}\label{alg:ch10-ecbs:goal}}
+    \If{$h_c(N) = 0$}{\KwRet $N$'s paths\tcp*{$N.\cost \le w\,\mathrm{LB} \le w\,C^*$}\label{alg:ch10-ecbs:goal}}
     $\chi \gets$ the earliest conflict among $N$'s paths, between agents $a_i$ and $a_j$\label{alg:ch10-ecbs:conflict}\;
     \ForEach{$a \in \set{a_i, a_j}$, with $\chi_a$ the constraint on $a$ that resolves $\chi$}{
       $N' \gets$ copy of $N$; $N'.\mathcal{C}_a \gets N.\mathcal{C}_a \cup \set{\chi_a}$\label{alg:ch10-ecbs:child}\;
       $(\pi, \mathrm{lb}) \gets$ \EcbsLowLevel{$a$, $N'.\mathcal{C}_a$, paths of the other agents in $N'$, $w$}\label{alg:ch10-ecbs:replan}\;
       \If{the low level failed}{\KwContinue\tcp*{no path under these constraints: prune}}
       $N'.\pi_a \gets \pi$; $N'.\mathrm{lb}_a \gets \max(N.\mathrm{lb}_a, \mathrm{lb})$\label{alg:ch10-ecbs:lb}\;
-      recompute $\cost(N')$, $\mathrm{LB}(N')$ and $h_c(N')$; insert $N'$ into \Open\label{alg:ch10-ecbs:insert}\;
+      recompute $N'.\cost$, $\mathrm{LB}(N')$ and $h_c(N')$; insert $N'$ into \Open\label{alg:ch10-ecbs:insert}\;
     }
   }
   \KwRet \emph{failure}\;
@@ -459,10 +460,14 @@ This is why \Open must be ordered by $\mathrm{LB}(N)$ and not by cost.
 It helps to keep the two bands apart. The low level's band is
 $\fcost \le w\,\fcost_{\min}$ inside \emph{one} agent's space-time search; it
 guarantees $\cost(\pi_a) \le w\,\mathrm{lb}_a$ for every path that ever enters
-a CT node. The high level's band is $\cost(N) \le w\,\mathrm{LB}$ over
+a CT node. It holds in every node and not only in the root: an agent that is
+not replanned inherits its pair (path, bound) unchanged, and for the
+replanned agent $\cost(\pi) \le w\,\fcost_{\min} \le
+w\,\max(N.\mathrm{lb}_a, \fcost_{\min})$, so the maximum taken at
+line~\ref{alg:ch10-ecbs:lb} of \cref{alg:ch10-ecbs} preserves it. The high level's band is $N.\cost \le w\,\mathrm{LB}$ over
 \emph{all} agents and over the whole tree. The low-level guarantee is what
 keeps the high-level band non-empty: the node $N_{\min}$ that attains
-$\mathrm{LB}$ has $\cost(N_{\min}) = \sum_a \cost(\pi_a) \le w \sum_a
+$\mathrm{LB}$ has $N_{\min}.\cost = \sum_a \cost(\pi_a) \le w \sum_a
 \mathrm{lb}_a = w\,\mathrm{LB}(N_{\min}) = w\,\mathrm{LB}$, so it always
 belongs to \Focal. The high-level guarantee, $\cost \le w\,\mathrm{LB} \le
 w\,C^*$, is the one the user sees.
@@ -506,7 +511,9 @@ and the routes through row~1 cross the parked $a_1$ at $(1,1)$. The low level
 returns $(3,0), (2,0), (1,0), (1,1), (1,2), (1,3)$ with one conflict,
 $\langle a_1, a_3, (1,1), 3\rangle$. The root therefore has $\cost = 11$,
 per-agent bounds $(2, 4, 5)$, $\mathrm{LB} = 11$ and $h_c = 1$, for \cbs
-($w = 1$) and for \ecbs with every $w$ we try. With $w = 1.2$ the low level
+($w = 1$) and for \ecbs with $w \le 1.2$; for $w = 1.5$ the root itself
+already changes, as the last paragraph of this section shows. With $w = 1.2$
+the low level
 of $a_3$ may look at states with $\fcost \le 6$, and a conflict-free path of
 cost~6 exists: it is the path that \cbs finally finds
 (\cref{fig:ch10-example-instance}(b)). The search does not find it. All
@@ -770,6 +777,12 @@ $\pi_i^*$ respects $N.\mathcal{C}_i$ for every agent $a_i$.
 Two horizon facts are used below. By \cref{thm:ch04-horizon}, if any path
 respecting $\mathcal{C}_i$ exists at all then one exists that arrives no later
 than $H + 1 + D \le \lfloor w\,(H + 1 + D)\rfloor = T_{\max}$, the horizon of
+\cref{alg:ch10-lowlevel}. The $H$ of \cref{ch:ch04} also counts the arrival
+times of parked agents and uses $t + 1$ for an edge constraint; here no cell
+of the low-level graph is blocked by another agent, and an edge constraint
+$\langle i, u, v, t\rangle$ only forbids a move that departs at time $t$, so
+from time $H + 1$ on the agent moves freely and the argument of
+\cref{thm:ch04-horizon} gives arrival by $H + 1 + D$ with the $H$ of
 \cref{alg:ch10-lowlevel}. Hence (i) the low-level call of a consistent node
 never fails, and (ii) the constrained optimum $C_i^*(\mathcal{C}_i)$ is
 attained within the horizon, so \cref{thm:ch10-lowlevel-lb} applies. Note that
@@ -803,7 +816,7 @@ line~\ref{alg:ch10-ecbs:insert}.
 \begin{theorem}[Bounded suboptimality of \ecbs; Barer et al.\ 2014]
 \label{thm:ch10-ecbs}
 On a solvable instance, if \cref{alg:ch10-ecbs} returns a solution $\Pi$,
-then $\cost(\Pi) \le w\,C^*$. Moreover, at every moment $\mathrm{LB} \le C^*$,
+then $\sumcost(\Pi) \le w\,C^*$. Moreover, at every moment $\mathrm{LB} \le C^*$,
 so the algorithm also returns a valid lower bound on the optimum.
 \index{ECBS!suboptimality theorem}
 \end{theorem}
@@ -825,7 +838,7 @@ Now consider any moment of the algorithm. By \cref{thm:ch10-consistent} some
 consistent node $N_c$ is in \Open, and $\mathrm{LB} = \min_{N \in \Open}
 \mathrm{LB}(N) \le \mathrm{LB}(N_c) \le C^*$. In particular, when the
 solution node $N$ is chosen at line~\ref{alg:ch10-ecbs:pop}, it belongs to
-\Focal, so $\cost(N) \le w\,\mathrm{LB} \le w\,C^*$.
+\Focal, so $N.\cost \le w\,\mathrm{LB} \le w\,C^*$.
 \end{proof}
 
 The proof explains every piece of bookkeeping. The low level must return a
@@ -836,7 +849,7 @@ line~\ref{alg:ch10-ecbs:lb} is safe because both numbers bound the same
 quantity. And the band must be measured against the \emph{global}
 $\mathrm{LB}$: a node's own $\mathrm{LB}(N)$ may exceed $C^*$ whenever $N$
 carries a constraint that the optimal solution violates, so a test of the
-form $\cost(N) \le w\,\mathrm{LB}(N)$ proves nothing
+form $N.\cost \le w\,\mathrm{LB}(N)$ proves nothing
 (\cref{exr:ch10-node-bound}).
 
 \subsection{Termination and completeness}
@@ -852,9 +865,9 @@ returned, and \Focal is never empty when \Open is not, because the node
 attaining $\mathrm{LB}$ lies in the band (\cref{sec:ch10-highlevel}). So the
 loop keeps expanding nodes, and it remains to show that it cannot expand
 infinitely many. Every expanded node $N$ was in \Focal when it was chosen,
-so $\cost(N) \le w\,\mathrm{LB} \le w\,C^*$ at that time. A conflict in $N$
+so $N.\cost \le w\,\mathrm{LB} \le w\,C^*$ at that time. A conflict in $N$
 happens at a time $t$ no later than the makespan of $N$'s paths, which is at
-most $\cost(N)$; hence every constraint that the algorithm ever creates has
+most $N.\cost$; hence every constraint that the algorithm ever creates has
 $t \le w\,C^*$. There are finitely many constraints with $t \le w\,C^*$ on a
 finite grid. Along a branch no constraint is created twice, because once
 $\langle a, v, t\rangle$ is in $N.\mathcal{C}_a$, every path of $a$ in the
@@ -896,8 +909,10 @@ becomes more greedy and expands fewer nodes. It loosens the guarantee, which
 is $w\,C^*$ in the worst case. And it changes the \emph{proven} bound of a
 run, $w\,\mathrm{LB}$, the number you can report to the operator. The actual
 solution quality moves much less than the guarantee: in
-\cref{fig:ch10-benchmark} the plans of \ecbs with $w = 2$ are on average
-$1$--$12.5\,\%$ more expensive than optimal and never more than $28\,\%$, while
+the benchmark of \cref{sec:ch10-benchmark} the plans of \ecbs with $w = 2$ are
+on average $1$--$12.5\,\%$ more expensive than optimal
+(\cref{fig:ch10-benchmark}) and, over all instances of that run, never more
+than $28\,\%$, while
 the guarantee allows $100\,\%$, because the conflict count steers the search
 towards solutions and not towards expensive ones; the band permits detours,
 it does not encourage them. The benchmark samples only $w \in \set{1.1, 1.5, 2}$, but between those three
@@ -926,8 +941,8 @@ together with EECBS. \emph{Greedy \cbs} (GCBS) orders both levels purely by
 conflicts. It is fast but offers no bound. \emph{Bounded \cbs}
 $\mathrm{BCBS}(w_H, w_L)$\index{BCBS} runs focal search with factor $w_L$ at
 the low level and focal search with factor $w_H$ at the high level, but the
-high level orders \Open by \emph{cost} and uses the band $\cost(N) \le w_H
-\cdot \min_{N' \in \Open} \cost(N')$, without lower bounds. Because the
+high level orders \Open by \emph{cost} and uses the band $N.\cost \le w_H
+\cdot \min_{N' \in \Open} N'.\cost$, without lower bounds. Because the
 smallest cost in \Open is not a lower bound on $C^*$ when the low level is
 suboptimal, the guarantee is only $w_H\,w_L\,C^*$
 (\cref{exr:ch10-bcbs-proof}); $\mathrm{BCBS}(w, 1)$ is focal search at the
@@ -971,7 +986,7 @@ every instance, at $k = 14$ in $11$ milliseconds and $5.7$ expansions on
 average, and its plans cost $6.2\,\%$ more than the optimum on average (worst
 case $10.5\,\%$), with a proven bound of $16\,\%$ on average. With $w = 2$
 the runtime drops a little further, to $7$ milliseconds, and the excess cost
-rises to $12.5\,\%$. With $w = 1.1$ the plans are within $2$--$3\,\%$ of
+rises to $12.5\,\%$. With $w = 1.1$ the plans are within $3\,\%$ of
 optimal, but the band is so narrow that the search inherits much of the \cbs
 tree: it solves seven of ten instances at $k = 14$ and four at $k = 16$. The
 dashed lines in the right panel are the proven bounds $\cost/\mathrm{LB}$;
@@ -984,7 +999,9 @@ report without knowing $C^*$.
   \caption{\cbs against \ecbs on random $8 \times 8$ grids with $10\,\%$
   obstacles, ten instances per number of agents. Left: mean runtime (log
   scale); runs that hit the ten-second limit count with ten seconds, so the
-  curves of \cbs and $\ecbs(1.1)$ are lower bounds beyond $k = 10$. Right:
+  curves of \cbs and $\ecbs(1.1)$ are lower bounds beyond $k = 10$; the labels
+  on the \cbs curve say how many of the ten instances it actually solved, so
+  read the flattening at $k = 16$ as failure and not as speed. Right:
   mean ratio of the returned cost to the optimal cost over the instances that
   \cbs solved (solid), and the mean proven bound $\cost/\mathrm{LB}$ over all
   solved instances (dashed). The guarantees $1.1$, $1.5$ and $2$ are far above
@@ -1044,7 +1061,10 @@ rule asks, in order: does the node with the fewest conflicts in \Focal have
 $\cost \le w\,\mathrm{LB}$? If so, expand it. (Li et al.\ state the test on
 the estimate, $\hat{\fcost}(N) \le w\,\mathrm{LB}$; the two agree on the
 conflict-free nodes that can be returned, where $\hat{\fcost}(N) =
-\cost(N)$.) Otherwise, does the node with
+N.\cost$. The substitution does change \emph{which} nodes are expanded,
+however, and not only which ones may be returned, so a solver written from
+this paragraph is a close relative of EECBS and not EECBS itself.) Otherwise,
+does the node with
 the smallest $\hat{\fcost}$? If so, expand it. Otherwise expand the node with
 the smallest $\mathrm{LB}(N)$, which raises the global bound. Every returned
 solution still satisfies $\cost \le w\,\mathrm{LB} \le w\,C^*$, so
@@ -1121,7 +1141,7 @@ them agree.\index{FOCAL list!implementation with two heaps}
 Reading $\fcost_{\min}$ \emph{before} popping from \Focal is essential: the
 popped state is still counted, so the returned lower bound satisfies
 $\fcost_{\min} \le t$, and \cref{thm:ch10-lowlevel-lb} holds. The high level
-uses the same structure with $\mathrm{LB}(N)$ in place of $\fcost$, $\cost(N)$
+uses the same structure with $\mathrm{LB}(N)$ in place of $\fcost$, $N.\cost$
 in the band test, and expanded node ids in place of closed states; the loop of
 \code{ecbs} is the same code pattern as \cref{lst:ch10-lowlevel}, the main
 loop of the low level, with different keys.
@@ -1292,12 +1312,12 @@ The low level guarantees $\cost(\pi_i) \le w\,\mathrm{lb}_i$ for every
 agent, and it is tempting to conclude that any node whose paths all satisfy
 this is within the bound. It is not. The guarantee is about the sum of costs
 and the \emph{global} bound $\mathrm{LB} = \min_{N \in \Open} \mathrm{LB}(N)$:
-a node with $\cost(N) \le w\,\mathrm{LB}(N)$ may still have $\cost(N) >
+a node with $N.\cost \le w\,\mathrm{LB}(N)$ may still have $N.\cost >
 w\,C^*$, because $\mathrm{LB}(N)$ counts constraints that the optimal
 solution does not obey (in \cref{ex:ch10-grid}, $N_7$ has $\mathrm{LB}(N_7)
 = 15 > C^* = 12$). Conversely, the sum test may admit a node in which one
 agent is far above its own bound and another well below; that is allowed and
-is often where the cheap solutions are. Test $\cost(N) \le w\,\mathrm{LB}$
+is often where the cheap solutions are. Test $N.\cost \le w\,\mathrm{LB}$
 with the global bound, and nothing else.
 \end{pitfall}
 
@@ -1353,7 +1373,7 @@ paths away from it without touching the bound.
         $\cost \le w\,\fcost_{\min}$.
   \item The \ecbs high level stores one lower bound per agent in each CT
         node, orders \Open by their sum $\mathrm{LB}(N)$, and expands from
-        $\Focal = \set{N : \cost(N) \le w\,\mathrm{LB}}$ the node with the
+        $\Focal = \set{N : N.\cost \le w\,\mathrm{LB}}$ the node with the
         fewest conflicts, where $\mathrm{LB}$ is the smallest $\mathrm{LB}(N)$
         in \Open. Because $\mathrm{LB} \le C^*$ at all times, the returned
         solution costs at most $w\,C^*$, and $\mathrm{LB}$ is a certificate.
@@ -1422,7 +1442,7 @@ but not, in general, $C^*$.
 Show that \ecbs with $w = 1$ is \cbs with conflict-based tie-breaking. First
 show that the low level with $w = 1$ returns an optimal constrained path and
 a bound equal to its cost. Then show that with $w = 1$ every node in the
-high-level \Focal has $\cost(N) = \mathrm{LB}(N) = \mathrm{LB}$, and conclude
+high-level \Focal has $N.\cost = \mathrm{LB}(N) = \mathrm{LB}$, and conclude
 that the expanded node always has the smallest cost in \Open, so that the
 returned solution is optimal.
 \end{exercise}
@@ -1443,7 +1463,7 @@ the low level returns for $w = 1.5$ and for $w = 2$.
 \label{exr:ch10-node-bound}
 Show with \cref{ex:ch10-grid} that a CT node can have
 $\mathrm{LB}(N) > C^*$. Then explain why a high level that expands the node
-with the fewest conflicts among those with $\cost(N) \le w\,\mathrm{LB}(N)$
+with the fewest conflicts among those with $N.\cost \le w\,\mathrm{LB}(N)$
 (the node's own bound) is not $w$-suboptimal: exhibit, in the tree of
 \cref{fig:ch10-example-trees}(a), a node that this rule may return for
 $w = 1.2$ and compute the ratio of its cost to $C^*$.
@@ -1452,12 +1472,12 @@ $w = 1.2$ and compute the ratio of its cost to $C^*$.
 \begin{exercise}[\difficulty{3}]
 \label{exr:ch10-bcbs-proof}
 $\mathrm{BCBS}(w_H, w_L)$ runs focal search with factor $w_L$ at the low
-level and, at the high level, orders \Open by $\cost(N)$, uses the band
-$\cost(N) \le w_H \cdot \min_{N' \in \Open} \cost(N')$ and picks the node with
+level and, at the high level, orders \Open by $N.\cost$, uses the band
+$N.\cost \le w_H \cdot \min_{N' \in \Open} N'.\cost$ and picks the node with
 the fewest conflicts; no lower bounds are stored. Prove that it returns a
 solution of cost at most $w_H\,w_L\,C^*$. Hint: adapt
 \cref{thm:ch10-consistent}, then show that a node consistent with an optimal
-solution $\Pi^*$ has $\cost(N) \le w_L\,C^*$ by bounding each path
+solution $\Pi^*$ has $N.\cost \le w_L\,C^*$ by bounding each path
 separately, including the paths inherited from ancestors. Where exactly does
 the argument for \ecbs save the factor $w_L$?
 \end{exercise}
