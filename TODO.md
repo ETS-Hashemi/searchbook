@@ -96,8 +96,8 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [x] 4.1 Appendix A: the twelve-week study plan (week → chapters → coding exercise → milestone → completion checklist) — written; reviewed and revised (see review log)
 - [~] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics) — written on Fable (20 pp, 1168 lines, compiles); Opus review in progress
 - [ ] 4.3 Appendix C: hints and solutions to selected exercises (≥2 per chapter)
-- [ ] 4.4 Glossary (every bold term of the book)
-- [ ] 4.5 Index (≥15 entries per chapter; check for duplicates and synonyms)
+- [x] 4.4 Glossary (every bold term of the book) — assembled automatically (tools/assemble_glossary.py): 336 terms, 25 pages
+- [~] 4.5 Index (≥15 entries per chapter; check for duplicates and synonyms) — every chapter has 23-67 entries; duplicate/synonym check in 7.x
 - [x] 4.6 Bibliography audit: every citation resolves; every entry is a real, correctly described publication — audited by web search: 162 entries, 158 verified, 4 corrected (author order, 2 truncated titles, 1 entry type), 17 missing page ranges added; none fabricated (docs/bib-audit.md)
 
 ## Phase 5 — Peer review and revision (per chapter, repeated until Accept)
@@ -145,7 +145,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 - [ ] 7.1 Spelling and grammar pass (American English), consistent hyphenation and capitalisation of algorithm names
 - [ ] 7.2 Typesetting: overfull/underfull boxes, widows/orphans, float placement, figure sizes, table widths, listing lengths
 - [ ] 7.3 Captions, labels and cross-references: no `??`, every float referenced
-- [ ] 7.4 Hyperlinks, bookmarks and PDF metadata (title, author, subject)
+- [x] 7.4 Hyperlinks, bookmarks and PDF metadata (title, author, subject) — pdfusetitle + subject/keywords set in main.tex; bookmarks on
 - [ ] 7.5 Front matter finalised (TOC depth, list of algorithms, preface date)
 
 ## Phase 8 — Final build, packaging, delivery
@@ -179,6 +179,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 24 | 13:00-17:40 | first wave: authors finished Ch 7, 9, 11, 13, 19, 20, 21 (20-24 pp each, all compile); then the session limit hit again (reset 17:40 UTC) before any review completed | 17 drafted files |
 | 26 | 09-08 | review loops finished for Ch 1-5, 7, 9-11, 13, 14, 19-21 and App. A (Ch 1 Accept; 14 others: two Opus rounds, minor items applied). All 12 remaining authors (Ch 6, 8, 12, 15-18, 22-25, App. B) stopped by the WEEKLY Fable limit | 15 reviewed |
 | 29 | 09-09 09:00-13:50 | authors finished Ch 6, 8, 12, 15, 16, 22, 23 (19-23 pp each); fresh Opus reviews of Ch 1, 2, 4, 5, 10 found 3-6 minor items each (not yet applied); then the session limit hit again | 23 chapters drafted |
+| 33 | 09-09 19:10 | first full build with ALL chapters: 710 pages, 0 errors, 0 undefined refs/cites, 0 duplicate labels, 36 overfull boxes (for 7.2). Fixed a pdfLaTeX memory overflow by thinning one 2000-point scatter file (tools/thin_dat.py). Interim PDF + zip packaged | 710-page draft |
 | 32 | 09-09 18:40 | apply-review workflow finished with no errors: Ch 10 ACCEPT; Ch 1, 2, 4, 5 confirming rounds left 2-3 minor items each, all applied | 5 loops complete |
 | 31 | 09-09 ~18:30 | ALL 25 chapters and both appendices now have complete drafts (Ch 17, 18, 24, 25 finished today); review loops running for 17 chapters | drafting complete |
 | 30 | 09-09 16:15 | fresh workflows (no resume, to avoid re-reviewing): authors for Ch 17, 18, App. B (finish drafts) and Ch 24, 25; first Opus reviews for Ch 6, 8, 12, 15, 16, 22, 23; apply pending reviews + confirming round for Ch 1, 2, 4, 5, 10 | running |

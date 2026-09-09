@@ -15,3 +15,38 @@ The bisector of $v_0$ and $v_1$ is the line $x=0.5$ and that of $v_1$ and $v_2$ 
 \begin{solution}{exr:ch16-shortcut}
 (a)~The replaced part of the path is a polyline from $a$ to $b$, and the triangle inequality (applied along it) gives its length as at least $\norm{a-b}$, the length of the new segment; the rest of the path is unchanged. The new path is collision-free because the untouched segments were, and the new segment was accepted by \textsc{CollisionFree}. (b)~\textsc{Prune} outputs only input vertices, in strictly increasing index order, starting at $x_0$ and ending at $x_k$ (the jump to $j=i+1$ is always free), so the output has at most $k+1$ vertices. Example: $x_0=(0,0)$, $x_1=(1,1.2)$, $x_2=(2,0)$, $x_3=(3,3)$ with a disc obstacle of radius $0.05$ at $(0.5,0.5)$. The disc blocks $[x_0,x_3]$ (the diagonal passes through its centre) and nothing else, since it is at distance $0.5$ from $[x_0,x_2]$, about $0.064$ from $[x_0,x_1]$ and further from the other segments. Greedy pruning from $x_0$ tries $x_3$ (blocked) and jumps to $x_2$, then to $x_3$: length $2+\sqrt{10}\approx5.16$. The path $x_0,x_1,x_3$ is also free and has length $\sqrt{2.44}+\sqrt{7.24}\approx4.25$. (c)~Every point of the initial path $(1,5),(1,9.75),(9,9.75),(9,5)$ has $y\ge5$. A shortcut replaces a sub-path by a segment between two of its points, and every point of that segment is a convex combination of two points with $y\ge5$, so the invariant $y\ge5$ survives every shortcut. Passing below the wall $[4,6]\times[2,9.5]$ requires a point with $4\le x\le6$ and $y<2$, which never appears; the paths obtained by shortcutting all cross the wall's column above it and are at least as long as $(1,5),(4,9.5),(6,9.5),(9,5)$, that is $2\sqrt{9+20.25}+2\approx12.82$, whereas the route below the wall through $(4,2)$ and $(6,2)$ has length $2\sqrt{9+9}+2\approx10.49$.
 \end{solution}
+
+\begin{solution}{exr:ch16-gridsizes}
+The volume is $200\times200\times60$~m, so at $0.25$~m the lattice has
+$800\times800\times240=1.536\times10^{8}$ cells, $153.6$~MB at one byte per
+cell, and every interior cell has $3^{3}-1=26$ neighbours in the
+26-connected lattice. Adding the velocity, $\pm4$~m/s per axis in steps of
+$0.25$~m/s, gives $33$ values per axis and $33^{3}=35\,937$ velocity cells
+per position cell: $1.536\times10^{8}\times35\,937\approx5.5\times10^{12}$
+states, $5.5$~TB at one byte each, and $3^{6}-1=728$ neighbours if all axes
+may change at once (in practice only the accelerations that respect the
+dynamics are edges, which is fewer but still a lattice one cannot store).
+An \rrt with $20\,000$ vertices in three dimensions needs
+$20\,000\times(3\times8+4)=560\,000$~bytes, about $0.56$~MB: seven orders of
+magnitude less than the velocity-augmented grid, because it stores only the
+states it actually visited.
+\end{solution}
+
+\begin{solution}{exr:ch16-trace}
+Iteration~11, $x_{\mathrm{rand}}=(9.70,5.16)$: the distances to vertices~0
+to~6 are smallest for vertex~6 at $(2.86,2.92)$, $\norm{x_{\mathrm{rand}}-x_6}=7.197$
+(vertex~5 gives $7.424$), so $x_{\mathrm{near}}=x_6$. The unit vector
+towards the sample is $(6.84,2.24)/7.197=(0.9504,0.3112)$, so
+$x_{\mathrm{new}}=x_6+0.5\,(0.9504,0.3112)=(3.335,3.076)$, which is inside
+the wall $[3,5]\times[0,6]$: the extension is rejected. Iteration~12,
+$x_{\mathrm{rand}}=(6.23,7.77)$: again vertex~6 is nearest ($5.906$ against
+$6.355$ for vertex~5), the unit vector is $(0.5706,0.8212)$ and
+$x_{\mathrm{new}}=(3.145,3.331)$, again inside the wall and rejected. Both
+lines match the trace printed by \code{ch16\_rrt.py}. The Voronoi picture
+explains the pattern: the tree is a chain that stops at $x\approx2.9$, so
+the bisectors between consecutive vertices are almost vertical lines and the
+region of the tip, vertex~6, contains the whole upper right of the map,
+while vertex~5 owns the lower right. Every sample with $x>3$, about $70\,\%$
+of the map, therefore selects vertex~5 or~6, and every step from them
+towards such a sample crosses the wall.
+\end{solution}

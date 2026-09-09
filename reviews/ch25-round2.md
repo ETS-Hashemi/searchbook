@@ -195,3 +195,86 @@ compute one of them and explain why the other is smaller - is a better piece of 
 than either column alone. Keep the caption sentence that marks $\bar c$ as the only
 machine-dependent column; it is exactly the right kind of warning, and change 1 only asks
 that the column it warns about be the one the shipped data produce.
+
+## Response to review (round 2)
+
+All five required changes are applied. Everything the "What must be kept" paragraph names is
+untouched: the metric taxonomy and `tab:ch25-metrics`, both propositions with their proofs and
+illustrations, the aimed-intruder generator with its three families, the mini-study and its
+six-point cautious interpretation, the five pitfall boxes, the reproducibility habits and the
+results-table template, the checklist-as-questions table, the simulator sketch, the exercise
+set, the exact signed-rank test with its DP and `exact` flag, and the $p_W$/$p_{\mathrm{sign}}$
+pair in `tab:ch25-paired` (all sixteen paired rows reproduce unchanged, verified against the
+self-test output). The caption sentence that marks the timing column as the only
+machine-dependent one is kept and now also covers $c_{99}$.
+
+**1. One run behind table, figure, prose and `.dat` (A).** Done, by making the chapter follow
+the shipped data rather than by regenerating it: regenerating on this machine would have
+produced a third set of timings (my run gives 0.222 and 0.228 ms for the four-drone reactive
+cells) and would have desynchronised `ch25-study-cactus.dat` from the reviewer's reference
+numbers, so the committed `.dat` files are left exactly as they are and the chapter was moved
+onto them. The $\bar c$ column of `tab:ch25-results` is now 0.075, 0.082, 0.163, 0.096, 0.160,
+0.082, 0.084, 0.211, 0.097, 0.211 (the ten rows in table order), which is the per-cell mean of
+`comp_mean_ms` in `figures/data/ch25-study-runs.dat` rounded to three decimals, and agrees with
+`ch25-study-summary.dat` row by row. The prose of "Effort and constraints" now reads "on the
+machine that produced the table those steps are $0.16$~ms with two drones and $0.21$~ms with
+four, against $0.10$~ms for a replanning step and $0.08$~ms for prediction and tracking alone;
+on yours all three will move together"; the preceding ordering sentence and its "about twice"
+are unchanged and still hold (0.16/0.10 = 1.6, 0.21/0.10 = 2.2, 0.16/0.08 = 2.0). The
+implementation note now says "$320$ runs in about $25$~s on that machine" and `ex:ch25-study`
+"about $25$~s on the author's machine", so the two agree (suggestion 4); 25 s is also what this
+machine reports (`mini-study: 320 runs in 25.2 s`). One further number was stale for the same
+reason: the "comparing computation times across machines" pitfall said "a decision that takes
+$0.17$~ms"; it now says $0.16$~ms, which is a number the table contains.
+
+**2. The makespan claim (A).** "Makespans differ by less than a second on average." is replaced
+by the reviewer's sentence: "The mean makespans of the three avoidance strategies lie within
+$1.3$~s of each other (local-only $13.4$~s against replan-only $14.7$~s with four drones), and
+the hybrid is within $0.8$~s of either baseline in every cell." (Paired differences $-0.03$,
+$+0.76$, $-0.35$, $-0.51$ s, from the self-test.)
+
+**3. `paired_compare()` and undefined metrics (A).** `paired_compare()` now does
+`d = d[np.isfinite(d)]` immediately after forming the differences and returns
+`{"n": 0, "mean_diff": nan, ..., "p_wilcoxon": 1.0, "p_exact": True, "p_sign": 1.0}` when
+nothing is left, so `mean_ci()`, `d_z` and both tests are only ever reached with a non-empty
+sample; the docstring says why. The `__main__` printing loop skips comparisons with `n == 0`,
+so the self-test now prints the four real `dmin_di` rows and no `p_wilcoxon 0.0000` with
+`d_z +inf` and `0/0/0` counts, and the two NumPy `RuntimeWarning`s are gone (`grep -ci warning`
+on the output: 0). All other printed rows are bit-for-bit what they were. The reason for the
+drop is also stated in the chapter, in the paragraph that introduces `lst:ch25-paired`.
+
+**4. `lst:ch25-paired` verbatim (G).** The listing body is now copied out of
+`code/ch25_evaluation.py` programmatically, so it is verbatim by construction, and it includes
+the change-3 edit; the comment `# exact null distribution for n <= 20` and the merged
+`out["p_wilcoxon"], out["p_exact"] = w["p"], w["exact"]` were moved into the `.py` file as the
+reviewer's first option suggests. The excerpt is 42 lines, still under the 45-line limit.
+
+**5. Over which runs the means are taken (C).** The reviewer's clause is added verbatim to the
+`tab:ch25-results` caption, after "so one row serves".
+
+**Suggestions.** Adopted: (a) "the six pitfalls collected in the five boxes above"; (b) the
+$c_{99}$ column, which was possible without a rerun because `ch25-study-runs.dat` carries
+`comp_p99_ms` per run from the same study - the values 0.16, 0.15, 0.48, 0.81, 0.54, 0.16,
+0.17, 0.97, 0.62, 1.02 ms are the per-cell means of that column, the caption names the
+estimator, and three sentences in "Effort and constraints" draw the moral (replan-only is the
+cheapest on average but its tail is as large as the reactive strategies', because a replan is
+rare and expensive; a deadline is missed by the tail, not by the mean); the table needed
+`\tabcolsep` 3pt -> 2pt to stay inside the text block; (c) the cost of Exercise 25.7(a)
+($27$ cells, $2160$ runs, roughly ten times the mini-study, a few minutes); (d) the two
+wall-clock statements now agree at 25 s; (e) `ch25-study-runs.dat` has a leading `#` provenance
+line naming the generating script, the code file and the study configuration, and `write_dat()`
+grew an optional `note=` argument that `gen_ch25_study.py` passes for that file only (the
+pgfplots-read files keep a bare header row); the git commit is *not* written into it, because
+this brief forbids running git and the repository autosaves, so any hash recorded here would be
+wrong within the minute - the line ends by telling the reader to add it; (f) a solution sketch
+for `exr:ch25-simulator` was added, so all eight exercises now have solutions.
+
+**Checks.** `python3 code/ch25_evaluation.py`: self-test passes in 26.4 s, no warnings, all
+sixteen paired rows and the per-cell summary unchanged and equal to the shipped `.dat`
+(non-timing columns reproduce exactly). `./build.sh ch25-experiments`: no `!` errors, no
+undefined reference or citation belonging to this chapter, chapter body pages 27-50 = 24 pages
+as before, and the only overfull box above 15 pt is the 29.1 pt List-of-Algorithms entry of
+another chapter; the table's own 13.6 pt overfull box, created by the new column, is gone. The
+script exits 12 for the reason diagnosed in this review: 40 unresolved cross-chapter references
+(`ch:ch11`, `ch:ch13`, `ch:ch14`, `ch:ch19`, `ch:ch20`, `ch:ch21`), which section 7 of the style
+guide allows in a single-chapter build.
