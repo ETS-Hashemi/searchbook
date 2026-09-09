@@ -215,8 +215,8 @@ already expanded in the current iteration. Together, $\Open \cup
 \textsc{Incons}$ is exactly the set of inconsistent states.
 \end{definition}
 
-The word \emph{inconsistent} is used here in the sense of \lpastar and
-\dstarlite (\cref{ch:ch05}), where a vertex is inconsistent when its stored
+The word \emph{inconsistent} is used here in the sense of Lifelong
+Planning \astar (\lpastar) and \dstarlite (\cref{ch:ch05}), where a vertex is inconsistent when its stored
 $\gcost$ disagrees with the value its predecessors would give it. It is a
 different notion from a consistent \emph{heuristic}; the two meet in
 \cref{sec:ch06-implementation}, where inflating a consistent heuristic is what
@@ -536,8 +536,8 @@ $L = 8.00$ now attained by $(1,2)$.
 \paragraph{Third iteration, $\eps = 1$.}
 With $\eps = 1$ the keys are the plain $\fcost$-values of \astar, and the cells
 that the greedy first iteration skipped, $(1,2)$, $(2,4)$, $(2,1)$, $(1,4)$
-and $(1,1)$ with $\fcost$ between $8$ and $9.41$, are expanded first, most of
-them without improving anything: this is the price of the guarantee, \astar
+and $(1,1)$ with $\fcost$ between $8$ and $9.41$, are five of the first six
+expansions, most of them without improving anything: this is the price of the guarantee, \astar
 must rule them out. From step~7 on the search follows the bottom corridor
 $(3,0), (4,0), (5,0), (5,1), (6,1)$, whose cells had been generated in the
 first iteration with their optimal $\gcost$-values but never expanded, and
@@ -708,20 +708,21 @@ $\eps'$ as in \cref{eq:ch06-certificate}, and $L \le \gcost(\gamma)$, so
 $\eps' \ge 1$.\index{ARA*!suboptimality certificate}\index{lower bound!on the optimal cost}
 \end{proposition}
 \begin{proof}
-Let $P = (s = n_0, \dots, n_k = \gamma)$ be an optimal path. If every state of
-$P$ is consistent, \cref{thm:ch06-invariants}(ii) with $v = \gcost$ gives
-$\gcost(n_{i+1}) \le \gcost(n_i) + c(n_i, n_{i+1})$ along $P$, hence
-$\gcost(\gamma) \le C^*$, and $\gcost(\gamma) = C^*$ by
-\cref{thm:ch06-invariants}(i). Otherwise let $u$ be the first inconsistent
-state on $P$. The same telescoping over the consistent states before $u$
-gives $\gcost(u) \le \gcost^*(u)$, so $\gcost(u) = \gcost^*(u)$, and by
-\cref{thm:ch06-invariants}(iii) $u \in \Open \cup \textsc{Incons}$. Admissibility
-of $\hcost$ (implied by consistency) gives $\gcost(u) + \hcost(u) \le
-\gcost^*(u) + \hcost^*(u) = C^*$, hence $L \le C^*$. In the first case
-$\gcost(\gamma) = C^* \le \eps' C^*$; in the second, $\gcost(\gamma) =
-(\gcost(\gamma) / L)\,L \le (\gcost(\gamma)/L)\,C^*$, and $\gcost(\gamma) \le
-\eps\,C^*$ by \cref{thm:ch06-bound}, so the minimum of the two factors works.
-Finally $\gamma$ is never expanded (\cref{sec:ch06-algorithm}), so it is in
+Let $P = (s = n_0, \dots, n_k = \gamma)$ be an optimal path and let $u$ be
+the first inconsistent state on $P$. It exists: $\gamma$ is never expanded
+(\cref{def:ch06-certificate}), so $\gamma$ itself is inconsistent as soon as
+$\gcost(\gamma) < \infty$. Telescoping \cref{thm:ch06-invariants}(ii) with
+$v = \gcost$ over the consistent states of $P$ before $u$ gives
+$\gcost(n_{i+1}) \le \gcost(n_i) + c(n_i, n_{i+1})$ along that prefix, hence
+$\gcost(u) \le \gcost^*(u)$, so $\gcost(u) = \gcost^*(u)$ by
+\cref{thm:ch06-invariants}(i), and \cref{thm:ch06-invariants}(iii) puts
+$u \in \Open \cup \textsc{Incons}$. Admissibility of $\hcost$ (implied by
+consistency) gives $\gcost(u) + \hcost(u) \le \gcost^*(u) + \hcost^*(u) =
+C^*$, hence $L \le C^*$. If $u = \gamma$, the same equality reads
+$\gcost(\gamma) = \gcost^*(\gamma) = C^* \le \eps' C^*$; otherwise
+$\gcost(\gamma) = (\gcost(\gamma) / L)\,L \le (\gcost(\gamma)/L)\,C^*$, and
+$\gcost(\gamma) \le \eps\,C^*$ by \cref{thm:ch06-bound}, so the minimum of
+the two factors works. Finally $\gamma$ is never expanded, so it is in
 \Open with $\gcost(\gamma) + \hcost(\gamma) = \gcost(\gamma)$, and $L \le
 \gcost(\gamma)$.
 \end{proof}
@@ -877,10 +878,19 @@ back out of every dead end cell by cell and is rarely faster. Small decrements
 cost almost nothing, since an iteration that expands nothing costs only the
 re-keying of \Open and one that expands something publishes a path; $0.2$ is a
 common value. And the
-certificate can drive the schedule: an inflation factor above $\eps'_k$, which
-has already been achieved, cannot improve the published guarantee, so the next
-iteration may start at $\eps_{k+1} = \max(1, \eps'_k - \Delta)$
-(\cref{exr:ch06-schedule} runs this rule on \cref{ex:ch06-grid}). A schedule
+certificate can drive the schedule. The inflation $\eps_{k+1}$ is only the
+worst case that the next iteration promises, so a value at or above the
+$\eps'_k$ already certified promises nothing that the published path does not
+already deliver --- and if the re-keyed \Open leaves the goal at the top, that
+iteration expands nothing at all (\cref{thm:ch06-properties}(iv)). Starting
+the next iteration at $\eps_{k+1} = \max(1, \eps'_k - \Delta)$ therefore skips
+the factors whose promise the incumbent already keeps and forces every
+iteration to aim at a strictly better bound (\cref{exr:ch06-schedule} runs
+this rule on \cref{ex:ch06-grid}). A larger $\eps$ may still improve the
+certificate in practice --- the $\eps = 2$ iteration of \cref{ex:ch06-grid}
+does, from $1.65$ to $1.53$, because $\gcost(\gamma)$ falls or $L$ rises ---
+so the rule trades such cheap improvements for a faster approach to
+optimality. A schedule
 that stops before $\eps = 1$ loses nothing the certificate does not report:
 the last path still carries its own $\eps'$, which in
 \cref{tab:ch06-experiment} is already $1.086$ at $\eps = 1.1$ for a path that
@@ -900,7 +910,7 @@ is in fact within $0.03\,\%$ of optimal.
   $\eps_1 = 2$--$3$ & first path after 10--20\,\% of the work of \astar & the usual choice on grids; certificate $\approx 1.4$ in \cref{tab:ch06-experiment}\\
   one jump to $\eps = 1$ & no intermediate paths; total $\approx$ weighted \astar $+$ \astar & no anytime behaviour between the two paths\\
   decrement $0.1$--$0.25$ & many steps; zero-work iterations are free & smooth improvement; the default\\
-  adaptive $\eps_{k+1} = \max(1, \eps'_k - \Delta)$ & skips factors that cannot improve the guarantee & needs the certificate, which is available anyway\\
+  adaptive $\eps_{k+1} = \max(1, \eps'_k - \Delta)$ & skips the factors whose promise the incumbent already keeps & needs the certificate, which is available anyway\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -988,7 +998,7 @@ compares the goal's key with the top of the heap, the assertion documents
 \cref{thm:ch06-properties}(i), and the branch on \code{t in self.closed} is
 line~\ref{alg:ch06-improvepath:incons}.
 
-\begin{lstlisting}[caption={One \code{ImprovePath} call (from \code{code/ch06\_arastar.py}). \code{fvalue} returns $\gcost + \eps\,\hcost$; \code{\_pop\_open} and \code{\_min\_open\_f} skip stale heap entries; the \code{trace} block records the rows of \cref{tab:ch06-trace}.},label={lst:ch06-improve}]
+\begin{lstlisting}[caption={One \code{ImprovePath} call (from \code{code/ch06\_arastar.py}). \code{fvalue} returns $\gcost + \eps\,\hcost$; \code{\_pop\_open} and \code{\_min\_open\_f} skip stale heap entries; the elided \code{trace} block records the rows of \cref{tab:ch06-trace}.},label={lst:ch06-improve}]
     def improve_path(self):
         """One ImprovePath call at the current eps; returns #expansions."""
         expansions = 0
@@ -1009,14 +1019,7 @@ line~\ref{alg:ch06-improvepath:incons}.
                     else:
                         self._push(t)            # insert or update key
                         lowered.append((t, g_new, "OPEN"))
-            if self.trace is not None:
-                self.trace.append({
-                    "event": "expand", "iteration": self.iteration,
-                    "step": expansions, "state": s, "g": self.g[s],
-                    "h": self.h(s), "f": self.fvalue(s), "lowered": lowered,
-                    "min_open_f": self._min_open_f(),
-                    "f_goal": self.fvalue(self.goal),
-                    "open": self._open_snapshot()})
+            # (trace bookkeeping for the trace table omitted)
         return expansions
 \end{lstlisting}
 
@@ -1126,7 +1129,7 @@ second iteration is then nearly a full \astar (15 of the 22 \astar expansions
 in \cref{ex:ch06-grid}), nothing is published while it runs, and a deadline
 inside it leaves the drone with the greedy path, although in
 \cref{tab:ch06-experiment} a path within $7\,\%$ of optimal was available for
-$83$ more expansions and one within $1\,\%$ for $518$ more. The opposite
+$83$ more expansions and one within $1.1\,\%$ for $518$ more. The opposite
 mistake is cheap: an iteration whose $\eps$ is still too large expands
 nothing and costs one re-keying of \Open. Decrease in small steps, or use the
 adaptive rule of \cref{sec:ch06-schedule}, and always keep the last published
@@ -1175,8 +1178,8 @@ exercise is \cref{exr:ch06-coding}.
   \caption{What each planner has delivered when a budget of $1\,000$
   expansions is exhausted, drawn to scale from the means of
   \cref{tab:ch06-experiment} (one centimetre is 400 expansions; the labels
-  are the inflation factors, and \arastar's iterations with $\eps = 2.5$ and
-  $2$ have zero length). Plain \astar has nothing to show; the restarts have
+  are the inflation factors, \arastar's iterations with $\eps = 2.5$ and
+  $2$ have zero length, and $\eps = 1.75$ is a single expansion wide). Plain \astar has nothing to show; the restarts have
   the $\eps = 1.75$ path; \arastar has the $\eps = 1.25$ path with its
   certificate, and is already working on $\eps = 1.1$.}
   \label{fig:ch06-deadline}
@@ -1281,7 +1284,9 @@ with an admissible but inconsistent heuristic: nodes $s, a, b, \gamma$, edges
 $s \to a$ (cost $1$), $s \to b$ ($3$), $a \to b$ ($1$), $b \to \gamma$ ($2$),
 and $\hcost(a) = 3$, $\hcost = 0$ elsewhere. Run \AraImprovePath with
 $\eps = 1$ by hand and show that it returns $\gcost(\gamma) = 5 > C^* = 4$
-and publishes the certificate $\eps' = 1$. Which case of the proof of
+and publishes the certificate $\eps' = 1$; compare $\gcost(\gamma)$ with the
+cost of the path that the parent pointers record, and note which of the two
+the certificate is about. Which case of the proof of
 \cref{thm:ch06-bound} breaks, and which inequality does that case need?
 \end{exercise}
 

@@ -240,3 +240,105 @@ den Berg and Overmars 2005 (IROS 430-435), Bennewitz, Burgard and Thrun 2002 (RA
 (ICAPS 477-485), Stern et al. 2019 (SoCS 151-158) and LaValle 2006. Nothing is fabricated.
 The 25 index entries, the 14-entry glossary file and the six figures with informative
 captions are all above the bar of the style guide.
+
+---
+
+## Response to review (round 2)
+
+All six required changes were applied. The chapter builds with status 0 and no errors
+(`cd Overleaf && ./build.sh ch08-prioritized-planning`, 20 printed pages, the only
+overfull box is in the front-matter list of algorithms and belongs to another chapter),
+the self-test of `Overleaf/code/ch08_prioritized.py` passes in 4.9 s, and
+`Overleaf/appendices/solutions/ch08-solutions.tex` was compiled separately with
+`./build.sh --standalone`. `figures/data/ch08-orders.dat` was regenerated and is
+byte-identical, so no figure changed.
+
+**1. Distinctness in `def:ch08-wellformed` (A).** Applied as prescribed. The first
+sentence now reads "Let $P = \set{s_1, \dots, s_k, g_1, \dots, g_k}$ be the set of all
+endpoints, and assume that they are pairwise distinct, $\abs{P} = 2k$." A paragraph
+after the definition explains why this is not a technicality (a goal that is another
+agent's start becomes a static obstacle for its own owner under the revised rule, so
+the completeness theorem would be false), points back to `def:ch08-order`, and says
+that `is_well_formed` tests distinctness first and then runs the $k$ breadth-first
+searches. Solution `exr:ch08-wellformed`(a) now begins with the $\bigO{k}$ distinctness
+test and notes that the searches dominate its cost. I re-ran the reviewer's
+counterexample: the 1x3 instance satisfied the old definition, `is_well_formed` returns
+`False` (it already required distinctness) and `prioritized_planning(inst, [1, 0],
+revised=True)` returns `None` — the definition, not the code, was at fault.
+
+**2. `exr:ch08-whca`(b) and its solution (A).** Verified with the chapter's code:
+`whca_star(inst, window=w, step=1)` returns `None` for w = 2,...,5 and an executed plan
+for w = 6,...,12 that `validate` rejects (w = 6: `vertex conflict agents 0,1 at (1, 4)
+t=5`; w = 7,8: `(1,5)`, t = 5; w = 9,...,12: `(1,5)`, t = 7). Part (b) was replaced by
+the wording the review prescribes (run with `validate`, explain both outcomes, name the
+branch of `alg:ch08-whca`). Solution (b) was rewritten around the mechanism, which I
+confirmed by instrumenting `space_time_astar` inside `whca_star`: in the round with
+agent 1 at (1,3) and agent 2 at (1,4) and agent 1 planning first, agent 1 reserves
+(1,3)@0 ... (1,8)@5 and parks (1,8) from t = 5; agent 2 is chased backwards to (1,8)@4,
+where the wait hits the parked goal and the turn-around hits the reserved move
+((1,7),(1,8),4); its search returns `None`, it takes the stay-put branch, and agent 1
+walks into it. The boundary at w = 6 is `in_window`, which keeps an entry only if
+t < w, so for w <= 5 the parked entry at t = 5 is invisible and the oscillation of part
+(a) runs for ever; I verified both regimes by replaying the rounds. The existing correct
+observation (only the first delta = 1 step of the retreat is executed, and the pocket
+lies behind the meeting point) is kept as the closing paragraph.
+
+**3. "one of the two ways" at line 743 (C).** The sentence now ends: the agent "takes
+the stay-put branch of line~\ref{alg:ch08-whca:search}: it stays where it is with no
+guarantee at all, and an agent planned earlier in the same round may be walking straight
+into it. This is how the windowed plans of \cref{exr:ch08-whca} come to contain a
+collision. The other way is the window itself: beyond $t = w$ the table is empty, so a
+plan that looks safe now can be invalidated by the next round." I kept the reviewer's
+content but said "it stays where it is" instead of "moves", because the branch makes the
+agent stand still — the collision comes from the agent planned before it.
+
+**4. "Going is unblocked" (A).** Replaced by the prescribed text: no timed vertex entry
+with $t > T^*_j$ and no move entry with $t \ge T^*_j$; the wait-then-go path is still at
+$s_i$ at time $T^*_j$, which no earlier agent ever reserved; the only blocked cells at
+times $t > T^*_j$ are the earlier goals, which $P_i$ avoids.
+
+**5. Self-test runtime (G).** Step 7 of `_self_test` now times a single seeded
+100x100 / 40-agent instance (seed 2) and prints `... 3.2 s (run with --bench for three
+instances and their median)`; `python3 code/ch08_prioritized.py --bench` still plans
+seeds 1, 2, 3 and prints the three times and the median (`1.8, 3.3, 5.8 s (median
+3.3 s)`). `import sys` was added. The default self-test is down from 14.6 s to 4.9 s;
+`--bench` takes 14.8 s. The text at lines 585-590 now tells the reader how to reproduce
+the figure and follows the reviewer's suggestion of a relative statement ("a few seconds
+per instance, with a spread of about a factor of three between instances of the same
+size"), so no absolute time is quoted any more. The flag is typeset as `-{}-bench` so
+that the two hyphens do not become an en dash.
+
+**6. $C^*$ undefined (F).** Defined at its first use in `sec:ch08-hca`: "so for a single
+agent against a fixed table, writing $C^*$ for the arrival time of the optimal unblocked
+path, every state with $\fcost < C^*$ ...". The same words as the prescribed fix, moved
+in front of the clause so that the sentence does not break in the middle. The two later
+uses are unchanged.
+
+### Suggestions
+
+* **Wall clock:** taken, as part of required change 5 (relative statement, self-test
+  prints the times).
+* **Solution for `exr:ch08-hca`:** added, covering all three parts. (a) and (b) are
+  machine-checked: on the worked-example map the true distance to $g_1 = (2,6)$ equals
+  the Manhattan distance at every free cell, so both heuristics expand the same 22
+  states for agent 1 in the order (3,1,2) and return the same path of cost 10. (c) The
+  parked-agent heuristic is not admissible; the instance given is the open 3x3 grid with
+  agent 1 from (2,1) to (0,1) and agent 2 from (0,0) to (0,2): agent 2 crosses (0,1) at
+  t = 1, one step before agent 1 parks there, and arrives at cost 2, while the modified
+  heuristic reports 4. The condition for exactness is stated as "every parked cell is
+  already parked on at the time of the state being evaluated", which is the precise form
+  of the reviewer's "permanent obstacle for the rest of the plan".
+* **Difficulty spread:** `exr:ch08-whca` promoted to `\difficulty{3}` and retitled
+  "Oscillation and collision in WHCA*", giving the spread 2/4/2.
+* **`thm:ch08-sound`:** split, so that completeness on the finite space-time graph stands
+  without a hypothesis and admissibility is required only for per-agent optimality.
+* **`alg:ch08-whca` and plans shorter than $\delta$:** half a sentence added to the
+  walkthrough, quoting `moves += [path[-1]] * (step - len(moves))` from the listing.
+* **Notation table:** still not done, and still outside this chapter's scope —
+  `frontmatter/notation.tex` needs the row
+  `$R=(R_V,R_E)$ & reservation table: (vertex, time) and (move, time) entries, plus
+  parked goals & \cref{ch:ch08}`. Please hand this to the front-matter owner.
+* **Length:** unchanged at 20 pages; the round-2 edits add about half a page and nothing
+  was cut, as the brief forbids removing required content to save space. The two
+  compressible places named by the reviewer (`sec:ch08-beyond`, the second half of the
+  drone box) are left for copy-edit time.
