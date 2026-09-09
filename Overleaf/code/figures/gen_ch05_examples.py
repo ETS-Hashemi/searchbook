@@ -172,7 +172,14 @@ def lpastar_figure():
 
 
 def dsl_labels(state):
-    return {s: "$%s$" % fmt(state["g"][s]) for s in state["g"] if state["g"][s] < INF}
+    """g-values, written g/rhs where the cell is locally inconsistent (as for LPA*)."""
+    out = {}
+    for s in state["g"]:
+        g, rhs = state["g"][s], state["rhs"][s]
+        if g == INF and rhs == INF:
+            continue
+        out[s] = "$%s$" % fmt(g) if g == rhs else "$%s/%s$" % (fmt(g), fmt(rhs))
+    return out
 
 
 def dstarlite_figure():

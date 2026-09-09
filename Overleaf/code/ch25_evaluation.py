@@ -703,18 +703,32 @@ def bootstrap_ci(x, stat=np.mean, n_boot=2000, seed=0):
             "hi": float(np.percentile(boots, 97.5))}
 
 
+EXACT_MAX_N = 20   # exact signed-rank null distribution up to this many non-zero differences
+
+
 def _normal_sf(z):
     return 0.5 * math.erfc(z / math.sqrt(2.0))
 
 
 def wilcoxon_signed_rank(d):
-    """Two-sided Wilcoxon signed-rank test with the normal approximation
-    (zero differences dropped, average ranks for ties)."""
+    """Two-sided Wilcoxon signed-rank test (zero differences dropped,
+    average ranks for ties).
+
+    For n <= 20 the null distribution is enumerated exactly: conditional on
+    the observed ranks r_i (doubled, so that average ranks stay integral),
+    every sign pattern is equally likely, and the generating polynomial
+    prod_i (1 + x^{r_i}) counts the sign patterns by rank sum.  Above n = 20
+    the count (2^n) grows faster than it is worth and the normal
+    approximation takes over, with a continuity correction and with sigma
+    corrected for ties.  The approximation needs n of about 25 or more; on
+    the n <= 20 of a seed study it can be wrong by a factor of several in
+    the tail, which is why the exact branch exists.
+    """
     d = np.asarray(d, float)
     d = d[d != 0]
     n = d.size
     if n == 0:
-        return {"W": 0.0, "p": 1.0, "n": 0}
+        return {"W": 0.0, "p": 1.0, "n": 0, "exact": True}
     a = np.abs(d)
     order = np.argsort(a)
     ranks = np.empty(n)
@@ -723,10 +737,27 @@ def wilcoxon_signed_rank(d):
         same = a == val
         ranks[same] = np.mean(ranks[same])
     w_plus = float(np.sum(ranks[d > 0]))
+    if n <= EXACT_MAX_N:
+        # doubled ranks keep half-integer average ranks in integer arithmetic
+        r2 = np.rint(2 * ranks).astype(int)
+        counts = np.zeros(int(r2.sum()) + 1)
+        counts[0] = 1.0
+        for r in r2:                       # poly = poly * (1 + x^r)
+            counts[r:] += counts[:counts.size - r].copy()
+        total = counts.sum()               # = 2^n
+        w2 = int(round(2 * w_plus))
+        lower = counts[:w2 + 1].sum() / total
+        upper = counts[w2:].sum() / total
+        return {"W": w_plus, "p": min(1.0, 2 * min(lower, upper)), "n": n, "exact": True}
     mu = n * (n + 1) / 4.0
-    sigma = math.sqrt(n * (n + 1) * (2 * n + 1) / 24.0)
-    z = (w_plus - mu) / sigma if sigma > 0 else 0.0
-    return {"W": w_plus, "p": min(1.0, 2 * _normal_sf(abs(z))), "n": n}
+    ties = 0.0
+    for val in np.unique(a):
+        t = int(np.sum(a == val))
+        ties += t ** 3 - t
+    var = n * (n + 1) * (2 * n + 1) / 24.0 - ties / 48.0
+    sigma = math.sqrt(var)
+    z = (abs(w_plus - mu) - 0.5) / sigma if sigma > 0 else 0.0
+    return {"W": w_plus, "p": min(1.0, 2 * _normal_sf(max(z, 0.0))), "n": n, "exact": False}
 
 
 def sign_test(d):
@@ -749,7 +780,9 @@ def paired_compare(a, b):
     out = {"mean_diff": ci["mean"], "lo": ci["lo"], "hi": ci["hi"], "d_z": dz,
            "n": d.size, "better": int(np.sum(d < 0)), "worse": int(np.sum(d > 0)),
            "tie": int(np.sum(d == 0))}
-    out["p_wilcoxon"] = wilcoxon_signed_rank(d)["p"]
+    w = wilcoxon_signed_rank(d)
+    out["p_wilcoxon"] = w["p"]
+    out["p_exact"] = w["exact"]
     out["p_sign"] = sign_test(d)["p"]
     return out
 
@@ -878,6 +911,14 @@ def _selftest_statistics():
     pc = paired_compare(a, b)
     assert abs(pc["mean_diff"] - 0.75) < 1e-12 and pc["worse"] == 8 and pc["better"] == 0
     assert pc["p_sign"] < 0.01 and pc["p_wilcoxon"] < 0.02
+    # the exact signed-rank distribution: six positive differences, W+ = 21 = max,
+    # so p = 2 * 1/2^6 = 0.03125 exactly (the normal approximation would say 0.028)
+    w6 = wilcoxon_signed_rank(np.array([1.0, 2, 3, 4, 5, 6]))
+    assert w6["exact"] and abs(w6["p"] - 2 / 64) < 1e-12 and w6["W"] == 21.0
+    # ties are handled by average (half-integer) ranks and still enumerated exactly
+    w4 = wilcoxon_signed_rank(np.array([1.0, 1.0, -2.0, 3.0]))
+    assert w4["exact"] and abs(w4["W"] - 6.5) < 1e-12
+    assert not wilcoxon_signed_rank(np.arange(1.0, 26.0))["exact"]   # n = 25 > EXACT_MAX_N
     assert paired_compare(a, a)["mean_diff"] == 0.0 and paired_compare(a, a)["p_wilcoxon"] == 1.0
     bs = bootstrap_ci(a)
     assert bs["lo"] <= 4.5 <= bs["hi"]
@@ -946,11 +987,17 @@ if __name__ == "__main__":
     _selftest_statistics()
     _selftest_simulator()
     rows, summary = _selftest_study()
-    for metric in ("path_ratio", "dmin_di", "makespan", "replans"):
+    for metric in ("path_ratio", "dmin_di", "makespan", "replans", "ef_mean"):
         for other in ("local", "replan"):
             for cell, c in paired_table(rows, metric, "hybrid", other).items():
                 print("paired %-10s hybrid-%-6s cell %s: diff %+.3f [%+.3f, %+.3f] d_z %+.2f "
-                      "better/worse/tie %d/%d/%d p_wilcoxon %.3f p_sign %.3f" % (
+                      "better/worse/tie %d/%d/%d p_wilcoxon %.4f p_sign %.4f" % (
                           metric, other, cell, c["mean_diff"], c["lo"], c["hi"], c["d_z"],
                           c["better"], c["worse"], c["tie"], c["p_wilcoxon"], c["p_sign"]))
+    fam = {}
+    for r in rows:
+        if r["m"] == 1 and r["strategy"] == "none":
+            fam.setdefault(r["family"], []).append(r["collision"])
+    print("collision rate of 'none' by intruder family:",
+          {f: "%d/%d" % (sum(v), len(v)) for f, v in sorted(fam.items())})
     print("self-test passed in %.1f s" % (time.perf_counter() - t_start))

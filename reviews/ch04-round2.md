@@ -202,3 +202,71 @@ pairing of `fig:ch04-idea` and the time-layer drawing of `fig:ch04-spacetime` ar
 ten well-graded exercises with their unusually complete solutions, and the discipline of deriving
 every quoted number from `ch04_astar.py` - required change 1 asks only that the last three numbers
 be brought inside the same net.
+
+## Response to review (round 2)
+
+All three required changes are applied; the suggestions are applied as well,
+except the two that explicitly asked for nothing to be changed in the chapter.
+
+**Required change 1 (category A) --- claimed but missing self-test coverage.**
+Taken the first option: the code was extended, so both sentences in the chapter
+stay true as written. In `code/ch04_astar.py`, `_self_test()` now asserts, for
+the edge-constraint variation of the mini example, `res.num_expansions == 5`
+and the full path `[(0,1),(0,1),(0,1),(1,1),(2,1)]`; and, in the corridor block,
+`fail = space_time_astar(grid, (4,0), (0,0), table)` with
+`fail.path is None and fail.num_expansions == 6`, `table.horizon() == 4` and
+`default_horizon(grid, (0,0), table, 4) == 8` (with a comment recording
+`T_max = H + 1 + D = 4 + 1 + 3`, so `D = 3` is asserted transitively). All four
+hold; the self-test passes unchanged otherwise. No chapter text was weakened:
+line 1216 still says "both in the self-test" and the corridor example still
+says "asserted by the self-test".
+
+**Required change 2 (category F) --- LPA* and ARA* unexpanded at first use.**
+Applied verbatim: `sec:ch04-motivation` now reads "the incremental planners of
+\cref{ch:ch05} (lifelong planning \astar, \lpastar, and \dstarlite) and the
+anytime planner of \cref{ch:ch06} (anytime repairing \astar, \arastar)".
+
+**Required change 3 (category F) --- the symbol H collides with the book's
+notation.** Applied. The parenthesis is placed one sentence later than
+suggested, immediately after "This is what `ReservationTable.horizon()`
+computes.", so that the colon-list defining H is not interrupted: "(The letter
+$H$ is the horizon of a stored time-indexed path in
+\cref{def:ch02-time-indexed-path}; here it is a property of the constraint
+table, and the horizon of the \emph{search} is $T_{\max}$.)" Nothing is
+renamed, so the code, the solutions and `eq:ch04-horizon` are untouched.
+
+**Suggestions.**
+- Line 410: now "steps~2--4 then walk up the column $x = 1$: the three cells
+  expanded there have $\fcost = 7$" (the code expands (1,0), (1,1), (1,2) in
+  those steps, all with f = 7).
+- `alg:ch04-spacetime` line 12: the successor loop is now
+  `\ForEach{$v' \in \{v\} \cup \{v'' : (v'', c) \in \Succ(v)\}$}`, consistent
+  with `def:ch04-problem`, where Succ returns pairs.
+- Start state not tested against R: the walkthrough now says that the algorithm
+  and `space_time_astar()` assume a start free at time 0, as the planners of
+  Chapters 8 and 9 guarantee, and that adding "or $(s,0) \in R$" to the
+  hopeless-case line removes the assumption. The pseudocode and the code are
+  left in agreement.
+- Line 731: now "why the maximum of several admissible heuristics
+  (\cref{exr:ch04-max}) is never worse than any of them".
+- Line 683: the unverifiable locator was dropped; the sentence now cites
+  `\cite{pearl1984heuristics}` without "ch. 6".
+- Length: nothing cut; the chapter is still 24 pages in the single-chapter
+  build (pages 21--44 of `build/only-ch04-astar.pdf`).
+
+**Repository note (build exit codes).** `Overleaf/build.sh` returns latexmk's
+exit code, which is 12 whenever any cross-chapter reference is unresolved --- the
+normal state of every single-chapter build. In this run the wrapper reported
+status 0 and no LaTeX errors. One genuine error did appear at first, and it did
+not come from this chapter: `build/chapters/ch05-lpastar-dstarlite.aux` was a
+stale, truncated aux file from an interrupted ch05 build, and reading it under
+`\includeonly` raised "Missing \begin{document}". Deleting that build artefact
+(no source file was touched) cleared it; it is regenerated the next time ch05 or
+the full book is built, and until then references to `ch:ch05` show as `??`,
+which is expected in a single-chapter build.
+
+**Verification.** `python3 Overleaf/code/ch04_astar.py` prints "ch04_astar: all
+self-tests passed"; `Overleaf/code/figures/gen_ch04_expansions.py` reproduces
+`figures/data/ch04-expansions.dat` byte for byte (md5 unchanged), since only
+assertions were added to the module; `cd Overleaf && ./build.sh ch04-astar`
+ends with status 0, no errors, 53 pages of which the chapter is 24.

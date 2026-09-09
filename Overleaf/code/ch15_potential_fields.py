@@ -315,6 +315,24 @@ DISC = [Disc((4.0, 4.0), 1.0)]
 POINTS = {"A": (0.5, 4.0), "B": (2.5, 4.0), "C": (3.0, 5.3)}
 
 
+TRACE_STEPS = (0, 100, 200, 300, 500, 800, 1099)
+
+
+def trace_rows(path, goal, obstacles, prm, steps=TRACE_STEPS):
+    """Trace of a run: step k, position, clearance, force, clipped velocity and
+    distance to the goal at the selected steps (the trace table of the text)."""
+    out = []
+    for k in steps:
+        if k >= len(path):
+            break
+        q = np.asarray(path[k], float)
+        f = total_force(q, goal, obstacles, prm)
+        out.append(dict(k=k, p=q, rho=float(min_clearance(q, obstacles)), f=f,
+                        f_norm=float(np.linalg.norm(f)), v=clip_speed(f, prm.v_max),
+                        d=float(np.linalg.norm(q - goal))))
+    return out
+
+
 def worked_example(prm=None):
     """One obstacle, three probe points, and a trajectory from (0, 4.5)."""
     prm = ApfParams() if prm is None else prm
@@ -326,6 +344,7 @@ def worked_example(prm=None):
         rows[name] = dict(p=q, rho=float(DISC[0].distance(q)[0][0]), f_att=fa, f_rep=fr,
                           f=fa + fr, u=float(total_potential(q, GOAL, DISC, prm)))
     traj = simulate((0.0, 4.5), GOAL, DISC, prm)
+    traj["trace"] = trace_rows(traj["path"], GOAL, DISC, prm)
     return rows, traj
 
 
@@ -428,6 +447,10 @@ def _self_test():
     # the hybrid attraction (conic beyond d* = 2) keeps a larger clearance
     hyb_run = simulate((0.0, 4.5), GOAL, DISC, replace(prm, d_star=2.0))
     assert hyb_run["status"] == "reached" and hyb_run["min_clearance"] > traj["min_clearance"]
+    # the speed limit binds while the drone is far from the goal and releases near it
+    trace = traj["trace"]
+    assert abs(np.linalg.norm(trace[0]["v"]) - prm.v_max) < 1e-9, trace[0]["v"]
+    assert trace[-1]["f_norm"] < prm.v_max and trace[-1]["d"] <= prm.goal_tol
 
     # 3. local minimum on the axis is detected, at the root of F_x = 0
     lm = local_minimum_case(prm)
@@ -446,6 +469,19 @@ def _self_test():
     assert np.allclose(total_force(goal, goal, DISC, fixed), 0.0)
     assert abs(total_potential(goal, goal, DISC, fixed)) < 1e-12
     assert np.all(total_potential(rng.uniform(0, 9, (200, 2)), goal, DISC, fixed) >= 0.0)
+
+    # 4b. below the chatter amplitude dt*v_max the n = 1 correction never settles
+    tight = replace(prm, goal_tol=1e-3)
+    chat = simulate((8.0, 6.0), goal, DISC, replace(tight, n_gnron=1))
+    fine = simulate((8.0, 6.0), goal, DISC, replace(tight, n_gnron=2))
+    assert chat["status"] == "stuck" and fine["status"] == "reached", chat["status"]
+    chat_d = np.linalg.norm(chat["path"][-100:] - goal, axis=1)
+    assert chat_d.max() < prm.goal_tol and chat_d.max() < 2.0 * prm.dt * prm.v_max, chat_d.max()
+
+    # 4c. inside the blocked gap of section "no passage" the force points at the goal
+    gap_in = simulate((4.0, 4.0), CORRIDOR_GOAL, corridor(0.6), prm)
+    assert gap_in["status"] == "reached" and gap_in["min_clearance"] > 0.29
+    assert total_force(np.array([4.0, 4.0]), CORRIDOR_GOAL, corridor(0.6), prm)[0] > 0.0
 
     # 5. corridor: dt*stiffness < 2 crosses smoothly; beyond it the explicit
     #    update zigzags (no speed limit) or, with a larger dt, hits the wall
@@ -496,6 +532,11 @@ def _self_test():
         print("  %s p=%s rho=%.3f F_att=%s F_rep=%s F=%s |F|=%.3f U=%.3f" % (
             name, r["p"], r["rho"], np.round(r["f_att"], 3), np.round(r["f_rep"], 3),
             np.round(r["f"], 3), np.linalg.norm(r["f"]), r["u"]))
+    print("  trace of the run from (0,4.5): k, p, rho, F, |F|, clipped v, d")
+    for r in traj["trace"]:
+        print("   %4d (%.3f,%.3f) %.3f (%.3f,%.3f) %.3f (%.3f,%.3f) %.3f" % (
+            r["k"], r["p"][0], r["p"][1], r["rho"], r["f"][0], r["f"][1], r["f_norm"],
+            r["v"][0], r["v"][1], r["d"]))
     print("  trajectory from (0,4.5): %s after %d steps, min clearance %.3f" % (
         traj["status"], traj["steps"], traj["min_clearance"]))
     print("  the same with the hybrid attraction d*=2: %s after %d steps, min clearance %.3f" % (
@@ -504,6 +545,10 @@ def _self_test():
         lm["result"]["final"][0], lm["result"]["steps"], lm["equilibrium_x"]))
     print("GNRON: plain stops %.3f from the goal (%s, %d steps); n=2 %s in %d steps" % (
         g["d_plain"], g["plain"]["status"], g["plain"]["steps"], g["fixed"]["status"], g["fixed"]["steps"]))
+    print("GNRON with goal_tol=1e-3: n=1 %s after %d steps (chatter <= %.4f); n=2 %s in %d steps" % (
+        chat["status"], chat["steps"], chat_d.max(), fine["status"], fine["steps"]))
+    print("started inside the 0.6 gap at (4,4): %s after %d steps, min clearance %.3f" % (
+        gap_in["status"], gap_in["steps"], gap_in["min_clearance"]))
     print("corridor (v_max=1) gap/dt/status/steps/reversals/amplitude/stiffness/dt*stiffness:")
     for gap in (0.6, 0.8, 1.0, 1.2, 1.6):
         for dt in (0.01, 0.05):
@@ -518,6 +563,11 @@ def _self_test():
             c["result"]["min_clearance"]))
     print("basin: plain %.1f%% reached, %.1f%% stuck; with random walk %.1f%% reached" % (
         100 * share_plain, 100 * np.mean(plain["status"] == "stuck"), 100 * share_walk))
+    ok, ok_plain = walk["status"] == "reached", plain["status"] == "reached"
+    print("  escapes: %.3f per drone that arrives, %.3f averaged over all %d starts;"
+          " steps %.1f with escapes against %.1f plain" % (
+              walk["escapes"][ok].mean(), walk["escapes"].mean(), len(ok),
+              walk["steps"][ok].mean(), plain["steps"][ok_plain].mean()))
     print("swarm min separation: with repulsion %.3f, without %.3f" % (
         with_rep["min_separation"], without["min_separation"]))
 

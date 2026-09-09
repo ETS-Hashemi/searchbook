@@ -111,7 +111,7 @@ def main():
         for other in ("local", "replan"):
             for cell, c in paired_table(rows, metric, "hybrid", other).items():
                 print("  %-10s vs %-6s cell %s: diff %+.3f [%+.3f, %+.3f] d_z %+.2f "
-                      "better/worse/tie %d/%d/%d p_wilcoxon %.3f p_sign %.3f" % (
+                      "better/worse/tie %d/%d/%d p_wilcoxon %.5f p_sign %.5f" % (
                           metric, other, cell, c["mean_diff"], c["lo"], c["hi"], c["d_z"],
                           c["better"], c["worse"], c["tie"], c["p_wilcoxon"], c["p_sign"]))
     fam = {}

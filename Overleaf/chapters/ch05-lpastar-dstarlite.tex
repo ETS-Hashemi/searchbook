@@ -239,7 +239,8 @@ key with two components.
 
 \begin{definition}[Priority key]
 \label{def:ch05-key}
-The \textbf{key}\index{key!two-component}\index{LPA*!key} of a vertex $s$ is the pair
+The \textbf{key}\index{key!two-component}\index{LPA*!key} of a vertex $s$ (written
+$\key(s)$ in the notation table) is the pair
 \begin{equation}
 \label{eq:ch05-key}
 k(s) = \bigl[\,k_1(s);\; k_2(s)\,\bigr] =
@@ -286,7 +287,7 @@ Furcy \cite{koenig2004lpa}, in the form of the original paper. It searches
 \emph{forward} from $s_{\mathrm{start}}$; $\gcost$-values are start distances, and
 $\rhs$-values look at predecessors.\index{LPA*}\index{Lifelong Planning A*|see{LPA*}}
 
-\begin{algorithm}[htb]
+\begin{algorithm}[!t]
 \caption{Lifelong Planning \astar (\lpastar) \cite{koenig2004lpa}}
 \label{alg:ch05-lpastar}
 \KwIn{graph $G$, costs $c$, start $s_{\mathrm{start}}$, goal $s_{\mathrm{goal}}$, consistent heuristic $\hcost$}
@@ -402,6 +403,7 @@ tricks: the algorithm only needs $<$ and $\le$.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
+\FloatBarrier
 \section{A worked example: \lpastar repairs a path}
 \label{sec:ch05-lpastar-example}
 
@@ -521,14 +523,13 @@ shows that on larger maps, when the change is local, the reused part dominates, 
   \end{tabular}
 \end{table}
 
-The path is read off at the end by walking backward from $T$: from each cell move to
-the predecessor that attains the minimum in \cref{eq:ch05-rhs}, ties broken toward the
-smaller coordinates. In the right panel of \cref{fig:ch05-lpastar-example} this gives
-$T \to (4,0) \to (3,0) \to (2,0) \to (1,0) \to (0,0) \to S$, the blue path of cost $6$.
-Several other paths, through $(2,1)$ and $(1,1)$ or along the top row, have the same
-cost; the tie-break selects this one.
+Reading the path off as in \cref{thm:ch05-consistent-correct}, with ties broken toward
+the smaller coordinates, gives $T \to (4,0) \to (3,0) \to (2,0) \to (1,0) \to (0,0) \to S$,
+the blue path of cost $6$ in the right panel of \cref{fig:ch05-lpastar-example}. Other
+paths of the same cost exist; the tie-break selects this one.
 
 % ---------------------------------------------------------------------
+\FloatBarrier
 \section{The algorithm: \dstarlite}
 \label{sec:ch05-dstarlite}
 
@@ -599,12 +600,15 @@ metric that never exceeds the true distance), and so does the octile distance on
 \begin{pitfall}[Wrong heuristic direction]
 In \dstarlite the heuristic argument is the \emph{robot's} position, not the goal:
 $\hcost(s_{\mathrm{start}}, s)$. A common slip is to keep the \astar habit and use the
-distance from $s$ to the goal. The search then still terminates and often still finds
-a path, because the heuristic only orders the queue, but it explores the wrong region
-(around the goal instead of around the robot), can violate the consistency condition
-relative to the start, and destroys the lower-bound property that the loop test and the
-key modifier rely on. Whenever you swap the search direction, swap the heuristic
-with it.
+distance from $s$ to the goal. The search then still terminates and usually still
+returns a path, but the path may be \emph{longer than the shortest one}. The loop test
+compares $U.\IncTopKey{}$ with $k(s_{\mathrm{start}})$, and that comparison only proves
+that nothing cheaper is left while $k_1$ is a lower bound on the cost of a path through
+the queued vertex; with the heuristic measured from the wrong end the bound is gone, so
+the loop can stop while a queued vertex still hides a cheaper route. The search also
+explores the wrong region (around the goal instead of around the robot) and breaks the
+property that the key modifier relies on. Whenever you swap the search direction, swap
+the heuristic with it.
 \end{pitfall}
 
 \subsection{The key modifier \texorpdfstring{$k_m$}{k\_m}}
@@ -641,8 +645,8 @@ harmless as long as the algorithm checks them before acting: when a vertex is po
 whose stored key is smaller than its current key, \dstarlite simply reinserts it with
 the current key and pops again (lines~\ref{alg:ch05-dstarlite:kold}--\ref{alg:ch05-dstarlite:reinsert}
 of \cref{alg:ch05-dstarlite}). Because keys are only ever compared with one another and
-with $k(s_{\mathrm{start}})$, which also contains $k_m$, adding the same constant to all
-new keys changes no comparison among them.
+with $k(s_{\mathrm{start}})$, which also contains $k_m$, adding the same constant to
+every key computed from now on leaves every comparison among current keys unchanged.
 
 \begin{table}[tb]
   \centering\footnotesize
@@ -678,12 +682,22 @@ bound, and the reinsert check repairs the rest.
 \subsection{Pseudocode}
 \label{sec:ch05-dstarlite-pseudocode}
 
-\Cref{alg:ch05-dstarlite} is the final, optimised version of \dstarlite as published by
-Koenig and Likhachev \cite{koenig2002dstarlite}. Compared with \lpastar, read
-$\Succ$ for $\Pred$ and vice versa, note the $k_m$ term in the key, the reinsert check,
-and the main loop that moves the robot.
+\Cref{alg:ch05-dstarlite} is the final version of \dstarlite --- the one with the key
+modifier --- as published by Koenig and Likhachev \cite{koenig2002dstarlite}. Compared
+with \lpastar, read $\Succ$ for $\Pred$ and vice versa, note the $k_m$ term in the key,
+the reinsert check, and the main loop that moves the robot. The same paper also gives an
+\emph{optimised} variant\index{D* Lite!optimised version}, which computes the same values
+with the same expansions but maintains $\rhs$ incrementally instead of recomputing the
+minimum over all successors on every \DslUpdateVertex: after an overconsistent expansion
+of $u$ it only relaxes the single edge, $\rhs(s) \gets \min\bigl(\rhs(s),\,c(s,u)+\gcost(u)\bigr)$
+for each predecessor $s$, it recomputes the full minimum in the underconsistent branch
+only for those predecessors whose $\rhs$ came from the retracted $\gcost$-value, and it
+updates a queue entry in place instead of removing and reinserting it. That variant
+removes the factor $\Delta$ of \cref{sec:ch05-properties} from the overconsistent case
+and is what a production implementation should use; we print the plain version because
+its two branches are easier to follow and to prove correct.
 
-\begin{algorithm}[!htbp]
+\begin{algorithm}[!t]
 \caption{\dstarlite, final version \cite{koenig2002dstarlite}}
 \label{alg:ch05-dstarlite}
 \KwIn{graph $G$, costs $c$, robot position $s_{\mathrm{start}}$, goal $s_{\mathrm{goal}}$, heuristic $\hcost(\cdot,\cdot)$ consistent w.r.t.\ the start}
@@ -784,6 +798,7 @@ symmetric mistake, updating only $u$ and forgetting its predecessors (successors
 \end{pitfall}
 
 % ---------------------------------------------------------------------
+\FloatBarrier
 \section[A worked example: \dstarlite repairs a plan]{A worked example: the robot moves
 and an obstacle appears}
 \label{sec:ch05-dstarlite-example}
@@ -803,7 +818,8 @@ remaining gap cell $(3,4)$.
   \centering
   \inputfigure{ch05/dstarlite-example}
   \caption{\dstarlite on \cref{ex:ch05-dstarlite}. Numbers are $\gcost$-values (goal
-  distances); blank cells were never touched. Left: the initial search from $T$ and the
+  distances), written $\gcost/\rhs$ for the cells where the two disagree, as in
+  \cref{fig:ch05-lpastar-example}; blank cells were never touched. Left: the initial search from $T$ and the
   planned path. Middle: the robot (blue disc) has moved two steps and $(3,3)$ becomes
   blocked; orange cells are the ones \protect\DslUpdateVertex made inconsistent (the
   third changed vertex, the gap cell $(3,4)$, simply leaves the queue), the old path is
@@ -1015,7 +1031,9 @@ case\index{complexity!of D* Lite}, where $\Delta$ is the maximum degree of the g
 a 4-connected grid $\Delta = 4$ is a constant and this is
 $O\bigl((|V|+|E|)\log|V|\bigr)$, the same bound as a search from scratch with \astar.
 Recomputing an $\rhs$-value as a minimum over all successors, rather than relaxing one
-edge as \astar does, is what costs the extra factor $\Delta$.
+edge as \astar does, is what costs the extra factor $\Delta$; the optimised variant
+mentioned in \cref{sec:ch05-dstarlite-pseudocode} relaxes single edges in the
+overconsistent case and pays $\Delta$ only where a value is retracted.
 The saving is not asymptotic: it is that the constant is paid only where stored values
 actually changed.
 
@@ -1051,8 +1069,8 @@ wall-clock times were measured on a 2024 laptop and will differ on your machine.
 \end{figure}
 
 Over the $40$ replanning events, \astar expanded $14\,166$ vertices in total and
-\dstarlite $1\,031$, a ratio of about $14$; in wall-clock time the ratio was only about
-$1.8$ ($60$~ms against $33$~ms), because one \dstarlite expansion costs about
+\dstarlite $1\,031$, a ratio of about $14$; the same repairs took $60$~ms and $33$~ms of
+wall-clock time, a much smaller gap, because one \dstarlite expansion costs about
 $28\,\mu$s in this implementation against $4\,\mu$s for an \astar expansion:
 \DslUpdateVertex recomputes the $\rhs$-value of every neighbour from all of its
 neighbours, and the lazy queue does extra bookkeeping. Three features of the curves are
@@ -1131,9 +1149,13 @@ The algorithms need \IncInsert, \IncPop, \IncTopKey, membership tests and, in
 removal, so \cref{lst:ch05-queue} uses \emph{lazy deletion}\index{priority queue!lazy
 deletion}: a dictionary maps each queued vertex to its current key, and heap entries
 are only trusted if their key equals the dictionary entry. \IncRemove deletes the
-dictionary entry; the stale heap entry is skipped when it surfaces. Since a vertex is
-re-inserted only after it has been removed, the heap holds at most one live entry per
-vertex, and all operations stay $\bigO{\log |U|}$ amortised. An alternative is an
+dictionary entry; the stale heap entry is skipped when it surfaces. The heap holds at
+most one \emph{live} entry per vertex, but a stale entry is only discarded when it
+reaches the top, so the heap grows with the number of insertions rather than with $|U|$:
+every operation costs $\bigO{\log m}$ with $m$ the current heap \emph{size}, and on a
+long mission with many changes $m$ can exceed $|U|$ by a wide margin. Rebuild the heap
+from \code{key\_of} whenever $m$ grows past a few times $|U|$; the rebuild is
+$\bigO{|U|}$ and amortises away. An alternative is an
 indexed binary heap with an explicit \code{decrease\_key} and \code{remove}; it is
 faster in compiled languages but longer to write. Store keys as tuples so that
 comparison is lexicographic, and break ties among equal keys deterministically (here by
@@ -1144,6 +1166,9 @@ Two floats per vertex, $\gcost$ and $\rhs$, are kept for the whole lifetime of t
 mission --- $\bigO{|V|}$ storage that a search from scratch releases when it returns,
 and $400\,000$ vertices, a few megabytes, for the $200\times200\times10$ voxel grid of
 \cref{sec:ch05-motivation}. This is what an incremental search buys its savings with.
+The queue is the exception: unlike the two arrays it is not $\bigO{|V|}$, because the
+lazy heap keeps stale entries until they surface, which is the reason for the occasional
+rebuild above.
 
 \paragraph{Infinity.}
 Use \code{float("inf")}: it compares, adds and takes minima correctly, and
@@ -1177,23 +1202,13 @@ queue continues to work: no re-initialisation is needed, ever.
 
 \begin{lstlisting}[caption={The priority queue with lazy deletion (from \code{code/ch05\_dstar\_lite.py}).},label={lst:ch05-queue}]
 class PriorityQueue:
-    """Min-heap of (key, vertex) entries with Remove by lazy deletion.
-
-    key_of maps each queued vertex to its current key; a heap entry is live
-    only if its key equals key_of[vertex], and stale entries are skipped
-    when they surface.  Keys are tuples (lexicographic order); equal keys
-    are ordered by the vertex so that traces are deterministic.
-    """
 
     def __init__(self):
         self.heap = []
         self.key_of = {}
 
-    def __contains__(self, s):
+    def __contains__(self, s):      # the test "u in U"
         return s in self.key_of
-
-    def __len__(self):
-        return len(self.key_of)
 
     def insert(self, s, key):
         self.key_of[s] = key
@@ -1419,6 +1434,14 @@ of the edge from $s$'s best predecessor into $s$ doubles; (b) a new predecessor 
 cheaper total cost appears; (c) an edge \emph{out of} $s$ becomes $\infty$; (d) the best
 predecessor of $s$ is popped as underconsistent and its $\gcost$ becomes $\infty$, but
 $s$ has a second predecessor with the same total cost.
+\end{exercise}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch05-nomove}
+In \cref{ex:ch05-dstarlite} the robot walks from $(0,3)$ to $(2,3)$ and $k_m$ stays $0$
+(\cref{tab:ch05-dstarlite-trace}). Explain why no key in $U$ has to be touched during
+those two steps, and why line~\ref{alg:ch05-dstarlite:km} then adds $2$ in one lump
+instead of $1+1$.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2} Hand trace]

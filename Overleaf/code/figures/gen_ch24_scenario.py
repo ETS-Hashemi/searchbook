@@ -114,10 +114,11 @@ print("  intruder true position at the trigger: %s, estimate %s, est. velocity %
          np.round(hist[ib]["est_v"], 2)))
 print("  filter covariance at the trigger: sigma_p^2=%.4f, sigma_pv=%.4f, sigma_v^2=%.4f"
       % (hist[ib]["est_P"][0, 0], hist[ib]["est_P"][0, 2], hist[ib]["est_P"][2, 2]))
-_P, _q = hist[ib]["est_P"], H.PARAMS["q_kf"]
-print("  extrapolated position variance at s=0,1,2,3: %s"
-      % ", ".join("%.4f" % (_P[0, 0] + 2 * s * _P[0, 2] + s * s * _P[2, 2] + _q * s ** 3 / 3.0)
-                  for s in (0, 1, 2, 3)))
+_P, _q = hist[ib]["est_P"], H.PARAMS["q_kf"] * sim.tracker.dt   # effective intensity
+print("  extrapolated position variance at s=0,1,2,3: %s (velocity term %s)"
+      % (", ".join("%.4f" % (_P[0, 0] + 2 * s * _P[0, 2] + s * s * _P[2, 2] + _q * s ** 3 / 3.0)
+                   for s in (0, 1, 2, 3)),
+         ", ".join("%.4f" % (s * s * _P[2, 2]) for s in (0, 1, 2, 3))))
 
 # ------------------------------------------------------------------
 # 4. The six frames of the scenario
