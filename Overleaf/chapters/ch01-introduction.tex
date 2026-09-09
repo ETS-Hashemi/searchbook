@@ -139,8 +139,11 @@ control; it is solved once, before the flight, by a planner that may take a few
 seconds and that can guarantee a collision-free plan. An unexpected obstacle is a
 problem of \emph{reaction} under uncertainty; it must be solved many times per second,
 by each drone on its own, and no algorithm can guarantee safety against an object
-whose motion is unknown. \Cref{fig:ch01-planned-vs-unexpected} contrasts the two
-side by side.
+whose motion is completely unknown; one can only do so by bounding its speed and
+planning against everywhere it could reach, which at a horizon of a few seconds blocks
+so much of the airspace that the swarm cannot fly (\cref{ch:ch12} truncates the
+velocity obstacle for exactly this reason).
+\Cref{fig:ch01-planned-vs-unexpected} contrasts the two side by side.
 
 \begin{keyidea}[The core idea of the book]
 Use a \emph{global planner} for the planned routes, a \emph{local collision-avoidance
@@ -187,7 +190,9 @@ The intruder is first observed at $(11.0,\,7.5)$ with velocity $(-0.54,\,-0.38)$
 per step, that is, a speed of $0.66$ cells per step. If it keeps that velocity, then
 at $t=6$ it is at $(7.76,\,5.22)$ while drone $B$ occupies cell $(7,5)$ with centre
 $(7.5,\,5.5)$: a distance of $0.38$ cells, far less than the safety distance that any
-real swarm would demand. \Cref{tab:ch01-trace} lists the whole time line.
+real swarm would demand. If a cell is $2$~m wide, the intruder passes $0.76$~m from
+the centre of $B$'s cell---well inside the $2$~m separation used in
+\cref{sec:ch01-timescales}. \Cref{tab:ch01-trace} lists the whole time line.
 \end{example}
 
 \begin{table}[tb]
@@ -395,7 +400,7 @@ informal meanings, so that you can read the map of the book in
   Bounded suboptimal\index{bounded suboptimality} & the cost is at most $w$ times the optimal cost, for a factor $w\ge 1$ chosen by the user; $w=1$ recovers optimality, and a larger $w$ buys speed, a trade-off measured for \ecbs in \cref{ch:ch10} & weighted \astar (\cref{ch:ch04}); \ecbs, Enhanced \cbs (\cref{ch:ch10})\\
   Anytime\index{anytime algorithm} & returns a first, possibly poor, solution quickly and improves it while time remains; interrupt it whenever you like and take the best solution so far & \arastar, Anytime Repairing \astar, which lowers $w$ step by step (\cref{ch:ch06})\\
   Incremental\index{incremental search}\index{replanning} & reuses the previous search when the graph changes a little, an obstacle appears or an edge cost changes, instead of starting over & \lpastar, Lifelong Planning \astar, and \dstarlite (\cref{ch:ch05}): the replanning layer\\
-  Real-time\index{real-time} & the work per call is bounded, so an answer is guaranteed within a fixed, short time budget; such methods do not search for a route, which is why they can run at tens of hertz & \orca, one small linear program per cycle (\cref{ch:ch13}); the dynamic window approach (DWA), a fixed number of candidate velocities (\cref{ch:ch14})\\
+  Real-time\index{real-time} & the work per call is bounded, so an answer is guaranteed within a fixed, short time budget; such methods search over a bounded set of velocities rather than over routes, which is why they can run at tens of hertz & \orca, one small linear program per cycle (\cref{ch:ch13}); the dynamic window approach (DWA), a fixed number of candidate velocities (\cref{ch:ch14})\\
   \bottomrule
   \end{tabularx}
 \end{table}
@@ -439,7 +444,7 @@ Before the flight, the global planner receives the map, the start and goal of ev
 controlled drone, and any constraints on formation or communication range. It returns
 a nominal, time-indexed path for each drone such that no two drones are ever in
 conflict. The book's global planners are conflict-based search, which is
-optimal \cite{sharon2015cbs}, and its bounded-suboptimal variant \ecbs, which is much
+optimal for the sum of costs \cite{sharon2015cbs}, and its bounded-suboptimal variant \ecbs, which is much
 faster for a chosen factor $w$ (\cref{ch:ch09,ch:ch10}). Both build on single-agent
 search in space and time (\cref{ch:ch04}). This layer resolves the planned conflicts
 of \cref{def:ch01-planned-conflict}; it never sees the intruder.
@@ -482,12 +487,13 @@ arrow back to the global planner in \cref{fig:ch01-architecture}.
 The layers are only useful with a rule that says which one acts when. The training
 plan states that rule in five steps, and \cref{fig:ch01-decision} draws it. Two
 quantities appear in it. The \textbf{time to collision}\index{time to collision}
-$\ttc$ of a drone with a predicted object is the earliest future time at which the
+$t_c$ of a drone with a predicted object is the earliest future time at which the
 prediction brings the two closer than the safety distance (infinite if it never does).
 The \textbf{safety horizon}\index{safety horizon} $\ttc_{\mathrm{safe}}$ is a
 look-ahead time chosen by the designer, a few seconds at most; a predicted conflict
-counts as a \emph{near-term risk} when $\ttc<\ttc_{\mathrm{safe}}$. \Cref{ch:ch12}
-computes $\ttc$ from relative position and velocity.
+counts as a \emph{near-term risk} when $t_c<\ttc_{\mathrm{safe}}$. \Cref{ch:ch12}
+computes $t_c$ from relative position and velocity (\cref{def:ch12-ttc}) and uses
+$\ttc$ for the horizon over which a velocity obstacle is truncated.
 
 \begin{enumerate}
   \item \textbf{Follow the nominal path.} As long as no predicted conflict lies
@@ -821,24 +827,15 @@ week.\index{study plan}
 \subsection{Conventions, code and tools}
 \label{sec:ch01-conventions}
 
-Every algorithm chapter has the same shape: why the algorithm matters for a drone
-swarm, the idea in plain words, the problem statement, pseudocode with a walkthrough,
-a worked example with a figure and a trace table, the properties with proofs,
-variants, implementation notes with a listing, the algorithm's place in the drone
-system, a summary, further reading and exercises. Once you know the shape you can
-find the proof of optimality or the pitfalls of any algorithm without
-searching.\index{conventions of the book}
-
-\paragraph{Conventions.}
-Coloured boxes carry the parts of a chapter that you will return to: the learning
-objectives (blue), the key idea (green), the algorithm's place in the drone system
-(purple), pitfalls (orange) and the chapter summary (grey). Definitions, examples and
-theorems share one counter per chapter; pseudocode is numbered per chapter and
-referred to by line; listings are verbatim excerpts of the chapter's code file.
-Exercises are marked \difficulty{1} (minutes), \difficulty{2} (about an hour) or
-\difficulty{3} (an afternoon with code), and \cref{ch:appC} gives hints and solutions
-to selected ones. Every algorithm carries the priority tag of the training plan, from
-\priority{Essential} to \priority{Awareness}, at the start of its chapter.
+Every algorithm chapter has the same fixed sequence of sections: why the algorithm
+matters for a drone swarm, the idea in plain words, the problem statement, pseudocode
+with a walkthrough, a worked example with a figure and a trace table, the properties
+with proofs, variants, implementation notes with a listing, the algorithm's place in
+the drone system, a summary, further reading and exercises. Once you know the sequence
+you can find the proof of optimality or the pitfalls of any algorithm without
+searching.\index{conventions of the book} The conventions of the book, including the
+coloured boxes and the difficulty stars of the exercises, are described in the
+preface.
 
 \paragraph{Code files.}
 Each chapter has one Python file, \code{code/chNN\_slug.py}, that implements the
@@ -927,7 +924,7 @@ layout written by \code{to\_json} and read by \code{from\_json} in
         (\dstarlite/\astar), with a five-step decision logic---follow, avoid,
         reconnect, replan, re-check---and time scales of tens of milliseconds,
         sub-second and seconds.
-  \item The map: twenty-seven algorithms in six groups, each with a priority from the
+  \item The map: twenty-seven entries in six groups, each with a priority from the
         training plan and a chapter in this book.
   \item The honesty: the algorithms are established; the research lies in their
         combination, their constraints, the use of uncertain predictions, and honest

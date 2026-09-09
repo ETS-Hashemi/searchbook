@@ -619,3 +619,864 @@ every corner. \rrtstar reaches the quality of the pulled grid path at about
 $2\,500$ iterations and keeps going; in the same experiment it needed
 $7\,997$ segment checks for $3\,000$ iterations, $2.7$ times the $3\,000$ of
 \rrt, with a \textsc{Near} set of $23.6$ vertices on average.
+
+% ---------------------------------------------------------------------
+\section{Properties: correctness, optimality, complexity}
+\label{sec:ch17-properties}
+
+\subsection{What the tree always satisfies}
+\label{sec:ch17-invariants}
+
+\begin{proposition}[Invariants of \rrtstar]
+\label{prop:ch17-invariant}
+After every iteration of \cref{alg:ch17-rrtstar}:
+(i)~$T$ is a tree rooted at $x_{\mathrm{init}}$ and every edge is
+collision-free;
+(ii)~$\mathrm{Cost}(v)$ is the length of the tree path from
+$x_{\mathrm{init}}$ to $v$ for every $v\in V$;
+(iii)~no cost increases during an iteration, so $c_{\mathrm{best}}$ is
+non-increasing in the number of iterations;
+(iv)~the vertex set is the one that \rrt would have built from the same
+sequence of samples.
+\end{proposition}
+
+\begin{proof}
+(i) Every edge is inserted only after $\CollisionFree$ has accepted it
+(lines~\ref{alg:ch17-rrtstar:free}, \ref{alg:ch17-helpers:cpfree} and
+\ref{alg:ch17-helpers:rwfree}). A rewire could create a cycle only if
+$x_{\mathrm{new}}$ were a descendant of the rewired vertex $v$; but then the
+tree path to $x_{\mathrm{new}}$ passes through $v$, so
+$\mathrm{Cost}(x_{\mathrm{new}})\ge\mathrm{Cost}(v)+\norm{x_{\mathrm{new}}-v}$
+by the triangle inequality, and the test $c<\mathrm{Cost}(v)$ in
+line~\ref{alg:ch17-helpers:rwfree} fails. (ii) The new vertex receives
+$\mathrm{Cost}(x_{\mathrm{parent}})+\norm{x_{\mathrm{new}}-x_{\mathrm{parent}}}$,
+and after a rewire \textsc{UpdateSubtree} recomputes exactly the vertices
+whose tree path changed, namely $v$ and its descendants. (iii)
+\textsc{ChooseParent} touches no existing cost, and \textsc{Rewire} lowers
+$\mathrm{Cost}(v)$ and, by the same amount, the cost of every descendant.
+(iv) Whether a sample becomes a vertex, and where, depends only on
+$\Nearest$, $\Steer$ and the check of line~\ref{alg:ch17-rrtstar:free};
+these are the steps of \rrt, and the extra steps only change edges.
+\end{proof}
+
+Part~(iv) has a pleasant consequence: \rrtstar inherits the probabilistic
+completeness\index{RRT*!probabilistic completeness} of \rrt
+(\cref{ch:ch16}), because it contains the same vertices, and the goal vertex
+appears with probability tending to one. The same argument is used by
+Karaman and Frazzoli \cite{karaman2011sampling}.
+
+\subsection{Asymptotic optimality}
+\label{sec:ch17-ao}
+
+\begin{theorem}[Asymptotic optimality of \rrtstar; Karaman and Frazzoli 2011]
+\label{thm:ch17-ao}
+Let $d\ge2$, let the cost be Euclidean length, let the samples be uniform
+on $\mathcal{X}$, and suppose the problem has a robustly optimal solution
+(\cref{def:ch17-clearance}) of cost $c^*<\infty$. If
+$\gamma_{\rrtstar}>\gamma^*_{\rrtstar}$ in \cref{eq:ch17-radius}, then the
+best cost $Y_n$ in the tree satisfies
+$\Prob\bigl(\lim_{n\to\infty}Y_n=c^*\bigr)=1$.\index{RRT*!asymptotic optimality}\index{asymptotic optimality!theorem}
+\end{theorem}
+
+Read the statement carefully, because it is easy to hear more in it than it
+says.
+\begin{itemize}
+  \item It promises convergence of the \emph{cost}, with probability one,
+  as $n\to\infty$. It gives no rate: after any fixed budget $N$ the gap
+  $Y_N-c^*$ can be large, and it typically shrinks slowly, because the last
+  few percent are made of corner cuts that each need a sample in a small
+  region (\cref{tab:ch17-convergence}).
+  \item It does not promise convergence of the \emph{path}: the tree path
+  may keep switching between routes of almost equal cost (in
+  \cref{ex:ch17-map} there is only one homotopy class, so this does not
+  show).
+  \item It needs a robustly optimal solution. An optimum that squeezes
+  through a gap of zero width has no clearance and is never found; the same
+  holds for any planner that checks collisions at points.
+  \item It needs $\gamma_{\rrtstar}$ above a threshold that depends on
+  $\mu(\Xfree)$, which is usually unknown. Any upper bound, such as
+  $\mu(\mathcal{X})$, is safe.
+  \item Nothing is said about \rrt: Karaman and Frazzoli also prove that,
+  under the same assumptions, the best cost of \rrt converges with
+  probability one to a limit that is \emph{strictly larger} than $c^*$
+  \cite{karaman2011sampling}. The reason is that the root of an \rrt tree
+  acquires only finitely many children (once vertices surround the root,
+  new samples are steered from those vertices instead), so every tree path
+  leaves $x_{\mathrm{init}}$ along one of finitely many random segments,
+  none of which points along the optimal path.\index{RRT!not asymptotically optimal}
+\end{itemize}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch17/ball-covering}
+  \caption{The ball-covering argument. A near-optimal path $\sigma_n$
+  with clearance $\delta_n$ (green, inside its blue tube) is covered by
+  balls of radius $q_n$ (orange) whose centres are spaced so that any two
+  points in consecutive balls are at most $r_n$ apart. If every ball
+  contains a tree vertex, the vertices form a chain (blue) whose consecutive
+  members were in each other's \textsc{Near} sets, so the tree connects
+  them; the chain stays inside the tube and is therefore collision-free.}
+  \label{fig:ch17-ball-covering}
+\end{figure}
+
+\begin{proof}[Proof idea]
+The argument is illustrated in \cref{fig:ch17-ball-covering}; we sketch it
+in five steps and say where the full proof works hardest.
+
+\emph{Step 1 (a path with room).} Fix $\eps>0$. By robust optimality there
+is a collision-free path $\sigma$ with strong $\delta$-clearance for some
+$\delta>0$ and $c(\sigma)\le c^*+\eps$. (The full proof uses a sequence
+$\sigma_n$ with $\delta_n\to0$ slowly; one path is enough for the idea.)
+
+\emph{Step 2 (cover it with balls).} Take $n$ so large that $r_n<\delta$.
+Choose a small $\theta>0$ and cover $\sigma$ with $M_n$ balls of radius
+$q_n=r_n/(2+\theta)$ whose centres lie on $\sigma$ at spacing
+$\theta q_n$. Two points in consecutive balls are then at most
+$\theta q_n+2q_n=r_n$ apart, and the segment between them stays inside the
+$\delta$-tube, so it is collision-free. The number of balls is
+$M_n\approx c(\sigma)/(\theta q_n)$, which grows like $(n/\log n)^{1/d}$.
+
+\emph{Step 3 (a ball is rarely empty).} A ball of radius $q_n$ has volume
+$\zeta_dq_n^d=\zeta_d\gamma^d\log n/((2+\theta)^dn)$. If the $n$ vertices
+were independent uniform points in $\Xfree$, the ball would be empty with
+probability $(1-\zeta_dq_n^d/\mu(\Xfree))^n\le e^{-n\zeta_dq_n^d/\mu(\Xfree)}=n^{-a}$
+with
+\[
+  a=\frac{\zeta_d\,\gamma^d}{(2+\theta)^d\,\mu(\Xfree)}.
+\]
+The vertices of \rrtstar are not uniform, since they are produced by
+$\Steer$; this is where the full proof spends most of its length, showing
+that once the tree has a vertex within $\eta$ of every point of the tube,
+a sample that falls into a ball becomes a vertex in that ball, so that the
+estimate holds up to constants.
+
+\emph{Step 4 (all balls, for all large $n$).} By the union bound the
+probability that \emph{some} ball is empty at time $n$ is at most
+$M_nn^{-a}\propto n^{1/d-a}(\log n)^{-1/d}$. Summed over $n$ this is finite
+exactly when $a>1+1/d$, that is when
+$\gamma>(2+\theta)\,(1+1/d)^{1/d}(\mu(\Xfree)/\zeta_d)^{1/d}$; because
+$\gamma>\gamma^*_{\rrtstar}$ strictly, such a $\theta>0$ exists. This is
+the origin of the constant $2(1+1/d)^{1/d}(\mu(\Xfree)/\zeta_d)^{1/d}$: the
+factor $2$ is the two ball radii that must fit inside one connection
+radius, and $(1+1/d)^{1/d}$ is the exponent that beats the $n^{1/d}$
+balls. The Borel--Cantelli lemma\index{Borel--Cantelli lemma} (if
+$\sum_n\Prob(A_n)<\infty$, then with probability one only finitely many
+$A_n$ occur) now says that, from some random $n_0$ on, \emph{every} ball
+contains a vertex.
+
+\emph{Step 5 (the chain is cheap).} Pick one vertex in each ball. Consecutive
+vertices are within $r_n$, so the later of the two found the earlier in its
+\textsc{Near} set when it was inserted (the radius then was even larger),
+and \textsc{ChooseParent} and \textsc{Rewire} guarantee that the tree
+connects them at least as cheaply as the direct segment. The chain zigzags
+inside the tube, so a crude bound only gives a constant factor above
+$c(\sigma)$; the full proof removes the factor by exploiting the
+$\Theta(\log n)$ vertices that every ball contains for large $n$, most of
+which lie very close to the centre line, so that the best chain straightens
+as $n$ grows and its cost tends to $c(\sigma)\le c^*+\eps$. Since $\eps$ was
+arbitrary and $Y_n\ge c^*$ always, $Y_n\to c^*$ with probability one.
+\end{proof}
+
+\begin{remark}[The fine print of the radius]
+\label{rem:ch17-fineprint}
+Karaman and Frazzoli prove the threshold of \cref{eq:ch17-radius} for the
+rapidly-exploring random \emph{graph} (RRG),\index{RRG} which keeps every
+edge between vertices within $r_n$; for \rrtstar, which keeps only a tree,
+their paper states the smaller constant
+$(2(1+1/d))^{1/d}(\mu(\Xfree)/\zeta_d)^{1/d}$, and this is the value that
+many library implementations use. The condition of \cref{eq:ch17-radius} is
+the stricter of the two and therefore safe. Step~5 is where the tree makes
+life difficult: the cost of a vertex depends on the order in which its
+neighbours arrived. \textcite{solovey2020revisiting} found a gap at this
+point of the original argument and closed it with a radius that shrinks
+slightly more slowly, $\gamma'(\log n/n)^{1/(d+1)}$. In practice everyone
+uses the schedule of \cref{eq:ch17-radius} with $\gamma$ above the
+threshold, and it converges as \cref{fig:ch17-convergence} shows.
+\end{remark}
+
+\subsection{Cost per iteration}
+\label{sec:ch17-cost}
+
+An \rrt iteration does one nearest-neighbour query and one collision
+check. An \rrtstar iteration adds a range query and up to
+$1+2\abs{X_{\mathrm{near}}}$ collision checks (one per candidate in
+\textsc{ChooseParent}, one per candidate in \textsc{Rewire}).\index{RRT*!complexity}
+By the computation in \cref{sec:ch17-radius} the expected size of
+$X_{\mathrm{near}}$ is $\zeta_d\gamma^d\log n/\mu(\Xfree)$, so the number of
+candidates is $\bigO{\log n}$ in expectation, and with a kd-tree
+(\cref{ch:ch16}) both the nearest-neighbour and the range query cost
+$\bigO{\log n}$ expected time. A run of $n$ iterations therefore costs
+$\bigO{n\log n}$, the same order as \rrt with a kd-tree; Karaman and
+Frazzoli show that the ratio of the expected running times of the two
+planners is bounded by a constant \cite{karaman2011sampling}. The constant
+is what you pay, and it comes almost entirely from collision checks: in
+\cref{ex:ch17-map} the \textsc{Near} set had $23.6$ members on average, but
+the ordering trick of \cref{alg:ch17-helpers} (cheapest candidate first,
+improvement test before collision test) kept the count at $7\,997$ checks
+for $3\,000$ iterations, $2.7$ per iteration instead of the worst case of
+$48$.
+
+% ---------------------------------------------------------------------
+\section{\irrtstar: sampling where a better path can pass}
+\label{sec:ch17-informed}
+
+\subsection{The informed set}
+\label{sec:ch17-informed-set}
+
+Once the tree contains a path of cost $c_{\mathrm{best}}$, most of the
+free space can no longer matter. Take any point $x$ and any path
+$\sigma$ from $x_{\mathrm{init}}$ to $x_{\mathrm{goal}}$ through $x$. The
+cheapest way into $x$ is the straight segment from the start and the
+cheapest way out is the straight segment to the goal, so
+\begin{equation}
+  c(\sigma)\ \ge\ \hat f(x):=\norm{x-x_{\mathrm{init}}}+\norm{x_{\mathrm{goal}}-x}.
+  \label{eq:ch17-fhat}
+\end{equation}
+A path that improves on the current one has $c(\sigma)<c_{\mathrm{best}}$,
+hence every point on it satisfies $\hat f(x)<c_{\mathrm{best}}$: it lies in
+the informed set $\mathcal{X}_{\hat f}(c_{\mathrm{best}})$ of
+\cref{def:ch17-informed}. Samples outside that set cannot improve the
+solution, and a planner that keeps drawing them wastes its iterations. You
+have met $\hat f$ before: it is $\gcost+\hcost$ with the straight-line
+heuristic, and the informed set is the region $\fcost\le C^*$ that \astar
+with a consistent heuristic never leaves (\cref{ch:ch04}).
+
+The set $\set{x:\norm{x-x_{\mathrm{init}}}+\norm{x-x_{\mathrm{goal}}}\le c_{\mathrm{best}}}$
+is, by the string-and-two-pins definition, an ellipse in 2D and an
+ellipsoid of revolution in 3D; the general name is \textbf{prolate
+hyperspheroid}.\index{prolate hyperspheroid}\index{informed set!geometry}
+Its foci are $x_{\mathrm{init}}$ and $x_{\mathrm{goal}}$, its centre is
+$\vect{x}_{\mathrm{centre}}=(x_{\mathrm{init}}+x_{\mathrm{goal}})/2$, and its
+\textbf{transverse diameter} (along the focal axis) is $c_{\mathrm{best}}$.
+Its \textbf{conjugate diameter} follows from the point $x$ on the conjugate
+axis at distance $b$ from the centre: both foci are at distance
+$\sqrt{b^2+c_{\min}^2/4}$ from it, so $\hat f(x)=2\sqrt{b^2+c_{\min}^2/4}=c_{\mathrm{best}}$
+gives $2b=\sqrt{c_{\mathrm{best}}^2-c_{\min}^2}$. In summary,
+\begin{equation}
+  \text{semi-axes}\quad r_1=\frac{c_{\mathrm{best}}}{2},\qquad
+  r_2=\dots=r_d=\frac{\sqrt{c_{\mathrm{best}}^2-c_{\min}^2}}{2},\qquad
+  \mu\bigl(\mathcal{X}_{\hat f}\bigr)=\zeta_d\,r_1r_2^{d-1}.
+  \label{eq:ch17-axes}
+\end{equation}
+The volume tells you when informed sampling pays. On the $10\times10$ map
+of \cref{ex:ch17-map}, $c_{\min}=11.31$ and the first solution has
+$c_{\mathrm{best}}=21.0$, so the ellipse has area $292$: it contains the
+whole map, and it still does at the optimum ($167$). Uniform sampling of
+the map \emph{is} informed sampling there, which is why the two planners
+behave identically in \cref{fig:ch17-convergence}(a). Put the same walls,
+start and goal into a $30\times30$ field (\cref{fig:ch17-ellipses}) and the
+picture changes: the ellipse of the first solution covers $46\,\%$ of the
+field and the ellipse of the final one $10\,\%$, so nine of ten uniform
+samples are wasted. In 3D the effect is stronger, because the conjugate
+axes enter the volume with the power $d-1$: in the box field of
+\cref{ch:ch16} with $c_{\min}=15.6$, a solution of cost $17.0$ has an
+ellipsoid of $41\,\%$ of the box and one of cost $16.0$ only $11\,\%$.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch17/ellipses}
+  \caption{\irrtstar on the $30\times30$ field with the walls of
+  \cref{ex:ch17-map} (seed~$1$): the informed set at the first solution
+  ($c_{\mathrm{best}}=24.3$, iteration~$102$, dashed) and after $1\,000$,
+  $2\,000$ and $3\,000$ iterations ($19.1$, $14.2$, $14.0$; optimum $13.88$).
+  The dots are $200$ samples from the final set: all of them land where a
+  better path could still pass. The ellipse shrinks towards the segment
+  between the foci as $c_{\mathrm{best}}\to c_{\min}$.}
+  \label{fig:ch17-ellipses}
+\end{figure}
+
+\subsection{Sampling the ellipsoid uniformly}
+\label{sec:ch17-sampling}
+
+Rejection sampling (draw uniformly in $\mathcal{X}$, keep the sample if
+$\hat f(x)\le c_{\mathrm{best}}$) is correct but wasteful in exactly the
+cases where the informed set helps, because its acceptance rate is the
+volume ratio just computed. \textcite{gammell2014informed} sample the
+hyperspheroid directly by mapping the unit ball onto it
+(\cref{fig:ch17-ellipse-transform}):
+\begin{equation}
+  x=\mat{C}\,\mat{L}\,\vect{x}_{\mathrm{ball}}+\vect{x}_{\mathrm{centre}},\qquad
+  \mat{L}=\diag(r_1,r_2,\dots,r_d),\qquad
+  \mat{C}\vect{e}_1=\vect{a}_1:=\frac{x_{\mathrm{goal}}-x_{\mathrm{init}}}{c_{\min}}.
+  \label{eq:ch17-transform}
+\end{equation}
+Here $\vect{x}_{\mathrm{ball}}$ is uniform in the unit ball, $\mat{L}$
+stretches the ball into the axis-aligned spheroid with the semi-axes of
+\cref{eq:ch17-axes}, $\mat{C}$ is a rotation matrix that turns the first
+coordinate axis into the start-to-goal direction, and the translation puts
+the centre between the foci. The map is affine with a constant Jacobian
+determinant $\det\mat{L}=r_1r_2^{d-1}>0$, so a uniform density on the ball
+becomes a uniform density on its image (\cref{exr:ch17-ellipsoid} asks you
+to verify this and the axes). Two ingredients remain.
+\begin{itemize}
+  \item \emph{A uniform point of the unit ball.} Draw
+  $\vect{u}\sim\Normal(\vect{0},\mat{I})$ and $w\sim U(0,1)$ and return
+  $w^{1/d}\vect{u}/\norm{\vect{u}}$: the normalised Gaussian is uniform on
+  the sphere (\cref{ch:ch02}), and the radius $w^{1/d}$ has the density
+  $\propto\rho^{d-1}$ that the volume of a shell demands.
+  \item \emph{The rotation to the world frame.}\index{rotation to world frame}
+  In 2D, $\mat{C}$ is the rotation by the angle of $\vect{a}_1$,
+  $\mat{C}=\bigl[\begin{smallmatrix}\cos\phi&-\sin\phi\\\sin\phi&\cos\phi\end{smallmatrix}\bigr]$
+  with $(\cos\phi,\sin\phi)=\vect{a}_1$. In any dimension, Gammell et al.\
+  compute it from the singular value decomposition
+  $\mat{U}\mat{\Sigma}\mat{V}\T$ of the rank-one matrix
+  $\mat{M}=\vect{a}_1\vect{e}_1\T$ as
+  \begin{equation}
+    \mat{C}=\mat{U}\,\diag\bigl(1,\dots,1,\det\mat{U}\det\mat{V}\bigr)\,\mat{V}\T,
+    \label{eq:ch17-rotation}
+  \end{equation}
+  which is orthogonal with determinant $+1$ and satisfies
+  $\mat{C}\vect{e}_1=\vect{a}_1$. In 3D any rotation whose first column is
+  $\vect{a}_1$ will do, for instance
+  $\mat{C}=[\vect{a}_1\ \ \vect{b}\ \ \vect{a}_1\times\vect{b}]$ with
+  $\vect{b}$ a unit vector orthogonal to $\vect{a}_1$: the spheroid is
+  symmetric about its transverse axis, so the orientation of the other
+  axes is irrelevant.
+\end{itemize}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch17/ellipse-transform}
+  \caption{Sampling the informed set: the same six points of the unit
+  ball after scaling by $\mat{L}$ (semi-axes $c_{\mathrm{best}}/2$ and
+  $\frac12\sqrt{c_{\mathrm{best}}^2-c_{\min}^2}$) and after rotation by
+  $\mat{C}$ and translation to $\vect{x}_{\mathrm{centre}}$; the foci of the
+  result are the start and the goal.}
+  \label{fig:ch17-ellipse-transform}
+\end{figure}
+
+\Cref{alg:ch17-informed} is the complete planner. Before a solution exists,
+$c_{\mathrm{best}}=\infty$ and the sampler falls back to the goal-biased
+uniform sampling of \cref{alg:ch17-rrtstar}; from the first solution on,
+the tree grows only inside the current ellipsoid, which shrinks whenever
+\textsc{Rewire} improves the goal's branch. The tree itself, \textsc{Near},
+\textsc{ChooseParent} and \textsc{Rewire} are unchanged, and so is the
+theory: the samples remain uniform on a set that contains every point that
+can still improve the solution, so \irrtstar keeps the probabilistic
+completeness and the asymptotic optimality of \rrtstar
+\cite{gammell2014informed}. Two practical details: samples of the
+hyperspheroid that fall outside $\mathcal{X}$ are rejected
+(line~\ref{alg:ch17-informed:map}), and when the hyperspheroid is larger
+than $\mathcal{X}$ it is cheaper to do the opposite, sample $\mathcal{X}$
+and reject by $\hat f$; the code switches between the two by comparing the
+volumes.
+
+\begin{algorithm}[htb]
+\caption{\irrtstar (Gammell, Srinivasa and Barfoot)}
+\label{alg:ch17-informed}
+\KwIn{as in \cref{alg:ch17-rrtstar}}
+\KwOut{the tree path to $x_{\mathrm{goal}}$ of cost $c_{\mathrm{best}}$, or \emph{failure}}
+\Fn{\RrtStarInformed{$x_{\mathrm{init}}$, $x_{\mathrm{goal}}$, $N$}}{
+  $V\gets\set{x_{\mathrm{init}}}$; $E\gets\emptyset$; $c_{\mathrm{best}}\gets\infty$; $c_{\min}\gets\norm{x_{\mathrm{goal}}-x_{\mathrm{init}}}$; $\vect{x}_{\mathrm{centre}}\gets(x_{\mathrm{init}}+x_{\mathrm{goal}})/2$\;
+  $\mat{C}\gets$ \RrtStarRotation{$(x_{\mathrm{goal}}-x_{\mathrm{init}})/c_{\min}$}\label{alg:ch17-informed:rot}\;
+  \For{$i\gets1$ \KwTo $N$}{
+    $x_{\mathrm{rand}}\gets$ \RrtStarSample{$c_{\mathrm{best}}$}\label{alg:ch17-informed:sample}\;
+    run lines~\ref{alg:ch17-rrtstar:steer}--\ref{alg:ch17-rrtstar:best} of \cref{alg:ch17-rrtstar} on $x_{\mathrm{rand}}$ ($\Nearest$, $\Steer$, $\Near$, \RrtStarChooseParent, \RrtStarRewire)\label{alg:ch17-informed:body}\;
+  }
+  \lIf{$c_{\mathrm{best}}<\infty$}{\KwRet{the tree path from $x_{\mathrm{init}}$ to $x_{\mathrm{goal}}$}}
+  \KwRet{failure}\;
+}
+\Fn{\RrtStarSample{$c_{\mathrm{best}}$}}{
+  \lIf{$c_{\mathrm{best}}=\infty$}{\KwRet{$x_{\mathrm{goal}}$ with probability $p_{\mathrm{goal}}$, else a uniform sample of $\mathcal{X}$}}
+  $r_1\gets c_{\mathrm{best}}/2$; $r_2,\dots,r_d\gets\sqrt{c_{\mathrm{best}}^2-c_{\min}^2}/2$; $\mat{L}\gets\diag(r_1,\dots,r_d)$\label{alg:ch17-informed:axes}\;
+  \Repeat{$x_{\mathrm{rand}}\in\mathcal{X}$}{
+    $\vect{u}\sim\Normal(\vect{0},\mat{I})$; $w\sim U(0,1)$; $\vect{x}_{\mathrm{ball}}\gets w^{1/d}\,\vect{u}/\norm{\vect{u}}$\label{alg:ch17-informed:ball}\;
+    $x_{\mathrm{rand}}\gets\mat{C}\mat{L}\vect{x}_{\mathrm{ball}}+\vect{x}_{\mathrm{centre}}$\label{alg:ch17-informed:map}\;
+  }
+  \KwRet{$x_{\mathrm{rand}}$}\;
+}
+\Fn{\RrtStarRotation{$\vect{a}_1$}}{
+  $\mat{U}\mat{\Sigma}\mat{V}\T\gets$ singular value decomposition of $\vect{a}_1\vect{e}_1\T$\label{alg:ch17-informed:svd}\;
+  \KwRet{$\mat{U}\,\diag(1,\dots,1,\det\mat{U}\det\mat{V})\,\mat{V}\T$}\;
+}
+\end{algorithm}
+
+\subsection{What it buys}
+\label{sec:ch17-informed-results}
+
+\Cref{fig:ch17-convergence} compares \rrt, \rrtstar and \irrtstar over
+$20$ seeds on both maps; the code is \code{code/figures/gen\_ch17\_convergence.py}.
+On the small map (a) the three planners find their first solution at the
+same iteration, median $252$, because they insert the same vertices
+(\cref{prop:ch17-invariant}); \rrt then stays at $23.51\pm1.67$ for ever,
+while \rrtstar and \irrtstar descend together to $17.33\pm0.08$ after
+$3\,000$ iterations, $2.5\,\%$ above the optimum. On the wide field (b) the
+free space is nine times larger, the ellipse of the first solution covers
+less than half of it, and the difference appears: after $1\,000$ iterations
+\rrtstar stands at a mean of $21.57$ and \irrtstar at $18.10$; after $3\,000$
+they stand at $16.71\pm1.23$ and $14.09\pm0.12$ against the optimum
+$13.88$. \rrtstar is still converging, just slowly, because most of its
+samples land far from the corridor; \irrtstar has put every sample after the
+first solution to use. Its price is small, $8\,486$ segment checks per run
+against $7\,399$, because the samples inside the ellipsoid land in a denser
+part of the tree and see more neighbours.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch17/convergence}
+  \caption{Best cost against iterations, mean over $20$ seeds, on
+  (a)~the map of \cref{ex:ch17-map} and (b)~the same walls in a
+  $30\times30$ field. Each curve starts at the first iteration at which
+  all $20$ runs have a solution. \rrt (grey) never improves. On the small
+  map the informed set contains the whole map, and \rrtstar and \irrtstar
+  coincide; on the wide field \irrtstar (dashed) reaches in $1\,000$
+  iterations what \rrtstar has not reached in $3\,000$.}
+  \label{fig:ch17-convergence}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\section{Variants and extensions}
+\label{sec:ch17-variants}
+
+\paragraph{The graph and the batch.} The rapidly-exploring random graph
+(RRG)\index{RRG} of Karaman and Frazzoli keeps \emph{all} edges between
+vertices within $r_n$; \rrtstar is its tree, and PRM\textsuperscript{*}\index{PRM*}
+is the probabilistic roadmap of \cref{ch:ch16} built with the same radius
+on a batch of $n$ samples. Both are asymptotically optimal with the same
+constant. Fast marching trees (FMT\textsuperscript{*})\index{FMT*}
+\cite{janson2015fmt} process one batch of samples in a single Dijkstra-like
+sweep with lazy collision checks, and are often faster than \rrtstar for a
+fixed budget, but they are not anytime: the batch size is chosen before the
+run.
+
+\paragraph{Anytime \rrtstar.}\index{anytime planning!RRT*}
+\textcite{karaman2011anytime} run \rrtstar on a moving robot: the tree keeps
+growing while the robot follows the current best path, the robot commits to
+the first segment of that path and the tree is re-rooted at its end, and
+\textbf{branch-and-bound pruning}\index{branch-and-bound pruning} deletes
+every vertex $v$ with $\mathrm{Cost}(v)+\norm{x_{\mathrm{goal}}-v}\ge c_{\mathrm{best}}$,
+which can never lie on a better path. Pruning is the tree-side twin of the
+informed set, and the two are usually combined
+(\cref{sec:ch17-implementation}).
+
+\paragraph{BIT\textsuperscript{*} and the batch-informed family.}\index{BIT*}
+Batch informed trees (BIT\textsuperscript{*}) of
+\textcite{gammell2015bit} take the informed set one step further. Samples
+are drawn in \emph{batches} inside the current ellipsoid, the batch together
+with the tree is viewed as an implicit random geometric graph, and that
+graph is searched with an edge queue ordered by
+$\hat f=\hat g+\hat h$, exactly as \astar orders its nodes; collision
+checks are made only when an edge is popped, and the search is reused across
+batches in the manner of \lpastar (\cref{ch:ch05}). Each batch shrinks the
+ellipsoid, and the planner is anytime and asymptotically optimal. It is the
+point where sampling-based planning and heuristic graph search, the two
+halves of this book, meet. Later refinements by the same group
+(ABIT\textsuperscript{*}, AIT\textsuperscript{*}) improve the ordering and
+the heuristic; \textcite{gammell2018informed} generalise informed sets to
+other cost functions and prove when direct sampling is necessary.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The sampling-based planners of \cref{ch:ch16} and this chapter.
+  ``Complete'' means probabilistically complete; ``optimal'' means
+  asymptotically optimal; the work per iteration is for a kd-tree and
+  excludes the constant of the collision checker.}
+  \label{tab:ch17-comparison}
+  \begin{tabular}{@{}lllll@{}}
+  \toprule
+  Planner & Where & Complete & Optimal & Work per iteration\\
+  \midrule
+  \rrt (with goal bias) & \cref{ch:ch16} & \checkmark & no; limit $>c^*$ a.s. & $\bigO{\log n}$, 1 check\\
+  \rrt-Connect & \cref{ch:ch16} & \checkmark & no & $\bigO{\log n}$, greedy checks\\
+  Kinodynamic \rrt & \cref{ch:ch16} & \checkmark & no & forward simulation\\
+  PRM & \cref{ch:ch16} & \checkmark & no ($k$ fixed) & multi-query roadmap\\
+  \rrtstar & \cref{sec:ch17-algorithm} & \checkmark & \checkmark & $\bigO{\log n}$ neighbours, $\approx3$ checks\\
+  $k$-nearest \rrtstar & \cref{sec:ch17-knn} & \checkmark & \checkmark & $k_n=\bigO{\log n}$, no $\mu(\Xfree)$\\
+  \irrtstar & \cref{sec:ch17-informed} & \checkmark & \checkmark & as \rrtstar, fewer wasted samples\\
+  PRM\textsuperscript{*}, FMT\textsuperscript{*} & pointer & \checkmark & \checkmark & one batch, not anytime\\
+  BIT\textsuperscript{*} & pointer & \checkmark & \checkmark & batches, \astar-ordered lazy edges\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\Cref{tab:ch17-comparison} lists every sampling-based planner of the book.
+The rule of thumb: \rrt-Connect for a first feasible path as fast as
+possible, \rrtstar or \irrtstar when the path will be flown and its length
+matters, BIT\textsuperscript{*} when both matter and a library is at hand.
+
+% ---------------------------------------------------------------------
+\section{Implementation notes}
+\label{sec:ch17-implementation}
+
+The file \code{code/ch17\_rrt\_star.py} implements everything in this
+chapter for $d=2$ and $d=3$ with NumPy only: the world and the collision
+checker are copied from \cref{ch:ch16}, so the two chapters plan on the
+same maps. \Cref{lst:ch17-core} is the body of one iteration.
+
+\begin{lstlisting}[caption={One iteration of \rrtstar (from \code{code/ch17\_rrt\_star.py}): \textsc{Nearest}, \textsc{Steer} and the collision check as in \rrt, then \textsc{Near}, \textsc{ChooseParent} with the candidates sorted by cost, and \textsc{Rewire} with the improvement test before the segment check. \code{tree.set\_parent} propagates the new cost to the subtree; \code{radius} is $r_n$ or $k_n$.},label={lst:ch17-core}]
+        # --- Nearest, Steer, CollisionFree (as in RRT) -------------------
+        i_nearest = tree.nearest(x_rand)
+        x_new = steer(tree.V[i_nearest], x_rand, eta)
+        d_nearest = float(np.linalg.norm(x_new - tree.V[i_nearest]))
+        radius = (knn_count(tree.n, d, k_rrg) if knn
+                  else connection_radius(tree.n, d, gamma, eta))
+        if d_nearest > 1e-12 and world.segment_free(tree.V[i_nearest], x_new):
+            # --- Near ----------------------------------------------------
+            if knn:
+                near = tree.knearest(x_new, radius)
+            else:
+                near = tree.near(x_new, radius)
+            near_total += len(near)
+            # --- ChooseParent --------------------------------------------
+            i_min, c_min = i_nearest, tree.cost[i_nearest] + d_nearest
+            if choose_parent and len(near):
+                dists = np.linalg.norm(tree.V[near] - x_new, axis=1)
+                cand = tree.cost[near] + dists
+                for k in np.argsort(cand):           # cheapest first
+                    if cand[k] >= c_min:
+                        break
+                    if world.segment_free(tree.V[near[k]], x_new):
+                        i_min, c_min = int(near[k]), float(cand[k])
+                        break
+            i_new = tree.add(x_new, i_min, c_min - tree.cost[i_min])
+            # --- Rewire --------------------------------------------------
+            if rewire:
+                for k in range(len(near)):
+                    j = int(near[k])
+                    if j == i_min:
+                        continue
+                    via = c_min + dists[k]
+                    if via < tree.cost[j] - 1e-12 and \
+                            world.segment_free(x_new, tree.V[j]):
+                        tree.set_parent(j, i_new, dists[k])
+            if goal_index < 0 and np.linalg.norm(x_new - goal) < 1e-9:
+                goal_index, solution_iter = i_new, it
+\end{lstlisting}
+
+\paragraph{Choosing $\gamma_{\rrtstar}$.} $\mu(\Xfree)$ is rarely known;
+the code estimates it by Monte Carlo for the text, but plans with
+$\gamma=1.1\,\gamma^*(\mu(\mathcal{X}))$ by default, because
+$\mu(\mathcal{X})\ge\mu(\Xfree)$ keeps the condition safe. On the 3D scene
+of \cref{ch:ch16} this gives $\gamma=15.0$ against a threshold of $12.2$
+for the true free volume of about $716$. A larger $\gamma$ is never wrong
+for optimality; it buys more rewiring per iteration
+(\cref{fig:ch17-radius}) at a higher price per iteration, and doubling it
+multiplies the expected \textsc{Near} set by $2^d$.
+
+\paragraph{The cost of rewiring.} Collision checks dominate. Three habits
+keep them rare: sort the candidates of \textsc{ChooseParent} by cost and
+stop at the first free segment; in \textsc{Rewire} test the improvement
+before the segment; and reuse the check of the parent segment for the
+edge to the nearest vertex, which is already known to be free. The
+cost-to-come of every candidate must be available in $\bigO{1}$, which is
+why the implementation stores $\mathrm{Cost}(v)$ instead of walking to the
+root.
+
+\paragraph{Propagating costs to a subtree.} Storing costs means keeping
+them consistent. \Cref{lst:ch17-subtree} keeps, for every vertex, its
+parent, the length of its parent edge and a list of its children;
+\code{set\_parent} moves the vertex, then walks its subtree with an
+explicit stack and recomputes $\mathrm{Cost}$ from the parent, exactly
+\textsc{UpdateSubtree}. The lazy alternative, storing only edge lengths and
+summing them on demand, costs $\bigO{\text{depth}}$ per candidate and is
+slower in every experiment we ran. The self-test checks after every run
+that $\mathrm{Cost}(v)=\mathrm{Cost}(\mathrm{parent}(v))+\norm{v-\mathrm{parent}(v)}$
+holds for all vertices.
+
+\begin{lstlisting}[caption={\textsc{UpdateSubtree} (from \code{code/ch17\_rrt\_star.py}): rewiring vertex \code{i} under \code{p} and recomputing the cost of every descendant with an explicit stack.},label={lst:ch17-subtree}]
+    def set_parent(self, i, p, edge_len):
+        """Rewire vertex i under p and update the costs of its subtree."""
+        self.children[self.parent[i]].remove(i)
+        self.parent[i], self.edge[i] = p, edge_len
+        self.children[p].append(i)
+        stack = [i]
+        while stack:
+            v = stack.pop()
+            self.cost[v] = self.cost[self.parent[v]] + self.edge[v]
+            stack.extend(self.children[v])
+\end{lstlisting}
+
+\paragraph{Nearest and near.} The implementation uses vectorised linear
+scans, because its trees have a few thousand vertices and a full run takes
+about a second. Beyond $10^4$ vertices use a kd-tree
+(\cref{ch:ch16}): \textsc{Near} becomes a range query, the $k$-nearest
+variant a $k$-nearest query, and since points only ever get inserted, a
+tree rebuilt whenever the vertex count doubles keeps the amortised cost
+logarithmic. \Cref{lst:ch17-informed} is the informed sampler; the rotation
+is computed once per problem.
+
+\begin{lstlisting}[caption={Informed sampling (from \code{code/ch17\_rrt\_star.py}): the rotation of \cref{eq:ch17-rotation} and the sampler of \cref{alg:ch17-informed}, which samples whichever of the hyperspheroid and the box is smaller and rejects by the other. \code{random\_in\_ball} draws $w^{1/d}\vect{u}/\norm{\vect{u}}$.},label={lst:ch17-informed}]
+def rotation_to_world_frame(a1):
+    """Rotation matrix C with C e_1 = a1 (Gammell et al. 2014): from the
+    SVD U S V^T of a1 e_1^T take C = U diag(1, ..., 1, det U det V) V^T."""
+    d = len(a1)
+    M = np.outer(a1, np.eye(d)[0])
+    U, _, Vt = np.linalg.svd(M)
+    D = np.ones(d)
+    D[-1] = np.linalg.det(U) * np.linalg.det(Vt)
+    return U @ np.diag(D) @ Vt
+
+
+    def sample(self, rng, c_best, world):
+        """One sample uniform on (hyperspheroid intersect X)."""
+        if not np.isfinite(c_best):
+            return world.sample(rng)
+        if self.measure(c_best) > world.volume():
+            while True:                       # the box is the smaller set
+                self.draws += 1
+                x = world.sample(rng)
+                if self.contains(x, c_best):
+                    return x
+                self.rejections += 1
+        L = np.diag(self.semi_axes(c_best))
+        while True:                           # the spheroid is smaller
+            self.draws += 1
+            x_ball = random_in_ball(rng, self.d)
+            x = self.C @ (L @ x_ball) + self.centre
+            if world.inside(x):
+                return x
+            self.rejections += 1
+\end{lstlisting}
+
+\paragraph{Anytime use.}\index{anytime planning!while flying} A drone
+does not wait for $N$ iterations. The pattern of
+\textcite{karaman2011anytime} is: plan until the first solution, start
+flying its first segment, and keep running iterations at a fixed rate.
+Whenever $c_{\mathrm{best}}$ improves by more than a tolerance, hand the
+new path to the tracking layer. When the drone reaches a waypoint,
+re-root the tree there: the waypoint's subtree keeps its structure and all
+its costs drop by the cost of the waypoint, the other branches are pruned.
+Combine this with branch-and-bound pruning of vertices with
+$\mathrm{Cost}(v)+\norm{x_{\mathrm{goal}}-v}\ge c_{\mathrm{best}}$ and the
+tree stays small and focused; \cref{exr:ch17-anytime} builds it.
+
+\begin{pitfall}[A radius that is too small kills optimality]
+\rrtstar with a constant small radius, or with $\gamma$ below the
+threshold, still finds paths and still rewires, so nothing looks broken;
+it just stops improving at a cost above the optimum, because balls along
+the optimal route stay empty (\cref{sec:ch17-radius}). Two ways to get
+there by accident: forgetting the root, $r_n=\gamma\log n/n$ instead of
+$\gamma(\log n/n)^{1/d}$, and reusing a $\gamma$ tuned in 2D for a 3D
+problem, where $\zeta_3$ and the exponent $1/3$ change the threshold. Always
+compute $\gamma^*$ from \cref{eq:ch17-radius} with $\mu(\mathcal{X})$ and
+check that $r_n$ is capped by $\eta$ only in the early phase.
+\end{pitfall}
+
+\begin{pitfall}[Rewiring without propagating]
+If \textsc{Rewire} updates $\mathrm{Cost}(v)$ but not the costs of $v$'s
+descendants, the tree still returns valid paths, but $\mathrm{Cost}$ of
+those descendants is now too high: \textsc{ChooseParent} undervalues them
+as parents and \textsc{Rewire} rewires them when it should not.
+Convergence slows down and $c_{\mathrm{best}}$ may even be reported wrongly,
+because it is read from $\mathrm{Cost}(x_{\mathrm{goal}})$. Keep children
+lists and propagate (\cref{lst:ch17-subtree}), and assert the invariant of
+\cref{prop:ch17-invariant}(ii) in your tests; the bug shows up only under
+that assertion.
+\end{pitfall}
+
+\begin{pitfall}[Sampling the ellipse before a solution exists]
+With $c_{\mathrm{best}}=\infty$ the conjugate axis is infinite and the
+transformation produces \code{inf} and \code{nan}; with
+$c_{\mathrm{best}}<c_{\min}$, which happens when the goal region is larger
+than a point and $c_{\min}$ is measured to its centre, the square root is
+imaginary. Sample uniformly until the goal is actually in the tree, measure
+$c_{\min}$ to the point that was reached, and clamp
+$c_{\mathrm{best}}^2-c_{\min}^2$ at zero.
+\end{pitfall}
+
+\begin{pitfall}[Rewiring through obstacles]
+The temptation is to skip the collision check in \textsc{Rewire} because
+``$x_{\mathrm{new}}$ was checked when it was inserted''. Only the segment to
+its parent was. Every rewired edge is a new segment and needs its own check
+(line~\ref{alg:ch17-helpers:rwfree}); the same holds for the candidate
+segments of \textsc{ChooseParent}, and for a checker that is not symmetric
+(a drone with a heading) it must be run in the direction the edge will be
+flown. The self-test re-checks every returned path with a ten times finer
+subdivision.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{Where this fits in the drone system}
+\label{sec:ch17-drone}
+
+\begin{dronebox}
+\rrtstar and \irrtstar are the continuous planners of the global and
+replanning layers of \cref{ch:ch24}. The swarm as a whole is planned on a
+grid by \cbs or \ecbs (\cref{ch:ch09,ch:ch10}), because conflicts between
+drones are easiest to resolve in discrete space-time. A single drone calls
+\rrtstar instead of \astar when (i) it must cross a 3D volume whose grid
+would be far larger than the tree that solves it (the grid sizes of
+\cref{ch:ch16}), (ii) its constraints are not grid-shaped, for example a
+turning radius handled by kinodynamic steering, or (iii) an unexpected
+obstacle has invalidated a long stretch of its nominal route and the
+replanning layer wants a short, smooth detour rather than a staircase. It
+keeps \astar or \dstarlite (\cref{ch:ch04,ch:ch05}) when the map is small,
+when the plan must be time-indexed for the conflict re-check, or when the
+map keeps changing and incremental repair is cheaper than a new tree.
+
+Three habits make the planner fit the architecture. \emph{Anytime
+operation}: return the first path after a few hundred iterations, hand it
+to the local layer (\orca or DWA, \cref{ch:ch13,ch:ch14}), and keep
+improving it in the background while the drone flies, re-rooting at every
+waypoint. \emph{Seeding}: the drone already has a grid path from \cbs;
+string-pull it (\cref{ch:ch16}), insert its waypoints as the initial tree
+and set $c_{\mathrm{best}}$ to its length, so that \irrtstar samples the
+ellipsoid of the grid path from the first iteration. On the map of
+\cref{ex:ch17-map} the pulled grid path costs $17.23$ where the first
+random solution costs $21.0$, so the seeded ellipse is already close to
+final. \emph{Re-check}: a path planned in continuous space is still a
+single-agent path; after any replan, run the conflict check of
+\cref{ch:ch24} against the other drones' reservations before flying it.
+This is Week~8 of the study plan (\cref{ch:appA}); its milestone is being
+able to say, for a given mission, which of \cref{tab:ch17-comparison} and
+grid search to call.
+\end{dronebox}
+
+% ---------------------------------------------------------------------
+\section{Summary}
+\label{sec:ch17-summary}
+\begin{summary}
+\begin{itemize}
+  \item \rrtstar adds \textsc{Near}, \textsc{ChooseParent} and
+  \textsc{Rewire} to \rrt: the new vertex takes the cheapest collision-free
+  parent within $r_n$, then becomes the parent of every neighbour it can
+  serve more cheaply, and the saving is propagated to all descendants.
+  \item The connection radius
+  $r_n=\min\{\gamma_{\rrtstar}(\log n/n)^{1/d},\eta\}$ with
+  $\gamma_{\rrtstar}>2(1+1/d)^{1/d}(\mu(\Xfree)/\zeta_d)^{1/d}$ shrinks as
+  slowly as it can while keeping $\bigO{\log n}$ neighbours; the $k$-nearest
+  variant uses $k_n=\lceil k_{\mathrm{RRG}}\log n\rceil$ and needs no
+  volume.
+  \item With that radius the best cost converges to the optimum almost
+  surely (ball covering plus Borel--Cantelli); the theorem gives no rate,
+  needs a robustly optimal solution, and says nothing about the path
+  itself. \rrt converges to a suboptimal limit almost surely.
+  \item An iteration costs $\bigO{\log n}$ expected neighbours and a few
+  collision checks; a run costs $\bigO{n\log n}$, a constant factor above
+  \rrt.
+  \item Once a solution of cost $c_{\mathrm{best}}$ exists, only the
+  prolate hyperspheroid with foci $x_{\mathrm{init}},x_{\mathrm{goal}}$,
+  transverse diameter $c_{\mathrm{best}}$ and conjugate diameter
+  $\sqrt{c_{\mathrm{best}}^2-c_{\min}^2}$ can contain a better path;
+  \irrtstar samples it uniformly by scaling the unit ball, rotating and
+  translating, and converges much faster in large spaces.
+  \item BIT\textsuperscript{*} searches batches of informed samples with
+  an \astar-ordered edge queue; anytime \rrtstar re-roots the tree while the
+  drone flies and prunes with $\mathrm{Cost}(v)+\norm{x_{\mathrm{goal}}-v}\ge c_{\mathrm{best}}$.
+\end{itemize}
+\end{summary}
+
+\paragraph{Further reading.}
+The original paper is \textcite{karaman2011sampling}, which introduces
+RRG, \rrtstar and PRM\textsuperscript{*}, proves that \rrt is not
+asymptotically optimal and contains the full ball-covering proof; its
+anytime use is in \textcite{karaman2011anytime}, and
+\textcite{solovey2020revisiting} revisit the proof. \irrtstar is
+\textcite{gammell2014informed}, generalised in \textcite{gammell2018informed};
+BIT\textsuperscript{*} is \textcite{gammell2015bit} and
+FMT\textsuperscript{*} \textcite{janson2015fmt}. The textbook treatment of
+sampling-based planning is \textcite{lavalle2006planning}, and the tree
+itself goes back to \textcite{lavalle1998rrt}. The connectivity threshold
+of random geometric graphs, the reason the radius has the form it has, is
+the subject of \textcite{penrose2003random}.
+
+% ---------------------------------------------------------------------
+\section{Exercises}
+\label{sec:ch17-exercises}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch17-hand}
+Repeat \cref{ex:ch17-hand} on the tree of \cref{tab:ch17-hand} (before the
+iteration) with the sample $x_{\mathrm{rand}}=(5.0,2.6)$, $\eta=1$ and
+$r_n=2$. Give the nearest vertex, $x_{\mathrm{new}}$, the \textsc{Near}
+set, the candidates of \textsc{ChooseParent} in the order they are tested
+with their costs, the chosen parent, and every rewiring with the costs
+before and after. Check with \code{tiny\_example(x\_rand=(5.0, 2.6))}.
+\end{exercise}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch17-radius}
+(a) For the map of \cref{ex:ch17-gamma} ($\gamma=13.3$, $\eta=1$), find the
+number of vertices at which the cap in \cref{eq:ch17-radius} stops being
+active, and the expected size of the \textsc{Near} set at $n=10^4$.
+(b) The 3D scene of \cref{ch:ch16} has $\mu(\Xfree)\approx716$. Compute
+$\gamma^*_{\rrtstar}$ with this value and with $\mu(\mathcal{X})=1\,000$,
+and the number of vertices at which the cap $\eta=1.5$ stops being active
+for $\gamma=15$. (c) Explain, with the computation of
+\cref{sec:ch17-radius}, what goes wrong with $r_n=\gamma\log n/n$ in 2D.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch17-ellipsoid}
+Derive the sampling transformation of \cref{eq:ch17-transform}. (a) Show
+that the set $\hat f(x)\le c_{\mathrm{best}}$ is the image of the unit ball
+under $x=\mat{C}\mat{L}\vect{x}_{\mathrm{ball}}+\vect{x}_{\mathrm{centre}}$
+with the semi-axes of \cref{eq:ch17-axes}; start from the frame in which
+the foci are $(\pm c_{\min}/2,0,\dots,0)$. (b) Show that the image of a
+uniform density under an affine map with invertible matrix $\mat{A}$ is
+uniform, with density divided by $\abs{\det\mat{A}}$, and conclude that
+the samples are uniform on the hyperspheroid. (c) Show that
+$w^{1/d}\vect{u}/\norm{\vect{u}}$ is uniform in the unit ball. (d) Verify
+that \cref{eq:ch17-rotation} is orthogonal, has determinant $+1$ and maps
+$\vect{e}_1$ to $\vect{a}_1$; in 2D reduce it to the rotation by the angle
+of $\vect{a}_1$.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch17-invariant}
+Prove \cref{prop:ch17-invariant}(i) in detail: show that a rewire can never
+create a cycle, and give the tree, the sample and the near set of a
+concrete situation in which \textsc{Rewire} considers a candidate that
+would create one and rejects it. Then show that the \emph{order} in which
+\textsc{Rewire} processes the candidates does not change the tree at the
+end of the iteration (except for exact ties), even when one candidate is a
+descendant of another, but that it can change the amount of propagation
+work, and say which order minimises that work.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch17-rrt-limit}
+Explain why the root of an \rrt tree has only finitely many children with
+probability one, and why this implies that the best cost of \rrt converges
+to a random limit above $c^*$. Then test it: run \code{rrt\_plain} on
+\cref{ex:ch17-map} for $20$ seeds and $10\,000$ iterations, recording the
+cost of the best of \emph{all} goal-reaching paths (keep the goal bias on
+after the first solution), and compare the distribution of final costs
+with \cref{fig:ch17-convergence}(a).
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch17-fraction}
+(a) For the wide field of \cref{fig:ch17-ellipses} compute the fraction of
+the field inside the informed set at $c_{\mathrm{best}}=24.3$, $19.1$ and
+$14.0$, and the expected number of uniform draws per accepted sample if
+rejection sampling were used. (b) Do the same for the 3D scene
+($c_{\min}=15.59$, $\mathcal{X}=[0,10]^3$) at $c_{\mathrm{best}}=23.45$,
+$21.07$, $17.0$ and $16.0$. (c) At which $c_{\mathrm{best}}$ does the
+ellipse on the $10\times10$ map of \cref{ex:ch17-map} stop containing the
+whole map?
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch17-coding}
+This is the Week~8 coding exercise of the study plan (\cref{ch:appA}).
+Starting from your \rrt of \cref{ch:ch16}, implement \rrtstar in the API
+of \code{code/ch17\_rrt\_star.py} without reading that file until you are
+stuck: a tree class with parents, edge lengths, costs and children lists;
+\textsc{Near} by radius and by $k$ nearest; \textsc{ChooseParent} with
+sorted candidates; \textsc{Rewire} with subtree propagation. (a) Reproduce
+\cref{tab:ch17-hand} and \cref{tab:ch17-convergence}. (b) Run it in the
+3D box field of \cref{ch:ch16} with $\eta=1.5$ and record
+$c_{\mathrm{best}}$ against iterations; compare with 26-connected grid
+\astar at $h=0.25$ (\cref{ch:ch04}) after string pulling, both in path
+length and in computation time. (c) Add informed sampling with
+\cref{eq:ch17-transform} and show, with a plot like
+\cref{fig:ch17-convergence}, on which of your maps it helps. (d) Write the
+self-test: paths collision-free at a finer subdivision, costs consistent,
+$c_{\mathrm{best}}$ non-increasing, all informed samples inside the
+ellipsoid, and the final cost within $5\,\%$ of the grid reference.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3}]
+\label{exr:ch17-anytime}
+Build the anytime planner of \cref{sec:ch17-implementation}. (a) Implement
+re-rooting: given a waypoint $w$ on the current best path, make $w$ the
+root, subtract $\mathrm{Cost}(w)$ from its subtree and discard the rest.
+(b) Implement branch-and-bound pruning and measure how many vertices it
+removes on the wide field after the first solution. (c) Seed the tree with
+the string-pulled grid path of \cref{ex:ch17-map} as its initial branch,
+set $c_{\mathrm{best}}$ to its length and compare the convergence with an
+unseeded \irrtstar over $20$ seeds. (d) Simulate a drone that flies at one
+unit per $50$ iterations along the current path; report the length actually
+flown against the length of the first path and the optimum.
+\end{exercise}

@@ -1,0 +1,126 @@
+"""Run the mini-study of Chapter 25 and write its data files.
+
+The study is the one of code/ch25_evaluation.py: cells (k, m) in
+{2, 4} x {0, 1}, strategies none / local / replan / hybrid, 20 seeds per
+cell, noisy prediction (constant-velocity Kalman filter), intruder families
+mixed (straight, turning, evasive by seed).  Every strategy sees the same
+scenarios (paired design).
+
+Files written (whitespace separated, one header row, ASCII only):
+  figures/data/ch25-study-runs.dat     one row per run, all metrics
+  figures/data/ch25-study-box.dat      20 rows; one column per cell and
+                                       strategy for the drone--intruder
+                                       minimum separation (dmin_*, m=1 cells)
+                                       and the path-length ratio (pr_*)
+  figures/data/ch25-study-cactus.dat   sorted total computation time per
+                                       run (ms) for every strategy, 80 rows
+  figures/data/ch25-study-pareto.dat   one row per (cell, strategy): mean
+                                       path ratio, collision rate, near-miss
+                                       rate, median minimum separation
+  figures/data/ch25-study-summary.dat  one row per (cell, strategy) with
+                                       the summary statistics of the table
+
+Run from Overleaf/:   python3 code/figures/gen_ch25_study.py
+"""
+import os
+import sys
+
+import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))
+from ch25_evaluation import (METRIC_COLUMNS, STRATEGIES, STUDY_CELLS, STUDY_SEEDS,  # noqa: E402
+                             paired_table, print_summary, run_mini_study, summarise,
+                             write_dat)
+
+DATA = os.path.join(os.path.dirname(HERE), "..", "figures", "data")
+
+
+def main():
+    rows = run_mini_study()
+    summary = summarise(rows)
+    print_summary(summary)
+
+    cols = ("k", "m", "seed", "strategy", "family") + METRIC_COLUMNS
+    write_dat(os.path.join(DATA, "ch25-study-runs.dat"), rows, cols)
+
+    # box-plot columns: 20 values per (cell, strategy)
+    box_rows = [{} for _ in STUDY_SEEDS]
+    box_cols = []
+    for (k, m) in STUDY_CELLS:
+        for strat in STRATEGIES:
+            sel = sorted([r for r in rows if r["k"] == k and r["m"] == m and r["strategy"] == strat],
+                         key=lambda r: r["seed"])
+            if m == 1:
+                name = "dmin_k%d_%s" % (k, strat)
+                box_cols.append(name)
+                for i, r in enumerate(sel):
+                    box_rows[i][name] = r["dmin_di"]
+            name = "pr_k%dm%d_%s" % (k, m, strat)
+            box_cols.append(name)
+            for i, r in enumerate(sel):
+                box_rows[i][name] = r["path_ratio"]
+    write_dat(os.path.join(DATA, "ch25-study-box.dat"), box_rows, box_cols)
+
+    # cactus: sorted total computation time per run (ms), one column per strategy
+    n_runs = len(STUDY_CELLS) * len(STUDY_SEEDS)
+    cactus = [{"n": i + 1} for i in range(n_runs)]
+    for strat in STRATEGIES:
+        times = sorted(r["comp_total_s"] * 1000.0 for r in rows if r["strategy"] == strat)
+        for i, t in enumerate(times):
+            cactus[i][strat] = t
+    write_dat(os.path.join(DATA, "ch25-study-cactus.dat"), cactus, ("n",) + STRATEGIES)
+
+    # pareto and summary rows
+    pareto, summ = [], []
+    for (k, m, strat), s in summary.items():
+        dm = s["dmin_di"]
+        base = {"k": k, "m": m, "cell": "k%dm%d" % (k, m), "strategy": strat, "n": s["n"],
+                "path_ratio": s["path_ratio"]["mean"], "coll_rate": s["collision"]["p"],
+                "near_miss": s["near_miss"]["p"],
+                "dmin_median": dm["median"] if dm else float("nan")}
+        pareto.append(base)
+        row = dict(base)
+        row.update({
+            "path_lo": s["path_ratio"]["lo"], "path_hi": s["path_ratio"]["hi"],
+            "coll_lo": s["collision"]["lo"], "coll_hi": s["collision"]["hi"],
+            "dmin_q1": dm["q1"] if dm else float("nan"), "dmin_q3": dm["q3"] if dm else float("nan"),
+            "dmin_p5": dm["p5"] if dm else float("nan"),
+            "makespan": s["makespan"]["mean"], "mk_lo": s["makespan"]["lo"], "mk_hi": s["makespan"]["hi"],
+            "soc": s["soc"]["mean"], "replans": s["replans"]["mean"],
+            "comp_ms": s["comp_mean_ms"]["mean"], "comp_total_s": s["comp_total_s"]["mean"],
+            "ef_mean": s["ef_mean"]["mean"], "ef_max": s["ef_max"]["mean"],
+            "comm_viol": s["comm_viol"]["mean"], "success": s["success"]["p"],
+            "avoid_steps": s["avoid_steps"]["mean"],
+        })
+        summ.append(row)
+    write_dat(os.path.join(DATA, "ch25-study-pareto.dat"), pareto,
+              ("k", "m", "cell", "strategy", "n", "path_ratio", "coll_rate", "near_miss", "dmin_median"))
+    write_dat(os.path.join(DATA, "ch25-study-summary.dat"), summ, tuple(summ[0].keys()))
+
+    print("\nLaTeX rows of the results table (cell, strategy, n, coll rate [CI], median dmin (IQR),"
+          " path ratio, makespan, SoC, replans, comp ms, eF mean, comm viol, success):")
+    for r in summ:
+        print("%s & %s & %.2f [%.2f, %.2f] & %s & %.3f & %.1f & %.1f & %.2f & %.3f & %.2f & %.1f & %.2f \\\\" % (
+            r["cell"], r["strategy"], r["coll_rate"], r["coll_lo"], r["coll_hi"],
+            ("%.2f (%.2f--%.2f)" % (r["dmin_median"], r["dmin_q1"], r["dmin_q3"])) if np.isfinite(r["dmin_median"]) else "--",
+            r["path_ratio"], r["makespan"], r["soc"], r["replans"], r["comp_ms"], r["ef_mean"],
+            r["comm_viol"], r["success"]))
+    print("\nPaired comparisons (hybrid minus other):")
+    for metric in ("path_ratio", "dmin_di", "makespan", "replans", "ef_mean"):
+        for other in ("local", "replan"):
+            for cell, c in paired_table(rows, metric, "hybrid", other).items():
+                print("  %-10s vs %-6s cell %s: diff %+.3f [%+.3f, %+.3f] d_z %+.2f "
+                      "better/worse/tie %d/%d/%d p_wilcoxon %.3f p_sign %.3f" % (
+                          metric, other, cell, c["mean_diff"], c["lo"], c["hi"], c["d_z"],
+                          c["better"], c["worse"], c["tie"], c["p_wilcoxon"], c["p_sign"]))
+    fam = {}
+    for r in rows:
+        if r["m"] == 1 and r["strategy"] == "none":
+            fam.setdefault(r["family"], []).append(r["collision"])
+    print("\nCollision rate of 'none' by intruder family:",
+          {f: "%d/%d" % (sum(v), len(v)) for f, v in fam.items()})
+
+
+if __name__ == "__main__":
+    main()

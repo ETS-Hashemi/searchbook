@@ -1,4 +1,375 @@
 \chapter{The Hybrid Collision-Avoidance Architecture}
 \label{ch:ch24}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode are prefixed with "Hybrid" to stay unique
+% across the book.
+\SetKwFunction{HybridLoop}{ControlCycle}
+\SetKwFunction{HybridTrigger}{InsideHorizon}
+\SetKwFunction{HybridIntended}{IntendedPositions}
+\SetKwFunction{HybridReconnect}{Reconnect}
+\SetKwFunction{HybridSegment}{SegmentFree}
+\SetKwFunction{HybridReplan}{ReplanAndRecheck}
+\SetKwFunction{HybridLocal}{LocalVelocity}
+\SetKwFunction{HybridSearch}{SpaceTimeSearch}
+\SetKwFunction{HybridDetect}{FirstConflict}
+\SetKwFunction{HybridCbs}{LocalCBS}
+
+\begin{objectives}
+\begin{itemize}
+  \item Draw the four-layer architecture as a block diagram with its data flows and rates, and state the inputs, outputs and guarantees of every layer.
+  \item Describe the world model that the layers share, and convert a time-indexed grid path into a velocity reference and a continuous state back into a space-time start.
+  \item Run the decision logic by hand: the state machine Nominal / Avoiding / Reconnecting / Replanning, the safety-horizon trigger built from a predicted trajectory and its uncertainty, the reconnection search, the replanning trigger and the conflict re-check.
+  \item Say precisely which guarantees of \cbs, \orca and space-time \astar survive the integration, which do not, and which experiment of \cref{ch:ch25} measures the gap.
+  \item Build the capstone prototype of the study plan (\cref{ch:appA}, Week~12) from the modules of the earlier chapters, and recognise the four integration pitfalls that break it.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch24-motivation}
+
+Every earlier chapter solved one problem well. \cbs and \ecbs
+(\cref{ch:ch09,ch:ch10}) compute conflict-free, time-indexed routes for the
+drones you control, but only for the world they were given before take-off.
+The Kalman filter and the learned predictors (\cref{ch:ch18,ch:ch20}) tell you
+where an unknown drone will be in the next few seconds, with an honest
+covariance, but they do not decide anything. \orca and DWA
+(\cref{ch:ch13,ch:ch14}) choose a safe velocity for the next tenth of a second,
+but they have no memory, no plan and no notion of a swarm. \dstarlite and
+\astar (\cref{ch:ch05,ch:ch04}) repair a route on a changed map, but a route
+for one drone is worthless if it crosses the routes of the others. The
+consensus and MPC controllers (\cref{ch:ch23,ch:ch21}) keep a formation and a
+radio link, as long as nobody has to swerve.
+
+The picture that motivates this chapter is the one of \cref{ch:ch01}: three
+delivery drones fly a planned mission through a district, and a fourth drone
+that nobody planned for crosses their lanes. The nominal plan must not be
+thrown away at the first sign of trouble, because it is the only thing that
+keeps the three from colliding with \emph{each other}; it must not be
+followed blindly either, because it knows nothing about the intruder. The
+\textbf{hybrid architecture}\index{hybrid architecture} of the training plan
+(\cref{ch:appA}) resolves this with one rule: \emph{a global planner for the
+routes, a local method for the surprises, a replanner only when the local
+response is insufficient}. This chapter turns that sentence into an
+executable design: a block diagram with rates, a shared world model, a
+state machine, four precise decision rules with pseudocode, a fully worked
+scenario run by the book's own code, and an honest account of what the
+composed system does and does not guarantee.
+
+The chapter is organised as follows. \Cref{sec:ch24-intuition} gives the
+architecture and the interfaces, \cref{sec:ch24-world} the world model,
+\cref{sec:ch24-logic} the state machine and the per-drone control loop.
+\Cref{sec:ch24-horizon,sec:ch24-reconnect,sec:ch24-replan} define the three
+decisions that drive the transitions: the safety-horizon trigger, the
+reconnection, and the replanning with its conflict re-check.
+\Cref{sec:ch24-constraints,sec:ch24-uncertainty} add the formation and
+communication constraints and the treatment of prediction uncertainty.
+\Cref{sec:ch24-scenario} runs the worked scenario, \cref{sec:ch24-guarantees}
+states the guarantees, \cref{sec:ch24-implementation} describes the
+implementation and its pitfalls, and \cref{sec:ch24-research} lists the
+research directions of the training plan with concrete formulations. The
+exercises end with the capstone build of Week~12.
+
+% ---------------------------------------------------------------------
+\section{The idea in plain words}
+\label{sec:ch24-intuition}
+
+Think of the four layers as four people with different time budgets
+(\cref{fig:ch24-architecture}). The \emph{global planner} works before
+take-off, with seconds or minutes, and produces one time-indexed path
+$\pi_i$ per drone; it is the only component that reasons about all drones at
+once, and its output is the contract the drones fly by. The \emph{prediction
+layer} watches the sensors ten times a second and maintains, for each
+unknown object, an estimate with a covariance and a short predicted
+trajectory. The \emph{local safety layer} also runs ten times a second; it
+receives a preferred velocity and the predicted obstacles and returns the
+closest velocity that is safe for the next few seconds. The \emph{replanning
+layer} runs only on demand: when a drone has been pushed so far off its
+route that it cannot get back safely, it computes a new route from where the
+drone actually is, on a map in which the predicted intruder positions are
+blocked and the other drones' routes are reserved.
+
+The glue between them is the \textbf{executive}\index{executive}: a small
+state machine that runs in every drone at the control rate and decides which
+layer is in charge. While no predicted conflict lies inside a short
+\emph{safety horizon}, the executive follows the nominal path and the local
+layer is idle. When the prediction says that the intruder will come too
+close within the horizon, the local layer takes the velocity command, and the
+nominal path is kept in memory. When the danger has passed, the executive
+tries to \emph{reconnect}: it picks a waypoint a little further along the
+nominal path and checks whether a straight flight to it is safe. Only if that
+fails does it call the replanner, and after any replan it re-checks the new
+route against the routes of the other drones, because a route that is safe
+against the intruder may now cross a teammate.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch24/architecture}
+  \caption{The four layers, the executive and the shared world model, with
+  the data that flows between them and the rate at which each block runs.
+  What to notice: the global planner and the replanner work on the
+  grid-and-time side of the world model, the local layer and the predictor on
+  the continuous side; the executive sits in the middle and is the only
+  block that converts between the two. The dashed arrow is the conflict
+  re-check that closes the loop back to the global planner.}
+  \label{fig:ch24-architecture}
+\end{figure}
+
+\begin{keyidea}
+Keep the global plan as the contract between the drones and treat every
+deviation from it as temporary. A deviation is handled by the cheapest layer
+that can handle it: first a velocity change for a few seconds, then a
+reconnection to the plan, then a new plan for one drone, and only then a new
+plan for several. Each escalation is triggered by a condition you can write
+down, and each returns the drone to the contract or replaces the contract
+with one that has been checked again.
+\end{keyidea}
+
+\Cref{tab:ch24-layers} is the architecture as a set of interfaces. The rates
+are those of the code of this chapter and of a typical small quadrotor: a
+control cycle of $\dt = 0.1$\,s, a prediction horizon of a few seconds, and a
+grid time step of one second, which is the time a drone needs to cross one
+cell at cruise speed.
+
+\begin{table}[tb]
+  \centering\footnotesize
+  \caption{Responsibilities and interfaces of the layers. Each layer is a
+  module with the inputs and outputs listed; the rate column is the one used
+  in the worked scenario of \cref{sec:ch24-scenario}.}
+  \label{tab:ch24-layers}
+  \begin{tabularx}{\textwidth}{@{}lYYYl@{}}
+  \toprule
+  Layer (chapter) & Inputs & Outputs & Guarantee & Rate\\
+  \midrule
+  1 Global swarm planner: \cbs, \ecbs (\cref{ch:ch09,ch:ch10}) & inflated grid, starts, goals, swarm constraints & one time-indexed path $\pi_i$ per drone, $\sumcost$, $\makespan$ & conflict-free; optimal or $w$-suboptimal & once before take-off; on request after a failed local repair\\
+  2 Prediction: Kalman filter, EKF/UKF/PF, LSTM (\cref{ch:ch18,ch:ch19,ch:ch20}) & noisy observations $\meas_k$ of every unknown object & estimate $\hat{\state}_k$, predicted means $\hat{\pos}_{T+h}$ and covariances $\mat{\Sigma}_h$ for $h\,\dt \le T_{\mathrm{pred}}$ & calibrated ellipse per step (if the model holds) & every control cycle, 10\,Hz\\
+  3 Local safety: \orca, DWA (\cref{ch:ch13,ch:ch14}) & own state, teammates' states, predicted intruder disc, preferred velocity $\vel^{\mathrm{pref}}$ & velocity command $\vel^{\mathrm{new}}$, feasibility flag & pairwise safety for $\ttc$ under its assumptions & every control cycle, 10\,Hz\\
+  4 Replanning: \dstarlite, \astar (\cref{ch:ch05,ch:ch04}) & current cell and start time, reservation table of the others, blocked cells per time layer & new path $\pi_i'$ from the current cell, or failure & conflict-free against the reserved paths & on demand, at most one per $T_{\mathrm{replan}}$\\
+  Executive (this chapter) & everything above, formation offsets, $R_{\mathrm{comm}}$ & state, $\vel^{\mathrm{pref}}$, triggers, re-check & the composition of \cref{sec:ch24-guarantees} & every control cycle, 10\,Hz\\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{The world model shared by the layers}
+\label{sec:ch24-world}
+
+The global and replanning layers live on a grid with discrete time; the
+local and prediction layers live in continuous space and time. The two
+descriptions must refer to the same world, the same clock and the same
+frame, and the executive must convert between them in both directions.
+
+\begin{definition}[Hybrid world model]
+\label{def:ch24-world}
+The \textbf{hybrid world model}\index{world model!hybrid}\index{hybrid
+architecture!world model} consists of
+\begin{enumerate}
+  \item a grid $G = (V, E)$ of square cells of side $\ell$ (\cref{ch:ch02}),
+  inflated by the drone radius, with a time step $\Delta T = \ell / v_{\mathrm{cruise}}$;
+  the cell $(x, y)$ has its centre at $\vect{c}(x,y) = ((x + \tfrac12)\ell, (y + \tfrac12)\ell)$;
+  \item for every drone $a_i$ a \textbf{time-indexed path}\index{time-indexed path} $\pi_i$ with a
+  \textbf{start time}\index{path!start time $t_0$} $t_0^i \in \N$: $\pi_i[j]$ is the cell
+  occupied at grid time $t_0^i + j$, and the drone parks at $\pi_i[T_i]$ from
+  $t_0^i + T_i$ on (stay-at-target, \cref{ch:ch07});
+  \item the \textbf{reservation table}\index{reservation table!with time offsets} $R$ of the
+  other drones, holding the pairs (cell, grid time), the reversed moves and the
+  parked goals of their paths in absolute time, exactly as in \cref{ch:ch04,ch:ch08};
+  \item the \textbf{blocked layers}\index{blocked layer} $\mathcal{B}_t \subseteq V$: the cells that the
+  predicted intruder may occupy at grid time $t$;
+  \item the continuous states: own position $\pos_i(t)$ and velocity
+  $\vel_i(t)$, the teammates' states, and for each intruder the estimate
+  $\hat{\state}$ with predicted means $\hat{\pos}_{T+h}$ and covariances
+  $\mat{\Sigma}_h$ at the look-ahead $s = h\,\dt$ for $0 \le s \le T_{\mathrm{pred}}$ (\cref{ch:ch20}).
+\end{enumerate}
+One clock $t$ (seconds since mission start) and one frame serve all of them;
+grid time $t_{\mathrm{grid}} = t / \Delta T$.
+\end{definition}
+
+In the worked scenario $\ell = 1$\,m, $v_{\mathrm{cruise}} = 1$\,m/s, so
+$\Delta T = 1$\,s and grid time equals time in seconds; the control cycle is
+$\dt = 0.1$\,s.
+
+\paragraph{From a path to a velocity reference.}
+The flight controller needs a continuous reference. The
+\textbf{reference position}\index{reference position} of drone $a_i$ at time
+$t$ is the linear interpolation between the cells of its path,
+\begin{equation}
+  \pos^{\mathrm{ref}}_i(t) = \vect{c}(\pi_i[j]) + (s - j)\bigl(\vect{c}(\pi_i[j+1]) - \vect{c}(\pi_i[j])\bigr),
+  \qquad s = \frac{t}{\Delta T} - t_0^i,\quad j = \lfloor s \rfloor,
+  \label{eq:ch24-reference}
+\end{equation}
+clamped to the first cell for $s \le 0$ and to the last cell for $j \ge T_i$.
+The \textbf{preferred velocity}\index{preferred velocity!from a path} that the
+executive hands to the local layer is a pure pursuit of the reference a short
+lookahead $t_{\mathrm{la}}$ ahead,
+\begin{equation}
+  \vel^{\mathrm{pref}}_i(t) = \frac{\pos^{\mathrm{ref}}_i(t + t_{\mathrm{la}}) - \pos_i(t)}{t_{\mathrm{la}}},
+  \qquad \text{clipped to } \norm{\vel^{\mathrm{pref}}_i} \le v_{\mathrm{cruise}} \text{ while the path is unfinished},
+  \label{eq:ch24-vpref}
+\end{equation}
+with $t_{\mathrm{la}} = 0.5$\,s in the code. A drone that sits on its reference
+receives exactly the velocity of the reference; a drone that has been pushed
+off receives a velocity that steers it back, and the pull grows with the
+distance. The \textbf{drift}\index{drift from the plan}
+$d_i(t) = \norm{\pos_i(t) - \pos^{\mathrm{ref}}_i(t)}$ is the distance from
+the reference and is the quantity the executive monitors while the local
+layer is in charge.
+
+\paragraph{From a continuous state back to the grid.}
+The replanner needs a space-time start. The executive uses the cell that
+contains the drone, $c_0 = (\lfloor p_x/\ell \rfloor, \lfloor p_y/\ell \rfloor)$,
+or its nearest free neighbour if that cell is blocked, and the \textbf{start
+time}\index{replanning!start time $t_{\mathrm{start}}$}
+$t_{\mathrm{start}} = \lceil t/\Delta T + \tfrac12 \rceil$, the next grid time
+that leaves at least half a step to fly to the centre of $c_0$. The new path
+is stored as $\pi_i' = (c_0, \pi_i'[1], \dots)$ with $t_0^i = t_{\mathrm{start}} - 1$,
+so that \cref{eq:ch24-reference} interpolates from the current cell into the
+plan. Everything a teammate reserves is expressed in absolute grid time
+through its own $t_0$; the executive never stores a path without its start
+time, which is the mistake of the third pitfall of
+\cref{sec:ch24-implementation}.
+
+\paragraph{The intruder on the grid.}
+The prediction is a sequence of discs. At every grid time $t' \ge
+t_{\mathrm{start}}$ inside the prediction horizon, the executive blocks the
+cells whose centre lies within $R_{\mathrm{safe}} + \kappa_p\,\sigma(h) + \ell/2$
+of the predicted mean, where $h$ is the prediction step that matches $t'$;
+\cref{sec:ch24-uncertainty} defines the inflation. These are the layers
+$\mathcal{B}_{t'}$; they change every cycle, which is the situation
+\dstarlite was built for (\cref{ch:ch05}).
+
+% ---------------------------------------------------------------------
+\section{The decision logic: a state machine and a control loop}
+\label{sec:ch24-logic}
+
+The five steps of the training plan (follow, avoid, reconnect, replan,
+re-check) become four states of the executive and the transitions of
+\cref{fig:ch24-state-machine}. Each drone runs its own copy; the only shared
+data are the paths in the world model.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch24/state-machine}
+  \caption{The per-drone state machine. What to notice: every transition is
+  labelled with a condition the executive can evaluate from the world model;
+  the two self-loops are where the time is spent; and Reconnecting is the
+  state through which every deviation returns to Nominal, whether the plan
+  was kept, shifted or replaced.}
+  \label{fig:ch24-state-machine}
+\end{figure}
+
+\begin{description}[style=nextline]
+  \item[Nominal.] The drone follows $\pi_i$ through \cref{eq:ch24-vpref}
+  with the formation and communication terms of \cref{sec:ch24-constraints}.
+  The local layer is armed but sees only the teammates, and since the
+  teammates follow a conflict-free plan its half-planes are inactive.
+  \item[Avoiding.] The local layer commands the velocity. The intruder enters
+  as a disc with full responsibility and an uncertainty-inflated radius, the
+  teammates as reciprocal discs. The formation term is switched off; the
+  nominal path is kept.
+  \item[Reconnecting.] The drone flies a straight segment to a waypoint
+  $\pi_i[k]$ of its plan, timed to arrive at grid time $t_0^i + k + \Delta$
+  with a delay $\Delta \ge 0$; when it gets there it is Nominal again.
+  \item[Replanning.] The replanning layer computes $\pi_i'$ from the current
+  cell; the result is re-checked against the others. While no path exists the
+  drone hovers under the protection of the local layer and retries.
+\end{description}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Transitions of the state machine, their conditions and the action
+  taken. The parameters are listed in \cref{tab:ch24-parameters}.}
+  \label{tab:ch24-transitions}
+  \begin{tabularx}{\textwidth}{@{}llYY@{}}
+  \toprule
+  From & To & Condition & Action\\
+  \midrule
+  Nominal & Avoiding & a predicted conflict is inside the horizon: $t_c \le \tau_h$ (\cref{def:ch24-inside}) & remember $t_{\mathrm{enter}} = t$; keep $\pi_i$\\
+  Avoiding & Reconnecting & no predicted conflict for $n_{\mathrm{clear}}$ consecutive cycles, and \HybridReconnect finds $(k, \Delta)$ & target $\pi_i[k]$ at $t_0^i + k + \Delta$; if $\Delta > 0$ shift the remainder of $\pi_i$ and re-check\\
+  Avoiding & Replanning & drift $d_i > d_{\max}$, or $t - t_{\mathrm{enter}} > t_{\mathrm{avoid}}$, or the local program was infeasible, or \HybridReconnect fails & release the formation slot; keep hovering safely until a path exists\\
+  Reconnecting & Nominal & the target waypoint time has been reached & clear the target\\
+  Reconnecting & Avoiding & a predicted conflict is inside the horizon again & as Nominal $\to$ Avoiding\\
+  Reconnecting & Replanning & the segment to the target is no longer free & as above\\
+  Replanning & Reconnecting & \HybridReplan returned a path and the re-check passed (possibly after a local \cbs) & target the first cell of $\pi_i'$ at $t_{\mathrm{start}}$\\
+  Nominal & Reconnecting & another drone's re-check changed $\pi_i$ (partial replanning) & target the first cell of the new path\\
+  \bottomrule
+  \end{tabularx}
+\end{table}
+
+\Cref{alg:ch24-loop} is the control loop that implements the table; it is
+called once per cycle for every drone with the freshest prediction. The
+functions it calls are the subject of the next three sections:
+\HybridTrigger is \cref{alg:ch24-trigger}, \HybridReconnect is
+\cref{alg:ch24-reconnect}, \HybridReplan is \cref{alg:ch24-replan}, and
+\HybridLocal is the \orca program of \cref{ch:ch13} (or the DWA search of
+\cref{ch:ch14}) with the half-planes chosen by the argument list.
+
+\begin{algorithm}[htb]
+\caption{The per-drone control cycle of the executive}
+\label{alg:ch24-loop}
+\KwIn{drone $a_i$ with state, path $\pi_i$, start time $t_0^i$; time $t$; prediction $(\hat{\pos}_{T+h}, \mat{\Sigma}_h)_h$ or \KwNil; states of the teammates}
+\KwOut{the velocity command for this cycle}
+\Fn{\HybridLoop{$a_i$, $t$}}{
+  $(\mathit{inside}, t_c) \gets$ \HybridTrigger{$a_i$, $t$, prediction}\label{alg:ch24-loop:trigger}\;
+  \If{state $=$ Nominal \KwAnd $\mathit{inside}$}{state $\gets$ Avoiding; $t_{\mathrm{enter}} \gets t$; $n_{\mathrm{ok}} \gets 0$\label{alg:ch24-loop:enter}\;}
+  \If{state $=$ Avoiding}{
+    $n_{\mathrm{ok}} \gets 0$ \textbf{if} $\mathit{inside}$ \textbf{else} $n_{\mathrm{ok}} + 1$\;
+    \If{$d_i(t) > d_{\max}$ \KwOr $t - t_{\mathrm{enter}} > t_{\mathrm{avoid}}$ \KwOr the last local program was infeasible}{state $\gets$ Replanning\label{alg:ch24-loop:bound}\;}
+    \ElseIf{$n_{\mathrm{ok}} \ge n_{\mathrm{clear}}$}{
+      $(k, \Delta) \gets$ \HybridReconnect{$a_i$, $t$, prediction}\label{alg:ch24-loop:reconnect}\;
+      \lIf{$(k,\Delta) =$ failure}{state $\gets$ Replanning}
+      \Else{state $\gets$ Reconnecting; target $\gets (\vect{c}(\pi_i[k]),\, t_0^i + k + \Delta)$\;
+        \lIf{$\Delta > 0$}{$\pi_i \gets \pi_i[k{:}]$; $t_0^i \gets t_0^i + k + \Delta$; re-check as in \cref{alg:ch24-replan}\label{alg:ch24-loop:shift}}}
+    }
+    \lElse{\KwRet \HybridLocal{$\vel^{\mathrm{pref}}_i$ without formation term; teammates reciprocal; intruder with full share, inflated radius at $t_c$}\label{alg:ch24-loop:avoid}}
+  }
+  \If{state $=$ Replanning}{
+    \lIf{$t - t_{\mathrm{replan}} \ge T_{\mathrm{replan}}$ \KwAnd \HybridReplan{$a_i$, $t$, prediction} succeeds}{$t_{\mathrm{replan}} \gets t$; state $\gets$ Reconnecting; target $\gets (\vect{c}(c_0),\, t_{\mathrm{start}})$\label{alg:ch24-loop:replan}}
+    \lElse{\KwRet \HybridLocal{$\vect{0}$; teammates and intruder as in Avoiding}\tcp*[f]{hover safely, retry next cycle}\label{alg:ch24-loop:hover}}
+  }
+  \If{state $=$ Reconnecting}{
+    \lIf{$\mathit{inside}$}{state $\gets$ Avoiding; \KwRet the velocity of line~\ref{alg:ch24-loop:avoid}\label{alg:ch24-loop:again}}
+    \lIf{$t \ge$ target time}{state $\gets$ Nominal; clear the target\label{alg:ch24-loop:back}}
+  }
+  \KwRet \HybridLocal{$\vel^{\mathrm{pref}}_i$ with formation and communication terms; teammates reciprocal; no intruder}\label{alg:ch24-loop:nominal}\;
+}
+\end{algorithm}
+
+Three details of the loop deserve a comment. First, the trigger on
+line~\ref{alg:ch24-loop:trigger} is evaluated in every state, so that a
+reconnecting drone that flies into a new prediction returns to Avoiding on
+line~\ref{alg:ch24-loop:again} before it is hit. Second, the Avoiding state
+has two exits and the bounded one, line~\ref{alg:ch24-loop:bound}, is the
+important one: without a bound on the drift and on the time, the local layer
+can carry the drone arbitrarily far from its plan, and the reservation table
+of the others, which assumes the plan, becomes fiction (first pitfall of
+\cref{sec:ch24-implementation}). Third, the velocities returned on
+lines~\ref{alg:ch24-loop:avoid}, \ref{alg:ch24-loop:hover} and
+\ref{alg:ch24-loop:nominal} all pass through the local layer; even the
+nominal flight is filtered by the teammates' half-planes, which costs nothing
+while the plan is conflict-free and protects the drone when a teammate has
+deviated.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Parameters of the executive, their meaning, their value in the
+  worked scenario and their effect. Distances in metres, times in seconds.}
+  \label{tab:ch24-parameters}
+  \begin{tabularx}{\textwidth}{@{}llY@{}}
+  \toprule
+  Parameter & Value & Meaning and effect\\
+  \midrule
+  $\dt$; $\Delta T$ & $0.1$; $1$ & control cycle; grid time step $= \ell/v_{\mathrm{cruise}}$\\
+  $r_A$, $r_B$, $\Delta r$ & $0.3$, $0.3$, $0.1$ & drone radius, intruder radius, safety margin; $R_{\mathrm{safe}} = r_A + r_B + \Delta r = 0.7$\\
+  $\tau_h$ & $3$ & safety horizon $=$ \orca horizon $\ttc$; larger $=$ earlier, gentler, more false alarms\\
+  $\kappa_p$ & $2.45$ & inflation factor of the $95\,\%$ disc; larger $=$ safer and more conservative\\
+  $T_{\mathrm{pred}}$ & $5$ & prediction horizon; must cover $\tau_h$ and the replanning layers\\
+  $n_{\mathrm{warm}}$ & $10$ & filter updates before a prediction is trusted (\cref{ch:ch18})\\
+  $n_{\mathrm{clear}}$ & $5$ & clear cycles before reconnection is attempted; hysteresis against chattering\\
+  $K$; $\Delta_{\max}$ & $6$; $1$ & waypoints searched forward; largest admissible delay in grid steps\\
+  $d_{\max}$; $t_{\mathrm{avoid}}$ & $3.5$; $8$ & drift and time bounds of Avoiding; the escalation to Replanning\\
+  $T_{\mathrm{replan}}$ & $1$ & shortest interval between two replans of one drone\\
+  $R_{\mathrm{comm}}$; $\ell_{\mathrm{act}}$ & $8.5$; $7.5$ & communication range; link length at which the range term acts\\
+  $k_F$ & $0.5$ & formation correction gain of \cref{eq:ch24-formation}\\
+  \bottomrule
+  \end{tabularx}
+\end{table}

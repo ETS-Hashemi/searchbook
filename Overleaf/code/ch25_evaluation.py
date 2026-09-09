@@ -882,7 +882,7 @@ def _selftest_statistics():
     bs = bootstrap_ci(a)
     assert bs["lo"] <= 4.5 <= bs["hi"]
     adj = holm([0.01, 0.04, 0.03])
-    assert np.allclose(adj, [0.03, 0.04, 0.04])
+    assert np.allclose(adj, [0.03, 0.06, 0.06])
     m = median_iqr([1, 2, 3, 4, 5])
     assert m["median"] == 3.0 and m["q1"] == 2.0 and m["q3"] == 4.0
 

@@ -214,3 +214,113 @@ $\hcost_{\Focal}$ where it cannot damage the guarantee - that is the sentence th
 connects this chapter to Chapters 20 and 24. Keep the two heaps / lazy purge /
 band-widening implementation section and both listings; they are verbatim from the
 running file and answer the question every implementer asks.
+
+## Response to review (round 1)
+
+All five required changes were addressed; four were applied in full, one (item 4)
+falls outside the files this revision is allowed to touch and is reported instead of
+applied. Build: `./build.sh ch10-ecbs` exits 0, no `!` errors, no undefined label or
+citation belonging to this chapter, no overfull box above 15 pt inside the chapter
+(the single 29.1 pt box the log now reports is an RRT entry in the book-wide List of
+Algorithms, not chapter text). `python3 code/ch10_ecbs.py` still passes in 0.3 s. The
+code was not modified, so no `.dat` file needed regenerating and every quoted number
+is unchanged and still reproduced by the run. Length is unchanged at 23 pages
+(pages 20-42 of `build/only-ch10-ecbs.pdf`).
+
+**Required 1 - the root paragraph of Section 10.5 contradicts the rest of the section.**
+Applied as proposed. The sentence now reads "... $\mathrm{LB} = 11$ and $h_c = 1$, for
+\cbs ($w = 1$) and for \ecbs with $w \le 1.2$; for $w = 1.5$ the root itself already
+changes, as the last paragraph of this section shows." Re-verified with
+`ecbs(worked_example(), 1.5)`: cost 13, LB 11, 1 CT node expanded, 1 generated, which
+is what `tab:ch10-example-compare` records.
+
+**Required 2 - the horizon argument is cited from a proposition whose $H$ is defined
+differently.** Applied in the preferred form, which changes no number and no code. Six
+lines were inserted after the `thm:ch04-horizon` citation in Section 10.6.3: the $H$ of
+Chapter 4 also counts the arrival times of parked agents and uses $t+1$ for an edge
+constraint; here no cell of the low-level graph is blocked by another agent, and an
+edge constraint $\langle i,u,v,t\rangle$ only forbids a move that departs at time $t$,
+so from time $H+1$ on the agent moves freely and the argument of `thm:ch04-horizon`
+gives arrival by $H+1+D$ with the $H$ of `alg:ch10-lowlevel`. Facts (i) and (ii) now
+follow for edge constraints as well. Algorithm 10.1 and
+`focal_space_time_astar` are untouched, so `tab:ch10-example-compare` and the
+benchmark are unaffected.
+
+**Required 3 - sum-of-costs notation competes with ch07/ch09.** Applied throughout.
+In `chapters/ch10-ecbs.tex`: 4 occurrences of `\cost(\Pi)` became `\sumcost(\Pi)`;
+23 of `\cost(N)`, 3 of `\cost(N')`, 1 of `\cost(N_{\min})` and 1 of `\cost(R)` became
+`N.\cost`, `N'.\cost`, `N_{\min}.\cost` and `R.\cost`. In
+`appendices/solutions/ch10-solutions.tex`: 4 of `\cost(N)` and 3 of `\cost(N')`.
+`\cost(\pi_i)`, `\cost(N.\pi_i)` and `\cost(\pi_i^*)` are kept for single paths, as
+asked. `appendices/glossary/ch10-terms.tex` and the five figure files contained no
+`\cost(N)` or `\cost(\Pi)` and were left alone. The chapter now uses zero `\cost(N)`
+and matches the MAPF block of `frontmatter/notation.tex`, which already lists
+`$N.\mathcal{C}$, $N.\pi$, $N.\cost$` and `$\sumcost(\Pi)$`.
+
+**Required 4 - $\mathrm{LB}$ missing from the notation table. NOT APPLIED, by rule,
+not by disagreement.** The change is correct and worth making, but
+`frontmatter/notation.tex` is a shared front-matter file: `docs/finisher-brief.md`
+restricts this revision to the chapter's own files (chapter `.tex`, `figures/ch10/`,
+`figures/data/ch10-*`, `code/ch10_*.py`, `code/figures/gen_ch10_*.py`,
+`ch10-solutions.tex`, `ch10-terms.tex`, `bib/ch10-extra.bib`), and STYLE_GUIDE
+section 7 says to list needed shared-file additions in the final report instead of
+editing them. The requested row is therefore handed to the editor verbatim, for the
+MAPF block of `frontmatter/notation.tex`:
+
+    $\mathrm{lb}_i$, $\mathrm{LB}(N)$, $\mathrm{LB}$ & per-agent lower bound, their sum in a CT node, and its minimum over \Open & \cref{ch:ch10}\\
+
+Within the chapter the three symbols are already introduced before first use, in
+`def:ch10-lb` and in the `\KwOut` line of `alg:ch10-lowlevel`, and both are also in
+`appendices/glossary/ch10-terms.tex`, so a reader who starts at Chapter 10 is not
+left with an undefined symbol.
+
+**Required 5 - a number attributed to a figure that does not show it.** Applied, using
+the first of the two offered fixes. Section 10.7.1 now reads "in the benchmark of
+\cref{sec:ch10-benchmark} the plans of \ecbs with $w = 2$ are on average
+$1$--$12.5\,\%$ more expensive than optimal (\cref{fig:ch10-benchmark}) and, over all
+instances of that run, never more than $28\,\%$". The averages keep their attribution
+to the figure (`e20_ratio`, 1.0091-1.1246); the worst case is now attributed to the
+benchmark run, where `e20_ratio_max` = 1.2766 lives.
+
+### Suggestions
+
+Six of the seven were applied; the seventh was declined on the reviewer's own terms.
+
+* *Invariant used by two proofs.* Applied in place, in "The two rulers": the paragraph
+  now states that an agent that is not replanned inherits its (path, bound) pair
+  unchanged and that the replanned agent has
+  $\cost(\pi) \le w\,\fcost_{\min} \le w\,\max(N.\mathrm{lb}_a, \fcost_{\min})$, so
+  the maximum at line `alg:ch10-ecbs:lb` preserves it. Kept as a paragraph rather than
+  promoted to a numbered lemma, to avoid adding a float and a page.
+* *EECBS substitution.* Applied: the parenthetical now adds that the substitution
+  changes which nodes are *expanded* and not only which ones may be returned, so a
+  solver built from that paragraph is a close relative of EECBS and not EECBS itself.
+* *Section 10.1, the $7\,\%$.* Applied: "(an average over the two instances \cbs could
+  solve)".
+* *"within $2$--$3\,\%$".* Applied: now "within $3\,\%$ of optimal" (`e11_ratio` runs
+  1.0148-1.0282).
+* *Solution for `exr:ch10-node-bound`.* Applied: a solution was added to
+  `appendices/solutions/ch10-solutions.tex`, between the `exr:ch10-lowlevel-threshold`
+  and `exr:ch10-bcbs-proof` entries, giving $N_7$ (cost 15, $\mathrm{LB}(N_7) = 15 >
+  12 = C^*$, admitted by $15 \le 1.2 \cdot 15$, ratio $15/12 = 1.25 > 1.2$) and saying
+  why the minimum over \Open is what makes the argument work. Five of eight exercises
+  now have solutions.
+* *Success rate on `fig:ch10-benchmark`.* Applied: the left panel now labels the \cbs
+  curve with 9/10, 9/10, 6/10 and 2/10 at $k = 10, 12, 14, 16$ (from `cbs_success` in
+  `ch10-benchmark.dat`), and the caption says to read the flattening at $k = 16$ as
+  failure rather than as speed.
+* *Length (the three mildly redundant places).* Not applied. The reviewer explicitly
+  does not require the cuts, the chapter is inside the 24-page ceiling, and the brief
+  for this revision forbids removing content to save space.
+
+### What the reviewer asked to keep
+
+Untouched: the worked example and all of its numbers, the two trace tables, the
+`tab:ch10-example-compare` rows, the whole lower-bound thread (`def:ch10-lb`, line
+`alg:ch10-ecbs:lb`, "The two rulers", `thm:ch10-lowlevel-lb`, the third pitfall box,
+`exr:ch10-node-bound`), the remark that Barer et al. use the returned $\fcost_{\min}$
+alone, the duplicate-rule explanation at line `alg:ch10-lowlevel:dup`, the benchmark
+and its `.dat`-driven figure, the three pitfall boxes, the drone box, the
+implementation section and both listings. The only edits inside any of them are the
+`\cost(N)` to `N.\cost` renaming of Required 3, the added clause of the "two rulers"
+paragraph, and the success labels on the benchmark figure.

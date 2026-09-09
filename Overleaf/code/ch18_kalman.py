@@ -538,8 +538,8 @@ def _self_test():
     kf4 = KalmanFilter(F4, H4, Q4, R4, zs4[0], R4.copy())
     est4, _, nis4, _ = run_filter(kf4, zs4[1:])
     assert rmse(est4[:, :2], truth4[2:, :2]) < 0.6 * rmse(np.array(zs4[1:])[:, :2], truth4[2:, :2])
-    lo, hi = nis_bounds(len(nis4), 4, z=3.3)
-    assert lo < np.mean(nis4) < hi
+    lo4v, hi4v = nis_bounds(len(nis4), 4, z=3.3)
+    assert lo4v < np.mean(nis4) < hi4v
     Fa, Ha, Qa = ca_model(3, dt, 0.5)
     assert Fa.shape == (9, 9) and Ha.shape == (3, 9)
     assert np.min(np.linalg.eigvalsh(Qa)) > 0.0

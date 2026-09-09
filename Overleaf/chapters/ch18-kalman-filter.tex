@@ -958,7 +958,7 @@ modelling choice, the sensor drops reports and occasionally returns garbage,
 and there may be more than one intruder. This section covers each of these
 in turn; \cref{alg:ch18-track} already contains the corresponding logic.
 
-\subsection{What \texorpdfstring{$\mat{Q}$ and $\mat{R}$}{Q and R} do}
+\subsection{What the two noise covariances do}
 \label{sec:ch18-qr}
 
 $\mat{R}$ is the easier of the two. A datasheet gives the sensor's error
@@ -1309,3 +1309,468 @@ the collision rate in the experiments of \cref{ch:ch25} shows it. The
 converse mistake, gating a measurement with $\mat{P}_{k+j\mid k}$ instead of
 $\mat{S}_k$, accepts every outlier.
 \end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{An experiment on simulated data}
+\label{sec:ch18-experiment}
+
+The script \code{code/figures/gen\_ch18\_tracking.py} runs four experiments
+on the filter of \code{ch18\_kalman.py}; every number quoted in this
+chapter comes from it. Experiment A, the one behind \cref{fig:ch18-raw},
+\cref{fig:ch18-prediction} and the left panel of \cref{fig:ch18-experiment},
+simulates an intruder that starts at the origin with velocity $(2,1)$~m/s and
+follows the CV model with white-noise acceleration of intensity
+$q=0.2$~m$^2$/s$^3$ for $20$~s. A sensor reports its position at $10$~Hz
+with independent errors of standard deviation $1$~m along $x$ and $0.5$~m
+along $y$. The filter is initialised from the first two reports by
+\cref{eq:ch18-init2} and uses the true $q$ and $\mat{R}$.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch18/experiment}
+  \caption{Left, experiment A: the true path (dashed), the $198$
+  measurements (grey dots) and the Kalman estimate (blue), with the
+  $2\sigma$ ellipses of the estimate every $4$~s (green); the ellipses are
+  wider along $x$, the noisier axis. Right, experiment B: RMSE of the
+  position (blue) and velocity (orange) estimates against the $q$ used by the
+  filter, averaged over $20$ Monte-Carlo runs of the same scenario; the
+  dashed grey line is the RMSE of the raw measurements. The minimum lies at
+  the true $q$, the curve is flat within a factor of three of it, and the
+  velocity suffers far more from a $q$ that is too large than from one that
+  is too small.}
+  \label{fig:ch18-experiment}
+\end{figure}
+
+The results are those of \cref{sec:ch18-motivation}: the position RMSE
+drops from $1.175$~m for the raw measurements to $0.524$~m for the filter,
+and the velocity RMSE from $16.8$~m/s for finite differences to $0.79$~m/s.
+The estimate's own error bars are honest: the final standard deviations are
+$0.39$~m along $x$, $0.23$~m along $y$ and $0.48$~m/s in $v_x$, and the mean
+NIS over the run is $2.21$, inside the $95\%$ band $[1.72,2.28]$ of
+\cref{eq:ch18-nis-band}. The ellipses in the left panel of
+\cref{fig:ch18-experiment} are elongated along $x$ because that axis is
+measured twice as noisily; the true path threads through all of them.
+
+Experiment B, the right panel, asks how much the tuning of $q$ matters. The
+same scenario is simulated $20$ times with fresh noise, and each data set is
+filtered with $17$ values of $q$ from $0.01$ to $100$, the true $q$ being
+$0.2$. The position RMSE has its minimum, $0.469$~m, at $q=0.178$, the grid
+point nearest the truth; it is $0.503$~m at $q=1$ and $0.477$~m at $q=0.1$,
+so a factor of five in either direction costs less than $8\%$. Only far
+away does the price become severe: $0.691$~m at $q=0.01$, where the filter
+is too sluggish to follow the wandering velocity, and $0.773$~m at $q=100$,
+where it copies the sensor noise; both are still better than the raw
+$1.126$~m. The velocity RMSE is asymmetric: $1.02$~m/s at the optimum,
+$1.11$~m/s at $q=0.01$ but $3.29$~m/s at $q=100$, because an over-large $q$
+lets the sensor noise straight into the velocity estimate, while an
+under-sized $q$ merely smooths a velocity that, in this scenario, changes
+slowly anyway. (On a target that turns, as in \cref{fig:ch18-tuning}, the
+small-$q$ side pays instead.) The script also records the mean NIS at each
+$q$: it falls monotonically from $2.74$ at $q=0.01$ to $1.58$ at $q=100$ and
+crosses the expected value $m=2$ at $q\approx0.3$, next to the truth. That is
+the data-driven tuning rule of \cref{sec:ch18-diagnostics} at work: choose the
+$q$ at which the mean NIS equals $m$, and you land within a factor of two of
+the optimum without ever seeing the true trajectory.
+
+% ---------------------------------------------------------------------
+\section{Variants and extensions}
+\label{sec:ch18-variants}
+
+\paragraph{Constant gain: the alpha--beta filter.}
+By \cref{thm:ch18-steady} the gain converges. Running the CV filter with the
+constant gain $\Kgain_\infty=(k_p,k_v)$ per axis from the start gives the
+\textbf{alpha--beta filter}\index{alpha-beta filter@alpha--beta filter},
+$\hat p\gets\hat p^-+\alpha\,y$, $\hat v\gets\hat v^-+(\beta/\dt)\,y$ with
+$\alpha=k_p$, $\beta=k_v\dt$: no covariance, no matrix arithmetic, and the
+same steady-state accuracy. It loses the transient behaviour --- a two-point
+start is not exploited --- and the covariance output that the safety layer
+needs, so in this book it serves as a sanity check rather than as the
+tracker.
+
+\paragraph{The information filter.}
+Carrying the precision $\mat{P}\inv$ and the information vector
+$\mat{P}\inv\hat{\state}$ instead of $\mat{P}$ and $\hat{\state}$ turns the
+update \cref{eq:ch18-information} into two additions and makes the predict
+step the expensive one. It is the natural form when several sensors observe
+the same intruder: their contributions $\mat{H}_i\T\mat{R}_i\inv\mat{H}_i$
+add, in any order, and a sensor that reports nothing adds zero. With a
+diagonal $\mat{R}$ the same effect is obtained in the gain form by processing
+the components of $\meas_k$ one at a time as scalar updates, which needs no
+matrix inverse at all.
+
+\paragraph{Smoothing.}
+The filter uses the measurements up to step $k$. Offline, the measurements
+\emph{after} $k$ are available too, and the Rauch--Tung--Striebel
+smoother\index{smoother!Rauch--Tung--Striebel} \cite{rauch1965maximum} runs
+a backward pass over the stored filter outputs that reduces the error
+roughly by half in the interior of a recorded trajectory. It is the right
+tool for cleaning the recorded trajectories on which the predictors of
+\cref{ch:ch20} are trained; it is not a tracker, because it needs the
+future. \textcite{sarkka2013bayesian} treat filters and smoothers together.
+
+\paragraph{Richer states.}
+Anything that the noise model cannot absorb can be added to the state: the
+acceleration (the CA model of \cref{sec:ch18-models}), a slowly varying
+sensor bias, a time-correlated disturbance modelled as a first-order
+process. The price is a larger $n$, a slower response to what the extra
+states must first learn, and the need to check observability again. For an
+intruder that alternates between straight flight and turns, the interacting
+multiple model (IMM) estimator runs a CV and a CA (or a coordinated-turn)
+filter in parallel and mixes them by their likelihoods
+\cite{barshalom2001estimation}; \cref{ch:ch19} compares filters on a turning
+target.
+
+\paragraph{Nonlinear models and non-Gaussian noise.}
+A radar that reports range and bearing, a camera that reports pixel
+coordinates, a turn model with an unknown turn rate: each breaks the linear
+form of $\mat{H}$ or $\mat{F}$. The extended Kalman filter linearises
+around the current estimate, the unscented filter propagates a handful of
+chosen points, and the particle filter abandons the Gaussian altogether;
+\cref{ch:ch19} presents all three and says when each is worth its cost.
+Everything in this chapter --- innovation, gain, NIS, gating, prediction
+ahead --- survives with the Jacobians in place of $\mat{F}$ and $\mat{H}$.
+
+% ---------------------------------------------------------------------
+\section{Implementation notes}
+\label{sec:ch18-implementation}
+
+\Cref{lst:ch18-core} is the heart of \code{ch18\_kalman.py}: a class that
+holds the model and the belief, with \code{predict} and \code{update}
+methods. The rest of the file builds the CV and CA models, initialises tracks,
+simulates measurements (with misses and outliers), runs the diagnostics of
+\cref{sec:ch18-diagnostics}, associates measurements with several tracks,
+and predicts ahead; its self-test checks the worked example to four
+decimals, the process-noise integrals, the Joseph-form identity
+\cref{eq:ch18-best-gain}, gating, misses, observability and the consistency
+statistics on a $2000$-step simulation, in about three seconds.
+
+\begin{lstlisting}[caption={The predict and update steps of the \code{KalmanFilter} class (from \code{code/ch18\_kalman.py}). \code{predict} accepts \code{F} and \code{Q} built for the actual time step; \code{update} returns the innovation, its covariance, the gain and the NIS, rejects the measurement when a gate probability is given and the NIS exceeds the chi-square threshold, and uses the Joseph form by default.},label={lst:ch18-core}]
+    def predict(self, u=None, F=None, Q=None):
+        """Predict: x^- = F x + B u,  P^- = F P F^T + Q.
+        Pass F and Q built for the actual time step if dt varies."""
+        F = self.F if F is None else np.asarray(F, float)
+        Q = self.Q if Q is None else np.asarray(Q, float)
+        self.x = F @ self.x
+        if u is not None and self.B is not None:
+            self.x = self.x + self.B @ np.asarray(u, float)
+        self.P = symmetrize(F @ self.P @ F.T + Q)
+        return self.x.copy(), self.P.copy()
+
+    def update(self, z, R=None, gate_prob=None, joseph=True):
+        """Update with measurement z.  With gate_prob, z is rejected (state
+        unchanged) when its NIS exceeds the chi-square threshold."""
+        R = self.R if R is None else np.asarray(R, float)
+        y, S = self.innovation(z, R)
+        d2 = float(y @ np.linalg.solve(S, y))
+        K = np.linalg.solve(S, self.H @ self.P).T      # K = P H^T S^-1
+        if gate_prob is not None and d2 > chi2_threshold(self.m, gate_prob):
+            return UpdateResult(y, S, K, d2, False)
+        self.x = self.x + K @ y
+        I_KH = np.eye(self.n) - K @ self.H
+        if joseph:   # valid for any K, keeps P symmetric positive definite
+            self.P = I_KH @ self.P @ I_KH.T + K @ R @ K.T
+        else:        # the short form, exact only for the optimal K
+            self.P = I_KH @ self.P
+        self.P = symmetrize(self.P)
+        return UpdateResult(y, S, K, d2, True)
+\end{lstlisting}
+
+\paragraph{Keep the covariance symmetric and positive definite.}
+$\mat{P}$ is symmetric in exact arithmetic and slightly asymmetric after a
+few thousand floating-point steps; the asymmetry feeds back into the gain
+and grows. Symmetrising after every step
+(line~\ref{alg:ch18-kf:sym} of \cref{alg:ch18-kf}; \code{symmetrize} in the
+listing) costs $n^2$ additions and removes the problem. Positive
+definiteness is protected by the Joseph form; the short form
+$(\mat{I}-\Kgain\mat{H})\mat{P}^-$, a difference of two matrices, can go
+indefinite when $\mat{P}^-$ has entries of very different sizes, such as a
+position variance of $10^4$~m$^2$ after a long gap next to a velocity variance
+of $10^{-2}$~m$^2$/s$^2$. Solve $\Kgain\mat{S}=\mat{P}^-\mat{H}\T$ rather
+than forming $\mat{S}\inv$. For filters with hundreds of states, or on
+single-precision hardware, square-root implementations that propagate a
+Cholesky factor of $\mat{P}$ are the standard remedy; \textcite{maybeck1979stochastic}
+covers them. For the six-state tracker of this chapter, symmetrisation and
+the Joseph form are enough, and the self-test confirms that $\mat{P}$ stays
+symmetric positive definite over every step of a $2000$-step run.
+
+\paragraph{Units and scales.}
+Keep the state in SI units, metres and metres per second, so that $q$ is in
+m$^2$/s$^3$ and $\mat{R}$ in m$^2$; a mixed state (metres and degrees, say)
+is legal but makes $\mat{Q}$ and $\mat{P}$ unreadable and their tuning
+guesswork. The gate threshold and the NIS band are unit-free, which is the
+point of normalising by $\mat{S}$.
+
+\paragraph{Time-varying sampling.}
+Sensors do not deliver at exactly $10$~Hz. Timestamp every report, and build
+$\mat{F}(\dt)$ and $\mat{Q}(\dt)$ from the \emph{actual} interval since the
+last report before each predict step (\code{predict(F=..., Q=...)} in the
+listing, \code{cv\_model} to build them); a nominal $\dt$ used with reports
+that arrive early or late puts a bias into the velocity estimate that no
+tuning removes. When the sensor is silent, predict at the planner's cycle
+time with the same rule.
+
+\begin{pitfall}[A process noise that does not scale with the step]
+Setting $\mat{Q}=q\,\mat{I}$ or $\mat{Q}=\diag(q_p,q_v)$ with fixed numbers,
+independent of $\dt$, is the most common Kalman bug in student code. It
+works at the sampling rate at which it was tuned and breaks as soon as the
+rate changes: at twice the rate the filter injects twice as much noise per
+second and becomes nervous; at half the rate it becomes sluggish; with
+timestamps that jitter it is inconsistent from one step to the next. The
+white-noise-acceleration $\mat{Q}$ of \cref{eq:ch18-cv} scales correctly
+because it is the integral of a continuous-time noise over the step, and $q$
+is a property of the intruder, not of the sensor rate. If you must use a
+diagonal shortcut, at least make the position term scale with $\dt^3$ and the
+velocity term with $\dt$.
+\end{pitfall}
+
+\begin{pitfall}[Feeding finite differences to the filter as velocity measurements]
+When the sensor reports positions only, it is tempting to compute
+$(\meas_k-\meas_{k-1})/\dt$ and hand it to the filter as a velocity
+measurement with $\mat{H}=\mat{I}$. Do not. The differenced ``measurement''
+is a linear function of two position reports the filter is also using, so
+its error is correlated with the position measurement of the same step and
+with the previous step's, which violates the independence assumption of
+\cref{def:ch18-model}; the filter counts the same sensor error twice, reports
+a covariance that is too small, and fails the NIS test. The filter already
+extracts the velocity from the positions, through the gain $k_v$ of
+\cref{eq:ch18-gain-cv}, and it does so optimally. Use a velocity measurement
+only when a sensor measures the velocity independently --- a Doppler radar,
+or a broadcast that contains the intruder's own velocity estimate --- and
+then with its own $\sigma_v$ in $\mat{R}$; \cref{exr:ch18-coding} does
+exactly that.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{Where this fits in the drone system}
+\label{sec:ch18-drone}
+
+\begin{dronebox}
+The Kalman filter is the \textbf{prediction layer} of the hybrid architecture
+of \cref{ch:ch24}, the second of its four layers, and the only one that deals
+with agents the swarm does not control. Its interface is simple. It
+\emph{receives} timestamped sensor reports about unknown drones --- positions,
+or positions and velocities --- with their noise levels, and, from the
+decision logic, the safety horizon $h$ over which the local layer plans. It
+\emph{maintains} one track per intruder: a CV filter with gating and
+two-point initialisation (\cref{alg:ch18-track}), a nearest-neighbour
+association when several intruders are visible, and a health count of
+consecutive misses. It \emph{delivers}, at every cycle, the estimate
+$(\hat{\state}_k,\mat{P}_k)$ and the predictions
+$(\hat{\state}_{k+j\mid k},\mat{P}_{k+j\mid k})$ up to the horizon
+(\cref{eq:ch18-ahead}). The local safety layer (\orca in \cref{ch:ch13}, DWA in
+\cref{ch:ch14}) takes the predicted position and velocity of the intruder as
+the obstacle and inflates its radius by $\kappa\,\sigma_{\max}(h)$; the
+time-to-collision trigger of \cref{ch:ch24} is evaluated on the same
+prediction. The constant-velocity predictor of \cref{ch:ch20} is
+\cref{eq:ch18-ahead} itself, and the learned predictors of that chapter take
+the filtered history $\hat{\state}_{k-T:k}$, not the raw reports, as their
+input. The replanning layer of \cref{ch:ch05} and \cref{ch:ch24} receives the
+predicted occupancy of the intruder when a detour must be planned around it,
+and the health count tells the decision logic when the intruder is no longer
+tracked and the swarm should fall back to a conservative behaviour. This is
+the Week~9 topic of the study plan (\cref{ch:appA}), and its milestone is the
+interface just described: from Week~9 on, your planner receives a stable
+estimated state with a covariance instead of raw noisy observations.
+\end{dronebox}
+
+% ---------------------------------------------------------------------
+\section{Summary}
+\begin{summary}
+\begin{itemize}
+  \item The linear-Gaussian model $\state_k=\mat{F}\state_{k-1}+\mat{B}\ctrl_k+\vect{w}_k$,
+  $\meas_k=\mat{H}\state_k+\vect{v}_k$ with $\vect{w}_k\sim\Normal(\vect{0},\mat{Q})$,
+  $\vect{v}_k\sim\Normal(\vect{0},\mat{R})$ describes a drone whose
+  accelerations are unknown and a sensor whose errors are independent.
+  \item The Kalman filter keeps $\Normal(\hat{\state}_k,\mat{P}_k)$ and
+  alternates a predict step, $\hat{\state}^-=\mat{F}\hat{\state}$,
+  $\mat{P}^-=\mat{F}\mat{P}\mat{F}\T+\mat{Q}$, and an update step,
+  $\vect{y}=\meas-\mat{H}\hat{\state}^-$, $\mat{S}=\mat{H}\mat{P}^-\mat{H}\T+\mat{R}$,
+  $\Kgain=\mat{P}^-\mat{H}\T\mat{S}\inv$, $\hat{\state}=\hat{\state}^-+\Kgain\vect{y}$,
+  $\mat{P}=(\mat{I}-\Kgain\mat{H})\mat{P}^-$; both follow from the affine
+  and conditioning properties of Gaussians. Implement the covariance update in
+  the Joseph form.
+  \item The gain is a precision weighting: in one dimension
+  $K=P^-/(P^-+R)$ and $1/P=1/P^-+1/R$. Through the position--velocity
+  covariance, a position sensor corrects the velocity estimate.
+  \item The constant-velocity model has $\mat{F}=\begin{psmallmatrix}\mat{I}&\dt\mat{I}\\ \mat{0}&\mat{I}\end{psmallmatrix}$
+  and the white-noise-acceleration $\mat{Q}=q\begin{psmallmatrix}\dt^3/3&\dt^2/2\\ \dt^2/2&\dt\end{psmallmatrix}$
+  per axis; $q$ is a rate, and $\mat{Q}$ must be rebuilt when $\dt$ changes.
+  \item For the linear-Gaussian model the filter is the exact posterior and
+  the MMSE estimator; without Gaussianity it is the best linear estimator.
+  The covariance sequence is data-independent and converges when the model is
+  observable; check observability once.
+  \item Tune $q$ with the innovations: mean NIS in $m\pm1.96\sqrt{2m/N}$ and
+  white innovations. Too small a $\mat{Q}$ lags in turns; too large a
+  $\mat{Q}$ copies the sensor noise.
+  \item Gate measurements with the Mahalanobis distance and a chi-square
+  threshold; treat gated-out and missing measurements alike, as predict-only
+  steps; initialise from two measurements with \cref{eq:ch18-init2}; drop a
+  track only after several consecutive misses.
+  \item Predicting $j$ steps ahead gives $\mat{F}^j\hat{\state}_k$ and a
+  covariance that grows without bound; its ellipses, not $\mat{P}_k$, are what
+  the safety layer inflates the intruder's radius with.
+\end{itemize}
+\end{summary}
+
+\paragraph*{Further reading.}
+The filter is Kalman's \cite{kalman1960new}, derived there by orthogonal
+projection without any Gaussian assumption; the continuous-time form is due
+to Kalman and Bucy. The tutorial of Welch and Bishop
+\cite{welch1995introduction} is the shortest complete introduction and the
+source of the $\mat{A}$, $\mat{H}$ notation found in much code.
+\textcite[ch.~3]{thrun2005probabilistic} derive the filter as a Bayes filter
+with Gaussian beliefs, which is the route taken in \cref{sec:ch18-algorithm},
+and continue with the extended and unscented filters of \cref{ch:ch19}.
+\textcite{barshalom2001estimation} is the reference for tracking: kinematic
+models and their process noise, the white-noise-acceleration derivation of
+\cref{thm:ch18-cv-q}, consistency tests, gating, data association and
+manoeuvring-target estimators. \textcite{sarkka2013bayesian} gives the modern
+Bayesian treatment with smoothers and parameter estimation, and
+\textcite{maybeck1979stochastic} the engineering view, including the
+numerical forms. The smoother is from \textcite{rauch1965maximum}.
+
+% ---------------------------------------------------------------------
+\section{Exercises}
+\label{sec:ch18-exercises}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch18-hand}
+Starting from the update row of step~1 in \cref{tab:ch18-trace},
+$\hat{\state}_1=(1.195,0.276,0.859,0.143)$ and $(a,b,c)=(0.2226,0.1150,0.6172)$,
+compute step~2 by hand with the recursion \cref{eq:ch18-example-recursion}:
+the predicted mean and $(a^-,b^-,c^-)$, then $S$, $k_p$, $k_v$, the
+innovation for $\meas_2=(1.71,0.92)$, the updated mean and $(a,b,c)$. Compare
+with the table. Then compute the predicted mean of step~3 and explain why its
+$x$-component is smaller than the true $x$-position $3$.
+\end{exercise}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch18-scales}
+Two independent unbiased readings $z_1$ and $z_2$ of the same quantity have
+variances $\sigma_1^2$ and $\sigma_2^2$. (a) Among the estimates
+$\lambda z_1+(1-\lambda)z_2$, find the $\lambda$ that minimises the variance,
+and show that the minimum variance $\sigma^2$ satisfies
+$1/\sigma^2=1/\sigma_1^2+1/\sigma_2^2$. (b) Show that this is exactly the
+one-dimensional Kalman update \cref{eq:ch18-gain-1d} with $z_1$ as the
+prediction and $z_2$ as the measurement, and identify $K$. (c) Evaluate for
+$z_1=2$, $\sigma_1=1$, $z_2=3$, $\sigma_2=0.5$ and compare with
+\cref{ex:ch18-1d}.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch18-gain}
+Derive the Kalman gain without Gaussians. Let
+$\hat{\state}(\Kgain)=\hat{\state}^-+\Kgain(\meas-\mat{H}\hat{\state}^-)$
+and let $\mat{P}(\Kgain)$ be its error covariance, the Joseph form. (a)
+Expand $\mat{P}(\Kgain)$ and differentiate $\tr\mat{P}(\Kgain)$ with respect
+to $\Kgain$ (use $\partial\tr(\mat{K}\mat{A})/\partial\mat{K}=\mat{A}\T$ and
+$\partial\tr(\mat{K}\mat{S}\mat{K}\T)/\partial\mat{K}=2\mat{K}\mat{S}$ for
+symmetric $\mat{S}$) to find the stationary point. (b) Show with
+\cref{eq:ch18-best-gain} that it is the global minimiser, not merely a
+stationary point, and that it minimises every diagonal entry of
+$\mat{P}(\Kgain)$, not just the trace. (c) Show that at the optimum
+$\mat{P}(\Kgain^*)=\mat{P}^--\Kgain^*\mat{S}\Kgain^{*\mathsf{T}}=(\mat{I}-\Kgain^*\mat{H})\mat{P}^-$.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch18-q}
+(a) Repeat the derivation of \cref{thm:ch18-cv-q} for the
+constant-acceleration model, where the jerk is white noise of intensity $q$:
+show that the disturbance of $(p,v,a)$ over a step is
+$\int_0^{\dt}\bigl((\dt-\tau)^2/2,\ \dt-\tau,\ 1\bigr)\T j(\tau)\,d\tau$ and
+obtain the $\mat{Q}$ of \cref{sec:ch18-models}. (b) Prove the semigroup
+property used in \cref{sec:ch18-prediction}: for the CV model,
+$\mat{F}(\dt)\mat{Q}(\dt)\mat{F}(\dt)\T+\mat{Q}(\dt)=\mat{Q}(2\dt)$, and by
+induction $\sum_{i<j}\mat{F}(\dt)^i\mat{Q}(\dt)\mat{F}(\dt)^{i\mathsf{T}}=\mat{Q}(j\dt)$.
+(c) Check both results numerically with \code{process\_noise\_numeric} and
+\code{cv\_model}.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch18-init}
+(a) Derive $\mat{P}_0$ in \cref{eq:ch18-init2} from
+$\Cov(\meas_a)=\Cov(\meas_b)=\mat{R}$ and independence. (b) Show that
+two-point initialisation is a Kalman filter in disguise: start from the
+single measurement $\meas_a$ with the belief $\hat{\pos}=\meas_a$,
+$\hat{\vel}=\vect{0}$, $\Cov(\pos)=\mat{R}$, $\Cov(\vel)=V\mat{I}$, uncorrelated,
+predict one step with $q=0$ and update with $\meas_b$; show with the per-axis
+formulas \cref{eq:ch18-predict-cv} and \cref{eq:ch18-gain-cv} that as
+$V\to\infty$ the result converges to \cref{eq:ch18-init2}. (c) What is lost
+if instead the filter starts from $\meas_b$ with $\hat{\vel}=\vect{0}$ and
+$\Cov(\vel)=v_{\max}^2\mat{I}$? Try both starts in the code on experiment A
+and compare the velocity error over the first two seconds.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch18-observability}
+(a) Write the observability matrix of the CV model along one axis for a
+velocity-only sensor, $\mat{H}=(0\;1)$, and confirm its rank. (b) Do the same
+for the CA model along one axis with a position sensor, $\mat{H}=(1\;0\;0)$,
+and show that the rank is $3$. (c) A 2D CV model is observed by a sensor
+that reports only the $x$-coordinate. Which of the four state components are
+observable? Verify with \code{observability\_rank}, run the filter on a
+simulation, and describe how $\mat{P}$ behaves.
+\end{exercise}
+
+\begin{exercise}[\difficulty{2}]
+\label{exr:ch18-dtscaling}
+Take experiment A and re-simulate it at $20$~Hz with the same $q$ and
+$\mat{R}$. Track it with (i) the correct $\mat{Q}(\dt)$ of \cref{eq:ch18-cv}
+and (ii) the diagonal shortcut $\mat{Q}=\diag(q_p,q_p,q_v,q_v)$ with
+$q_p,q_v$ chosen to match the diagonal of the correct $\mat{Q}$ at $10$~Hz.
+Report the position and velocity RMSE and the mean NIS of both filters at
+$10$ and at $20$~Hz, and explain the pattern with the pitfall of
+\cref{sec:ch18-implementation}.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch18-association}
+Simulate two intruders whose straight paths cross at an angle of $30^\circ$
+at the same instant, observed by one sensor that returns both positions
+(unlabelled, in random order) with $\sigma_p=1$~m at $10$~Hz, plus one
+spurious measurement per second at a random location. Track both with
+\cref{alg:ch18-track} and \code{nearest\_neighbour\_association} with
+$P_G=0.99$. (a) Measure over $200$ runs how often the tracks swap
+identities after the crossing. (b) Repeat for crossing angles of $90^\circ$
+and $10^\circ$, and for a sensor with $\sigma_p=0.3$~m. (c) Propose and test
+one improvement --- for instance, forbidding an assignment whose implied
+velocity change exceeds $a_{\max}\dt$ --- and report what it costs when the
+intruders really do manoeuvre.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3} Coding]
+\label{exr:ch18-coding}
+The coding exercise of Week~9. Simulate an external drone that flies a
+piecewise-constant-velocity path with a few turns, observed at $10$~Hz by a
+sensor that reports its position \emph{and} its velocity with independent
+errors, $\sigma_p=1$~m and $\sigma_v=0.5$~m/s ($\mat{H}=\mat{I}_4$,
+$\mat{R}=\diag(\sigma_p^2,\sigma_p^2,\sigma_v^2,\sigma_v^2)$), dropping
+$10\%$ of the reports and replacing $2\%$ by outliers. Track it with the
+Kalman filter of this chapter. (a) Report the position and velocity RMSE of
+the filter, of the raw measurements and of a position-only filter, and check
+the mean NIS ($m=4$) and the whiteness of the innovations; tune $q$ until
+both pass. (b) Implement the interface of the prediction layer: a function
+that, at every cycle, returns $(\hat{\state}_k,\mat{P}_k)$ and the
+predictions $(\hat{\state}_{k+j\mid k},\mat{P}_{k+j\mid k})$ for
+$j\dt\le3$~s, and a track-health flag. (c) Demonstrate the milestone: feed
+the raw reports and the filtered state, in turn, to the velocity-obstacle
+construction of \cref{ch:ch12} (or, if you have not reached it, to a
+$3$-second constant-velocity extrapolation), and measure how much the
+predicted position of the intruder $3$~s ahead changes from one cycle to the
+next in each case.
+\end{exercise}
+
+\begin{exercise}[\difficulty{3}]
+\label{exr:ch18-tuning}
+Repeat experiment B --- the RMSE-versus-$q$ curve of
+\cref{fig:ch18-experiment} --- on the turning trajectory of experiment C
+instead of the CV target, with $20$ noise realisations. (a) Where is the
+minimum now, and how does the curve differ from the one in
+\cref{fig:ch18-experiment}? (b) Plot the mean NIS and the lag-one
+autocorrelation against $q$ and say which $q$ the diagnostics of
+\cref{sec:ch18-diagnostics} would select; is it the RMSE-optimal one? (c)
+Add the CA model with a white-noise jerk of intensity $q_j$ and find the
+$q_j$ that minimises the RMSE on the same data. Which model wins in the turn,
+which on the straight legs, and what does that suggest for the estimator of
+\cref{sec:ch18-variants} that runs both?
+\end{exercise}
