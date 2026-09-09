@@ -67,7 +67,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [ ] 2.15 Ch 15 Artificial Potential Fields (attractive/repulsive, local minima, oscillation, remedies)
 
 ### Part V — Sampling-Based Motion Planning
-- [ ] 2.16 Ch 16 RRT (sampling, nearest, steer, collision checking, RRT-Connect)
+- [~] 2.16 Ch 16 RRT (sampling, nearest, steer, collision checking, RRT-Connect) — drafted on Fable (20 pp, 1337 lines, compiles); Opus review in progress
 - [ ] 2.17 Ch 17 RRT* and Informed RRT* (rewiring, asymptotic optimality, informed ellipsoid sampling)
 
 ### Part VI — Tracking and Prediction

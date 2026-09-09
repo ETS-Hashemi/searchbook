@@ -335,9 +335,8 @@ far from the other vertices in some direction, and extending it enlarges the
 tree in exactly that direction. LaValle \cite{lavalle1998rrt} observed that
 the distribution of the vertices converges to the sampling distribution, so
 a uniformly sampled \rrt eventually covers $\Xfree$ uniformly. Goal samples
-always extend the vertex nearest to the goal, which helps when that vertex
-has a clear view of the goal and hurts when it sits against an obstacle
-(\cref{sec:ch16-pitfalls}).
+always extend the vertex nearest to the goal, which hurts when that vertex
+sits against an obstacle (\cref{sec:ch16-pitfalls}).
 
 % ---------------------------------------------------------------------
 \section{A worked example}
@@ -449,7 +448,7 @@ Let $\mathcal{X}$ be a bounded box, $\eta>0$, $0\le p_{\mathrm{goal}}<1$ and
 $r_{\mathrm{goal}}>0$. Suppose there is a path $\tau$ from $x_{\mathrm{init}}$
 to $x_{\mathrm{goal}}$ with \textbf{clearance}\index{clearance}
 $\delta_{c}>0$: every segment that lies within distance $\delta_{c}$ of $\tau$
-is accepted by \textsc{CollisionFree}. Then the probability that
+is accepted by \textup{\textsc{CollisionFree}}. Then the probability that
 \cref{alg:ch16-rrt} has not found a solution after $n$ iterations is at most
 $m/(np)$ for constants $m$ and $p>0$ that depend on $\tau$, $\eta$,
 $\delta_{c}$, $r_{\mathrm{goal}}$ and $\mathcal{X}$ but not on $n$; in
@@ -510,9 +509,8 @@ Three things in the proof deserve attention.
         iterations grows like $(1/w)^{d}$. This \textbf{narrow-passage
         problem}\index{narrow-passage problem} is the known weakness of every
         uniform sampler and one motivation for the bidirectional search of
-        \cref{sec:ch16-connect}. In \cref{ex:ch16-map} the gap between the
-        walls is one unit wide on a ten-unit map, wide enough to be found
-        within a few hundred iterations.
+        \cref{sec:ch16-connect}. In \cref{ex:ch16-map} the gap is one unit
+        wide on a ten-unit map and is found within a few hundred iterations.
 \end{itemize}
 The bound $m/(np)$ is loose; \cref{exr:ch16-completeness} sharpens it to an
 exponential decay in $n$. The original argument is in
@@ -617,22 +615,22 @@ both ingredients.\index{RRT-Connect}\index{RRT!RRT-Connect}
   $x_{\mathrm{near}}\gets\Nearest(V_T,x)$; $x_{\mathrm{new}}\gets\Steer(x_{\mathrm{near}},x)$\;
   \If{\RrtSegmentFree{$x_{\mathrm{near}}$, $x_{\mathrm{new}}$}}{
     add $x_{\mathrm{new}}$ to $T$ with parent $x_{\mathrm{near}}$\;
-    \lIf{$x_{\mathrm{new}}=x$}{\KwRet{\textsc{Reached}}}
-    \KwRet{\textsc{Advanced}}\;
+    \lIf{$x_{\mathrm{new}}=x$}{\KwRet{\textup{\textsc{Reached}}}}
+    \KwRet{\textup{\textsc{Advanced}}}\;
   }
-  \KwRet{\textsc{Trapped}}\;
+  \KwRet{\textup{\textsc{Trapped}}}\;
 }
 \Fn{\RrtConnectGreedy{$T$, $x$}}{
-  \Repeat{$s\neq\textsc{Advanced}$}{$s\gets$ \RrtExtendTree{$T$, $x$}\label{alg:ch16-connect:greedy}\;}
+  \Repeat{$s\neq\textup{\textsc{Advanced}}$}{$s\gets$ \RrtExtendTree{$T$, $x$}\label{alg:ch16-connect:greedy}\;}
   \KwRet{$s$}\;
 }
 \Fn{\RrtConnectPlan{$x_{\mathrm{init}}$, $x_{\mathrm{goal}}$, $N$}}{
   $T_a\gets$ tree with root $x_{\mathrm{init}}$; $T_b\gets$ tree with root $x_{\mathrm{goal}}$\;
   \For{$i\gets1$ \KwTo $N$}{
     $x_{\mathrm{rand}}\gets$ uniform sample in $\mathcal{X}$\tcp*{no goal bias}
-    \If{\RrtExtendTree{$T_a$, $x_{\mathrm{rand}}$} $\neq\textsc{Trapped}$\label{alg:ch16-connect:extend}}{
+    \If{\RrtExtendTree{$T_a$, $x_{\mathrm{rand}}$} $\neq\textup{\textsc{Trapped}}$\label{alg:ch16-connect:extend}}{
       $x_{\mathrm{new}}\gets$ the vertex just added to $T_a$\;
-      \If{\RrtConnectGreedy{$T_b$, $x_{\mathrm{new}}$} $=\textsc{Reached}$\label{alg:ch16-connect:test}}{
+      \If{\RrtConnectGreedy{$T_b$, $x_{\mathrm{new}}$} $=\textup{\textsc{Reached}}$\label{alg:ch16-connect:test}}{
         \KwRet{the path root$(T_a)\to x_{\mathrm{new}}$ in $T_a$ joined with $x_{\mathrm{new}}\to$ root$(T_b)$ in $T_b$, reversed if $T_a$ is the goal tree}\;
       }
     }
@@ -788,8 +786,8 @@ of \cref{ch:ch02} and that no control or velocity exceeds its limit. Three
 lessons carry over to every planner with dynamics: the tree needs more
 vertices ($512$ against $245$) because velocities add dimensions; the
 solution is a trajectory that can be flown as it is; and the metric of
-line~\ref{alg:ch16-kino:nearest} is a design decision that strongly affects
-the growth of the tree. Kinodynamic planning has a large literature
+line~\ref{alg:ch16-kino:nearest} strongly affects the growth of the tree.
+Kinodynamic planning has a large literature
 \cite{lavalle2006planning}; in the hybrid architecture of \cref{ch:ch24}
 the geometric \rrt with post-processing, followed by the controller of
 \cref{ch:ch21}, is usually the simpler choice.
@@ -891,20 +889,18 @@ cells; \rrt has looked at a few hundred points.
 
 The \textbf{probabilistic roadmap} (PRM)\index{probabilistic roadmap (PRM)}
 of \textcite{kavraki1996prm} is the other founding method of sampling-based
-planning. It samples configurations first, keeps the free ones, connects
-each to its $k$ nearest neighbours by collision-checked segments, and then
-answers any number of queries by graph search (\cref{ch:ch03,ch:ch04}) on
-the roadmap. PRM is a \emph{multi-query} method that spends its effort once
-per map; \rrt is a \emph{single-query} method that spends it once per query
-and never builds a graph of the whole space. For a drone whose map changes
-and whose queries differ every time, the single-query tree is the natural
-choice, and it is the only one that extends to dynamics without an exact
-steering function. \rrtstar and \irrtstar
-\cite{karaman2011sampling,gammell2014informed} keep the tree but make it
-optimal in the limit; they are the subject of \cref{ch:ch17}, together with
-the batch method BIT\textsuperscript{*} \cite{gammell2015bit}. Both books
-\cite{lavalle2006planning,choset2005principles} survey the many other
-variants.
+planning: sample configurations, keep the free ones, connect each to its $k$
+nearest neighbours by collision-checked segments, and answer any number of
+queries by graph search (\cref{ch:ch03,ch:ch04}) on the roadmap. PRM is a
+\emph{multi-query} method that spends its effort once per map; \rrt is a
+\emph{single-query} method that spends it once per query and never builds a
+graph of the whole space, which suits a drone whose map and queries change
+every time and is the only option when the dynamics allow no exact steering.
+\rrtstar and \irrtstar \cite{karaman2011sampling,gammell2014informed} keep
+the tree but make it optimal in the limit; they are the subject of
+\cref{ch:ch17}, together with BIT\textsuperscript{*} \cite{gammell2015bit}.
+Both books \cite{lavalle2006planning,choset2005principles} survey the many
+other variants.
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
@@ -973,20 +969,19 @@ squared norm per row and an \code{argmin}. That is $\bigO{n}$ per query with
 a small constant, about $0.02$~ms for $n=10^{3}$ vertices, $0.2$~ms for
 $10^{4}$ and $2.3$~ms for $10^{5}$ in two or three dimensions on an ordinary
 laptop. For the trees of this chapter the scan is not the bottleneck, and it
-needs no rebuilding when a vertex is added. Beyond $10^{4}$ vertices, or when
-the planner is called many times per second, use a
+needs no rebuilding when a vertex is added. Beyond $10^{4}$ vertices use a
 \textbf{kd-tree}\index{kd-tree}\index{nearest-neighbour search} \cite{bentley1975kdtree}: a
 binary tree that splits the points along one coordinate axis at each level,
 so that a query descends to the leaf containing the query point and then
 backtracks only into branches whose bounding region is closer than the best
 distance found so far. In low dimension the expected cost is $\bigO{\log n}$
 per query after an $\bigO{n\log n}$ build. Since \rrt inserts a vertex every
-iteration and insertion into a balanced kd-tree is awkward, implementations
-rebuild the tree every few hundred insertions and scan the vertices added
-since, or use a bucket grid over $\mathcal{X}$;
-\code{scipy.spatial.cKDTree} is the standard \python choice. In high
-dimension the backtracking visits most branches and a kd-tree degrades to a
-scan; beyond ten or so dimensions approximate methods are used instead.
+iteration and a balanced kd-tree does not take insertions well,
+implementations rebuild it every few hundred insertions and scan the
+vertices added since (\code{scipy.spatial.cKDTree} is the standard \python
+choice), or use a bucket grid over $\mathcal{X}$. In high dimension the
+backtracking visits most branches and a kd-tree degrades to a scan; beyond
+ten or so dimensions approximate methods are used instead.
 
 \subsection{Parameters}
 \label{sec:ch16-parameters}
@@ -1019,13 +1014,12 @@ because \rrt cannot recognise an infeasible query, choose $N$ from the time
 you can afford and treat failure as ``no path found within the budget''.
 \Cref{lst:ch16-rrt} is the main loop of the implementation; it matches
 \cref{alg:ch16-rrt} line by line and adds the bookkeeping for the figures.
-\code{extend} and \code{connect} of \cref{alg:ch16-connect} are in the same
-file, and \code{rrt\_connect} is the loop of the algorithm with the swap
-\code{t\_a, t\_b = t\_b, t\_a} at the end of each iteration. The self-test
-runs in about two seconds and checks the collision tests on thin walls,
-spheres and inflated boxes; that every returned path is collision-free at
-ten times finer resolution, starts at the start, ends at the goal and has
-edges no longer than $\eta$; that the worked example is reproducible; that
+\code{extend}, \code{connect} and \code{rrt\_connect} implement
+\cref{alg:ch16-connect} in the same file. The self-test runs in about two
+seconds and checks the collision tests on thin walls, spheres and inflated
+boxes; that every returned path is collision-free at ten times finer
+resolution, joins start and goal and has edges no longer than $\eta$; that
+the worked example is reproducible; that
 shortcutting and pruning never increase the length; that \rrt-Connect needs
 fewer iterations than \rrt in median and mean over $40$ seeds; that the 3D
 scene is solved by both planners; and that the kinodynamic trajectory obeys
@@ -1156,28 +1150,27 @@ or when an unknown obstacle detected by the tracker of \cref{ch:ch18}
 blocks the nominal route and a detour has to be found in three dimensions
 within a fraction of a second.
 
-\textbf{Combining a global grid plan with a local \rrt.} The two planners
-share the map but work at different scales. When a segment between two
-consecutive waypoints of the grid path becomes infeasible, the local planner
-runs \cref{alg:ch16-rrt} or \cref{alg:ch16-connect} from the current
-position to the next reachable waypoint, with a goal region of about one
-cell and with the obstacles inflated by the drone radius, the tracking
+\textbf{Combining a global grid plan with a local \rrt.} When a segment
+between two consecutive waypoints of the grid path becomes infeasible, the
+local planner runs \cref{alg:ch16-rrt} or \cref{alg:ch16-connect} from the
+current position to the next reachable waypoint, with a goal region of
+about one cell and the obstacles inflated by the drone radius, the tracking
 error and the prediction uncertainty of \cref{ch:ch19,ch:ch20}. The result
-is shortcut (\cref{alg:ch16-shortcut}), converted into a trajectory by the
-controller of \cref{ch:ch21}, and checked against the reservations of the
+is shortcut (\cref{alg:ch16-shortcut}), turned into a trajectory by the
+controller of \cref{ch:ch21} and checked against the reservations of the
 other drones; if it violates them, or if the local planner fails within its
-budget, the event is escalated to a global replan, exactly the decision
-logic of \cref{ch:ch24}. In the other direction, the waypoints of the grid
-path can seed the goal bias of the tree, which turns the global plan into a
-heuristic for the local sampler.
+budget, the event is escalated to a global replan, the decision logic of
+\cref{ch:ch24}. In the other direction, the waypoints of the grid path can
+seed the goal bias of the tree, turning the global plan into a heuristic for
+the local sampler.
 
-\textbf{What it receives and delivers.} \rrt receives a start, a goal region,
-a static map of boxes and the predicted volumes of moving obstacles; it
-delivers a collision-free polygonal path with a known clearance, or a
-failure within a known time. It guarantees nothing about optimality
+\textbf{What it receives and delivers.} A start, a goal region, a map of
+boxes and the predicted volumes of moving obstacles come in; a
+collision-free polygonal path with a known clearance, or a failure within a
+known time, goes out. \rrt guarantees nothing about optimality
 (\cref{thm:ch16-suboptimal}) and nothing at all when no path exists, which
 is why its budget must be chosen from the available time. Week~8 of the
-study plan (\cref{ch:appA}) covers this chapter and \cref{ch:ch17}, and its
+study plan (\cref{ch:appA}) covers this chapter and \cref{ch:ch17}; its
 coding exercise is \cref{exr:ch16-coding}.
 \end{dronebox}
 
@@ -1269,12 +1262,10 @@ lie outside the wall although the segment crosses it. (b)~The margin
 $r+\delta/2$ of \cref{thm:ch16-resolution} is sufficient but not the
 smallest: show that the margin $\sqrt{r^{2}+\delta^{2}/4}$ also guarantees
 a collision-free segment, and that no smaller margin does.
-(c)~The check of \cref{lst:ch16-segment} uses $\lceil\norm{b-a}/\delta\rceil+1$
-points. Suppose you know the distance $d_0=\dist(a,\mathcal{O})-r$ of the
-first endpoint to the inflated obstacles. Explain why no point of the
-segment within $d_0$ of $a$ needs to be tested, and design an adaptive check
-that uses this idea at every test point (it is exact, needs no $\delta$, and
-is fast in open space).
+(c)~Let $d_0=\dist(a,\mathcal{O})-r$ be the free distance of the first
+endpoint. Explain why no point of the segment within $d_0$ of $a$ needs to
+be tested, and design an adaptive check that uses this idea at every test
+point (exact, no $\delta$, fast in open space).
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
@@ -1335,14 +1326,12 @@ The coding exercise of Week~8. Build a 3D obstacle field of about $20$ boxes
 in a $50\times50\times20$~m volume (or reuse \code{scene\_3d()}) and plan
 between random start--goal pairs with (a)~\rrt and \rrt-Connect from
 \code{ch16\_rrt.py} followed by shortcutting, (b)~\rrtstar from
-\cref{ch:ch17} or a library implementation, and (c)~grid \astar from
-\cref{ch:ch04} on a 26-connected lattice at resolutions $2$, $1$ and
-$0.5$~m with the obstacles inflated by the drone radius. For every method
-record over $30$ queries the success rate, the path length relative to the
-best length found by any method, the computation time and the memory
-(vertices or cells). Plot length against time and write one paragraph that
-states, with your numbers, when you would use graph search and when
-sampling; this is the Week~8 milestone of \cref{ch:appA}. Finally replace
-the map by a $200\times200\times60$~m volume at $0.25$~m and report which
-methods still run on your computer.
+\cref{ch:ch17} or a library, and (c)~grid \astar from \cref{ch:ch04} on a
+26-connected lattice at resolutions $2$, $1$ and $0.5$~m with inflated
+obstacles. Over $30$ queries record success rate, path length relative to
+the best found by any method, computation time and memory (vertices or
+cells). Plot length against time and state in one paragraph, with your
+numbers, when you would use graph search and when sampling: the Week~8
+milestone of \cref{ch:appA}. Finally scale the map to
+$200\times200\times60$~m at $0.25$~m and report which methods still run.
 \end{exercise}

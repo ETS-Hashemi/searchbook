@@ -19,7 +19,7 @@ from ch06_arastar import (ARAStar, EXAMPLE_GOAL, EXAMPLE_SCHEDULE,  # noqa: E402
                           EXAMPLE_START, example_grid)
 
 OUT = os.path.join(os.path.dirname(HERE), "..", "figures", "ch06", "example.tex")
-SCALE = 0.56
+SCALE = 0.52
 GAP = 0.9            # gap between the panels in grid units
 HATCH = r"\fill[pattern=north east lines,pattern color=sbOrange!70] (%d,%d) rectangle ++(1,1);"
 
@@ -85,7 +85,7 @@ def main():
         lines.append(r"%s (%.2f,%.2f) rectangle ++(0.6,0.6);" % (fill, x, y0))
         lines.append(r"\draw[black!40,very thin] (%.2f,%.2f) rectangle ++(0.6,0.6);" % (x, y0))
         lines.append(r"\node[sbannot,anchor=west] at (%.2f,%.2f) {%s};" % (x + 0.7, y0 + 0.3, text))
-        x += 6.2
+        x += 5.7
     lines.append(r"\draw[sbpathalt,line width=1.1pt] (%.2f,%.2f) -- ++(1.0,0);" % (x, y0 + 0.3))
     lines.append(r"\node[sbannot,anchor=west] at (%.2f,%.2f) {previous path};" % (x + 1.1, y0 + 0.3))
     lines.append(r"\end{tikzpicture}")
