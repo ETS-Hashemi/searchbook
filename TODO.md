@@ -113,7 +113,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 - [~] 5.07 Ch 7 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [ ] 5.08 Ch 8 — review/revise until Accept
 - [~] 5.09 Ch 9 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
-- [~] 5.10 Ch 10 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [x] 5.10 Ch 10 — ACCEPT (Opus, after 4 review rounds in total)
 - [~] 5.11 Ch 11 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [ ] 5.12 Ch 12 — review/revise until Accept
 - [~] 5.13 Ch 13 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
@@ -208,7 +208,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | Ch 5 | 1-2 | Minor revision (9) -> Minor revision (2), applied | see reviews/ch05-round1.md, ch05-round2.md | minor items applied, unreviewed |
 | Ch 7 | 1-2 | Minor revision (8) -> Minor revision (4), applied | see reviews/ch07-round1.md, ch07-round2.md | minor items applied, unreviewed |
 | Ch 9 | 1-2 | Minor revision (11) -> Minor revision (2), applied | see reviews/ch09-round1.md, ch09-round2.md | minor items applied, unreviewed |
-| Ch 10 | 1-2 | Minor revision (7) -> Minor revision (2), applied | see reviews/ch10-round1.md, ch10-round2.md | minor items applied, unreviewed |
+| Ch 10 | 1-4 | Minor revision (7) -> Minor (2) -> Minor (5, applied) -> Accept | see reviews/ch10-round*.md | ACCEPT |
 | Ch 11 | 1-2 | Minor revision (8) -> Minor revision (3), applied | see reviews/ch11-round1.md, ch11-round2.md | minor items applied, unreviewed |
 | Ch 13 | 1-2 | Minor revision (10) -> Minor revision (4), applied | see reviews/ch13-round1.md, ch13-round2.md | minor items applied, unreviewed |
 | Ch 14 | 1-2 | Minor revision (8) -> Minor revision (3), applied | see reviews/ch14-round1.md, ch14-round2.md | minor items applied, unreviewed |
