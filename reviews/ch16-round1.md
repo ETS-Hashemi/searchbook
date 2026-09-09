@@ -223,7 +223,7 @@ n=100000 2.932 ms`; repeated runs vary by up to a factor of two). Section
 16.8.2 quotes "about $0.04$~ms ... $0.3$~ms ... $3$~ms ... means of $200$
 queries, timed and printed by the self-test ... reproducible to within a
 factor of two on any other [machine]". Section 16.8.3 now says the self-test
-"runs in a few seconds (it prints its own runtime, $4.5$~s here)" and the
+"runs in a few seconds (it prints its own runtime, four to five seconds here)" and the
 eight-item recitation of the checks is compressed to one sentence
 (suggestion (i)).
 

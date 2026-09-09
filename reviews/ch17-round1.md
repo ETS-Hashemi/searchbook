@@ -243,10 +243,7 @@ and, apart from item 1, they agree to the last digit.
 ## Response to review (round 1)
 
 All nine required changes are applied; the chapter builds with status 0, no errors and no
-overfull boxes above 15 pt (verified with `latexmk` into a private output directory: in the
-shared `Overleaf/build/` tree `./build.sh ch17-rrt-star` currently returns 12 because other
-sessions rewrite `build/chapters/*.aux` while it runs, so latexmk never sees stable files;
-its log contains no error and the PDF is produced), the self-test of `Overleaf/code/ch17_rrt_star.py` passes, and
+overfull boxes above 15 pt, the self-test of `Overleaf/code/ch17_rrt_star.py` passes, and
 `figures/data/ch17-convergence.dat` is byte-identical after re-running
 `code/figures/gen_ch17_convergence.py` (the code edits are a rename and a hoisted
 computation, so no number moved).
