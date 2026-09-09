@@ -1,19 +1,25 @@
 % The per-drone state machine of the decision logic.
 \begin{tikzpicture}[font=\small,
-  st/.style={minimum width=2.7cm,minimum height=1.0cm,text width=2.5cm},
+  st/.style={minimum width=2.8cm,minimum height=1.0cm,text width=2.6cm},
   lbl/.style={sbannot,align=center,fill=white,inner sep=1.5pt}]
-\node[sbbox,st]      (nom) at (0,0)      {\textbf{Nominal}\\ follow $\pi_i$};
-\node[sbboxalt,st]   (avo) at (4.6,2.4)  {\textbf{Avoiding}\\ \orca\ / DWA velocity};
-\node[sbboxgreen,st] (rec) at (4.6,-2.4) {\textbf{Reconnecting}\\ fly to waypoint $k$ at $t_k$};
-\node[sbboxgray,st]  (rep) at (9.6,0)    {\textbf{Replanning}\\ \dstarlite\ / \astar, re-check};
-\draw[sbflow] (nom.north east) -- node[lbl,above left,pos=0.45]{predicted conflict\\ inside $\tau_h$} (avo.west);
-\draw[sbflow] (avo.south) -- node[lbl,right,pos=0.5]{clear for\\ $n_{\mathrm{clear}}$ cycles:\\ search a waypoint} (rec.north);
-\draw[sbflow] (avo.east) -- node[lbl,above right,pos=0.45]{drift $> d_{\max}$, or\\ $t - t_{\mathrm{enter}} > t_{\mathrm{avoid}}$,\\ or LP infeasible} (rep.north west);
-\draw[sbflow] (rec.east) -- node[lbl,below right,pos=0.45]{no admissible waypoint:\\ too fast, blocked,\\ too costly, constraint} (rep.south west);
-\draw[sbflow] (rec.west) -- node[lbl,below left,pos=0.5]{waypoint $k$ reached\\ at time $t_k$} (nom.south east);
-\draw[sbflow] (rec.north east) to[bend left=12] node[lbl,pos=0.6,right]{conflict\\ again} (avo.south east);
-\draw[sbflow] (rep.south) to[bend left=25] node[lbl,below,pos=0.5]{new path $\pi_i'$ from the current cell,\\ re-checked against the others} (rec.south east);
-\draw[sbflow] (rep.north) to[out=120,in=60,looseness=6] node[lbl,above,pos=0.5]{no path: hover safely,\\ retry after $T_{\mathrm{replan}}$} (rep.north);
-\draw[sbflow] (avo.north) to[out=120,in=60,looseness=6] node[lbl,above,pos=0.5]{every cycle:\\ new half-planes} (avo.north);
-\draw[sbflow,dashed] (nom.south) to[bend right=30] node[lbl,below,pos=0.45]{plan changed by a re-check\\ (partial replanning)} (rec.south west);
+\node[sbbox,st]      (nom) at (0,2.6)    {\textbf{Nominal}\\ follow $\pi_i$};
+\node[sbboxalt,st]   (avo) at (7.4,2.6)  {\textbf{Avoiding}\\ \orca\ / DWA velocity};
+\node[sbboxgray,st]  (rep) at (7.4,-2.6) {\textbf{Replanning}\\ \dstarlite\ / \astar, re-check};
+\node[sbboxgreen,st] (rec) at (0,-2.6)   {\textbf{Reconnecting}\\ fly to waypoint $k$ at $t_k$};
+% Nominal -> Avoiding (top)
+\draw[sbflow] (nom.east) -- node[lbl,above]{predicted conflict inside $\tau_h$} (avo.west);
+% Avoiding -> Replanning (right)
+\draw[sbflow] (avo.south) -- node[lbl,right]{drift $> d_{\max}$, or\\ $t - t_{\mathrm{enter}} > t_{\mathrm{avoid}}$,\\ or LP infeasible} (rep.north);
+% Avoiding <-> Reconnecting (two offset diagonals)
+\draw[sbflow] ([xshift=-4mm,yshift=-1mm]avo.south west) -- node[lbl,pos=0.32,above left]{clear for $n_{\mathrm{clear}}$ cycles:\\ search a waypoint} ([xshift=-4mm,yshift=-1mm]rec.north east);
+\draw[sbflow] ([xshift=4mm,yshift=1mm]rec.north east) -- node[lbl,pos=0.3,below right]{conflict\\ again} ([xshift=4mm,yshift=1mm]avo.south west);
+% Reconnecting <-> Replanning (bottom, two offset horizontals)
+\draw[sbflow] ([yshift=-2mm]rec.east) -- node[lbl,below]{no admissible waypoint: too fast,\\ blocked, too costly, constraint violated} ([yshift=-2mm]rep.west);
+\draw[sbflow] ([yshift=2mm]rep.west) -- node[lbl,above]{new path $\pi_i'$ from the\\ current cell, re-checked} ([yshift=2mm]rec.east);
+% Reconnecting -> Nominal (left) and the dashed partial-replanning edge
+\draw[sbflow] ([xshift=-3mm]rec.north) -- node[lbl,left]{waypoint $k$\\ reached at $t_k$} ([xshift=-3mm]nom.south);
+\draw[sbflow,dashed] ([xshift=3mm]nom.south) -- node[lbl,right]{plan changed by\\ a re-check} ([xshift=3mm]rec.north);
+% self-loops
+\draw[sbflow] (avo.north) to[out=120,in=60,looseness=5] node[lbl,above]{every cycle: new half-planes} (avo.north);
+\draw[sbflow] (rep.south) to[out=-60,in=-120,looseness=5] node[lbl,below]{no path: hover safely, retry after $T_{\mathrm{replan}}$} (rep.south);
 \end{tikzpicture}

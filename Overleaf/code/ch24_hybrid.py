@@ -896,52 +896,65 @@ class HybridSimulation:
             self.trigger_profiles.append(dict(t=self.t, drone=d.name, times=times, sep=sep,
                                               infl=infl, own=own, means=self.pred[0][:len(times)]))
         d.state, d.t_state, d.clear_count = new, self.t, 0
+        if new == NOMINAL:
+            d.target = None
 
     def decide(self, d: Drone, pred) -> np.ndarray:
         """One pass of the per-drone control loop; returns the velocity."""
-        inside, t_c, margin = self.predicted_conflict(d, pred)
+        p = self.p
+        inside, t_c, _ = self.predicted_conflict(d, pred)
         if d.state == NOMINAL and inside:
             self.transition(d, AVOIDING, "predicted conflict at t_c=%.1f s" % t_c)
         if d.state == AVOIDING:
             drift = float(np.linalg.norm(d.pos - d.plan_position(self.t)))
+            too_long = self.t - d.t_state > p["t_avoid_max"]
             d.clear_count = 0 if inside else d.clear_count + 1
-            if drift > self.p["drift_max"] or self.t - d.t_state > self.p["t_avoid_max"]:
-                self.transition(d, REPLANNING, "drift %.2f m or time bound" % drift)
-            elif d.clear_count >= self.p["n_clear"]:
+            if drift > p["drift_max"] or too_long:
+                self.transition(d, REPLANNING, "drift %.2f m or time" % drift)
+            elif d.clear_count >= p["n_clear"]:
                 self.transition(d, RECONNECTING, "conflict cleared")
-                k, delay, reason, tried = self.reconnect(d, pred)
-                self.reconnect_log.append(dict(t=self.t, drone=d.name, k=k, delay=delay,
-                                               reason=reason, pos=d.pos.copy(), tried=tried))
-                if k is None:
+                reason = self.try_reconnect(d, pred)
+                if reason != "ok":
                     self.transition(d, REPLANNING, "reconnection failed: " + reason)
-                else:
-                    d.target, d.target_index = centre(d.path[k]), k
-                    d.target_time = float(d.t0 + k + delay)
-                    d.reconnections += 1
-                    if delay > 0:                  # shift the remainder of the plan
-                        d.path, d.t0 = d.path[k:], d.t0 + k + delay
-                        d.target_index = 0
-                        self.recheck(d)
             else:
                 v_pref = self.preferred_velocity(d, with_formation=False)
                 return self.local_layer(d, v_pref, pred, t_c, with_intruder=True)[0]
         if d.state == REPLANNING:
-            if self.t - d.t_last_replan >= self.p["replan_period"] and self.replan(d, pred):
+            due = self.t - d.t_last_replan >= p["replan_period"]
+            if due and self.replan(d, pred):
                 d.t_last_replan = self.t
                 self.recheck(d)
                 self.transition(d, RECONNECTING, "new path from the current cell")
-                inside, t_c, margin = self.predicted_conflict(d, pred)
-            else:                                  # no path yet: hover safely, retry
-                return self.local_layer(d, np.zeros(2), pred, t_c, with_intruder=True)[0]
+                inside, t_c, _ = self.predicted_conflict(d, pred)
+            else:                                  # no path yet: hover, retry
+                return self.local_layer(d, np.zeros(2), pred, t_c, True)[0]
         if d.state == RECONNECTING:
             if inside:
-                self.transition(d, AVOIDING, "predicted conflict at t_c=%.1f s" % t_c)
-                return self.local_layer(d, self.preferred_velocity(d, False), pred, t_c, True)[0]
+                self.transition(d, AVOIDING, "conflict again, t_c=%.1f s" % t_c)
+                v_pref = self.preferred_velocity(d, with_formation=False)
+                return self.local_layer(d, v_pref, pred, t_c, with_intruder=True)[0]
             if self.t >= d.target_time - DT / 2:
-                d.target = None
-                self.transition(d, NOMINAL, "back on the plan at waypoint %d" % d.target_index)
+                self.transition(d, NOMINAL, "back on the plan at k=%d" % d.target_index)
         v_pref = self.preferred_velocity(d, with_formation=True)
         return self.local_layer(d, v_pref, pred, t_c, with_intruder=False)[0]
+
+    def try_reconnect(self, d: Drone, pred) -> str:
+        """Run the reconnection search and install its result: the target
+        waypoint and, for a delayed reconnection, the shifted plan and the
+        conflict re-check.  Returns "ok" or the reason of the failure."""
+        k, delay, reason, tried = self.reconnect(d, pred)
+        self.reconnect_log.append(dict(t=self.t, drone=d.name, k=k, delay=delay,
+                                       reason=reason, pos=d.pos.copy(), tried=tried))
+        if k is None:
+            return reason
+        d.target, d.target_index = centre(d.path[k]), k
+        d.target_time = float(d.t0 + k + delay)
+        d.reconnections += 1
+        if delay > 0:                              # shift the remainder of the plan
+            d.path, d.t0 = d.path[k:], d.t0 + k + delay
+            d.target_index = 0
+            self.recheck(d)
+        return "ok"
 
     # -- one control cycle -----------------------------------------------------
     def step(self) -> None:
@@ -1009,12 +1022,12 @@ class HybridSimulation:
 # 7. Rates: which module runs in which control cycle
 # ---------------------------------------------------------------------
 #
-#   module (layer)          interface                          rate
-#   global planner (1)      cbs(grid, starts, goals) -> paths  once, before take-off
-#   tracker (2)             update(z); predict_horizon(n)      period_prediction
-#   local layer (3)         local_layer(d, v_pref, pred, ..)   every control cycle DT
-#   replanner (4)           replan(d, pred); recheck(d)        on demand, >= replan_period apart
-#   executive               decide(d, pred) -> velocity        every control cycle DT
+#   module (layer)      interface                        rate
+#   global planner (1)  cbs(grid, starts, goals)         once, before take-off
+#   tracker (2)         update(z); predict_horizon(n)    period_prediction
+#   local layer (3)     local_layer(d, v_pref, pred)     every cycle DT
+#   replanner (4)       replan(d, pred); recheck(d)      on demand, >= replan_period
+#   executive           decide(d, pred) -> velocity      every cycle DT
 
 
 class RateSchedule:

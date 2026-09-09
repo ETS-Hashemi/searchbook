@@ -680,8 +680,7 @@ best cost $Y_n$ in the tree satisfies
 $\Prob\bigl(\lim_{n\to\infty}Y_n=c^*\bigr)=1$.\index{RRT*!asymptotic optimality}\index{asymptotic optimality!theorem}
 \end{theorem}
 
-Read the statement carefully, because it is easy to hear more in it than it
-says.
+Read the statement carefully; it is easy to hear more in it than it says.
 \begin{itemize}
   \item It promises convergence of the \emph{cost}, with probability one,
   as $n\to\infty$. It gives no rate: after any fixed budget $N$ the gap
@@ -1153,21 +1152,17 @@ the expected \textsc{Near} set by $2^d$.
 keep them rare: sort the candidates of \textsc{ChooseParent} by cost and
 stop at the first free segment; in \textsc{Rewire} test the improvement
 before the segment; and reuse the check of the parent segment for the
-edge to the nearest vertex, which is already known to be free. The
-cost-to-come of every candidate must be available in $\bigO{1}$, which is
-why the implementation stores $\mathrm{Cost}(v)$ instead of walking to the
-root.
+edge to the nearest vertex, which is already known to be free.
 
-\paragraph{Propagating costs to a subtree.} Storing costs means keeping
-them consistent. \Cref{lst:ch17-subtree} keeps, for every vertex, its
-parent, the length of its parent edge and a list of its children;
-\code{set\_parent} moves the vertex, then walks its subtree with an
-explicit stack and recomputes $\mathrm{Cost}$ from the parent, exactly
-\textsc{UpdateSubtree}. The lazy alternative, storing only edge lengths and
-summing them on demand, costs $\bigO{\text{depth}}$ per candidate and is
-slower in every experiment we ran. The self-test checks after every run
-that $\mathrm{Cost}(v)=\mathrm{Cost}(\mathrm{parent}(v))+\norm{v-\mathrm{parent}(v)}$
-holds for all vertices.
+\paragraph{Propagating costs to a subtree.} The cost-to-come of every
+candidate must be available in $\bigO{1}$, so the implementation stores
+$\mathrm{Cost}(v)$ and keeps it consistent: \cref{lst:ch17-subtree} keeps,
+for every vertex, its parent, the length of its parent edge and a list of
+its children; \code{set\_parent} moves the vertex, then walks its subtree
+with an explicit stack and recomputes $\mathrm{Cost}$ from the parent,
+exactly \textsc{UpdateSubtree}. The lazy alternative, summing edge lengths
+on demand, costs $\bigO{\text{depth}}$ per candidate and is slower in every
+experiment we ran. The self-test asserts the invariant after every run.
 
 \begin{lstlisting}[caption={\textsc{UpdateSubtree} (from \code{code/ch17\_rrt\_star.py}): rewiring vertex \code{i} under \code{p} and recomputing the cost of every descendant with an explicit stack.},label={lst:ch17-subtree}]
     def set_parent(self, i, p, edge_len):
@@ -1183,12 +1178,11 @@ holds for all vertices.
 \end{lstlisting}
 
 \paragraph{Nearest and near.} The implementation uses vectorised linear
-scans, because its trees have a few thousand vertices and a full run takes
-about a second. Beyond $10^4$ vertices use a kd-tree
-(\cref{ch:ch16}): \textsc{Near} becomes a range query, the $k$-nearest
-variant a $k$-nearest query, and since points only ever get inserted, a
-tree rebuilt whenever the vertex count doubles keeps the amortised cost
-logarithmic. The class \code{InformedSampler} of the file implements
+scans, because its trees have a few thousand vertices and a run takes about
+a second. Beyond $10^4$ vertices use a kd-tree (\cref{ch:ch16}):
+\textsc{Near} becomes a range query, and since points only ever get
+inserted, a tree rebuilt whenever the vertex count doubles keeps the
+amortised cost logarithmic. The class \code{InformedSampler} of the file implements
 \cref{alg:ch17-informed} line by line, with the rotation computed once per
 problem from the SVD of \cref{eq:ch17-rotation}.
 
@@ -1196,14 +1190,12 @@ problem from the SVD of \cref{eq:ch17-rotation}.
 \paragraph{Anytime use.}\index{anytime planning!while flying} A drone
 does not wait for $N$ iterations. The pattern of
 \textcite{karaman2011anytime} is: plan until the first solution, start
-flying its first segment, and keep running iterations at a fixed rate.
-Whenever $c_{\mathrm{best}}$ improves by more than a tolerance, hand the
-new path to the tracking layer. When the drone reaches a waypoint,
-re-root the tree there: the waypoint's subtree keeps its structure and all
-its costs drop by the cost of the waypoint, the other branches are pruned.
-Combine this with branch-and-bound pruning of vertices with
-$\mathrm{Cost}(v)+\norm{x_{\mathrm{goal}}-v}\ge c_{\mathrm{best}}$ and the
-tree stays small and focused; \cref{exr:ch17-anytime} builds it.
+flying its first segment, keep iterating at a fixed rate, and hand over the
+new path whenever $c_{\mathrm{best}}$ improves by more than a tolerance.
+At each waypoint re-root the tree there: the waypoint's subtree keeps its
+structure, its costs drop by the cost of the waypoint, and the other
+branches are discarded. With branch-and-bound pruning the tree stays small
+and focused; \cref{exr:ch17-anytime} builds it.
 
 \begin{pitfall}[A radius that is too small kills optimality]
 \rrtstar with a constant small radius, or with $\gamma$ below the
@@ -1256,13 +1248,13 @@ times finer subdivision.
 \rrtstar and \irrtstar are the continuous planners of the global and
 replanning layers of \cref{ch:ch24}. The swarm as a whole is planned on a
 grid by \cbs or \ecbs (\cref{ch:ch09,ch:ch10}), because conflicts between
-drones are easiest to resolve in discrete space-time. A single drone calls
-\rrtstar instead of \astar when (i) it must cross a 3D volume whose grid
-would be far larger than the tree that solves it (the grid sizes of
-\cref{ch:ch16}), (ii) its constraints are not grid-shaped, for example a
-turning radius handled by kinodynamic steering, or (iii) an unexpected
-obstacle has invalidated a long stretch of its nominal route and the
-replanning layer wants a short, smooth detour rather than a staircase. It
+drones are easiest to resolve in discrete space-time. A
+single drone calls \rrtstar instead of \astar when (i) it must cross a 3D
+volume whose grid would be far larger than the tree that solves it,
+(ii) its constraints are not grid-shaped, such as a turning radius handled
+by kinodynamic steering, or (iii) an unexpected obstacle has invalidated a
+long stretch of its nominal route and the replanning layer wants a short,
+smooth detour rather than a staircase. It
 keeps \astar or \dstarlite (\cref{ch:ch04,ch:ch05}) when the map is small,
 when the plan must be time-indexed for the conflict re-check, or when the
 map keeps changing and incremental repair is cheaper than a new tree.
@@ -1304,24 +1296,24 @@ able to say, for a given mission, which planner of
   \item An iteration costs $\bigO{\log n}$ expected neighbours and a few
   collision checks; a run costs $\bigO{n\log n}$, a constant factor above
   \rrt.
-  \item Once a solution of cost $c_{\mathrm{best}}$ exists, only the
+    \item Once a solution of cost $c_{\mathrm{best}}$ exists, only the
   prolate hyperspheroid with foci $x_{\mathrm{init}},x_{\mathrm{goal}}$,
   transverse diameter $c_{\mathrm{best}}$ and conjugate diameter
   $\sqrt{c_{\mathrm{best}}^2-c_{\min}^2}$ can contain a better path;
-  \irrtstar samples it uniformly by scaling the unit ball, rotating and
-  translating, and converges much faster in large spaces.
+  \irrtstar samples it uniformly (scale the unit ball, rotate, translate)
+  and converges much faster in large spaces.
   \item BIT\textsuperscript{*} searches batches of informed samples with
-  an \astar-ordered edge queue; anytime \rrtstar re-roots the tree while the
-  drone flies and prunes with $\mathrm{Cost}(v)+\norm{x_{\mathrm{goal}}-v}\ge c_{\mathrm{best}}$.
+  an \astar-ordered edge queue; anytime \rrtstar re-roots the tree while
+  the drone flies and prunes vertices that cannot improve the solution.
 \end{itemize}
 \end{summary}
 
 \paragraph{Further reading.}
 The original paper is \textcite{karaman2011sampling}, which introduces
 RRG, \rrtstar and PRM\textsuperscript{*}, proves that \rrt is not
-asymptotically optimal and contains the full ball-covering proof; its
-anytime use is described by \textcite{karaman2011anytime}, and the proof is
-revisited by \textcite{solovey2020revisiting}. \irrtstar is due to
+asymptotically optimal and contains the full proof; anytime use is described
+by \textcite{karaman2011anytime}, and the proof is revisited by
+\textcite{solovey2020revisiting}. \irrtstar is due to
 \textcite{gammell2014informed} and was generalised by
 \textcite{gammell2018informed}; BIT\textsuperscript{*} is due to
 \textcite{gammell2015bit} and FMT\textsuperscript{*} to
@@ -1363,26 +1355,24 @@ Derive the sampling transformation of \cref{eq:ch17-transform}. (a) Show
 that the set $\hat f(x)\le c_{\mathrm{best}}$ is the image of the unit ball
 under $x=\mat{C}\mat{L}\vect{x}_{\mathrm{ball}}+\vect{x}_{\mathrm{centre}}$
 with the semi-axes of \cref{eq:ch17-axes}; start from the frame in which
-the foci are $(\pm c_{\min}/2,0,\dots,0)$. (b) Show that the image of a
-uniform density under an affine map with invertible matrix $\mat{A}$ is
-uniform, with density divided by $\abs{\det\mat{A}}$, and conclude that
-the samples are uniform on the hyperspheroid. (c) Show that
+the foci are $(\pm c_{\min}/2,0,\dots,0)$. (b) Show that an affine map with
+invertible matrix $\mat{A}$ sends a uniform density to a uniform density
+divided by $\abs{\det\mat{A}}$. (c) Show that
 $w^{1/d}\vect{u}/\norm{\vect{u}}$ is uniform in the unit ball. (d) Verify
 that \cref{eq:ch17-rotation} is orthogonal, has determinant $+1$ and maps
-$\vect{e}_1$ to $\vect{a}_1$; in 2D reduce it to the rotation by the angle
-of $\vect{a}_1$.
+$\vect{e}_1$ to $\vect{a}_1$; in 2D reduce it to a rotation by the angle of
+$\vect{a}_1$.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch17-invariant}
 Prove \cref{prop:ch17-invariant}(i) in detail: show that a rewire can never
-create a cycle, and give the tree, the sample and the near set of a
-concrete situation in which \textsc{Rewire} considers a candidate that
-would create one and rejects it. Then show that the \emph{order} in which
-\textsc{Rewire} processes the candidates does not change the tree at the
-end of the iteration (except for exact ties), even when one candidate is a
-descendant of another, but that it can change the amount of propagation
-work, and say which order minimises that work.
+create a cycle, and construct a small tree, sample and near set in which
+\textsc{Rewire} considers a candidate that would create one and rejects it.
+Then show that the \emph{order} in which \textsc{Rewire} processes the
+candidates does not change the final tree of the iteration (except for
+exact ties), even when one candidate is a descendant of another, but can
+change the propagation work; which order minimises it?
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]

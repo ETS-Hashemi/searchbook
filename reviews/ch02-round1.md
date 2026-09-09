@@ -249,9 +249,9 @@ the numbers in the text; every other number quoted in the chapter is printed or 
    paragraph above it.
    (e) The quadrotor caveats keep acceleration-cannot-jump, asymmetric limits and the
    margin advice; the drag and payload elaboration is gone.
-   Beyond these I also tightened six wordy sentences and reduced the drawing height of the
-   time-expanded and Gaussian figures. **Result: the chapter body is now 21 printed pages
-   (was 22), not 20.** The remaining page could only be recovered by deleting content that
+   Beyond these I also tightened about fifteen wordy sentences and captions (no fact
+   removed) and reduced the drawing height of the time-expanded and Gaussian figures.
+   **Result: the chapter body is now 21 printed pages (was 22), not 20.** The remaining page could only be recovered by deleting content that
    this review says must be kept (the definitions the other chapters cite by number, the
    worked example with Table 2.3, the proofs, the four remaining "must cover" tables, the
    ten exercises), so it was left in place rather than cut. Every "must cover" item of
