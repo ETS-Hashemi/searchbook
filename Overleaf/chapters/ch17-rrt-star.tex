@@ -769,15 +769,15 @@ Karaman and Frazzoli prove the threshold of \cref{eq:ch17-radius} for the
 rapidly-exploring random \emph{graph} (RRG),\index{RRG} which keeps every
 edge between vertices within $r_n$; for \rrtstar, which keeps only a tree,
 their paper states the smaller constant
-$(2(1+1/d))^{1/d}(\mu(\Xfree)/\zeta_d)^{1/d}$, and this is the value that
-many library implementations use. The condition of \cref{eq:ch17-radius} is
-the stricter of the two and therefore safe. Step~5 is where the tree makes
-life difficult: the cost of a vertex depends on the order in which its
-neighbours arrived. \textcite{solovey2020revisiting} found a gap at this
-point of the original argument and closed it with a radius that shrinks
-slightly more slowly, $\gamma'(\log n/n)^{1/(d+1)}$. In practice everyone
-uses the schedule of \cref{eq:ch17-radius} with $\gamma$ above the
-threshold, and it converges as \cref{fig:ch17-convergence} shows.
+$(2(1+1/d))^{1/d}(\mu(\Xfree)/\zeta_d)^{1/d}$, also found in library code.
+The condition of \cref{eq:ch17-radius} is the stricter of the two and
+therefore safe. Step~5 is where the tree makes life difficult, because the
+cost of a vertex depends on the order in which its neighbours arrived:
+\textcite{solovey2020revisiting} found a gap there in the original argument
+and closed it with a radius that shrinks slightly more slowly,
+$\gamma'(\log n/n)^{1/(d+1)}$. In practice everyone uses
+\cref{eq:ch17-radius} with $\gamma$ above the threshold, and it converges as
+\cref{fig:ch17-convergence} shows.
 \end{remark}
 
 \subsection{Cost per iteration}
@@ -930,17 +930,15 @@ to verify this and the axes). Two ingredients remain.
 $c_{\mathrm{best}}=\infty$ and the sampler falls back to the goal-biased
 uniform sampling of \cref{alg:ch17-rrtstar}; from the first solution on,
 the tree grows only inside the current ellipsoid, which shrinks whenever
-\textsc{Rewire} improves the goal's branch. The tree itself, \textsc{Near},
+\textsc{Rewire} improves the goal's branch. \textsc{Near},
 \textsc{ChooseParent} and \textsc{Rewire} are unchanged, and so is the
 theory: the samples remain uniform on a set that contains every point that
 can still improve the solution, so \irrtstar keeps the probabilistic
 completeness and the asymptotic optimality of \rrtstar
-\cite{gammell2014informed}. Two practical details: samples of the
-hyperspheroid that fall outside $\mathcal{X}$ are rejected
-(line~\ref{alg:ch17-informed:map}), and when the hyperspheroid is larger
-than $\mathcal{X}$ it is cheaper to do the opposite, sample $\mathcal{X}$
-and reject by $\hat f$; the code switches between the two by comparing the
-volumes.
+\cite{gammell2014informed}. Samples of the hyperspheroid outside $\mathcal{X}$ are rejected
+(line~\ref{alg:ch17-informed:map}); when the hyperspheroid is larger than
+$\mathcal{X}$, the code does the opposite and samples $\mathcal{X}$,
+rejecting by $\hat f$.
 
 \begin{algorithm}[htb]
 \caption{\irrtstar (Gammell, Srinivasa and Barfoot)}
@@ -1067,10 +1065,7 @@ to other cost functions.
   \end{tabular}
 \end{table}
 
-\Cref{tab:ch17-comparison} lists every sampling-based planner of the book;
-as a rule of thumb, use \rrt-Connect for a first feasible path, \rrtstar or
-\irrtstar when the path will be flown, and BIT\textsuperscript{*} when both
-matter and a library is at hand.
+\Cref{tab:ch17-comparison} lists every sampling-based planner of the book.
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
@@ -1214,10 +1209,8 @@ The temptation is to skip the collision check in \textsc{Rewire} because
 ``$x_{\mathrm{new}}$ was checked when it was inserted''. Only the segment to
 its parent was. Every rewired edge is a new segment and needs its own check
 (line~\ref{alg:ch17-helpers:rwfree} of \cref{alg:ch17-helpers}); the same
-holds for the candidate segments of \textsc{ChooseParent}, and a checker
-that is not symmetric (a drone with a heading) must run in the direction the
-edge will be flown. The self-test re-checks every returned path with a ten
-times finer subdivision.
+holds for the candidate segments of \textsc{ChooseParent}, and a checker that is not symmetric (a drone with a heading) must run in
+the direction the edge will be flown.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
