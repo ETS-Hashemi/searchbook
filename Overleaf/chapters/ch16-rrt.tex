@@ -70,63 +70,58 @@ Space & Resolution & Cells per axis & Cells & Memory & Neighbours\\
 \end{table}
 
 Sampling-based planning\index{sampling-based planning} turns the problem
-around. Instead of enumerating the space, it draws random points from it,
-keeps the ones that are collision-free and connects them by short
-collision-free segments. The memory is proportional to the number of samples,
-not to the size of the space, and the same code runs in two, three or twelve
+around. Instead of enumerating the space it draws random points from it,
+keeps the collision-free ones and connects them by short collision-free
+segments. The memory is proportional to the number of samples, not to the
+size of the space, and the same code runs in two, three or twelve
 dimensions. The rapidly-exploring random tree (\rrt) of
 \textcite{lavalle1998rrt} is the simplest and most used member of this
-family. It grows a tree from the start configuration, one random sample at a
-time, and stops when the tree reaches the goal. In the hybrid architecture of
+family: it grows a tree from the start, one random sample at a time, and
+stops when the tree reaches the goal. In the hybrid architecture of
 \cref{ch:ch24} it is the continuous planner that takes over when the global
-grid of the multi-agent planner is too coarse for the local geometry, or
-when a drone must find a route through a large three-dimensional space that
-no grid can represent: \cref{sec:ch16-drone} explains how the two are
-combined. Week~8 of the study plan (\cref{ch:appA}) asks you to implement a
-sampling-based planner in a 3D obstacle field and to compare it with grid
-\astar, and this chapter and \cref{ch:ch17} are its material.
+grid is too coarse for the local geometry or too large to build
+(\cref{sec:ch16-drone}). Week~8 of the study plan (\cref{ch:appA}) asks you
+to implement a sampling-based planner in a 3D obstacle field and to compare
+it with grid \astar; this chapter and \cref{ch:ch17} are its material.
 
-The chapter proceeds as follows. \Cref{sec:ch16-intuition} gives the idea and
-the reason the tree explores so quickly, \cref{sec:ch16-problem} the exact
-definitions of the primitives, \cref{sec:ch16-algorithm} the algorithm and
-\cref{sec:ch16-example} a worked example with three snapshots of the tree.
-\Cref{sec:ch16-properties} proves probabilistic completeness and shows why
-\rrt is not optimal. \Cref{sec:ch16-variants} covers \rrt-Connect,
-kinodynamic \rrt, path shortcutting and planning in 3D,
-\cref{sec:ch16-implementation} the collision checks, the nearest-neighbour
-search and the parameters, and \cref{sec:ch16-choice} the choice between grid
-search and sampling.
+\Cref{sec:ch16-intuition} gives the idea, \cref{sec:ch16-problem} the exact
+primitives, \cref{sec:ch16-algorithm} the algorithm and
+\cref{sec:ch16-example} a worked example. \Cref{sec:ch16-properties} proves
+probabilistic completeness and shows why \rrt is not optimal.
+\Cref{sec:ch16-variants} covers \rrt-Connect, kinodynamic \rrt, shortcutting
+and planning in 3D, \cref{sec:ch16-implementation} the collision checks,
+nearest-neighbour search and parameters, and \cref{sec:ch16-choice} the
+choice between grid search and sampling.
 
 % ---------------------------------------------------------------------
 \section{The idea in plain words}
 \label{sec:ch16-intuition}
 
-Imagine throwing darts at a map. Every dart lands at a random point. The
-tree, which starts as the single start point, reacts to each dart in the same
-way: it finds the vertex closest to the dart, moves from that vertex a fixed
-distance $\eta$ towards the dart, and, if that short step does not cross an
-obstacle, adds the end of the step as a new vertex with the old vertex as its
-parent. The dart itself is thrown away. After a few hundred darts the tree has
-branches everywhere, and as soon as one branch enters a small region around
-the goal, the chain of parents from that vertex back to the root is a
-collision-free path.
+Imagine throwing darts at a map. The tree, which starts as the single start
+point, reacts to each dart in the same way: it finds the vertex closest to
+the dart, moves from that vertex a fixed distance $\eta$ towards the dart,
+and, if that short step does not cross an obstacle, adds the end of the step
+as a new vertex with the old vertex as its parent. The dart itself is thrown
+away. After a few hundred darts the tree has branches everywhere, and as soon
+as one branch enters a small region around the goal, the chain of parents
+from that vertex back to the root is a collision-free path.
 
 Why does this explore so quickly, without any heuristic pointing to the
 goal? Because of the way the nearest vertex is chosen.
 \Cref{fig:ch16-voronoi} shows a small tree in an empty square together with
-the \textbf{Voronoi region}\index{Voronoi region} of every vertex: the set of
-points that are closer to this vertex than to any other. A dart that lands in
-the region of vertex $v$ makes $v$ the parent of the new vertex. With uniform
-darts, the probability that $v$ is extended equals the area of its region
-divided by the area of the map. The vertices at the tips of branches that
-point into empty space own the largest regions, so they are extended most
-often, and each extension pushes the tree further into the empty space. In the
-figure the largest region covers $20.6\,\%$ of the square and the three
-largest together $59.3\,\%$, while an even share would be $6.7\,\%$ per
-vertex; the smallest region, deep inside the tree, covers $0.7\,\%$. This is
-the \textbf{Voronoi bias}\index{Voronoi bias}\index{RRT!Voronoi bias} of
-\rrt: the tree is pulled towards the largest unexplored regions, and it keeps
-being pulled there until those regions have been filled.
+the \textbf{Voronoi region}\index{Voronoi region} of every vertex, the set of
+points closer to this vertex than to any other. A dart that lands in the
+region of vertex $v$ makes $v$ the parent of the new vertex, so with uniform
+darts the probability that $v$ is extended equals the area of its region
+divided by the area of the map. The tips of branches that point into empty
+space own the largest regions, so they are extended most often, and each
+extension pushes the tree further into the empty space. In the figure the
+largest region covers $20.6\,\%$ of the square and the three largest
+together $59.3\,\%$, while an even share would be $6.7\,\%$ per vertex; the
+smallest region, deep inside the tree, covers $0.7\,\%$. This is the
+\textbf{Voronoi bias}\index{Voronoi bias}\index{RRT!Voronoi bias} of \rrt:
+the tree is pulled towards the largest unexplored regions until they have
+been filled.
 
 \begin{figure}[tb]
   \centering
@@ -160,11 +155,10 @@ region $\Cobs$ and its free space $\Cfree$. The sampling-based planning
 literature writes the same objects as $\mathcal{X}$, $\Xobs$ and $\Xfree$,
 because the space is often a \emph{state} space that contains velocities as
 well as positions (\cref{sec:ch16-kinodynamic}); this chapter and
-\cref{ch:ch17} follow that usage. For a drone that is planned as a sphere of
-radius $r$, a configuration is the position of its centre, $x\in\R^{d}$ with
-$d=2$ or $3$, and $\Xobs$ is the set of centre positions at which the sphere
-meets an obstacle, which is the union of the obstacles inflated by $r$
-(the Minkowski sum of \cref{ch:ch02}).
+\cref{ch:ch17} follow that usage. For a drone planned as a sphere of radius
+$r$, a configuration is the position of its centre, $x\in\R^{d}$ with $d=2$
+or $3$, and $\Xobs$ is the union of the obstacles inflated by $r$ (the
+Minkowski sum of \cref{ch:ch02}).
 
 \begin{definition}[Sampling-based planning problem]
 \label{def:ch16-problem}
@@ -186,10 +180,10 @@ $\sum_{i}\norm{x_{i}-x_{i-1}}$, the path length of \cref{ch:ch02}.
 \end{definition}
 
 The tree $T=(V,E)$ built by \rrt has a vertex set $V\subset\Xfree$ rooted at
-$x_{\mathrm{init}}$ and directed edges $(x_{\mathrm{parent}},x)$, one per
-vertex except the root, each of which is a collision-free segment. The path
-from the root to any vertex is therefore a solution as soon as the vertex
-lies in $X_{\mathrm{goal}}$.
+$x_{\mathrm{init}}$ and one directed edge $(x_{\mathrm{parent}},x)$ per
+vertex except the root, each a collision-free segment; the path from the
+root to any vertex is therefore a solution as soon as the vertex lies in
+$X_{\mathrm{goal}}$.
 
 \subsection{The four primitives}
 \label{sec:ch16-primitives}
@@ -240,39 +234,39 @@ $p_{\mathrm{goal}}\in[0,1)$ the \textbf{goal bias}\index{goal bias}\index{RRT!go
 
 A segment has infinitely many points, so \textsc{CollisionFree} is
 implemented by testing finitely many of them. The following proposition says
-how to do this without ever missing an obstacle. Write $\dist(x,\Xobs)$ for
-the Euclidean distance from $x$ to the obstacle region; for axis-aligned
-boxes and spheres it is computed in closed form
+how to do this without ever missing an obstacle. Write $\dist(x,\mathcal{O})$
+for the Euclidean distance from $x$ to the workspace obstacles $\mathcal{O}$;
+for axis-aligned boxes and spheres it has a closed form
 (\cref{sec:ch16-collision}).
 
 \begin{proposition}[Collision checking by subdivision]
 \label{thm:ch16-resolution}
 Let $r\ge0$ be the robot radius, so that a point $x$ is free if and only if
-$\dist(x,\mathcal{O})>r$ for the workspace obstacles $\mathcal{O}$, and let
-$\delta>0$ be the \textbf{check resolution}\index{collision checking!resolution}\index{collision checking!by subdivision}.
+$\dist(x,\mathcal{O})>r$, and let $\delta>0$ be the \textbf{check
+resolution}\index{collision checking!resolution}\index{collision checking!by subdivision}.
 Let $p_0=a,p_1,\dots,p_n=b$ be points on the segment $[a,b]$ with
 $\norm{p_{i}-p_{i-1}}\le\delta$ for all $i$. If $\dist(p_i,\mathcal{O})>r+\delta/2$
-for every $i$, then every point of $[a,b]$ has $\dist(p,\mathcal{O})>r$, that is,
+for every $i$, then every point $p$ of $[a,b]$ has $\dist(p,\mathcal{O})>r$, that is,
 the segment is collision-free.
 \end{proposition}
 \begin{proof}
 Take any $p\in[a,b]$. It lies between two consecutive test points, so its
-distance to the nearer of them is at most $\delta/2$; call that point $p_i$.
-The function $x\mapsto\dist(x,\mathcal{O})$ is $1$-Lipschitz (it is an infimum
-of distances, each of which changes by at most $\norm{p-p_i}$ when $p_i$ is
-replaced by $p$), so
+distance to the nearer of them, $p_i$ say, is at most $\delta/2$. The function
+$x\mapsto\dist(x,\mathcal{O})$ is $1$-Lipschitz (an infimum of distances,
+each of which changes by at most $\norm{p-p_i}$ when $p_i$ is replaced by
+$p$), so
 $\dist(p,\mathcal{O})\ge\dist(p_i,\mathcal{O})-\norm{p-p_i}>r+\delta/2-\delta/2=r$.
 \qedhere
 \end{proof}
 
-The test rejects some segments that are actually free, those that pass
-within $r+\delta/2$ of an obstacle, and it needs $\lceil\norm{b-a}/\delta\rceil+1$
-point tests. It never accepts a segment that collides, whatever the shape or
-thickness of the obstacles: this is what makes it safe for a drone. Without
-the inflation by $\delta/2$ a wall thinner than $\delta$ can slip between two
-test points (\cref{sec:ch16-pitfalls}). The self-test of
-\code{ch16\_rrt.py} checks exactly this case, a wall of thickness $0.02$
-with $\delta=0.05$, for forty different segment angles.
+The test rejects some free segments, those that pass within $r+\delta/2$ of
+an obstacle, and needs $\lceil\norm{b-a}/\delta\rceil+1$ point tests. It
+never accepts a colliding segment, whatever the shape or thickness of the
+obstacles, which is what makes it safe for a drone. Without the inflation by
+$\delta/2$ a wall thinner than $\delta$ can slip between two test points
+(\cref{sec:ch16-pitfalls}); the self-test of \code{ch16\_rrt.py} checks
+exactly this case, a wall of thickness $0.02$ with $\delta=0.05$, at forty
+segment angles.
 
 % ---------------------------------------------------------------------
 \section{The algorithm}
@@ -304,51 +298,46 @@ with $\delta=0.05$, for forty different segment angles.
 starts the tree with the root. Each iteration draws one sample
 (line~\ref{alg:ch16-rrt:sample}); the goal bias makes every twentieth sample
 (for $p_{\mathrm{goal}}=0.05$) the goal itself, so that the tree is pulled
-towards the goal once in a while and does not have to wait for a uniform
-sample to land in the small goal region. Line~\ref{alg:ch16-rrt:nearest} is
-the expensive step, a search over all vertices
-(\cref{sec:ch16-nearest}). Line~\ref{alg:ch16-rrt:steer} limits the length of
-the new edge to $\eta$: without this limit a sample far away would produce a
-long edge that is almost always blocked, and the tree would grow only towards
-nearby samples. Line~\ref{alg:ch16-rrt:free} is the only place where the
-obstacles enter, and it tests the whole segment, not just the new vertex. If
-the segment is free, the new vertex joins the tree with $x_{\mathrm{near}}$ as
-its parent (line~\ref{alg:ch16-rrt:add}); if it is blocked, the iteration has
-produced nothing, and the sample is simply forgotten. The goal test of
-line~\ref{alg:ch16-rrt:goal} asks whether the new vertex lies in the goal
-ball; exact equality with $x_{\mathrm{goal}}$ never happens with continuous
-samples, which is why a goal region is part of the problem statement. The
-implementation of \cref{sec:ch16-implementation} finally appends
-$x_{\mathrm{goal}}$ itself to the path when the segment from the entry vertex
-to it is free, so that the path ends exactly at the goal.
+towards the goal once in a while instead of waiting for a uniform sample to
+land in the small goal region. Line~\ref{alg:ch16-rrt:nearest} is the
+expensive step, a search over all vertices (\cref{sec:ch16-nearest}).
+Line~\ref{alg:ch16-rrt:steer} limits the new edge to length $\eta$: without
+the limit a far-away sample would produce a long edge that is almost always
+blocked. Line~\ref{alg:ch16-rrt:free} is the only place where the obstacles
+enter, and it tests the whole segment, not just the new vertex. If the
+segment is free, the new vertex joins the tree with $x_{\mathrm{near}}$ as
+its parent (line~\ref{alg:ch16-rrt:add}); if not, the sample is simply
+forgotten. The goal test of line~\ref{alg:ch16-rrt:goal} asks whether the new
+vertex lies in the goal ball: exact equality with $x_{\mathrm{goal}}$ never
+happens with continuous samples, which is why a goal region is part of the
+problem statement. The implementation of \cref{sec:ch16-implementation}
+finally appends $x_{\mathrm{goal}}$ itself when the segment from the entry
+vertex to it is free, so that the path ends exactly at the goal.
 
 Kuffner and LaValle \cite{kuffner2000rrtconnect} package
 lines~\ref{alg:ch16-rrt:nearest}--\ref{alg:ch16-rrt:add} as one operation
-$\textsc{Extend}(T,x)$ with three possible outcomes: \textsc{Trapped} if the
-segment was blocked, \textsc{Advanced} if a new vertex was added short of
-$x$, and \textsc{Reached} if the new vertex is $x$ itself, which happens
-exactly when $\norm{x-x_{\mathrm{near}}}\le\eta$. \Cref{alg:ch16-connect}
-below is written in these terms.
+$\textsc{Extend}(T,x)$ with three outcomes: \textsc{Trapped} if the segment
+was blocked, \textsc{Advanced} if a new vertex was added short of $x$, and
+\textsc{Reached} if the new vertex is $x$ itself, which happens exactly when
+$\norm{x-x_{\mathrm{near}}}\le\eta$. \Cref{alg:ch16-connect} is written in
+these terms.
 
 \paragraph{The Voronoi bias, quantified.}
-With $p_{\mathrm{goal}}=0$ the sample of line~\ref{alg:ch16-rrt:sample} is
-uniform on $\mathcal{X}$, so the probability that vertex $v$ is chosen by
-line~\ref{alg:ch16-rrt:nearest} is
+With $p_{\mathrm{goal}}=0$ the sample is uniform on $\mathcal{X}$, so the
+probability that vertex $v$ is chosen by line~\ref{alg:ch16-rrt:nearest} is
 \begin{equation}
 \Prob\bigl(x_{\mathrm{near}}=v\bigr)=\frac{\mathrm{vol}\bigl(\mathrm{Vor}(v)\cap\mathcal{X}\bigr)}{\mathrm{vol}(\mathcal{X})},
 \qquad \mathrm{Vor}(v)=\set{x : \norm{x-v}\le\norm{x-w}\ \text{for all } w\in V},
 \label{eq:ch16-voronoi}
 \end{equation}
-the relative volume of its Voronoi region. This is the whole explanation of
-\cref{fig:ch16-voronoi}: a vertex whose region is large is far from the other
-vertices in some direction, and extending it reduces that region and enlarges
-the tree in exactly that direction. LaValle \cite{lavalle1998rrt} observed
-that the distribution of the vertices converges to the sampling distribution
-as the tree grows, so a uniformly sampled \rrt eventually covers $\Xfree$
-uniformly. With a goal bias the same holds for the uniform part of the
-samples, while the goal samples always extend the vertex nearest to the goal,
-a behaviour that helps when that vertex has a clear view of the goal and
-hurts when it sits against an obstacle (\cref{sec:ch16-pitfalls}).
+the relative volume of its Voronoi region. A vertex whose region is large is
+far from the other vertices in some direction, and extending it enlarges the
+tree in exactly that direction. LaValle \cite{lavalle1998rrt} observed that
+the distribution of the vertices converges to the sampling distribution, so
+a uniformly sampled \rrt eventually covers $\Xfree$ uniformly. Goal samples
+always extend the vertex nearest to the goal, which helps when that vertex
+has a clear view of the goal and hurts when it sits against an obstacle
+(\cref{sec:ch16-pitfalls}).
 
 % ---------------------------------------------------------------------
 \section{A worked example}
@@ -361,7 +350,7 @@ rectangular obstacles, $[3,5]\times[0,6]$ and $[6,8]\times[4,10]$, so that
 the only way from the bottom-left to the top-right corner passes between
 them. The robot is a point ($r=0$), the start is
 $x_{\mathrm{init}}=(1,1)$, the goal $x_{\mathrm{goal}}=(9,9)$ with
-$r_{\mathrm{goal}}=0.5$, the step size is $\eta=0.5$, the goal bias
+$r_{\mathrm{goal}}=0.5$, the step size $\eta=0.5$, the goal bias
 $p_{\mathrm{goal}}=0.05$ and the check resolution $\delta=0.05$. The random
 generator is seeded with $1$. The instance is \code{worked\_example\_world()}
 in \code{ch16\_rrt.py}, and every number below is printed by its self-test or
@@ -374,9 +363,8 @@ by the figure script \code{gen\_ch16\_tree.py}.
 \cref{ex:ch16-map}. Vertices are numbered in the order of insertion, vertex~0
 being the start. Iteration~4 drew the goal (goal bias). From iteration~7 on,
 the samples on the right of the map select vertices~5 and~6, which sit just
-left of the wall $[3,5]\times[0,6]$, and every step towards the samples
-crosses the wall and is rejected: the tree does not grow in these
-iterations.}
+left of the wall $[3,5]\times[0,6]$, and every step towards them crosses the
+wall and is rejected: the tree does not grow in these iterations.}
 \label{tab:ch16-trace}
 \begin{tabular}{@{}rccccl@{}}
 \toprule
@@ -397,18 +385,17 @@ Iteration & $x_{\mathrm{rand}}$ & Nearest vertex & $x_{\mathrm{near}}$ & $x_{\ma
 \end{table}
 
 \Cref{tab:ch16-trace} traces the first ten iterations. The first sample lies
-far to the right, so \textsc{Steer} produces a step of exactly $\eta=0.5$ from
-the start, almost horizontally. The next samples all lie towards the
-north-east, and the tree grows as a single chain of six vertices in that
-direction, exactly what the Voronoi bias predicts for a tree that consists of
-one branch: its tip owns almost the whole map. At iteration~7 the chain has
-reached $x\approx2.9$, and the wall at $x=3$ blocks every step towards the
-right half of the map. The tree is now stuck for a while in an
-unproductive regime: samples on the right, which are most of them, keep
-selecting the two vertices closest to the wall, and \textsc{CollisionFree}
-keeps rejecting the step. Only samples on the left of the wall, which have
-probability about $0.3$, add vertices. This is why the first panel of
-\cref{fig:ch16-snapshots} shows only $17$ vertices after $50$ iterations:
+far to the right, so \textsc{Steer} produces a step of exactly $\eta=0.5$
+from the start. The next samples lie towards the north-east, and the tree
+grows as a single chain of six vertices in that direction, exactly what the
+Voronoi bias predicts for a tree with one branch: its tip owns almost the
+whole map. At iteration~7 the chain has reached $x\approx2.9$ and the wall
+at $x=3$ blocks every step towards the right half of the map. The tree is now
+stuck in an unproductive regime: samples on the right, which are most of
+them, keep selecting the two vertices closest to the wall, and
+\textsc{CollisionFree} keeps rejecting the step; only samples on the left of
+the wall, probability about $0.3$, add vertices. This is why the first panel
+of \cref{fig:ch16-snapshots} shows only $17$ vertices after $50$ iterations:
 $33$ extensions were rejected.
 
 \begin{figure}[tb]
@@ -427,19 +414,18 @@ $33$ extensions were rejected.
 
 \Cref{fig:ch16-snapshots} shows the tree after $50$, $200$ and $1000$
 iterations. By iteration~$200$ the tree has $103$ vertices and has found the
-gap between the walls; the goal region is entered at iteration~$402$, when the
-tree has $245$ vertices, by a vertex at $(9.14,8.60)$ whose distance to the
-goal is $0.42<r_{\mathrm{goal}}$. The final segment from this vertex to
-$x_{\mathrm{goal}}$ is free and is appended, which makes a path of $50$
+gap between the walls; the goal region is entered at iteration~$402$, when
+the tree has $245$ vertices, by a vertex at $(9.14,8.60)$ at distance
+$0.42<r_{\mathrm{goal}}$ from the goal. The final segment to
+$x_{\mathrm{goal}}$ is free and is appended, which gives a path of $50$
 vertices and length $23.85$. Of the $402$ iterations, $158$ were rejected by
-the collision check, and the checks tested $3\,965$ points altogether, about
-ten per iteration, as expected for $\eta/\delta=10$. The path is far from
-optimal: the shortest path in $\Xfree$ hugs the corners $(3,6)$, $(5,6)$,
-$(6,4)$ and $(8,4)$ and has length $16.72$ (in the limit of zero clearance;
-with a clearance of $0.075$ the shortest path has length $17.20$), so the \rrt
-path is $43\,\%$ longer. \Cref{sec:ch16-properties} explains why this is not
-bad luck, and \cref{sec:ch16-smoothing} how most of the excess is removed
-afterwards.
+the collision check, and the checks tested $3\,965$ points, about ten per
+iteration, as expected for $\eta/\delta=10$. The path is far from optimal:
+the shortest path in $\Xfree$ hugs the corners $(3,6)$, $(5,6)$, $(6,4)$ and
+$(8,4)$ and has length $16.72$ (in the limit of zero clearance; with a
+clearance of $0.075$ it has length $17.20$), so the \rrt path is $43\,\%$
+longer. \Cref{sec:ch16-properties} explains why this is not bad luck, and
+\cref{sec:ch16-smoothing} how most of the excess is removed afterwards.
 
 % ---------------------------------------------------------------------
 \section{Properties: completeness, optimality, complexity}
@@ -453,10 +439,9 @@ probabilities. A planner is \textbf{probabilistically
 complete}\index{probabilistic completeness}\index{RRT!probabilistic completeness}
 if, whenever a solution exists, the probability that it has found one after
 $n$ iterations tends to $1$ as $n\to\infty$. This is weaker than the
-completeness of \astar on a finite graph, which finds a solution in a bounded
-number of steps, and it says nothing when no solution exists: \rrt then runs
-until its budget $N$ is spent and reports failure, without knowing whether
-the query was infeasible or merely hard.
+completeness of \astar on a finite graph, and it says nothing when no
+solution exists: \rrt then spends its budget $N$ and reports failure,
+without knowing whether the query was infeasible or merely hard.
 
 \begin{theorem}[Probabilistic completeness of \rrt; LaValle and Kuffner 2001]
 \label{thm:ch16-complete}
@@ -481,9 +466,9 @@ uniform sample lands in it with probability
 $p=(1-p_{\mathrm{goal}})\,\mathrm{vol}(B_k)/\mathrm{vol}(\mathcal{X})>0$,
 the same for every $k$.
 
-\emph{Claim: if the tree has a vertex $v\in B_k$ and the sample of the current
-iteration satisfies $x_{\mathrm{rand}}\in B_{k+1}$, then the iteration adds a
-vertex in $B_{k+1}$.} Let $v'=\Nearest(V,x_{\mathrm{rand}})$. Then
+\emph{Claim: if the tree has a vertex $v\in B_k$ and the current sample
+satisfies $x_{\mathrm{rand}}\in B_{k+1}$, then the iteration adds a vertex in
+$B_{k+1}$.} Let $v'=\Nearest(V,x_{\mathrm{rand}})$. Then
 $\norm{v'-x_{\mathrm{rand}}}\le\norm{v-x_{\mathrm{rand}}}
 \le\norm{v-x_k}+\norm{x_k-x_{k+1}}+\norm{x_{k+1}-x_{\mathrm{rand}}}<3\nu\le\eta$,
 so \textsc{Steer} returns $x_{\mathrm{new}}=x_{\mathrm{rand}}$ itself. Both
@@ -509,24 +494,24 @@ has returned a path.
 Three things in the proof deserve attention.
 \begin{itemize}
   \item \emph{The role of $\eta$.} The step size only enters through $\nu\le\eta/3$:
-        a smaller $\eta$ means smaller balls, hence a smaller $p$ and more
+        a smaller $\eta$ means smaller balls, a smaller $p$ and more
         iterations, but any $\eta>0$ gives completeness. A larger $\eta$ does
-        not hurt the argument, because \textsc{Steer} moves \emph{at most}
-        $\eta$ and reaches nearby samples exactly.
+        not hurt, because \textsc{Steer} moves \emph{at most} $\eta$ and
+        reaches nearby samples exactly.
   \item \emph{The role of the goal bias.} Only $p_{\mathrm{goal}}<1$ is needed;
         goal samples are simply wasted in the argument. With
         $p_{\mathrm{goal}}=1$ the algorithm is deterministic and fails on any
-        map where the straight line from the start to the goal is blocked
+        map where the straight line from start to goal is blocked
         (\cref{exr:ch16-completeness}).
   \item \emph{Narrow passages.} The ball volume is proportional to $\nu^{d}$, so
         $p\approx(1-p_{\mathrm{goal}})\,\zeta_d\,\nu^{d}/\mathrm{vol}(\mathcal{X})$
         with $\zeta_d$ the volume of the unit ball. A passage of width $w$
-        forces $\delta_{c}\le w/2$ and hence $\nu\le w/8$: the expected number
-        of iterations grows like $(1/w)^{d}$. This is the \textbf{narrow-passage
-        problem}\index{narrow-passage problem}, the known weakness of every
-        uniform sampler, and the reason for the bidirectional search of
-        \cref{sec:ch16-connect}. In \cref{ex:ch16-map} the gap between the walls
-        is one unit wide on a ten-unit map, wide enough for the tree to find it
+        forces $\delta_{c}\le w/2$ and $\nu\le w/8$: the expected number of
+        iterations grows like $(1/w)^{d}$. This \textbf{narrow-passage
+        problem}\index{narrow-passage problem} is the known weakness of every
+        uniform sampler and one motivation for the bidirectional search of
+        \cref{sec:ch16-connect}. In \cref{ex:ch16-map} the gap between the
+        walls is one unit wide on a ten-unit map, wide enough to be found
         within a few hundred iterations.
 \end{itemize}
 The bound $m/(np)$ is loose; \cref{exr:ch16-completeness} sharpens it to an
@@ -542,15 +527,14 @@ for \rrtstar.
 \Cref{fig:ch16-snapshots} already showed a path $43\,\%$ longer than
 necessary. \Cref{fig:ch16-jagged} shows the worst of $100$ runs of
 \cref{ex:ch16-map} with different seeds: its path has length $28.35$,
-$65\,\%$ above the optimum of $17.20$ (for the clearance $0.075$ used by the
-reference computation). Over the $100$ runs the path length averages
-$23.87$ with standard deviation $1.84$, minimum $20.55$ and maximum
-$28.35$; not a single run comes within $15\,\%$ of the optimum. Two features
-of \cref{alg:ch16-rrt} are responsible. First, the parent of a vertex is fixed
-forever at the moment of insertion, so a vertex reached early by a detour keeps
-its detour, and every later vertex behind it inherits the detour. Second, the
-path zigzags at the scale of $\eta$, because each edge points towards a random
-sample, not towards the goal.
+$65\,\%$ above the optimum of $17.20$ (for the clearance $0.075$ of the
+reference computation). Over the $100$ runs the length averages $23.87$ with
+standard deviation $1.84$, minimum $20.55$ and maximum $28.35$; not one run
+comes within $15\,\%$ of the optimum. Two features of \cref{alg:ch16-rrt}
+are responsible. The parent of a vertex is fixed forever at insertion, so a
+vertex reached early by a detour keeps its detour, and every later vertex
+behind it inherits it. And the path zigzags at the scale of $\eta$, because
+each edge points towards a random sample, not towards the goal.
 
 \begin{figure}[tb]
   \centering
@@ -565,8 +549,8 @@ sample, not towards the goal.
   \label{fig:ch16-jagged}
 \end{figure}
 
-Could one simply let the tree grow and wait for a better path to appear?
-No. Karaman and Frazzoli \cite{karaman2011sampling} proved that this never
+Could one let the tree grow and wait for a better path to appear? No.
+Karaman and Frazzoli \cite{karaman2011sampling} proved that this never
 happens.
 
 \begin{theorem}[\rrt converges to a suboptimal path; Karaman and Frazzoli 2011]
@@ -583,34 +567,32 @@ The best path in the tree converges almost surely to a value strictly larger
 than the optimum.
 \end{theorem}
 
-The proof analyses the vertex nearest to the start along an optimal path and
-shows that, with probability one, the tree's first edges in that direction
-are not aligned with the optimal path, and no later sample can repair them
-since edges are never changed. The remedy is to allow the tree to
+The proof analyses the vertices nearest to the start along an optimal path
+and shows that, with probability one, the tree's first edges in that
+direction are not aligned with the optimal path, and no later sample can
+repair them since edges are never changed. The remedy is to let the tree
 \emph{rewire}: \rrtstar (\cref{ch:ch17}) reconsiders the parent of every new
 vertex among its neighbours within a shrinking radius and reconnects existing
-vertices through it when that is cheaper. This restores optimality in the
-limit at the price of more collision checks per iteration. For \rrt itself
-the practical remedy is post-processing (\cref{sec:ch16-smoothing}), which
-removes most of the excess length but cannot carry the path to the other
-side of an obstacle.
+vertices through it when that is cheaper, which restores optimality in the
+limit at the price of more collision checks. For \rrt itself the practical
+remedy is post-processing (\cref{sec:ch16-smoothing}), which removes most of
+the excess length but cannot carry the path to the other side of an obstacle.
 
 \subsection{Complexity}
 \label{sec:ch16-complexity}
 
-Let $n$ be the number of vertices. One iteration of \cref{alg:ch16-rrt} costs
-one nearest-neighbour query, $\bigO{n}$ with a linear scan and
-$\bigO{\log n}$ on average with a kd-tree (\cref{sec:ch16-nearest}), plus one
-collision check of $\lceil\eta/\delta\rceil+1$ point tests, each of which is
-$\bigO{n_{\mathrm{obs}}}$ in the number of obstacles. After $N$ iterations
-the total is $\bigO{N^{2}}$ with the scan and $\bigO{N\log N}$ with a
-kd-tree, plus $\bigO{N\,n_{\mathrm{obs}}\,\eta/\delta}$ for the checks; in
-cluttered scenes the collision checks dominate. The memory is $\bigO{N}$
-vertices with $d$ coordinates and one parent index each, whatever the size
-or the dimension of $\mathcal{X}$, which is the whole point of
-\cref{tab:ch16-gridsizes}. What no bound tells you is \emph{how many}
-iterations are needed, which depends on the narrowest passage the path must
-cross as explained above.
+Let $n$ be the number of vertices. One iteration costs one nearest-neighbour
+query, $\bigO{n}$ with a linear scan and $\bigO{\log n}$ on average with a
+kd-tree (\cref{sec:ch16-nearest}), plus one collision check of
+$\lceil\eta/\delta\rceil+1$ point tests, each $\bigO{n_{\mathrm{obs}}}$ in
+the number of obstacles. After $N$ iterations the total is $\bigO{N^{2}}$
+with the scan and $\bigO{N\log N}$ with a kd-tree, plus
+$\bigO{N\,n_{\mathrm{obs}}\,\eta/\delta}$ for the checks, which dominate in
+cluttered scenes. The memory is $\bigO{N}$ vertices with $d$ coordinates and
+one parent index each, whatever the size or dimension of $\mathcal{X}$,
+which is the whole point of \cref{tab:ch16-gridsizes}. What no bound tells
+you is \emph{how many} iterations are needed; that depends on the narrowest
+passage the path must cross.
 
 % ---------------------------------------------------------------------
 \section{Variants and extensions}
@@ -665,18 +647,17 @@ uniform sample exactly as \rrt does. If that produced a vertex, the other
 tree $T_b$ tries to connect to it (line~\ref{alg:ch16-connect:test}): the
 \textsc{Connect} heuristic\index{Connect heuristic} of
 line~\ref{alg:ch16-connect:greedy} repeats \textsc{Extend} towards the
-\emph{same} target, adding one vertex of length $\eta$ per repetition, until
+\emph{same} target, adding one edge of length $\eta$ per repetition, until
 the target is reached or an obstacle is hit. In open space this is a straight
-run of edges across the map; the greedy extension is what makes the method
-fast. The two trees swap roles at every iteration
-(line~\ref{alg:ch16-connect:swap}), which keeps them balanced: without the
-swap, a tree trapped behind a wall would waste every iteration. No goal bias
+run of edges across the map, and this greedy extension is what makes the
+method fast. The trees swap roles every iteration
+(line~\ref{alg:ch16-connect:swap}), which keeps them balanced; no goal bias
 is needed, because the goal is the root of the second tree. When
-\textsc{Connect} returns \textsc{Reached}, the vertex $x_{\mathrm{new}}$
-belongs to both trees and the two root-to-vertex chains form the path, one of
-them reversed; the path is collision-free because every edge of either tree is.
-\Cref{fig:ch16-connect} shows the two trees on \cref{ex:ch16-map}: with seed~1
-the trees meet at iteration~$164$ with $68+29$ vertices, against $402$
+\textsc{Connect} returns \textsc{Reached}, $x_{\mathrm{new}}$ belongs to both
+trees and the two root-to-vertex chains form the path, one of them reversed;
+it is collision-free because every edge of either tree is.
+\Cref{fig:ch16-connect} shows the two trees on \cref{ex:ch16-map}: with
+seed~1 they meet at iteration~$164$ with $68+29$ vertices, against $402$
 iterations and $245$ vertices for the single tree, and the path has length
 $25.11$, no better than before.
 
@@ -707,10 +688,9 @@ $25.11$, no better than before.
 \centering\small
 \caption{Iterations to the first solution over $100$ seeds on
 \cref{ex:ch16-map}, budget $3\,000$ iterations, $\eta=0.5$; all runs succeed.
-Vertices and path lengths are averages, the path lengths before any
-smoothing. \rrt-Connect needs $2.4$ times fewer iterations than \rrt with
-the default bias and stores $2.7$ times fewer vertices, but its paths are no
-shorter.}
+Vertices and path lengths are averages, the lengths before any smoothing.
+\rrt-Connect needs $2.4$ times fewer iterations than \rrt with the default
+bias and stores $2.7$ times fewer vertices, but its paths are no shorter.}
 \label{tab:ch16-connect}
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
@@ -729,13 +709,13 @@ One run proves nothing about a randomised algorithm, so
 seeds $0$ to $99$. \rrt-Connect solves every instance within $500$
 iterations; plain \rrt with the default goal bias has solved $73\,\%$ by then
 and needs a median of $425$ iterations against $178$. The self-test of
-\code{ch16\_rrt.py} asserts this ordering of the medians (and of the means)
-over $40$ seeds. The table also isolates the effect of the goal bias: a small
-bias helps ($518\to425$ median iterations), a large one hurts badly
-($745$), because half of the samples then select the vertex nearest to the
-goal, which for most of the run sits against a wall, and the extension is
-rejected. The tree with $p_{\mathrm{goal}}=0.5$ has \emph{fewer} vertices
-after more iterations, the signature of wasted, trapped extensions.
+\code{ch16\_rrt.py} asserts this ordering of medians and means over $40$
+seeds. The table also isolates the goal bias: a small bias helps
+($518\to425$ median iterations), a large one hurts badly ($745$), because
+half of the samples then select the vertex nearest to the goal, which for
+most of the run sits against a wall, and the extension is rejected. The tree
+with $p_{\mathrm{goal}}=0.5$ has \emph{fewer} vertices after \emph{more}
+iterations, the signature of wasted, trapped extensions.
 
 \subsection{Kinodynamic \rrt}
 \label{sec:ch16-kinodynamic}
@@ -744,28 +724,31 @@ The paths of \cref{alg:ch16-rrt} are polygons, and a drone cannot fly a
 polygon at speed: it has bounded acceleration, so its velocity is part of its
 state. \textcite{lavalle2001randomized} extended \rrt to systems with
 dynamics; the version below uses the double integrator of \cref{ch:ch02},
-the drone model of this book, with state $\state=(\pos,\vel)\in\R^{2d}$,
-control $\acc$ with $\norm{\acc}\le a_{\max}$ held constant over a step
-$\dt$, and speed limit $\norm{\vel}\le v_{\max}$.\index{kinodynamic planning}\index{RRT!kinodynamic}\index{double integrator!kinodynamic RRT}
-Two primitives change. \textsc{Steer} is replaced by forward simulation: the
-planner cannot move ``towards'' a sampled state along a straight line, because
-the straight line is not a feasible motion. Instead it tries $m$ random
-controls, integrates each for one step, keeps the result that ends closest to
-the sample, and stores the control on the edge. \textsc{Nearest} becomes a
-question rather than a formula: the Euclidean distance between two states is
-not the time or effort needed to move between them, since a state with a
-velocity pointing away from the sample is ``far'' even when its position is
-close. The exact answer, the cost of the optimal motion between two states,
-requires solving a two-point boundary value problem for every candidate
-vertex, which is far too expensive inside a nearest-neighbour query. The
-usual compromise is a weighted metric
+with state $\state=(\pos,\vel)\in\R^{2d}$, control $\acc$ with
+$\norm{\acc}\le a_{\max}$ held constant over a step $\dt$, and speed limit
+$\norm{\vel}\le v_{\max}$.\index{kinodynamic planning}\index{RRT!kinodynamic}\index{double integrator!kinodynamic RRT}
+Two primitives change. \textsc{Steer} becomes forward simulation: the
+planner cannot move ``towards'' a sampled state along a straight line,
+because the straight line is not a feasible motion. Instead it tries $m$
+random controls, integrates each for one step, keeps the result that ends
+closest to the sample, and stores the control on the edge. \textsc{Nearest}
+becomes a question rather than a formula: the Euclidean distance between two
+states is not the time or effort needed to move between them, since a state
+whose velocity points away from the sample is ``far'' even when its position
+is close. The exact answer, the cost of the optimal motion between two
+states, requires solving a two-point boundary value problem for every
+candidate vertex, far too expensive inside a nearest-neighbour query. The
+usual compromise is the weighted metric
 \begin{equation}
 \rho(\state,\state')=\sqrt{\norm{\pos-\pos'}^{2}+w_{\mathrm{v}}^{2}\norm{\vel-\vel'}^{2}},
 \label{eq:ch16-metric}
 \end{equation}
 with a weight $w_{\mathrm{v}}$ (units of time) that says how much a velocity
 mismatch counts against a position mismatch. \Cref{alg:ch16-kino} is the
-result.
+result; line~\ref{alg:ch16-kino:integrate} is the exact zero-order-hold
+update of \cref{ch:ch02}. The arc flown during one step is a parabola, and
+the collision check samples it at spacing $\delta$, using the fact that the
+speed along a constant-acceleration arc is largest at one of its ends.
 
 \begin{algorithm}[htb]
 \caption{Kinodynamic \rrt for the double integrator \cite{lavalle2001randomized}}
@@ -795,26 +778,21 @@ result.
 }
 \end{algorithm}
 
-Line~\ref{alg:ch16-kino:integrate} is the exact zero-order-hold update of
-\cref{ch:ch02}. The arc flown during one step is a parabola, and the
-collision check samples it at a spacing of at most $\delta$, using the fact
-that the speed along a constant-acceleration arc is largest at one of its
-ends. The implementation in \code{ch16\_rrt.py} (\code{kinodynamic\_rrt})
-solves \cref{ex:ch16-map} for a drone with $v_{\max}=2$, $a_{\max}=2$,
-$\dt=0.5$ and $m=8$ controls per extension, $w_{\mathrm{v}}=0.5$, seed~2:
-it finds a trajectory at iteration~$680$ with $512$ vertices, $41$ steps
-long, that is $20.5$~s of flight, arriving with a speed of $0.54$. The
-self-test verifies that every consecutive pair of states satisfies
-$\state_{k+1}=\mat{A}\state_k+\mat{B}\acc_k$ with the matrices of
-\cref{ch:ch02} and that no control or velocity exceeds its limit. Three
+The implementation \code{kinodynamic\_rrt} in \code{ch16\_rrt.py} solves
+\cref{ex:ch16-map} for a drone with $v_{\max}=2$, $a_{\max}=2$, $\dt=0.5$,
+$m=8$ controls per extension, $w_{\mathrm{v}}=0.5$ and seed~2: it finds a
+trajectory at iteration~$680$ with $512$ vertices, $41$ steps or $20.5$~s of
+flight, arriving at speed $0.54$. The self-test verifies that consecutive
+states satisfy $\state_{k+1}=\mat{A}\state_k+\mat{B}\acc_k$ with the matrices
+of \cref{ch:ch02} and that no control or velocity exceeds its limit. Three
 lessons carry over to every planner with dynamics: the tree needs more
 vertices ($512$ against $245$) because velocities add dimensions; the
-solution is a trajectory, not a path, and can be flown as it is; and the
-metric of line~\ref{alg:ch16-kino:nearest} is a design decision that
-strongly affects the growth of the tree. Kinodynamic planning is the
-subject of a large literature \cite{lavalle2006planning}; in the hybrid
-architecture of \cref{ch:ch24} the geometric \rrt with post-processing,
-followed by the controller of \cref{ch:ch21}, is usually the simpler choice.
+solution is a trajectory that can be flown as it is; and the metric of
+line~\ref{alg:ch16-kino:nearest} is a design decision that strongly affects
+the growth of the tree. Kinodynamic planning has a large literature
+\cite{lavalle2006planning}; in the hybrid architecture of \cref{ch:ch24}
+the geometric \rrt with post-processing, followed by the controller of
+\cref{ch:ch21}, is usually the simpler choice.
 
 \subsection{Post-processing: shortcutting and smoothing}
 \label{sec:ch16-smoothing}
@@ -865,19 +843,18 @@ version of \textcite{geraerts2007creating} and a greedy variant.
 
 \Cref{fig:ch16-shortcut} shows the effect on the worked example: $100$
 random attempts bring the length from $23.85$ to $19.91$, and greedy pruning
-brings it to $18.39$ with only $7$ vertices, within $7\,\%$ of the shortest
-path with the same clearance. The self-test asserts that neither method ever
-increases the length and that the results are collision-free. Random
-shortcutting keeps some corners at random places; pruning hugs the obstacle
-corners as tightly as the collision checker allows, which is good for length
-and bad for safety, so plan with obstacles inflated by a margin beyond the
-drone radius. Both methods improve the path locally: every shortcut segment must itself
-be free, so a path that takes the long way around a large obstacle keeps
-taking it (\cref{exr:ch16-shortcut}), and only a new search, or \rrtstar
-(\cref{ch:ch17}), finds the better route. The polygonal
-result is finally turned into a flyable trajectory by the controller of
-\cref{ch:ch21} or by fitting a smooth curve with bounded velocity and
-acceleration through the waypoints, which must be collision-checked again.
+to $18.39$ with only $7$ vertices, within $7\,\%$ of the shortest path with
+the same clearance. The self-test asserts that neither method ever increases
+the length and that the results are collision-free. Pruning hugs the
+obstacle corners as tightly as the checker allows, good for length and bad
+for safety, so plan with obstacles inflated by a margin beyond the drone
+radius. Both methods improve the path locally: every shortcut segment must
+itself be free, so a path that takes the long way around a large obstacle
+keeps taking it (\cref{exr:ch16-shortcut}), and only a new search, or
+\rrtstar (\cref{ch:ch17}), finds the better route. The polygonal result is
+turned into a flyable trajectory by the controller of \cref{ch:ch21}, or by
+fitting a smooth curve with bounded velocity and acceleration through the
+waypoints, which must then be collision-checked again.
 
 \subsection{Planning in 3D}
 \label{sec:ch16-3d}
@@ -885,18 +862,17 @@ acceleration through the waypoints, which must be collision-checked again.
 Nothing in \cref{alg:ch16-rrt} refers to the dimension. The code of
 \cref{sec:ch16-implementation} takes the bounds of $\mathcal{X}$ as two
 vectors, and the only difference between the 2D and the 3D planner is that
-the vectors have three components: \code{World([0, 0, 0], [10, 10, 10],
+they have three components: \code{World([0, 0, 0], [10, 10, 10],
 boxes=...)} instead of \code{World([0, 0], [10, 10], boxes=...)}, and the
 same \code{rrt()} call. \Cref{fig:ch16-scene3d} shows the 3D box field
-\code{scene\_3d()}: a wall to fly over, a full-height pillar, a slab to fly
-under or over, and three blocks, for a drone of radius $0.3$ with
+\code{scene\_3d()}, a wall to fly over, a full-height pillar, a slab to fly
+under or over and three blocks, for a drone of radius $0.3$ with
 $\delta=0.1$ and $\eta=0.8$. With seed~3, \rrt reaches the goal at
-iteration~$321$ with $158$ vertices and a path of length $24.48$; shortcutting
-brings it to $20.40$, against a straight-line distance of $15.59$.
-\rrt-Connect solves the same query at iteration~$117$ with $59$ vertices.
-Compare with \cref{tab:ch16-gridsizes}: a $0.1$~m grid of this
-$10\times10\times10$ scene has a million cells, and \rrt has looked at a few
-hundred points.
+iteration~$321$ with $158$ vertices and a path of length $24.48$;
+shortcutting brings it to $20.40$, against a straight-line distance of
+$15.59$. \rrt-Connect solves the same query at iteration~$117$ with $59$
+vertices. A $0.1$~m grid of this $10\times10\times10$ scene has a million
+cells; \rrt has looked at a few hundred points.
 
 \begin{figure}[tb]
   \centering
@@ -918,12 +894,12 @@ of \textcite{kavraki1996prm} is the other founding method of sampling-based
 planning. It samples configurations first, keeps the free ones, connects
 each to its $k$ nearest neighbours by collision-checked segments, and then
 answers any number of queries by graph search (\cref{ch:ch03,ch:ch04}) on
-the resulting roadmap. PRM is a \emph{multi-query} method that spends its
-effort once per map; \rrt is a \emph{single-query} method that spends its
-effort once per query and never builds a graph of the whole space. For a
-drone whose map changes and whose queries differ every time, the single-query
-tree is the natural choice, and it is the only one that extends to dynamics
-without an exact steering function. \rrtstar and \irrtstar
+the roadmap. PRM is a \emph{multi-query} method that spends its effort once
+per map; \rrt is a \emph{single-query} method that spends it once per query
+and never builds a graph of the whole space. For a drone whose map changes
+and whose queries differ every time, the single-query tree is the natural
+choice, and it is the only one that extends to dynamics without an exact
+steering function. \rrtstar and \irrtstar
 \cite{karaman2011sampling,gammell2014informed} keep the tree but make it
 optimal in the limit; they are the subject of \cref{ch:ch17}, together with
 the batch method BIT\textsuperscript{*} \cite{gammell2015bit}. Both books
@@ -955,12 +931,12 @@ and have closed-form distance functions.\index{collision checking!sphere versus 
         the line, clamp the parameter to $[0,1]$) answers this exactly, with
         no subdivision.
   \item \emph{Conservative inflation.} Boxes are checked by subdivision
-        with the margin $r+\delta/2$ of \cref{thm:ch16-resolution}. Everything
-        is then conservative: a path that passes the check keeps a clearance
-        of at least $r$ from every obstacle. Add any extra safety margin,
-        for the position uncertainty of \cref{ch:ch18}, for example, to $r$.
+        with the margin $r+\delta/2$ of \cref{thm:ch16-resolution}, so a path
+        that passes the check keeps a clearance of at least $r$ from every
+        obstacle. Any extra safety margin, for the position uncertainty of
+        \cref{ch:ch18} for example, is simply added to $r$.
 \end{itemize}
-\Cref{lst:ch16-segment} is the segment test. The vertex test
+\Cref{lst:ch16-segment} is the segment test; the vertex test
 \code{point\_free} is the special case of a segment of length zero.
 
 \begin{lstlisting}[caption={The segment test of \code{World} (from \code{code/ch16\_rrt.py}): subdivision with the conservative margin $r+\delta/2$ for the boxes, the exact segment--sphere test for the spheres.},label={lst:ch16-segment}]
@@ -993,22 +969,21 @@ and have closed-form distance functions.\index{collision checking!sphere versus 
 
 The tree of \code{ch16\_rrt.py} keeps its vertices in one NumPy array and
 answers \textsc{Nearest} by a vectorised linear scan: one subtraction, one
-squared norm per row and an \code{argmin}. That is $\bigO{n}$ per query, but
-with a small constant: about $0.02$~ms for $n=10^{3}$ vertices, $0.2$~ms for
+squared norm per row and an \code{argmin}. That is $\bigO{n}$ per query with
+a small constant, about $0.02$~ms for $n=10^{3}$ vertices, $0.2$~ms for
 $10^{4}$ and $2.3$~ms for $10^{5}$ in two or three dimensions on an ordinary
-laptop. For the trees of this chapter, a few hundred to a few thousand
-vertices, the scan is not the bottleneck, and its simplicity is worth a lot:
-it needs no rebuilding when a vertex is added. Beyond $10^{4}$ vertices, or
-when the planner is called many times per second, use a
+laptop. For the trees of this chapter the scan is not the bottleneck, and it
+needs no rebuilding when a vertex is added. Beyond $10^{4}$ vertices, or when
+the planner is called many times per second, use a
 \textbf{kd-tree}\index{kd-tree}\index{nearest-neighbour search} \cite{bentley1975kdtree}: a
 binary tree that splits the points along one coordinate axis at each level,
-so that a nearest-neighbour query descends to the leaf containing the query
-point and then backtracks only into branches whose bounding region is closer
-than the best distance found so far. In low dimension the expected cost is
-$\bigO{\log n}$ per query after an $\bigO{n\log n}$ build. \rrt inserts a
-vertex every iteration, and inserting into a balanced kd-tree is awkward, so
-implementations either rebuild the tree every few hundred insertions and
-scan the vertices added since, or use a bucket grid over $\mathcal{X}$.
+so that a query descends to the leaf containing the query point and then
+backtracks only into branches whose bounding region is closer than the best
+distance found so far. In low dimension the expected cost is $\bigO{\log n}$
+per query after an $\bigO{n\log n}$ build. Since \rrt inserts a vertex every
+iteration and insertion into a balanced kd-tree is awkward, implementations
+rebuild the tree every few hundred insertions and scan the vertices added
+since, or use a bucket grid over $\mathcal{X}$;
 \code{scipy.spatial.cKDTree} is the standard \python choice. In high
 dimension the backtracking visits most branches and a kd-tree degrades to a
 scan; beyond ten or so dimensions approximate methods are used instead.
@@ -1035,29 +1010,28 @@ Random seed & fixed per experiment & \multicolumn{2}{L{7.6cm}}{a result from one
 \end{tabular}
 \end{table}
 
-\Cref{tab:ch16-parameters} lists the parameters. Two remarks on the ones
-that new implementations most often get wrong. The \emph{seed}: \rrt is
-randomised, and both debugging and reporting need reproducibility; seed the
-generator (\code{numpy.random.default\_rng(seed)}) and report statistics
-over many seeds, as in \cref{tab:ch16-connect}, never a single run. The
-\emph{budget}: because \rrt cannot recognise an infeasible query, choose $N$
-from the time you can afford and treat failure as ``no path found within the
-budget''. \Cref{lst:ch16-rrt} is the main loop of the implementation; it
-matches \cref{alg:ch16-rrt} line by line and adds the bookkeeping for the
-figures.
+\Cref{tab:ch16-parameters} lists the parameters. Two of them are most often
+mishandled. The \emph{seed}: \rrt is randomised, and both debugging and
+reporting need reproducibility, so seed the generator
+(\code{numpy.random.default\_rng(seed)}) and report statistics over many
+seeds, as in \cref{tab:ch16-connect}, never a single run. The \emph{budget}:
+because \rrt cannot recognise an infeasible query, choose $N$ from the time
+you can afford and treat failure as ``no path found within the budget''.
+\Cref{lst:ch16-rrt} is the main loop of the implementation; it matches
+\cref{alg:ch16-rrt} line by line and adds the bookkeeping for the figures.
+\code{extend} and \code{connect} of \cref{alg:ch16-connect} are in the same
+file, and \code{rrt\_connect} is the loop of the algorithm with the swap
+\code{t\_a, t\_b = t\_b, t\_a} at the end of each iteration. The self-test
+runs in about two seconds and checks the collision tests on thin walls,
+spheres and inflated boxes; that every returned path is collision-free at
+ten times finer resolution, starts at the start, ends at the goal and has
+edges no longer than $\eta$; that the worked example is reproducible; that
+shortcutting and pruning never increase the length; that \rrt-Connect needs
+fewer iterations than \rrt in median and mean over $40$ seeds; that the 3D
+scene is solved by both planners; and that the kinodynamic trajectory obeys
+the double integrator and its limits.
 
-\begin{lstlisting}[caption={The main loop of \rrt (from \code{code/ch16\_rrt.py}). \code{Tree} stores the vertices in a growing array with parent indices; \code{steer} is \cref{eq:ch16-steer}; the goal itself is appended to the path when the last segment is free.},label={lst:ch16-rrt}]
-def rrt(world, start, goal, eta=0.5, p_goal=0.05, r_goal=0.5,
-        max_iters=2000, seed=0, stop_at_goal=True, snapshots=(),
-        trace=None):
-    """Plain RRT with goal bias and a goal region of radius r_goal.
-
-    Returns a Result with .path (array of configurations from start to
-    goal, or None), .iterations (samples drawn), .solution_iter (the
-    iteration at which the goal region was entered), .tree and
-    .snapshots (iteration -> number of vertices at that iteration).
-    With stop_at_goal=False the tree keeps growing after the first
-    solution, which is used for the figures."""
+\begin{lstlisting}[caption={The loop of \code{rrt(world, start, goal, eta, p\_goal, r\_goal, max\_iters, seed, ...)} (from \code{code/ch16\_rrt.py}). \code{Tree} stores the vertices in a growing array with parent indices; \code{steer} is \cref{eq:ch16-steer}; the goal itself is appended to the path when the last segment is free.},label={lst:ch16-rrt}]
     rng = np.random.default_rng(seed)
     start = np.asarray(start, dtype=float)
     goal = np.asarray(goal, dtype=float)
@@ -1090,61 +1064,21 @@ def rrt(world, start, goal, eta=0.5, p_goal=0.05, r_goal=0.5,
                   tree=tree, snapshots=snaps, n_vertices=tree.n)
 \end{lstlisting}
 
-\Cref{lst:ch16-connect} shows \textsc{Extend} and \textsc{Connect} of
-\cref{alg:ch16-connect}; \code{rrt\_connect} itself is the loop of the
-algorithm with the swap \code{t\_a, t\_b = t\_b, t\_a} at the end of each
-iteration. The self-test of the file runs in about two seconds and checks
-the collision tests on thin walls, spheres and inflated boxes; that every
-returned path is collision-free at ten times finer resolution, starts at the
-start, ends at the goal and has edges no longer than $\eta$; that the
-worked example is reproducible; that shortcutting and pruning never increase
-the length; that \rrt-Connect needs fewer iterations than \rrt in median and
-mean over $40$ seeds; that the 3D scene is solved by both planners; and
-that the kinodynamic trajectory obeys the double integrator and its limits.
-
-\begin{lstlisting}[caption={\textsc{Extend} with its three outcomes and the greedy \textsc{Connect} (from \code{code/ch16\_rrt.py}).},label={lst:ch16-connect}]
-def extend(tree, world, q, eta):
-    """One extension of `tree` towards q.
-
-    Returns (status, index): REACHED if q itself became (or already was)
-    a vertex, ADVANCED if a new vertex was added short of q, TRAPPED if
-    the segment was blocked (index -1)."""
-    i_near = tree.nearest(q)
-    q_near = tree.V[i_near]
-    if np.linalg.norm(q - q_near) < 1e-12:
-        return REACHED, i_near
-    q_new = steer(q_near, q, eta)
-    if not world.segment_free(q_near, q_new):
-        return TRAPPED, -1
-    i_new = tree.add(q_new, i_near)
-    if np.linalg.norm(q_new - q) < 1e-12:
-        return REACHED, i_new
-    return ADVANCED, i_new
-
-
-def connect(tree, world, q, eta):
-    """Repeat extend towards q until q is reached or the tree is trapped."""
-    while True:
-        status, i = extend(tree, world, q, eta)
-        if status != ADVANCED:
-            return status, i
-\end{lstlisting}
-
 \subsection{Pitfalls}
 \label{sec:ch16-pitfalls}
 
 \begin{pitfall}[Testing the vertices but not the segments]
-The most common bug in a first \rrt is to test only $x_{\mathrm{new}}$ (or
-the endpoints of the edge) for collision. The tree then tunnels through
-every obstacle thinner than $\eta$, and the bug is invisible on maps with
-thick walls. A step size that is ``too large'' is dangerous only in this
-sense: with the subdivision test of \cref{thm:ch16-resolution} a long
-segment is simply rejected more often. The same holds for the resolution
-$\delta$: test points spaced $\delta$ apart \emph{without} the inflation by
-$\delta/2$ miss any wall thinner than $\delta$, at a rate that depends on
-the angle of the segment. The self-test of \code{ch16\_rrt.py} contains
-exactly this trap, a wall of thickness $0.02$ with $\delta=0.05$, and the
-inflated test catches it at every angle.
+The most common bug in a first \rrt is to test only $x_{\mathrm{new}}$, or
+the endpoints of the edge, for collision. The tree then tunnels through every
+obstacle thinner than $\eta$, and the bug is invisible on maps with thick
+walls. A step size that is ``too large'' is dangerous only in this sense;
+with the subdivision test of \cref{thm:ch16-resolution} a long segment is
+simply rejected more often. The same holds for the resolution: test points
+spaced $\delta$ apart \emph{without} the inflation by $\delta/2$ miss any
+wall thinner than $\delta$, at a rate that depends on the angle of the
+segment. The self-test of \code{ch16\_rrt.py} contains exactly this trap, a
+wall of thickness $0.02$ with $\delta=0.05$, and the inflated test catches it
+at every angle.
 \end{pitfall}
 
 \begin{pitfall}[A goal bias that is too high]
@@ -1153,7 +1087,7 @@ solutions. \Cref{tab:ch16-connect} shows the opposite for
 $p_{\mathrm{goal}}=0.5$: the median number of iterations rises from $425$
 to $745$, above the value without any bias. Every goal sample extends the
 vertex nearest to the goal, and until the tree has passed the last obstacle
-that vertex sits against a wall and the extension is rejected. The tree
+that vertex sits against a wall and the extension is rejected; the tree
 becomes greedy and stuck. Keep $p_{\mathrm{goal}}$ between $0.05$ and
 $0.1$, or use \rrt-Connect, which needs no bias.
 \end{pitfall}
@@ -1161,13 +1095,12 @@ $0.1$, or use \rrt-Connect, which needs no bias.
 \begin{pitfall}[Forgetting the goal region]
 With continuous samples the tree never lands exactly on $x_{\mathrm{goal}}$,
 so a test $x_{\mathrm{new}}=x_{\mathrm{goal}}$ succeeds only through a goal
-sample that is within $\eta$ of its nearest vertex, and never when
+sample within $\eta$ of its nearest vertex, and never when
 $p_{\mathrm{goal}}=0$. Define the goal as a region of radius
 $r_{\mathrm{goal}}$ (\cref{def:ch16-problem}), test membership on every new
 vertex, and append the final segment to $x_{\mathrm{goal}}$ when it is free
-so that the path ends where the mission requires. The same applies to the
-kinodynamic planner, where the goal state should also allow a range of
-arrival velocities.
+so that the path ends where the mission requires. In the kinodynamic planner
+the goal state should also allow a range of arrival velocities.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
@@ -1175,17 +1108,16 @@ arrival velocities.
 \label{sec:ch16-choice}
 
 The Week~8 milestone of the study plan is to choose between graph search and
-sampling-based planning. \Cref{tab:ch16-comparison} collects the criteria.
-The short version: use a grid and \astar when the space is two-dimensional
-or a coarse three-dimensional lattice is accurate enough, when many agents
-must share one discretisation (the multi-agent planners of
-\cref{ch:ch07,ch:ch08,ch:ch09,ch:ch10,ch:ch11} all need a graph), or when an
-exact optimal answer on the graph matters. Use \rrt when the space is large
-or high-dimensional, when a feasible path is needed quickly and its quality
-can be repaired afterwards, or when the dynamics must be respected during
-planning. Use \rrtstar when the path quality matters and the time is
-available. \Cref{exr:ch16-coding} asks you to measure these trade-offs
-yourself.
+sampling-based planning; \cref{tab:ch16-comparison} collects the criteria.
+Use a grid and \astar when the space is two-dimensional or a coarse 3D
+lattice is accurate enough, when many agents must share one discretisation
+(the multi-agent planners of \cref{ch:ch07,ch:ch08,ch:ch09,ch:ch10,ch:ch11}
+all need a graph), or when an exact optimal answer on the graph matters. Use
+\rrt when the space is large or high-dimensional, when a feasible path is
+needed quickly and its quality can be repaired afterwards, or when the
+dynamics must be respected during planning. Use \rrtstar when path quality
+matters and the time is available. \Cref{exr:ch16-coding} asks you to
+measure these trade-offs yourself.
 
 \begin{table}[tb]
 \centering\small
@@ -1225,30 +1157,28 @@ blocks the nominal route and a detour has to be found in three dimensions
 within a fraction of a second.
 
 \textbf{Combining a global grid plan with a local \rrt.} The two planners
-share the map but work at different scales. The grid path of the global
-planner is a sequence of waypoints with times. When a segment between two
-consecutive waypoints becomes infeasible, the local planner runs
-\cref{alg:ch16-rrt} or \cref{alg:ch16-connect} with the current position as
-$x_{\mathrm{init}}$ and the next reachable waypoint as $x_{\mathrm{goal}}$,
-with a goal region of about one cell, and with the obstacles inflated by the
-drone radius, the tracking error and the prediction uncertainty of
-\cref{ch:ch19,ch:ch20}. The result is shortcut (\cref{alg:ch16-shortcut}),
-converted into a trajectory by the controller of \cref{ch:ch21}, and
-checked against the reservations of the other drones; if it violates them,
-or if the local planner fails within its budget, the event is escalated to
-a global replan, exactly the decision logic of \cref{ch:ch24}. The other
-direction also works: the waypoints of the grid path can seed the goal bias
-of the tree, which turns the global plan into a heuristic for the local
-sampler.
+share the map but work at different scales. When a segment between two
+consecutive waypoints of the grid path becomes infeasible, the local planner
+runs \cref{alg:ch16-rrt} or \cref{alg:ch16-connect} from the current
+position to the next reachable waypoint, with a goal region of about one
+cell and with the obstacles inflated by the drone radius, the tracking
+error and the prediction uncertainty of \cref{ch:ch19,ch:ch20}. The result
+is shortcut (\cref{alg:ch16-shortcut}), converted into a trajectory by the
+controller of \cref{ch:ch21}, and checked against the reservations of the
+other drones; if it violates them, or if the local planner fails within its
+budget, the event is escalated to a global replan, exactly the decision
+logic of \cref{ch:ch24}. In the other direction, the waypoints of the grid
+path can seed the goal bias of the tree, which turns the global plan into a
+heuristic for the local sampler.
 
 \textbf{What it receives and delivers.} \rrt receives a start, a goal region,
 a static map of boxes and the predicted volumes of moving obstacles; it
 delivers a collision-free polygonal path with a known clearance, or a
-failure within a known time. It gives no guarantee about optimality
-(\cref{thm:ch16-suboptimal}) and no guarantee at all when no path exists,
-which is why its budget must be chosen from the available time. Week~8 of
-the study plan (\cref{ch:appA}) covers this chapter and \cref{ch:ch17}, and
-its coding exercise is \cref{exr:ch16-coding}.
+failure within a known time. It guarantees nothing about optimality
+(\cref{thm:ch16-suboptimal}) and nothing at all when no path exists, which
+is why its budget must be chosen from the available time. Week~8 of the
+study plan (\cref{ch:appA}) covers this chapter and \cref{ch:ch17}, and its
+coding exercise is \cref{exr:ch16-coding}.
 \end{dronebox}
 
 % ---------------------------------------------------------------------
@@ -1266,8 +1196,9 @@ its coding exercise is \cref{exr:ch16-coding}.
         segment, by subdivision with the margin $r+\delta/2$). A vertex that
         enters the goal region ends the search.
   \item The Voronoi bias explains the fast exploration: a vertex is
-        extended with probability proportional to the volume of its Voronoi
-        region, so the tree is pulled into the largest unexplored regions.
+        extended with probability equal to the relative volume of its
+        Voronoi region, so the tree is pulled into the largest unexplored
+        regions.
   \item \rrt is probabilistically complete (\cref{thm:ch16-complete}) for any
         $\eta>0$ and $p_{\mathrm{goal}}<1$, with an expected number of
         iterations that grows like $(1/w)^{d}$ for a passage of width $w$.
@@ -1278,8 +1209,8 @@ its coding exercise is \cref{exr:ch16-coding}.
         Kinodynamic \rrt replaces \textsc{Steer} by forward simulation of
         sampled controls and needs a state-space metric for \textsc{Nearest}.
   \item Shortcutting and pruning never increase the length and remove most
-        of the excess ($23.85\to18.39$ on the worked example); they cannot
-        change the homotopy class.
+        of the excess ($23.85\to18.39$ on the worked example) but cannot
+        carry a path across an obstacle.
   \item Nearest-neighbour search is $\bigO{n}$ by a scan and $\bigO{\log n}$
         with a kd-tree; collision checks dominate in clutter. Fix the seed,
         report statistics over seeds, and never test only the vertices.
@@ -1301,7 +1232,7 @@ multi-query counterpart. Karaman and Frazzoli~\cite{karaman2011sampling}
 proved \cref{thm:ch16-suboptimal} and introduced \rrtstar, the subject of
 \cref{ch:ch17} together with \irrtstar~\cite{gammell2014informed}. The
 kd-tree is due to Bentley~\cite{bentley1975kdtree}, and Geraerts and
-Overmars~\cite{geraerts2007creating} compare shortcutting and other path
+Overmars~\cite{geraerts2007creating} compare shortcutting with other path
 improvement methods.
 
 % ---------------------------------------------------------------------

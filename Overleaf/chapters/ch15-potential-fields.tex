@@ -44,24 +44,19 @@ when local methods work and when they fail}. The week pairs this chapter with
 the dynamic window approach of \cref{ch:ch14}, and its coding exercise
 (\cref{exr:ch15-coding}) asks you to implement one of the two and to construct
 its failure cases. In the hybrid architecture of \cref{ch:ch24} the safety
-layer is \orca or the dynamic window approach, not a potential field, and
-\cref{sec:ch15-drone} explains why; potential fields survive there as the
-soft inter-agent spacing term, as the spring-like terms of formation control
-(\cref{ch:ch23}), and as penalties inside model predictive control
-(\cref{ch:ch21}).
+layer is \orca or the dynamic window approach, not a potential field;
+\cref{sec:ch15-drone} explains why, and where potential fields survive.
 
-The chapter proceeds as follows. \Cref{sec:ch15-intuition} gives the picture
-and \cref{sec:ch15-problem} the potentials, their gradients and the
-derivations. \Cref{sec:ch15-algorithm} states the controller as pseudocode,
-\cref{sec:ch15-example} evaluates the forces by hand on a one-obstacle scene,
-and \cref{sec:ch15-properties} collects what can be proved. \Cref{sec:ch15-failures}
-is the heart of the chapter: the four failure modes, each with a runnable
-example and a figure, and the Koren--Borenstein critique.
-\Cref{sec:ch15-remedies} presents the remedies and the experiment that maps
-the basin of a local minimum, \cref{sec:ch15-swarm} adds inter-agent
-repulsion and the connection to flocking and consensus, and
-\cref{sec:ch15-implementation,sec:ch15-drone} cover the implementation and the
-place of the method in the drone system.
+The chapter proceeds as follows. \Cref{sec:ch15-intuition,sec:ch15-problem}
+give the picture, the potentials and the derivations;
+\cref{sec:ch15-algorithm,sec:ch15-example} state the controller and evaluate
+the forces by hand; \cref{sec:ch15-properties} collects what can be proved.
+\Cref{sec:ch15-failures} is the heart of the chapter: the four failure modes,
+each with a runnable example, and the Koren--Borenstein critique.
+\Cref{sec:ch15-remedies,sec:ch15-swarm} present the remedies, the basin
+experiment and the extension to swarms, and
+\cref{sec:ch15-implementation,sec:ch15-drone} cover the implementation and
+the place of the method in the drone system.
 
 % ---------------------------------------------------------------------
 \section{The idea in plain words}
@@ -179,22 +174,19 @@ $k_{\mathrm{att}} d^*$. The \textbf{hybrid} potential is quadratic for $d
 The gradient of $\tfrac12 d^2$ is $\pos - \pos_{\mathrm{g}}$ and the gradient
 of $d$ is the unit vector $(\pos - \pos_{\mathrm{g}})/d$, which gives the two
 forces. Each form has one defect. The quadratic force grows without bound
-with the distance: a drone $100$ units from its goal would be commanded a
+with the distance -- a drone $100$ units from its goal would be commanded a
 speed of $100\,k_{\mathrm{att}}$, and near an obstacle such a pull overwhelms
-any repulsion. The conic force is bounded, which is what a drone far from its
-goal should feel, but it is discontinuous at the goal, where the unit vector
-flips; a drone under it never settles but chatters across the goal. The
-hybrid form takes the bounded force far away and the smooth bowl near the
-goal; the constant $-\tfrac12 k_{\mathrm{att}} (d^*)^2$ makes $U_{\mathrm{att}}$
-continuous at $d = d^*$, and both branches give a force of magnitude
-$k_{\mathrm{att}} d^*$ there (\cref{exr:ch15-conic}). This is the form
-recommended by Choset et al.~\cite{choset2005principles}. In practice the
-controller of \cref{sec:ch15-algorithm} clips the commanded speed at
-$v_{\max}$, and clipping the quadratic force is the same as using the hybrid
-potential with $d^* = v_{\max}/k_{\mathrm{att}}$: same direction, same cap.
-The examples of this chapter therefore use the quadratic bowl with
-$k_{\mathrm{att}} = 1$ and the speed limit $v_{\max} = 1$; the code offers
-$d^*$ as an option.
+any repulsion -- while the conic force is bounded but discontinuous at the
+goal, where the unit vector flips, so a drone under it chatters across the
+goal. The hybrid form takes the bounded force far away and the smooth bowl
+near the goal; the constant $-\tfrac12 k_{\mathrm{att}} (d^*)^2$ makes
+$U_{\mathrm{att}}$ continuous at $d = d^*$, and both branches give a force of
+magnitude $k_{\mathrm{att}} d^*$ there (\cref{exr:ch15-conic}); it is the form
+recommended by Choset et al.~\cite{choset2005principles}. Clipping the
+quadratic force at a speed $v_{\max}$, as the controller of
+\cref{sec:ch15-algorithm} does, is the same as the hybrid potential with
+$d^* = v_{\max}/k_{\mathrm{att}}$, so the examples of this chapter use the
+quadratic bowl with $k_{\mathrm{att}} = 1$ and $v_{\max} = 1$.
 
 \begin{definition}[Repulsive potential, Khatib 1986]
 \label{def:ch15-repulsive}
@@ -240,9 +232,8 @@ $k_{\mathrm{rep}}/\rho_i^3$ as $\rho_i \to 0$: the wall is infinitely high
 and infinitely steep at the obstacle boundary. At $\rho_i = \rho_0$ both the
 potential and the force are zero and join continuously with the zero
 outside. Khatib called this the FIRAS potential (\emph{force involving
-artificial repulsion from the surface}); the subtraction of $1/\rho_0$ is
-what limits the influence of an obstacle to its neighbourhood, so that a
-drone in open space feels only the goal.
+artificial repulsion from the surface}); the subtraction of $1/\rho_0$
+limits the influence of an obstacle to its neighbourhood.
 
 \begin{definition}[Total potential, critical points]
 \label{def:ch15-total}
@@ -339,37 +330,33 @@ computes Khatib's original force.
 Line~\ref{alg:ch15-force:att} of \cref{alg:ch15-force} is the attraction;
 with $d^* = \infty$ it is always the quadratic branch.
 Line~\ref{alg:ch15-force:dist} is the only geometric operation of the whole
-method: a query that returns the clearance to one obstacle and the unit
-vector away from its closest point. An obstacle further away than $\rho_0$
-contributes nothing, so a spatial index that returns only the obstacles
-within $\rho_0$ makes the loop independent of the size of the map.
+method, a query for the clearance to one obstacle and the unit vector away
+from its closest point; an obstacle further away than $\rho_0$ contributes
+nothing, so a spatial index that returns only the obstacles within $\rho_0$
+makes the loop independent of the size of the map.
 Line~\ref{alg:ch15-force:sum} adds the vectors, which is where all the
 trouble of \cref{sec:ch15-failures} originates, because a sum of vectors can
 be zero. \Cref{alg:ch15-descend} is explicit Euler integration of
 $\dot{\pos} = \vect{F}(\pos)$ with step $\dt$ (line~\ref{alg:ch15-descend:step}),
 guarded by three tests. Line~\ref{alg:ch15-descend:goal} stops within a
-tolerance $\eps_{\mathrm{g}}$; a tolerance is needed because the quadratic
-bowl makes the drone approach the goal exponentially and never arrive
-exactly (\cref{exr:ch15-conic}). Line~\ref{alg:ch15-descend:hit} reports a
-collision; in continuous time it can never fire (\cref{thm:ch15-descent}),
-in discrete time it can (\cref{sec:ch15-oscillation}).
+tolerance $\eps_{\mathrm{g}}$, needed because the quadratic bowl makes the
+drone approach the goal exponentially and never arrive exactly
+(\cref{exr:ch15-conic}). Line~\ref{alg:ch15-descend:hit} reports a
+collision, which cannot happen in continuous time (\cref{thm:ch15-descent})
+but can in discrete time (\cref{sec:ch15-oscillation}).
 Line~\ref{alg:ch15-descend:stuck} is the \textbf{local-minimum
 detector}\index{artificial potential field!local-minimum detection}: if the
 drone has moved less than $\delta$ during the last $W$ steps it is declared
-stuck. This is the only way a gradient method can notice a local minimum:
-the force there is zero, so the drone simply stops, and without the test the
-loop would run until the horizon. The detector also fires when the drone
-chatters across a point, because the displacement over the window stays
-small.
+stuck. This is the only way a gradient method can notice a local minimum --
+the force there is zero, so the drone simply stops -- and it also fires when
+the drone chatters across a point.
 
 Line~\ref{alg:ch15-descend:clip} is the \textbf{velocity limit}\index{velocity
-limit}. The force has the units of a velocity only by convention. Khatib's
+limit}. The force has the units of a velocity only by convention: Khatib's
 original applied $\vect{F}$ to a mass with viscous damping, $m\ddot{\pos} =
-\vect{F} - b\dot{\pos}$, which is the marble of \cref{sec:ch15-intuition};
+\vect{F} - b\dot{\pos}$, the marble of \cref{sec:ch15-intuition}, while
 almost every mobile-robot implementation uses the first-order form $\vel =
-\vect{F}$ instead and sends $\vel$ to the velocity controller of the vehicle,
-which is what the double-integrator drone of \cref{ch:ch02} receives from its
-outer loop. The magnitude of $\vect{F}$ is then arbitrary and can be enormous,
+\vect{F}$ and sends $\vel$ to the velocity controller of the vehicle. The magnitude of $\vect{F}$ is then arbitrary and can be enormous,
 $k_{\mathrm{rep}}/\rho^3$ at a clearance of a few centimetres. The clip keeps
 the direction, which is the information the field carries, caps the speed at
 what the drone can fly, and bounds every step by $\dt\, v_{\max}$, which
@@ -377,8 +364,9 @@ what the drone can fly, and bounds every step by $\dt\, v_{\max}$, which
 that chatters and one that crashes. The chapter uses $k_{\mathrm{att}} =
 k_{\mathrm{rep}} = 1$, $\rho_0 = 2$, $v_{\max} = 1$, $\dt = 0.01$,
 $\eps_{\mathrm{g}} = 0.05$, $W = 100$ and $\delta = 10^{-3}$ unless stated
-otherwise; \cref{tab:ch15-params} in \cref{sec:ch15-implementation} lists what
-each parameter does.
+otherwise. Once the speed is clipped only the ratio of the two gains shapes
+the trajectory; $\rho_0$ decides how early an obstacle is felt, and $\dt$ and
+$v_{\max}$ set the step length.
 
 % ---------------------------------------------------------------------
 \section{A worked example}
@@ -474,14 +462,13 @@ of the two forces near an obstacle, not their absolute size, shapes the path.
 \label{sec:ch15-properties}
 
 A potential field is not a search algorithm, and the usual questions get
-unusual answers. It is not complete: \cref{sec:ch15-failures} exhibits
-instances with a free path on which it fails. It is not optimal in any
-sense: nothing in the method measures path length. Its complexity is its
-strength: one evaluation of \cref{alg:ch15-force} costs $\bigO{m}$ distance
-queries for $m$ obstacles, or $\bigO{m_{\mathrm{loc}}}$ with a spatial
-index that returns the $m_{\mathrm{loc}}$ obstacles within $\rho_0$, and it
-needs no map representation, no queue and no memory beyond the obstacle
-list. What can be proved is what the marble picture promises: the drone
+unusual answers. It is not complete (\cref{sec:ch15-failures} exhibits
+instances with a free path on which it fails) and not optimal in any sense
+(nothing in it measures path length). Its complexity is its strength: one
+evaluation of \cref{alg:ch15-force} costs $\bigO{m}$ distance queries for
+$m$ obstacles, or $\bigO{m_{\mathrm{loc}}}$ with a spatial index that returns
+the $m_{\mathrm{loc}}$ obstacles within $\rho_0$, with no map representation,
+no queue and no memory beyond the obstacle list. What can be proved is what the marble picture promises: the drone
 always goes downhill, never touches an obstacle in continuous time, and
 stops at a critical point.
 
@@ -540,11 +527,11 @@ $U$ in $S$; if these are isolated, a continuous trajectory converging to
 the set converges to one point of it.
 \end{proof}
 
-The theorem is the good news and the bad news in one statement. In
+The theorem is the good news and the bad news in one statement: in
 continuous time the method is \emph{safe}, with an explicit bound
-$\rho_{\min}$, and the drone always arrives \emph{somewhere}: at a critical
-point of $U$. The goal is a critical point only under a condition, and it
-is never the only one.
+$\rho_{\min}$, and the drone always arrives \emph{somewhere} -- at a critical
+point of $U$, which is the goal only under a condition, and never the only
+one.
 
 \begin{proposition}[The goal as the minimum, and when it is not]
 \label{thm:ch15-goal}
@@ -639,14 +626,13 @@ eigenvalues $36.96$ in the $x$-direction and $-2.64$ in the $y$-direction:
 the point is a \textbf{saddle}\index{saddle point}, and a drone slightly off
 the axis is pushed further off by the repulsion faster than the attraction
 pulls it back. For a single convex obstacle the unavoidable critical point
-of \cref{rem:ch15-saddles} is a saddle, and only the starts exactly on the
-axis are trapped. That is little comfort in practice: a drone near the axis
-creeps sideways at a speed proportional to its offset and lingers next to
-the saddle, and any asymmetry -- a second obstacle, a wall, a non-convex
-shape -- turns the saddle into a true minimum. The basin experiment of
-\cref{sec:ch15-basin} uses two overlapping discs whose waist forms a valley
-of the repulsive field, and there $41\,\%$ of the starts end in a genuine
-local minimum with two positive Hessian eigenvalues.
+of \cref{rem:ch15-saddles} is a saddle and only the starts exactly on the
+axis are trapped -- little comfort in practice, because a drone near the
+axis lingers next to the saddle, and any asymmetry (a second obstacle, a
+wall, a non-convex shape) turns the saddle into a true minimum. The basin
+experiment of \cref{sec:ch15-basin} uses two overlapping discs, and there
+$41\,\%$ of the starts end in a genuine local minimum with two positive
+Hessian eigenvalues.
 
 \subsection{Goals non-reachable with obstacles nearby (GNRON)}
 \label{sec:ch15-gnron}
@@ -823,16 +809,14 @@ narrower than some width, and no single $\dt$ serves all scenes.
 switched on. The limit is a strong medicine: with $v_{\max} = 1$ the run with
 $\dt = 0.05$ and $w = 1$ crosses with a single reversal although its
 stability number is $4.05$, because the clipped step is at most $\dt\,
-v_{\max} = 0.05$ long and cannot overshoot the axis by more than that; the
-linear analysis does not apply while the clip is active, and what remains of
-the instability is chatter of amplitude $\dt\, v_{\max}$ (the $51$ reversals
-of the blocked run with $w = 0.8$). But the limit does nothing for the widths
-$0.6$ and $0.8$, which fail for a different reason. Koren and Borenstein's
+v_{\max} = 0.05$ long and cannot overshoot the axis by more than that; what
+remains of the instability is chatter of that amplitude (the $51$ reversals
+of the blocked run with $w = 0.8$). Koren and Borenstein's
 ``oscillations in the presence of obstacles'' also arise in continuous time
 when the drone has inertia: the second-order model $m\ddot{\pos} = \vect{F}
 - b\dot{\pos}$ oscillates unless the damping $b$ is large compared with
 $\sqrt{m\lambda}$, a velocity controller with latency behaves like a lightly
-damped mass, and noisy distance measurements produce a jittering force. In
+damped mass, and noisy distances produce a jittering force. In
 the first-order model with exact distances and continuous time there is no
 oscillation at all, because $U$ decreases monotonically
 (\cref{thm:ch15-descent}); everything that oscillates is a consequence of
@@ -893,24 +877,21 @@ steering direction from a polar histogram instead of adding vectors. Three
 decades later the honest summary is this.\index{Koren--Borenstein critique}
 \begin{itemize}
   \item \emph{Traps and blocked passages are structural.} They follow from
-  the algebra of \cref{eq:ch15-axis,eq:ch15-gapforce}, a sum of vectors can
-  vanish where no obstacle is, and \cref{rem:ch15-saddles} shows that
-  critical points other than the goal cannot be avoided by any potential.
-  Gains and influence distances move the failures around; they do not
-  remove them from all scenes.
+  the algebra of \cref{eq:ch15-axis,eq:ch15-gapforce}, and
+  \cref{rem:ch15-saddles} shows that critical points other than the goal
+  cannot be avoided by any potential. Gains and influence distances move
+  the failures around; they do not remove them from all scenes.
   \item \emph{The oscillations are partly implementation-dependent.} The
   first-order controller with exact distances never oscillates in
   continuous time (\cref{thm:ch15-descent}); what oscillated in their
-  experiments was discretisation, robot dynamics and sonar noise, and
-  \cref{sec:ch15-oscillation} shows how far a small step and a speed limit
-  go. But the stiffness of a passage grows like the inverse fourth power of
-  its width, so every discrete controller has a passage too narrow for it.
+  experiments was discretisation, robot dynamics and sonar noise. But the
+  stiffness of a passage grows like the inverse fourth power of its width,
+  so every discrete controller has a passage too narrow for it.
   \item \emph{The verdict was about a role, not about the idea.} It
   concerned the potential field as the \emph{whole} obstacle-avoidance layer
-  of a robot driven by raw sonar readings. It says nothing against
-  potential terms inside a larger system, which is where they live today
-  (\cref{sec:ch15-drone}), and nothing against navigation functions, which
-  answer the trap problem for a class of worlds.
+  of a robot driven by raw sonar readings, and says nothing against
+  potential terms inside a larger system (\cref{sec:ch15-drone}) or against
+  navigation functions, which answer the trap problem for a class of worlds.
 \end{itemize}
 
 % ---------------------------------------------------------------------
@@ -936,12 +917,10 @@ obstacles $(\vect{c}_i, r_i)$ inside -- they construct one explicitly:
   \label{eq:ch15-navfun}
 \end{equation}
 and prove that $\varphi_\kappa$ is a navigation function for every
-sufficiently large $\kappa$. The function $\beta$ is positive in the free
-space and zero on every boundary, so $\varphi_\kappa$ is $0$ at the goal and
-$1$ on the obstacles, and the large exponent sharpens the goal term until
-the obstacle terms can only produce saddles; the construction extends to
-star-shaped obstacles by a change of coordinates. The result matters for
-what it says: local minima are not a law of nature but a defect of the sum
+sufficiently large $\kappa$: $\beta$ is positive in the free space and zero on
+every boundary, so $\varphi_\kappa$ is $0$ at the goal and $1$ on the
+obstacles, and the large exponent sharpens the goal term until the obstacle
+terms can only produce saddles. The result matters for what it says: local minima are not a law of nature but a defect of the sum
 in \cref{eq:ch15-total}. It is rarely used on drones, because it needs the
 complete obstacle geometry in closed form, a large $\kappa$ makes the field
 extremely flat far from the goal and extremely steep near it, and moving
@@ -972,11 +951,10 @@ reaches the goal from every start. The price is a global computation:
 Laplace's equation must be solved numerically on a grid covering the
 workspace and re-solved whenever the map changes, and in long corridors the
 potential becomes so flat that double precision cannot represent its slope.
-Its discrete cousin is the wavefront planner of Choset et
-al.~\cite{choset2005principles}, a breadth-first sweep from the goal that
-assigns every free cell its number of steps to the goal -- a potential
-without local minima that is Dijkstra's algorithm of \cref{ch:ch03} under
-another name. A potential without local minima costs a global search.
+Its discrete cousin, the wavefront planner of Choset et
+al.~\cite{choset2005principles}, assigns every free cell its number of steps
+to the goal by a breadth-first sweep -- Dijkstra's algorithm of \cref{ch:ch03}
+under another name. A potential without local minima costs a global search.
 
 \paragraph{A potential field as the local layer under a global plan.}
 The remedy that matters for this book is to stop asking the field to do
@@ -1063,18 +1041,14 @@ The random walk converts a certain failure into a probable, slow success
 with an unpredictable path -- a crutch worth having in a local layer, and no
 substitute for a global plan.
 
-\begin{pitfall}[Testing from one start]
 The failures of this chapter are properties of \emph{regions} of the start
-space, not of the scene alone: the one-disc scene of \cref{ex:ch15-disc}
-succeeds from $(0, 4.5)$ and fails from $(0, 4)$, and the peanut captures
-$41\,\%$ of the starts and lets the rest through. A controller that has
-passed a demonstration from one start has been tested on nothing. Sweep a
-grid of starts as \code{basin\_experiment()} does, report the fraction that
-arrives and the fraction that stalls, and keep the stuck detector of
-\cref{alg:ch15-descend} in the deployed code, because it is the only
-component that can tell the rest of the system that the field has failed.
-\Cref{ch:ch25} turns this into an experiment protocol.
-\end{pitfall}
+space, not of the scene alone, and nothing in a run signals them except the
+stuck detector: a single test from a start outside the band would have
+passed. Sweep a grid of starts as \code{basin\_experiment()} does, report the
+fractions that arrive and that stall, and keep the detector of
+\cref{alg:ch15-descend} in the deployed code, because it is the only component
+that can tell the rest of the system that the field has failed;
+\cref{ch:ch25} turns this into an experiment protocol.
 
 % ---------------------------------------------------------------------
 \section{Swarms: inter-agent repulsion, flocking and consensus}
@@ -1104,9 +1078,8 @@ and $r = 0.25$ the minimum separation is $1.044$, twice the touching
 distance $2r = 0.5$, and after $30$ time units every drone is within $0.3$
 of its goal (\cref{fig:ch15-swarm}b). The symmetric scene is also the swarm
 version of the local minimum: two drones exactly head-on would stop facing
-each other, since their attractions and repulsions cancel, and only the
-asymmetry of the six-way crossing lets them slide past. Symmetric repulsion
-has no notion of who yields; the reciprocal velocity obstacles of
+each other, since their attractions and repulsions cancel. Symmetric
+repulsion has no notion of who yields; the reciprocal velocity obstacles of
 \cref{ch:ch13} exist precisely to supply one.
 
 \begin{figure}[tb]
@@ -1231,73 +1204,14 @@ jumps, and a drone on such a line feels the sum of both repulsions, which
 is exactly the mechanism of \cref{sec:ch15-nopassage}.
 
 \paragraph{Discrete-time instability and the controller loop.}
-\Cref{lst:ch15-loop} is the loop of \code{simulate\_many()}: the three
-tests of \cref{alg:ch15-descend}, the clipped step, and the optional
-random-walk escape of \cref{sec:ch15-remedies}, vectorised over the drones.
-The stuck detector compares the current position with the position $W$
-steps ago; $W$ should cover several periods of any chatter, and the
-tolerance $\delta$ should exceed the chatter amplitude $\dt\,v_{\max}$,
-otherwise a chattering drone is never declared stuck. A random walk is
-committed for a whole leg of \code{esc\_left} steps, so that the descent
-does not cancel it at the next step.
-
-\begin{lstlisting}[caption={The controller loop of \code{simulate\_many()} (from \code{code/ch15\_potential\_fields.py}): goal test, collision test, stuck detection over a window of \code{w} steps, optional random-walk escapes, force evaluation, speed clipping and the Euler step, vectorised over all drones (\code{active} is a boolean mask).},label={lst:ch15-loop}]
-    for k in range(prm.max_steps):
-        reached = active & (np.linalg.norm(p - goal, axis=1) <= prm.goal_tol)
-        status[reached] = "reached"
-        hit = active & ~reached & (min_clearance(p, obstacles) <= 0.0)
-        status[hit] = "collision"
-        active &= ~(reached | hit)
-        if k >= w:
-            moved = np.linalg.norm(p - hist[k - w], axis=1)
-            stuck = active & (esc_left == 0) & (moved < prm.stuck_tol)
-            if escape:
-                kick = stuck & (escapes < max_escapes)
-                ang = rng.uniform(0.0, 2.0 * np.pi, n)
-                length = rng.uniform(0.5, 2.0, n)
-                esc_dir[kick] = np.stack([np.cos(ang), np.sin(ang)], axis=1)[kick]
-                esc_left[kick] = np.ceil(length[kick] / (prm.v_max * prm.dt)).astype(int)
-                escapes[kick] += 1
-                stuck &= ~kick
-            status[stuck] = "stuck"
-            active &= ~stuck
-        if not active.any():
-            break
-        v = clip_speed(total_force(p, goal, obstacles, prm), prm.v_max)
-        kicking = active & (esc_left > 0)
-        v[kicking] = prm.v_max * esc_dir[kicking]
-        p_new = p + prm.dt * v
-        if kicking.any():
-            too_close = kicking & (min_clearance(p_new, obstacles) < 0.1)
-            p_new[too_close] = p[too_close]
-            esc_left[too_close] = 0
-            esc_left[kicking & ~too_close] -= 1
-        p = np.where(active[:, None], p_new, p)
-        steps[active] += 1
-        hist.append(p.copy())
-\end{lstlisting}
-
-\begin{table}[tb]
-  \centering\small
-  \caption{The parameters of \cref{alg:ch15-force,alg:ch15-descend}, what
-  increasing each one does, and the values used in this chapter.}
-  \label{tab:ch15-params}
-  \begin{tabular}{@{}lL{7.6cm}l@{}}
-  \toprule
-  Parameter & Effect of increasing it & Here\\
-  \midrule
-  $k_{\mathrm{att}}$ & stronger pull; opens narrow passages; smaller clearance near obstacles & $1$\\
-  $k_{\mathrm{rep}}$ & larger clearance; closes passages; stiffer field, smaller stable $\dt$ & $1$\\
-  $\rho_0$ & earlier, smoother avoidance; more overlapping regions; GNRON more likely & $2$\\
-  $d^*$ & attractive force bounded at $k_{\mathrm{att}} d^*$ beyond $d^*$; redundant with the speed limit & $\infty$\\
-  $n$ & cures GNRON; rescales every repulsion by $d^{\,n}$, so $k_{\mathrm{rep}}$ must be retuned & $0$ or $2$\\
-  $v_{\max}$ & faster flight; longer steps $\dt\,v_{\max}$ and larger chatter amplitude & $1$\\
-  $\dt$ & fewer steps; instability once $\dt\,\lambda_{\max} \ge 2$ (\cref{thm:ch15-stability}) & $0.01$\\
-  $W$, $\delta$ & slower but more reliable stuck detection; $\delta$ must exceed $\dt\,v_{\max}$ & $100$, $10^{-3}$\\
-  $\eps_{\mathrm{g}}$ & earlier arrival; must exceed the GNRON offset if the goal is inside $\rho_0$ & $0.05$\\
-  \bottomrule
-  \end{tabular}
-\end{table}
+The loop of \code{simulate\_many()} is \cref{alg:ch15-descend} with the
+three tests, the clipped step and the optional random-walk escape of
+\cref{sec:ch15-remedies}, vectorised over the drones with boolean masks. The
+stuck detector compares the current position with the position $W$ steps
+ago; $W$ should cover several periods of any chatter, and the tolerance
+$\delta$ should exceed the chatter amplitude $\dt\,v_{\max}$, otherwise a
+chattering drone is never declared stuck. A random walk is committed for a
+whole leg of steps, so that the descent does not cancel it at the next step.
 
 \begin{pitfall}[A force is not a velocity]
 The formula $\vel = \vect{F}$ hides two unit conversions that a real drone
@@ -1325,40 +1239,36 @@ A potential field is the cheapest reactive layer there is: one distance
 query per nearby obstacle or drone, one vector sum, no search. In the hybrid
 architecture of \cref{ch:ch24} it is nevertheless \emph{not} the safety
 layer, for three reasons this chapter has made concrete. It reacts to
-positions, not velocities: an intruder approaching head-on at speed is
-repelled only once it is within $\rho_0$, whereas the velocity obstacles of
-\cref{ch:ch12} and \orca (\cref{ch:ch13}) reason about the relative velocity
-and the time to collision, and yield earlier and reciprocally. It has no
-notion of the drone's dynamics: the force is a velocity command, and
-acceleration limits and stopping distances are handled afterwards by
-clipping, whereas the dynamic window approach of \cref{ch:ch14} evaluates
-only commands the drone can execute. And it comes with no guarantee in
-discrete time and with the four failure modes of \cref{sec:ch15-failures},
-which no tuning removes from every scene.
+positions, not velocities: an intruder approaching head-on is repelled only
+once it is within $\rho_0$, whereas the velocity obstacles of \cref{ch:ch12}
+and \orca (\cref{ch:ch13}) reason about relative velocity and time to
+collision, and yield earlier and reciprocally. It has no notion of the
+drone's dynamics, whereas the dynamic window approach of \cref{ch:ch14}
+evaluates only commands the drone can execute. And it has no guarantee in
+discrete time and the four failure modes of \cref{sec:ch15-failures}, which
+no tuning removes from every scene.
 
 The book therefore keeps potential fields for what they do well. The
 inter-agent repulsion of \cref{eq:ch15-interagent} is the \emph{soft
-spacing} term that runs at every control cycle between swarm members, on
-top of the time-indexed paths of \cbs or \ecbs (\cref{ch:ch09,ch:ch10}); it
-smooths out the small position errors that the discrete plan does not see,
-and it costs nothing. The spring terms of \cref{sec:ch15-swarm} are the
-\emph{formation-keeping} controller of \cref{ch:ch23}, and the same
-quadratic penalties reappear as soft constraints inside the model
-predictive controller of \cref{ch:ch21}. The waypoint-following arrangement
-of \cref{sec:ch15-remedies} is the pattern that every local layer of
-\cref{ch:ch24} follows: a global plan supplies short legs, the local layer
-executes them reactively, and a stalled leg triggers replanning with
-\dstarlite or \astar (\cref{ch:ch05,ch:ch04}). The Week~7 study plan
-(\cref{ch:appA}) covers this chapter together with \cref{ch:ch14}; its
-milestone is to know when local methods work and when they fail, and its
-coding exercise is \cref{exr:ch15-coding}.
+spacing} term that runs at every control cycle between swarm members on top
+of the time-indexed paths of \cbs or \ecbs (\cref{ch:ch09,ch:ch10}); the
+spring terms of \cref{sec:ch15-swarm} are the \emph{formation-keeping}
+controller of \cref{ch:ch23}, and the same quadratic penalties reappear as
+soft constraints in the model predictive controller of \cref{ch:ch21}. The
+waypoint-following arrangement of \cref{sec:ch15-remedies} is the pattern
+every local layer of \cref{ch:ch24} follows: a global plan supplies short
+legs, the local layer executes them reactively, and a stalled leg triggers
+replanning with \dstarlite or \astar (\cref{ch:ch05,ch:ch04}). Week~7 of the
+study plan (\cref{ch:appA}) covers this chapter together with \cref{ch:ch14};
+its coding exercise is \cref{exr:ch15-coding}.
 \end{dronebox}
 
 % ---------------------------------------------------------------------
 \section{Summary}
 \begin{summary}
 \begin{itemize}
-  \item A potential field adds a bowl at the goal, $U_{\mathrm{att}} = \tfrac12 k_{\mathrm{att}} \norm{\pos - \pos_{\mathrm{g}}}^2$ (conic beyond $d^*$ in the hybrid form), to a wall around every obstacle, $U_{\mathrm{rep}} = \tfrac12 k_{\mathrm{rep}} (1/\rho - 1/\rho_0)^2$ for $\rho \le \rho_0$, and commands the negative gradient: $\vect{F}_{\mathrm{att}} = -k_{\mathrm{att}} (\pos - \pos_{\mathrm{g}})$ and $\vect{F}_{\mathrm{rep}} = k_{\mathrm{rep}} (1/\rho - 1/\rho_0)\, \rho^{-2}\, \nabla\rho$.
+  \item A potential field adds a bowl at the goal, $U_{\mathrm{att}} = \tfrac12 k_{\mathrm{att}} \norm{\pos - \pos_{\mathrm{g}}}^2$ (conic beyond $d^*$ in the hybrid form), to a wall around every obstacle, $U_{\mathrm{rep}} = \tfrac12 k_{\mathrm{rep}} (1/\rho - 1/\rho_0)^2$ for $\rho \le \rho_0$, and commands the negative gradient,
+  \[ \vect{F}_{\mathrm{att}} = -k_{\mathrm{att}} (\pos - \pos_{\mathrm{g}}), \qquad \vect{F}_{\mathrm{rep}} = k_{\mathrm{rep}} \Bigl( \frac{1}{\rho} - \frac{1}{\rho_0} \Bigr) \frac{\nabla\rho}{\rho^{2}}. \]
   \item The controller is explicit Euler with a speed limit and a stuck detector. In continuous time the potential decreases monotonically, the drone never touches an obstacle, and it converges to a critical point of $U$ -- the goal only when nothing cancels the attraction first.
   \item The four failure modes have formulas: a local minimum where $\vect{F}_{\mathrm{att}} + \vect{F}_{\mathrm{rep}} = \vect{0}$; GNRON, a goal inside $\rho_0$ where $\vect{F}_{\mathrm{rep}} \ne \vect{0}$, cured by multiplying $U_{\mathrm{rep}}$ by $d^{\,n}$; oscillation when $\dt\,\lambda_{\max} \ge 2$, with a stiffness that grows like the inverse fourth power of a passage width; and blocked passages, where two repulsions add up in front of a free gap.
   \item Critical points other than the goal cannot be avoided by any potential; navigation functions make them all saddles on sphere worlds, harmonic potentials avoid minima at the price of a global grid computation, random walks escape minima at the price of time and path quality.
