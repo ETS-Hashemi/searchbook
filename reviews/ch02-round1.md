@@ -1,339 +1,199 @@
 # Review of Chapter 2 (The Toolbox) - round 1
 
+Reviewed artefacts: `Overleaf/chapters/ch02-toolbox.tex` (817 lines), the seven figure
+files in `Overleaf/figures/ch02/`, `Overleaf/code/ch02_toolbox.py`,
+`Overleaf/code/figures/gen_ch02_gaussian.py`, `Overleaf/code/figures/gen_ch02_double_integrator.py`,
+`Overleaf/appendices/solutions/ch02-solutions.tex`,
+`Overleaf/appendices/glossary/ch02-terms.tex`, against `STYLE_GUIDE.md` §9,
+`docs/specs/ch02.md` and `docs/core-idea.txt`.
+
+Build: `cd Overleaf && ./build.sh ch02-toolbox` -> status 0, no `!` errors, no undefined
+reference or citation belonging to this chapter (the `??` in the PDF are all forward
+references to chapters not included in a single-chapter build, which the style guide
+allows; the only `Overfull \hbox` above 15 pt, 29.10 pt at log line 1948, is in the
+front-matter *List of Algorithms*, not in this chapter).
+Code: `python3 code/ch02_toolbox.py` -> `ch02_toolbox self-test passed`, exit 0.
+Both figure generators run and reproduce their data files.
+
+Every number quoted in the chapter was checked against the code or recomputed:
+`(3.0, 2.0)`, `(3, 3)`, makespan 3, SoC 6, `sep = 1.0`, `sep_cont = 0.70710678`,
+`tca = (3.0, 1.41421356)`, `ttc_r075 = 2.646446609`, `ellipse = (1.6733, 0.4472, 33.690)`,
+inflation counts 5 / 9 / 21, edge counts 17 / 29, stretches 1.0824 and 1.1281
+(I re-derived both as `sqrt(sum_k (sqrt(k) - sqrt(k-1))^2)`), the Gaussian sample
+fractions 39.8 % / 85.8 % (from `gen_ch02_gaussian.py`), the double-integrator story
+2 s / 5 s / 7 s / 10 m (from `gen_ch02_double_integrator.py`), the 2D masses
+39.3 / 86.5 / 98.9 % and the 3D masses 19.9 / 73.9 %, the tangent points `(3, +-sqrt3)`
+with `l = sqrt(12)` and `theta = 30 deg`, and even the "about 150 MB and a few seconds"
+dictionary estimate (measured: 153.9 MB, 2.7 s for 10^6 `((x,y),t)` keys). All correct.
+
 ## Verdict
 
 **Minor revision.**
 
-This is a strong foundations chapter. It is complete against every "must cover" item of
-`docs/specs/ch02.md`, every formula I recomputed is right, the build is clean (status 0,
-no `!` errors, no overfull box above 15 pt, no undefined label or citation belonging to
-this chapter), and **every number quoted in the text is reproduced by the code**:
-`python3 code/ch02_toolbox.py` prints `length (3.0, 2.0)`, `time (3, 3)`, `makespan 3`,
-`soc 6`, `sep 1.0`, `sep_cont 0.7071`, `tca (3.0, 1.4142)`, `ttc_r075 2.6464`,
-`ellipse (1.6733, 0.4472, 33.69)` and the self-test passes; `gen_ch02_gaussian.py` prints
-`inside 1-sigma: 39.8%` / `inside 2-sigma: 85.8%`; `gen_ch02_double_integrator.py` prints
-`v_max reached at t = 2.0 s`, `braking starts at t = 5.0 s`, `stopped at t = 7.0 s, x = 10.0000 m`.
-I independently re-derived the 4-/8-/6-/26-connected stretch factors
-(1.414, 1.082, 1.732, 1.128 - Cauchy-Schwarz on $w_k=\sqrt{k}-\sqrt{k-1}$), the inflation
-counts 5/9/21, the edge counts 17/29, the eigen-decomposition of $\Sigma$, the
-$1-e^{-k^2/2}$ mass values (39.3/86.5/98.9 % in 2D, 19.9/73.9 % in 3D), the closest-approach
-numbers ($t^\*=3$, $d_{\min}=\sqrt2$, $t_c=2.6464$), the tangent geometry for
-$p=(0,0),c=(4,0),r=2$, and the closest-approach column of Table 2.4 (1.000 / 0.707 / 1.000).
-All ten bibliography keys exist and all ten entries are real and correctly described.
-
-What blocks acceptance is a short list of *local* defects: one over-claim about
-priority-queue variants, one pseudocode line that dereferences a deleted key, one wrong
-area formula in an exercise, a sign convention in Figure 2.5(b) that contradicts
-Equation (2.16), two smaller figure/caption mismatches, one uncited attribution, and a
-length overrun of three pages that can be removed by deleting genuinely duplicated
-material. None of them requires restructuring the chapter.
-
-**Length.** The chapter occupies printed pages 21-43 of `build/only-ch02-toolbox.pdf`
-(PDF pages 13-35) = **23 pages**, i.e. 3 over the 20-page cap and 5 over the spec's
-14-18 target. Item 10 below names concrete cuts; all of them are duplication, not content.
+The chapter is technically sound, complete against every "must cover" item of
+`docs/specs/ch02.md`, and its worked examples are reproduced exactly by the companion
+code. Nothing here is wrong in a way that would mislead a reader about an algorithm.
+Five required changes remain, all local: one genuine gap in the cost model (waits at the
+goal), one overloaded symbol inside a definition, one proof that stops one step short of
+its own formula, one figure that uses the same letter for two different distances, and
+two pages of length over the cap that can be removed from clearly redundant material.
 
 ## Required changes
 
-1. **Section 2.9, paragraph after Algorithm 2.1 (`ch02-toolbox.tex` line 682): "All three
-   do the same thing" is false.** *(Category A)*
-   The text says: "Two equivalent variants appear in the literature: some codes compare
-   the popped key with the vertex's current $\gcost$ instead of a separate dictionary, and
-   some skip a popped vertex if it is already in the closed set. All three do the same
-   thing". The first two variants are equivalent to the book's, but the closed-set variant
-   is not: the book's `LazyPop` *deletes* `best[item]` when the item is popped, so a later
-   push with a strictly better key re-opens the node, whereas the closed-set variant
-   refuses to. With an admissible but *inconsistent* heuristic that difference changes the
-   answer (the closed-set variant can return a suboptimal path unless nodes are reopened) -
-   exactly the issue \cref{ch:ch04} discusses.
-   **Fix:** replace the last clause with something like: "The first two are equivalent to
-   the version above. The closed-set variant differs: because a popped item is removed from
-   $\mathit{best}$, \cref{alg:ch02-lazypq} re-opens a node when a strictly better key
-   arrives later, while a closed set never does. The two agree whenever the heuristic is
-   consistent (\cref{ch:ch04}); with an inconsistent heuristic the closed-set variant must
-   reopen nodes explicitly to stay optimal."
+1. **The cost of a time-indexed path is never reconciled with its arrival time.**
+   *Location:* `def:ch02-space-time-state` (line 193) together with
+   `def:ch02-travel-time`, `def:ch02-makespan`, `def:ch02-sum-of-costs` (lines 269-290).
+   *Problem:* Definition 2.2 defines `\cost(\pi)` as the sum of edge costs, and
+   Definition 2.10 states flatly that "the wait costs $c_{\text{wait}}>0$". But
+   Definitions 2.16-2.18 measure travel time, makespan and sum of costs by the *arrival
+   time* $T(\pi)$. For any path with trailing waits at the goal - which the stay-at-goal
+   convention of Definition 2.12 explicitly allows - the two quantities differ, so a
+   reader who implements space-time search with $g=\sum$ action costs will not obtain the
+   $\sumcost$ this chapter defines. The rest of the book has already settled the
+   convention the other way: `frontmatter/notation.tex` lines 99-100 define
+   $\sumcost(\Pi)=\sum_i\cost(\pi_i)$ and $\makespan(\Pi)=\max_i\cost(\pi_i)$, and
+   `chapters/ch07-mapf-problem.tex` lines 190-193 says "\Cref{ch:ch02} writes the
+   final-arrival time of a path as $T(\pi_i)$; here that quantity is $\cost(\pi_i)$",
+   while its code (line 931) documents "trailing waits cost nothing". Chapter 2, read
+   alone, contradicts that.
+   *Fix:* (a) in Definition 2.10 replace "and the wait costs $c_{\text{wait}}>0$" by
+   "and the wait costs $c_{\text{wait}}>0$ for every wait made before the agent's final
+   arrival at its goal; by the stay-at-goal convention of
+   \cref{def:ch02-time-indexed-path} the waits at the goal after arrival are free";
+   (b) add one sentence after Definition 2.16: "With unit move costs this makes
+   $\cost(\pi)=T(\pi)$: this is the convention of \textcite{stern2019mapf}, and it is
+   what \cref{ch:ch07} writes as $\cost(\pi_i)$ and the notation table lists under
+   $\sumcost$."
+   *Category:* A (also F).
 
-2. **Algorithm 2.1, `LazyPop`, the test after the pop (`ch02-toolbox.tex` line 673):
-   undefined dictionary lookup.** *(Category A)*
-   The line reads `\If{$\mathit{best}[\text{item}]=\key$}`, but the branch above deletes
-   `best[item]` when an item is popped, so for a stale entry of an already-popped item
-   `best[item]` does not exist and the pseudocode is undefined. (The Python is correct:
-   `self._best.get(item) == key`.) The surrounding prose even concedes the case ("or the
-   item has already been popped") instead of fixing the line.
-   **Fix:** change the condition to
-   `\If{$\text{item}\in\mathit{best}$ \KwAnd $\mathit{best}[\text{item}]=\key$}` and drop
-   the parenthetical "(or the item has already been popped)" from the following paragraph.
+2. **The letter $T$ means two different things inside Definition 2.12.**
+   *Location:* `def:ch02-time-indexed-path`, lines 212-215; knock-on effects in
+   `def:ch02-time-expanded-graph` (line 200) and `exr:ch02-time-expanded` (line 785).
+   *Problem:* the definition first writes the path as $\pi=(v_0,\dots,v_T)$ with $v_T=g$
+   and then defines the arrival time as $T(\pi)$. Because trailing waits at the goal are
+   permitted, $T(\pi)\le T$ and the two are not equal in general, so the sentence "The
+   arrival time $T(\pi)$ is the smallest $t$ such that $v_{t'}=g$ for all $t'\ge t$" reads
+   as if $T$ were being defined in terms of itself. `ch07-mapf-problem.tex` (lines
+   190-193) reserves $T_i$ for the last stored index precisely to avoid this collision.
+   *Fix:* write the sequence as $\pi=(v_0,\dots,v_{T_i})$ (or $H$ for the horizon of the
+   stored list), keep $T(\pi)$ for the arrival time only, and add "the arrival time
+   satisfies $T(\pi)\le T_i$, with equality exactly when the path ends without a trailing
+   wait at the goal; \cref{ch:ch07} uses the same two letters." Use the same letter for
+   the horizon in Definition 2.11 and in Exercise 2.4.
+   *Category:* C (also F).
 
-3. **Exercise 2.3 (`exr:ch02-inflation`, `ch02-toolbox.tex` line 861): wrong area formula.**
-   *(Category A, also E)*
-   "Compare the blocked area with the area $\pi(r+\tfrac12)^2$ of the exact Minkowski sum
-   of a square and a disc for large $r$." $\pi(r+\tfrac12)^2$ is the area of a *disc* of
-   radius $r+\tfrac12$. The Minkowski sum of the unit square with a disc of radius $r$ is
-   the rounded square of area $1+4r+\pi r^2$ (square + four $1\times r$ rectangles + four
-   quarter-discs). The two differ by $\pi r-4r+\pi/4-1\approx-0.86r-0.21$, so a student who
-   follows the exercise will conclude the sampled inflation is wrong when it is not.
-   **Fix:** replace the clause with "Compare the blocked-cell count with the area
-   $1+4r+\pi r^2$ of the exact Minkowski sum of the unit square with the disc of radius
-   $r$, and check that the ratio tends to $1$."
+3. **The proof of Proposition 2.24 does not finish its own computation.**
+   *Location:* proof of `thm:ch02-stopping-distance`, line 378.
+   *Problem:* the chain ends at "$= v\,t_s-\tfrac12 a_{\max}t_s^2 = v^2/a_{\max}-v^2/(2a_{\max})$"
+   and never states that this equals $v^2/(2a_{\max})$, i.e. the displayed
+   \cref{eq:ch02-stopping-distance} that the proposition asserts. The chapter's promise is
+   that every property is proved; leaving the last simplification to the reader breaks it,
+   and the guide forbids implying that a step is obvious.
+   *Fix:* end the sentence with "$=v^2/(2a_{\max})$, which is \cref{eq:ch02-stopping-distance}."
+   *Category:* A.
 
-4. **Figure 2.5(b) (`figures/ch02/segment-circle.tex`, nodes `T1`/`T2`): the $t_+$ and
-   $t_-$ labels are swapped relative to Equation (2.16).** *(Category A, also D)*
-   With $p=(0,0)$, $c=(4,0)$, $r=2$: $\vect{u}=(\vect{p}-\vect{c})/d=(-1,0)$ and, by
-   Definition 2.22, $\vect{u}^{\perp}=(-u_y,u_x)=(0,-1)$. Equation (2.16) then gives
-   $\vect{t}_{+}=\vect{c}+r(\cos\alpha\,\vect{u}+\sin\alpha\,\vect{u}^{\perp})
-   =(3,-\sqrt3)$, i.e. the *lower* tangent point - which is also what `tangent_points`
-   returns first (`_self_test` asserts `t1 = (3, -sqrt 3)`). The figure labels
-   `T1 = (3, 1.732)` (upper) as $\vect{t}_{+}$ and `T2 = (3,-1.732)` as $\vect{t}_{-}$.
-   Since this cone is reused as the velocity obstacle and the ORCA half-plane orientation
-   in \cref{ch:ch12,ch:ch13}, the sign convention must be consistent.
-   **Fix:** in `figures/ch02/segment-circle.tex`, swap the two labels, so that
-   `T1` (upper) is $\vect{t}_{-}$ and `T2` (lower) is $\vect{t}_{+}$; leave the
-   right-angle pic and the $\alpha$/$\theta$ arcs where they are.
+4. **Figure 2.5 uses the symbol $d$ for two different distances.**
+   *Location:* `fig:ch02-segment-circle` (lines 452-457) and the figure file
+   `Overleaf/figures/ch02/segment-circle.tex`.
+   *Problem:* in panel (a) $d$ is the point-to-segment distance ("the closest point
+   $\vect q$ is at distance $d\le r$", "The disc around $\vect c'$ is missed because
+   $d>r$"), while in panel (b) $d=\norm{\vect p-\vect c}$ is the distance from the external
+   point to the *centre*, the quantity that appears in $\cos\alpha=r/d$,
+   $\ell=\sqrt{d^2-r^2}$ and $\theta=\arcsin(r/d)$. Both panels are in the same figure and
+   the same caption, so a reader alone cannot tell which $d$ Proposition 2.29 refers to.
+   *Fix:* in the TikZ file label the two distances of panel (a) as $d_1$ (to $\vect c$) and
+   $d_2$ (to $\vect c'$), or write them as $\dist(\vect c,\overline{\vect a\vect b})$, and
+   rewrite the caption accordingly ("...because the closest point $\vect q$ is at distance
+   $d_1\le r$; the disc around $\vect c'$ is missed because $d_2>r$"). Keep $d$ for
+   $\norm{\vect p-\vect c}$ in panel (b) only, and say so in the caption.
+   *Category:* D.
 
-5. **Algorithm 2.1 vs Listing 2.3: the argument order of the push operation differs.**
-   *(Category F)*
-   The pseudocode declares `\ToolboxLazyPush{item, key}` (and the prose says
-   "\cref{alg:ch02-lazypq} states the two operations and \cref{lst:ch02-lazypq} shows the
-   toolbox class"), while the code is `def push(self, key, item)`. A reader mapping one
-   onto the other stumbles.
-   **Fix:** change the pseudocode signature to `\ToolboxLazyPush{$\key$, item}` and the
-   text of the two lines accordingly (`push $(\key,c,\text{item})$` is already in that
-   order).
-
-6. **`appendices/solutions/ch02-solutions.tex`, solution to `exr:ch02-closest-approach`:
-   $D(t)$ is redefined as the squared distance.** *(Category F, also A)*
-   The solution opens "the squared distance is $D(t)=\norm{\pos+t\vel}^2=\dots$, a parabola
-   in $t$ with $D'(t)=\dots$", but Definition 2.30 in the chapter defines
-   $D(t)=\norm{\pos+t\,\vel}$ (the distance, not its square), and Proposition 2.31's proof
-   correctly writes $D(t)^2$. As written the solution contradicts the definition it is
-   solving against.
-   **Fix:** write $D(t)^2=\pos\cdot\pos+2t\,\pos\cdot\vel+t^2\,\vel\cdot\vel$ and
-   differentiate $D(t)^2$: $\tfrac{d}{dt}D(t)^2=2\,\pos\cdot\vel+2t\,\vel\cdot\vel$,
-   vanishing at $t^\*$.
-
-7. **Figure 2.3 (`figures/ch02/time-expanded.tex`): the only state label points at a node
-   that is not on the highlighted path.** *(Category D)*
-   The annotation `state $(a,2)$` has an arrow to node `A2`, while the caption says "The
-   highlighted time-indexed path waits at $a$ for one step and then moves to $b$, ending in
-   the state $(b,2)$." The reader's eye follows the arrow to the wrong node.
-   **Fix:** move the annotation to `B2` and label it `state $(b,2)$` (e.g.
-   `\node[sbannot] at (6.4,1.2) {state $(b,2)$}; \draw[sbannot,->,black!50] (6.1,1.35) -- (B2.east);`),
-   or keep `(a,2)` and add a second, highlighted label on `B2`.
-
-8. **Figure 2.2(c) (`figures/ch02/minkowski-inflation.tex`, the orange $r$ arrow): $r$ is
-   drawn from the obstacle-cell centre, but the rule measures it from the obstacle
-   square.** *(Category D)*
-   The arrow runs `(2.5,2.5) -- (2.5,4.0)`, i.e. length $1.5$ starting at the *centre* of
-   obstacle cell $(2,2)$. Section 2.3 and `Grid.inflate` block a cell "if its centre lies
-   within $r$ of some obstacle *square*"; that is why cell $(2,4)$ (centre $y=4.5$) is
-   blocked at $r=1.5$ while $(0,1)$ (distance $1.58$) is not. As drawn, the figure invites
-   the centre-to-centre reading and contradicts the counts of Exercise 2.3.
-   **Fix:** draw the arrow from the top edge of the obstacle square to the centre of the
-   outermost blocked cell, `(2.5,3.0) -- (2.5,4.5)`, and keep the label $r$ beside it.
-
-9. **Section 2.3, line 146: the configuration-space idea is attributed to Lozano-Perez
-   without a citation.** *(Category H)*
-   "The classical remedy, due to Lozano-P\'erez and presented in every planning textbook
-   \cite{lavalle2006planning,choset2005principles}" cites only the two textbooks; the style
-   guide requires the original paper as well.
-   **Fix:** add to `Overleaf/bib/ch02-extra.bib` (under the ch02 comment):
-   `@article{lozanoperez1983spatial, author = {Lozano-P{\'e}rez, Tom{\'a}s}, title = {Spatial Planning: A Configuration Space Approach}, journal = {IEEE Transactions on Computers}, volume = {C-32}, number = {2}, pages = {108--120}, year = {1983}}`
-   and cite it: `\cite{lozanoperez1983spatial,lavalle2006planning,choset2005principles}`.
-   Add it to the further-reading paragraph too.
-
-10. **Length: 23 printed pages against a 20-page cap (spec target 14-18).** *(Category G)*
-    Every cut below removes material that is stated twice; no "must cover" item is touched.
-    Together they recover roughly three pages.
-    a. **Delete Listing 2.3 (`lst:ch02-lazypq`, 35 lines).** It is a line-for-line
-       transcription of Algorithm 2.1, which the chapter has just walked through. Replace
-       with one sentence: "The class `LazyPQ` in `code/ch02_toolbox.py` implements
-       \cref{alg:ch02-lazypq} on `heapq` and additionally counts pushes and stale pops."
-       Remove `\cref{lst:ch02-lazypq}` from the sentence at line 725. (~0.8 page)
-    b. **Shorten Listing 2.2 to `tangent_points` only.** `time_of_closest_approach` is a
-       transcription of Equation (2.14) and `time_to_collision` is the "one-line call to
-       `ray_circle_intersection`" the very next paragraph describes in words. (~0.5 page)
-    c. **Delete the first of the "Three remarks close the toolkit" (line 538)**, from
-       "First, the time to collision is a ray--circle intersection..." to "...the velocity
-       obstacle of \cref{ch:ch12}." Proposition 2.27, the proof of Proposition 2.31 and the
-       caption of Figure 2.5 already make this identification three times. Keep remarks two
-       (the horizon $\ttc$) and three (3D). (~0.25 page)
-    d. **Compress the four bullets of Section 2.10 to two sentences.** Bullet 4's ASCII-map
-       convention repeats Section 2.2 line 96 verbatim in substance ("`.` for free, `#` for
-       blocked, top row first"), and bullets 1-3 restate the study-plan/appendix material.
-       (~0.4 page)
-    e. **Cut the paragraph "Why dictionaries are enough" (line 692) to two sentences** -
-       keep the $10^6$-states / ~150 MB estimate and "no chapter uses a specialised closed
-       set"; drop the encode-as-integer / compiled-language advice, which returns in
-       \cref{ch:ch25}. (~0.2 page)
-    f. **Cut Table 2.1 (`tab:ch02-roadmap`) or its third column.** The dronebox of
-       Section 2.11 already maps every tool of this chapter onto a layer and a chapter, with
-       cross-references; the roadmap table repeats that mapping on the first page.
-       Cutting the table and keeping one sentence ("each section names the chapters that
-       use it again") is the cleaner cut. (~0.5 page)
-    g. **Split and trim the opening paragraph of Section 2.1 (line 23).** It is a single
-       20-line paragraph that enumerates the whole chapter and then Section 2.1's second
-       paragraph plus Table 2.1 enumerate it again; this also violates the style guide's
-       "one idea per paragraph". Cut it to three short paragraphs (map and size; time and
-       cost; motion, geometry, uncertainty, computation). (~0.3 page)
+5. **The chapter is 22 pages; the cap is 20 (the spec targets 14-18).**
+   *Location:* whole chapter; the body occupies printed pages 21-42 of
+   `build/only-ch02-toolbox.pdf` (PDF pages 18-39).
+   *Problem:* two pages over. All "must cover" content is needed and must stay; the excess
+   is in five places that repeat material already given.
+   *Fix:* make these concrete cuts (about two pages together), touching no required
+   content:
+   (a) delete **Listing 2.2** (`lst:ch02-geometry`, lines 721-736): `tangent_points` is a
+       line-for-line transcription of \cref{eq:ch02-tangent-points}, which the reader has
+       just seen with a proof, a picture and a numeric instance. Keep Listing 2.1 (the
+       style guide requires one listing) and keep the sentence in line 699 that names the
+       function; adjust that sentence so it no longer says "\Cref{lst:ch02-geometry} shows".
+   (b) compress the "two variants in the literature" discussion in line 663 (from "Two
+       variants appear in the literature" to "to stay optimal", about eight printed lines)
+       to two sentences: name the two variants, say they coincide under a consistent
+       heuristic, and forward-reference \cref{ch:ch04}, which is where reopening is
+       actually analysed.
+   (c) cut the paragraph "Why dictionaries are enough" (lines 672-673) to two sentences:
+       the $10^6$-state / 150 MB estimate and the conclusion. Its remaining three clauses
+       repeat Table 2.5 and the preceding paragraph.
+   (d) merge the one-sentence second paragraph of \cref{sec:ch02-motivation} (line 25)
+       into the paragraph above it; it restates "time" and "cost measures", which the
+       following paragraph and the roadmap sentence already announce.
+   (e) in the paragraph "Why a quadrotor is a double integrator, and when it is not"
+       (line 366) drop the payload/drag elaboration and keep the caveat list to
+       acceleration-cannot-jump, asymmetric limits and "choose $a_{\max}$, $v_{\max}$ with
+       a margin"; about four printed lines.
+   *Category:* G.
 
 ## Suggestions
 
-* Exercise difficulty is bunched: seven of ten are `\difficulty{2}`. Exercise 2.5 (build a
-  three-agent instance *and* prove no plan is optimal for both objectives - the model
-  solution runs to fifteen lines) is a genuine `\difficulty{3}`; Exercise 2.4's
-  one-to-one-correspondence claim is nearer 3 than 2. Promoting one of them and adding a
-  one-star drill on makespan/sum-of-costs arithmetic would give a better spread.
-* `appendices/solutions/ch02-solutions.tex` has four solutions for ten exercises (the same
-  ratio as ch01/ch03/ch05, so this is not a required change). Exercises 2.1, 2.3, 2.6 and
-  2.8 all have short, checkable answers (17/29 edges; 5/9/21 cells, the count
-  changing at $r=0.5$, $\sqrt{0.5}$, $1.5$, $\sqrt{2.5}\approx1.581$ and $1.5\sqrt2\approx2.121$; 20 braking steps, 2.0 m exact vs 2.1 m
-  forward-Euler; $(3,\mp\sqrt3)$, $\ell=2\sqrt3$, $\theta=30^\circ$). Two-line hints would
-  help the solo reader a lot.
-* Section 2.9, line 632: "a NumPy operation on a whole array costs about the same per
-  element but with a hundredfold smaller constant" reads as self-contradictory. Say
-  "NumPy does the same work per element roughly a hundred times faster, because the loop
-  runs in C".
-* Proposition 2.9: add "closed" to the hypothesis on $\mathcal{O}$. With a non-closed
-  obstacle region the equivalence "$\pos\in\Cfree$ iff $\dist(\pos,\mathcal{O})>r$" fails
-  on the boundary (the infimum need not be attained).
-* `\dist` is used for three different things (graph distance in Definition 2.3, point-to-set
-  distance in Definition 2.11, point-to-segment distance in Definition 2.23). One sentence
-  in Definition 2.11 saying that $\dist$ also denotes Euclidean distance to a set would
-  save the reader a double-take.
-* `code/ch02_toolbox.py`, `tangent_points`: `t_left` is the point *below* the axis in the
-  worked configuration (it is Equation (2.16)'s $\vect{t}_+$). Rename `t_left`/`t_right` to
-  `t_plus`/`t_minus` so the code, the proposition and the figure use one convention (this
-  is the same convention issue as required change 4).
-* Figure 2.1(b) caption: "the move into the obstacle and the two diagonals that would pass
-  its corners are forbidden by the corner-cutting rule" - the straight move is forbidden
-  because the cell is blocked, not by the corner-cutting rule. Reword to "the move into the
-  obstacle is forbidden because the cell is blocked; the two diagonals past its corners are
-  forbidden by the corner-cutting rule."
-* Definition 2.10 introduces $c_{\text{wait}}$ but never constrains it. Add "with
-  $c_{\text{wait}}>0$" (or note that a zero-cost wait makes the search non-terminating on an
-  unbounded horizon).
-* For the editor, not this chapter: `frontmatter/notation.tex` is still the two-row
-  placeholder, so notation consistency could only be checked against `searchbook.sty` and
-  \cref{ch:ch04}. Chapter 2 is the natural source for the notation table -
-  $\pos,\vel,\acc,\state,\meas,\Cfree,\Cobs,\makespan,\sumcost,\dt,\ttc,\dist,\cost$ are all
-  defined here; consider harvesting it when Phase 1 completes. Also note that `\ttc` renders
-  as $\tau$ but is used as the *horizon*, while the *time to collision* is $t_c$; a
-  `\horizon` macro would remove the clash.
+* Definition 2.1: for a *weighted* undirected graph, also require $c(u,v)=c(v,u)$;
+  otherwise "count it once" is ambiguous.
+* Definition 2.19 says two agents *collide* when $d_{ij}(t)<r_i+r_j$ (strict), while
+  Proposition 2.28 says two discs *overlap* when $\norm{\pos_B-\pos_A}\le r_A+r_B$
+  (non-strict). Add half a sentence saying that the touching case is treated as safe (or
+  as a collision) and be consistent, since \cref{ch:ch12,ch:ch13} branch on this test.
+* Definition 2.30 says the time to collision is $\infty$ when no collision occurs, but
+  `time_to_collision` returns `None` (self-test line 597). State the code's convention in
+  the text, as is already done for `tangent_points` in line 483.
+* Line 29 promises that "every number quoted in the text is produced by the companion file
+  `code/ch02_toolbox.py`". The 39.8 % / 85.8 % of Example 2.37 come from
+  `code/figures/gen_ch02_gaussian.py`, and Figure 2.4's numbers from
+  `gen_ch02_double_integrator.py`. Name all three files.
+* Table 2.1's stretch values are attributed to `lattice_stretch`, but `worked_example`
+  does not print them, so a reader who runs the file cannot see them. Add
+  `lattice_stretch(2)`, `lattice_stretch(3)` and the two non-diagonal values to the
+  printed output.
+* Figure 2.2(c) is drawn for $r=1.5$ cells while the text (line 176) works out $r=0.6$,
+  $1.0$ and $1.6$. Either redraw at $r=1.6$ (21 cells, the case the text counts) or state
+  the count for $r=1.5$ (13 cells) in the caption, so the picture is checkable.
+* Definition 2.13 writes agent $i$'s position as $v^i_t$; \cref{ch:ch07} and the notation
+  table write $\pi_i[t]$. Mention the ch07 form once here.
+* Line 640 uses \lpastar without expanding it; the guide asks for each acronym to be
+  expanded at first use in every chapter ("Lifelong Planning A*").
+* Algorithm 2.1 returns "empty" on an exhausted heap, while `LazyPQ.pop` raises
+  `IndexError`. One clause in line 663 would remove the discrepancy.
+* In line 176 the argument "the distance to the obstacle along such a move is smallest at
+  one of its endpoints" is correct, but only because obstacle centres and move endpoints
+  both lie on the integer lattice. Adding that clause makes the claim checkable by the
+  reader (I verified it holds for exactly this reason).
+* `appendices/solutions/ch02-solutions.tex` has solutions for eight of the ten exercises;
+  Exercise 2.2 (a one-star exercise whose point - a diagonal cost of 1 breaks admissibility
+  of the Euclidean heuristic - is worth confirming) has none. A two-line hint would help a
+  reader working alone.
 
 ## What must be kept
 
-The geometry section (2.7) is the best thing in the chapter and must survive intact: five
-primitives, each with a correct statement *and* a real proof (the Lagrange-identity step in
-Proposition 2.31 and the right-triangle argument in Proposition 2.29 are exactly right), all
-of them framed in the relative frame that \cref{ch:ch12,ch:ch13} will inherit. Keep
-Proposition 2.9 with its proof and the disc-to-point argument, the bounding-sphere
-paragraph, and the margin pitfall - that is the cleanest statement of "why we may plan for a
-point" I have read in a textbook of this level. Keep Example 2.20 with Table 2.4 and the
-pitfall "A conflict-free plan is not automatically collision-free": showing that two agents
-that never share a cell still pass within $\sqrt{0.5}$ of each other, and pinning the safe
-radius at $0.3$ vs $0.4$ cells, is the single most valuable page of the chapter and it is
-verified by `min_separation_continuous`. Keep the exact discrete double-integrator matrices
-with the explicit "the model is exact, not an approximation" remark, the forward-Euler
-contrast, and the "Clipping breaks linearity" pitfall - together with the trapezoid trick in
-`double_integrator_step` they pre-empt a bug almost every student writes. Keep the whole
-lazy-deletion treatment (subject only to the two local fixes above): it is the idiom the
-entire book runs on and it is explained better here than in most references. Keep the
-68-95 pitfall and Proposition 2.36's $1-e^{-k^2/2}$ mass formula with the 2D and 3D numbers.
-Keep all seven figures - they use the shared styles, they are geometrically correct (I
-checked the intersection points $x=2\pm\sqrt{0.75}$ in 2.5(a), the contact point
-$(1.354,-0.646)$ in 2.6, the semi-axis arrows in 2.7 and the sixteen inflated cells in
-2.2(c) against the $r=1.5$ rule), and two of them are generated from seeded data. Keep
-Tables 2.2 and 2.3: the lattice-stretch column is a non-obvious result computed by the
-code, and the path / time-indexed path / plan / trajectory table is the vocabulary the rest
-of the book depends on. Finally, keep the discipline that produced this draft - every
-quoted number traced to a runnable script, 66 index entries, ten verified citations, and a
-clean build.
-
-## Response to review (round 1)
-
-All ten required changes were applied. Build: `./build.sh ch02-toolbox` -> status 0, no errors,
-no overfull boxes, no undefined ch02 references or citations. `python3 code/ch02_toolbox.py`
-self-test passes. No `.dat` file needed regeneration (the only code change was a rename).
-
-1. **Section 2.9, "All three do the same thing" over-claim.** Replaced with the wording given in
-   the fix: the first two variants are equivalent, the closed-set variant differs because
-   `\cref{alg:ch02-lazypq}` deletes `best[item]` on pop and therefore re-opens a node when a
-   strictly better key arrives later; the two agree under a consistent heuristic, and with an
-   inconsistent heuristic the closed-set variant must reopen nodes explicitly.
-2. **Algorithm 2.1, LazyPop test.** Changed to
-   `\If{$\text{item}\in\mathit{best}$ \KwAnd $\mathit{best}[\text{item}]=\key$}` and dropped the
-   parenthetical "(or the item has already been popped)" from the following paragraph. The
-   pseudocode now matches `self._best.get(item) == key`.
-3. **Exercise 2.3, Minkowski area.** Replaced the wrong $\pi(r+\tfrac12)^2$ clause with the exact
-   rounded-square area $1+4r+\pi r^2$ and the instruction to check that the ratio tends to $1$.
-4. **Figure 2.5(b), tangent labels.** Swapped in `figures/ch02/segment-circle.tex`: T1 (upper,
-   $(3,+\sqrt3)$) is now $\vect{t}_{-}$ and T2 (lower, $(3,-\sqrt3)$) is $\vect{t}_{+}$, matching
-   Equation (2.16), Definition 2.22 and what `tangent_points` returns first. The right-angle pic
-   and the $\alpha$/$\theta$ arcs were left untouched.
-5. **LazyPush signature.** Pseudocode is now `\Fn{\ToolboxLazyPush{$\key$, $\text{item}$}}`,
-   matching `def push(self, key, item)`. The body needed no change (the heap push was already in
-   `(key, counter, item)` order).
-6. **Solution to exr:ch02-closest-approach.** Now writes
-   $D(t)^2=\pos\cdot\pos+2t\,\pos\cdot\vel+t^2\,\vel\cdot\vel$ and differentiates the square,
-   $\tfrac{d}{dt}D(t)^2=2\,\pos\cdot\vel+2t\,\vel\cdot\vel$, vanishing at $t^{*}$; consistent with
-   Definition 2.30 and the proof of Proposition 2.31.
-7. **Figure 2.3 annotation.** Moved to node B2 with the label "state $(b,2)$" at (6.4,1.2) and the
-   arrow (6.1,1.35) -- (B2.east), exactly as suggested. Verified in the rendered page: the label
-   now points at a node on the highlighted path.
-8. **Figure 2.2(c), the $r$ arrow.** Redrawn (2.5,3.0) -- (2.5,4.5), i.e. from the top edge of the
-   obstacle square to the centre of the outermost blocked cell, with the $r$ label beside it.
-   Verified in the rendered page.
-9. **Lozano-Perez citation.** Added `lozanoperez1983spatial` (IEEE Trans. Computers C-32(2),
-   108--120, 1983) to `bib/ch02-extra.bib`, cited it in Section 2.3 as
-   `\cite{lozanoperez1983spatial,lavalle2006planning,choset2005principles}` with
-   `\textcite{lozanoperez1983spatial}` in the sentence, and added a sentence naming it in the
-   further-reading paragraph. It resolves in the bibliography.
-10. **Length.** All seven prescribed cuts were made: (a) Listing 2.3 deleted and replaced by one
-    sentence pointing at `LazyPQ` in `code/ch02_toolbox.py`, and the dangling
-    `\cref{lst:ch02-lazypq}` removed; (b) Listing 2.2 reduced to `tangent_points` (the two removed
-    functions are described in one sentence instead); (c) the first of the "Three remarks"
-    deleted, the remaining two renumbered; (d) the four bullets of Section 2.10 compressed into
-    two sentences (the ASCII-map bullet dropped as a duplicate of Section 2.2); (e) "Why
-    dictionaries are enough" cut to two sentences, keeping the $10^6$-states / ~150 MB estimate
-    and dropping the encode-as-integer advice; (f) Table 2.1 (`tab:ch02-roadmap`) deleted, with
-    the pointer redirected to the drone box; (g) the opening paragraph of Section 2.1 split into
-    three short paragraphs (map and size; time and cost; motion, geometry, uncertainty,
-    computation).
-    A further pass trimmed about 250 words of prose that duplicated a caption or a later
-    section (the ch12/ch24 re-statement after Figure 2.2, the gloss on Table 2.3, the
-    restatement of the Figure 2.4 caption, the ellipse-drawing recipe, three section openers).
-    **Result: 22 printed pages, down from 23.** The seven cuts removed 78 lines of LaTeX plus
-    the extra prose, but they yielded roughly one page, not the estimated three: the chapter is
-    float-dense (7 figures, 6 tables, 1 algorithm, 2 listings in 22 pages, ~12,000 words at
-    450-700 words per page), so removing body text mostly tightens pages rather than eliminating
-    them. Experiments with float placement (`[htb]` instead of `[tb]`) changed nothing and were
-    reverted to the style-guide form. Reaching 20 pages would require cutting roughly another
-    1,100 words, and everything of that size that remains is either a must-cover item of
-    `docs/specs/ch02.md` or on the reviewer's "must be kept" list (Section 2.7 with its five
-    proofs, Proposition 2.9, Example 2.20 with Table 2.4 and its pitfall, the double-integrator
-    matrices with the forward-Euler contrast and the clipping pitfall, the whole lazy-deletion
-    treatment, the 68--95 pitfall and Proposition 2.36, all seven figures, Tables 2.2 and 2.3).
-    Rather than remove required content to save space, the chapter is handed back at 22 pages
-    with this note; if the editor wants 20, the cheapest further candidates that touch no
-    must-keep item are Table 2.5 (`tab:ch02-operations`) and Table 2.6 (`tab:ch02-stack`),
-    together worth about half a page, plus a hard rewrite of Sections 2.5 and 2.6.
-
-### Suggestions
-
-Applied: the NumPy sentence now reads "NumPy does the same work per element roughly a hundred
-times faster, because the loop runs in C"; Proposition 2.9 now assumes a *closed* obstacle
-region; Definition 2.8 notes that `\dist` also denotes Euclidean point-to-set distance and
-points at the other two uses; `t_left`/`t_right` were renamed `t_plus`/`t_minus` in
-`tangent_points` (docstring, self-test and Listing 2.2), so code, proposition and figure share
-one convention; the Figure 2.1(b) caption now says the move into the obstacle is forbidden
-because the cell is blocked and only the two diagonals are forbidden by the corner-cutting rule;
-Definition 2.10 now requires $c_{\text{wait}}>0$ and says why; Exercises 2.4 and 2.5 were
-promoted to `\difficulty{3}`; short solutions were added for Exercises 2.1, 2.3, 2.6 and 2.8
-(17/29 edges; the thresholds 0.5, $\sqrt{0.5}$, 1.5, $\sqrt{2.5}$, $1.5\sqrt2$ with counts
-5/9/21; 20 braking steps, 2.0 m exact vs 2.1 m forward-Euler; $(3,\mp\sqrt3)$, $\ell=2\sqrt3$,
-$\theta=30^\circ$), so the solutions file now covers 8 of 10 exercises.
-
-Not applied: the extra one-star drill on makespan/sum-of-costs arithmetic. The chapter already
-has the maximum of ten exercises allowed by the specification and is over its page budget, so an
-eleventh was not added; the difficulty spread is now 1,1,2,3,3,2,2,2,2,3. The notation-table and
-`\ttc`/`\horizon` items are for the editor (they need `frontmatter/notation.tex` and
-`searchbook.sty`, which this chapter may not touch).
+The chapter does the hardest thing a foundations chapter has to do: it is a reference the
+rest of the book can cite by number, and it is still readable straight through. Keep the
+definition-by-definition organisation exactly as it is - `ch04-astar.tex` (lines 141, 886,
+935, 984) and `ch07-mapf-problem.tex` (line 190) already depend on these labels, and the
+numbering is the chapter's main product. Keep Proposition 2.9 with its short proof and the
+inflation pitfall; keep Example 2.20 with Table 2.3 and the pitfall "A conflict-free plan
+is not automatically collision-free" - the $\sqrt{0.5}\approx0.707$ mid-step crossing is
+the single best pedagogical moment in the chapter and it is exactly the model/physics gap
+that Chapters 7-13 and 25 lean on. Keep Proposition 2.31 with the Lagrange-identity proof
+and Example 2.35, whose numbers ($t^*=3$, $d_{\min}=\sqrt2$, $t_c\approx2.646$) the toolbox
+reproduces to the digit. Keep Proposition 2.36 and the "68-95 rule is one-dimensional"
+pitfall; the 2D masses 39.3 / 86.5 / 98.9 % and the 3D masses 19.9 / 73.9 % are all
+correct and the warning is one practitioners get wrong constantly. Keep Algorithm 2.1 and
+its honest comparison with a closed set, keep the stretch table (I re-derived 1.082 and
+1.128 analytically and both are right), keep the generated double-integrator figure, and
+keep the drone box, which maps every tool onto a layer of Chapter 24. The bibliography is
+clean: all eleven cited keys resolve, the five anchors demanded by the spec are present,
+and the details of `lozanoperez1983spatial` (IEEE Trans. Computers C-32(2):108-120, 1983),
+`mellinger2011minimum` (ICRA 2011, 2520-2525), `panerati2021learning` (IROS 2021,
+7512-7519), `hagberg2008networkx` (SciPy 2008, 11-15) and `fiorini1998motion`
+(IJRR 17(7):760-772, 1998) are all correct - nothing fabricated.

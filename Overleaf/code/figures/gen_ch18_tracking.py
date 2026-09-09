@@ -12,6 +12,7 @@ into figures/data/ (whitespace separated, one header row):
                                velocity of the measurements (fdvx fdvy), the
                                position standard deviations of the estimate
                                (sx sy) and the position errors (errz errkf)
+  ch18-tracking-zoom.dat       the rows of ch18-tracking.dat with 10 <= t <= 14
   ch18-tracking-ellipses.dat   2-sigma position ellipses of the estimate at
                                t = 4, 8, 12, 16, 20 s (column pairs x1 y1 ...)
   ch18-rmse-q.dat              experiment B: position/velocity RMSE and mean
@@ -98,6 +99,10 @@ def experiment_a():
               [t, tru[:, 0], tru[:, 1], tru[:, 2], tru[:, 3], z[:, 0], z[:, 1],
                est[:, 0], est[:, 1], est[:, 2], est[:, 3], fd[:, 0], fd[:, 1],
                np.sqrt(cov[:, 0, 0]), np.sqrt(cov[:, 1, 1]), errz, errk])
+    zoom = (t >= 10.0) & (t <= 14.0)
+    write_dat("ch18-tracking-zoom.dat", ["t", "tx", "ty", "zx", "zy", "ex", "ey"],
+              [t[zoom], tru[zoom, 0], tru[zoom, 1], z[zoom, 0], z[zoom, 1],
+               est[zoom, 0], est[zoom, 1]])
     items = []
     for ts in (4.0, 8.0, 12.0, 16.0, 20.0):
         i = int(round(ts / DT)) - 3

@@ -436,9 +436,17 @@ def _self_test():
     assert lo < np.mean(nis) < hi, (lo, np.mean(nis), hi)
     frac = np.mean(nis <= chi2_threshold(2, 0.95))
     assert 0.93 < frac < 0.97, frac
-    # NEES consistent (estimation errors match P) and innovations white
-    err = est - tru
-    nees = np.einsum("ij,ij->i", err, np.linalg.solve(cov, err[:, :, None])[:, :, 0])
+    # NEES consistent: the estimation errors match P.  NEES values of one
+    # run are correlated in time, so the test averages over independent
+    # Monte-Carlo runs (final step of each), where the chi-square band holds.
+    nees = []
+    for _ in range(300):
+        tr_mc, zs_mc = simulate([0, 0, 2.0, 1.0], F, Q, H, R, 60, rng)
+        x0m, P0m = init_two_point(zs_mc[0], zs_mc[1], dt, R)
+        kfm = KalmanFilter(F, H, Q, R, x0m, P0m)
+        run_filter(kfm, zs_mc[2:])
+        e = tr_mc[-1] - kfm.x
+        nees.append(float(e @ np.linalg.solve(kfm.P, e)))
     lo4, hi4 = nis_bounds(len(nees), 4, z=3.3)
     assert lo4 < np.mean(nees) < hi4, (lo4, np.mean(nees), hi4)
     kf2 = KalmanFilter(F, H, Q, R, x0, P0)
