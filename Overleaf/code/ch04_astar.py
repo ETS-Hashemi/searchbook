@@ -563,6 +563,8 @@ def _self_test():
     cons2 = cons + [((0, 1), (1, 1), 1)]
     res = space_time_astar(grid, s, z, cons2)
     assert res.cost == 4.0 and path_respects(res.path, ReservationTable(cons2))
+    assert res.num_expansions == 5
+    assert res.path == [(0, 1), (0, 1), (0, 1), (1, 1), (2, 1)]
     # goal-stay handling: the goal is blocked at t = 5, so arrive after 5
     res = space_time_astar(grid, s, z, [((2, 1), 5)])
     assert res.cost == 6.0 and path_respects(res.path, ReservationTable([((2, 1), 5)]))
@@ -595,7 +597,11 @@ def _self_test():
     assert len(p2) - 1 == 5 and (2, 1) in p2
     # from the far end there is no way past agent 1: prioritized planning
     # is incomplete (ch08); the search reports the failure in finite time
-    assert space_time_astar(grid, (4, 0), (0, 0), table).path is None
+    fail = space_time_astar(grid, (4, 0), (0, 0), table)
+    assert fail.path is None and fail.num_expansions == 6
+    # the horizon of thm:ch04-horizon: H = 4, D = 3, so T_max = H + 1 + D = 8
+    assert table.horizon() == 4
+    assert default_horizon(grid, (0, 0), table, 4) == 8
     # MAPF-style constraints carry the agent index in front
     mapf = [(1, (1, 1), 1), (2, (0, 0), 3), (1, (0, 1), (1, 1), 1)]
     assert constraints_for_agent(1, mapf) == [((1, 1), 1), ((0, 1), (1, 1), 1)]
