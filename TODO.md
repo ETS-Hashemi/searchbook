@@ -94,7 +94,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 ## Phase 4 — Back matter
 
 - [x] 4.1 Appendix A: the twelve-week study plan (week → chapters → coding exercise → milestone → completion checklist) — written; reviewed and revised (see review log)
-- [ ] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics)
+- [~] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics) — written on Fable (20 pp, 1168 lines, compiles); Opus review in progress
 - [ ] 4.3 Appendix C: hints and solutions to selected exercises (≥2 per chapter)
 - [ ] 4.4 Glossary (every bold term of the book)
 - [ ] 4.5 Index (≥15 entries per chapter; check for duplicates and synonyms)
