@@ -2,30 +2,31 @@
 \begin{tikzpicture}[font=\small,
   layer/.style={minimum width=4.1cm,minimum height=1.45cm,text width=3.9cm},
   lbl/.style={sbannot,align=center,fill=white,inner sep=1.5pt}]
-\node[sbbox,layer]      (global) at (0,5.1)   {\textbf{1\ Global swarm planner}\\ \cbs\ / \ecbs\\ {\scriptsize once before take-off; on request}};
-\node[sbboxgray,layer]  (replan) at (8.6,5.1) {\textbf{4\ Replanning layer}\\ \dstarlite\ / \astar\ from the current cell\\ {\scriptsize on demand, at most $1/T_{\mathrm{replan}}$}};
-\node[sbboxalt,layer]   (exec)   at (4.3,2.55) {\textbf{Executive (per drone)}\\ state machine, trigger, reconnection\\ {\scriptsize every control cycle, $1/\dt = 10$\,Hz}};
-\node[sbboxalt,layer]   (local)  at (0,0.0)   {\textbf{3\ Local safety layer}\\ \orca\ / DWA\\ {\scriptsize every control cycle, 10\,Hz}};
-\node[sbboxgreen,layer] (pred)   at (8.6,0.0) {\textbf{2\ Prediction layer}\\ Kalman filter / LSTM\\ {\scriptsize every cycle, 10\,Hz}};
-\node[sbboxgray,minimum width=13.3cm,minimum height=1.05cm,text width=13cm] (world) at (4.3,-2.2)
+\node[sbbox,layer]      (global) at (0,6.2)    {\textbf{1\ Global swarm planner}\\ \cbs\ / \ecbs\\ {\scriptsize once before take-off; on request}};
+\node[sbboxgray,layer]  (replan) at (9.4,6.2)  {\textbf{4\ Replanning layer}\\ \dstarlite\ / \astar\ from the current cell\\ {\scriptsize on demand, at most $1/T_{\mathrm{replan}}$}};
+\node[sbboxalt,layer]   (exec)   at (4.7,3.0)  {\textbf{Executive (per drone)}\\ state machine, trigger, reconnection\\ {\scriptsize every control cycle, $1/\dt = 10$\,Hz}};
+\node[sbboxalt,layer]   (local)  at (0,-0.2)   {\textbf{3\ Local safety layer}\\ \orca\ / DWA\\ {\scriptsize every control cycle, 10\,Hz}};
+\node[sbboxgreen,layer] (pred)   at (9.4,-0.2) {\textbf{2\ Prediction layer}\\ Kalman filter / LSTM\\ {\scriptsize every cycle, 10\,Hz}};
+\node[sbboxgray,minimum width=13.6cm,minimum height=1.05cm,text width=13.3cm] (world) at (4.7,-2.75)
   {\textbf{Shared world model}: grid $\times$ time (paths $\pi_i$, reservation table, blocked cells per layer) $\longleftrightarrow$ continuous ($\pos_i$, $\vel_i$, $\hat{\pos}_s$, $\mat{\Sigma}_s$); one clock $t$, one frame};
-\node[sbannot,anchor=south west] at (-2.05,6.15) {map, starts, goals};
-\draw[sbflow] (-1.2,6.1) -- (-1.2,5.85);
-% global -> executive
-\draw[sbflow] (global.south) -- node[lbl,pos=0.45,left,xshift=-1pt]{nominal time-indexed\\ paths $\pi_1,\dots,\pi_k$} (exec.north west);
-% executive <-> replanning
-\draw[sbflow] (exec.north east) -- node[lbl,pos=0.5,right,xshift=1pt]{current cell, $t_{\mathrm{start}}$,\\ reservation of the others} (replan.south west);
-\draw[sbflow] (replan.south) -- node[lbl,pos=0.45,right,xshift=1pt]{new path $\pi_i'$} (exec.east);
-% replanning -> global (re-check)
+% mission input
+\node[sbannot,anchor=south west] at (-2.05,7.25) {map, starts, goals};
+\draw[sbflow] (-1.2,7.2) -- (-1.2,6.95);
+% global -> executive (label in the gap between the two boxes)
+\draw[sbflow] (global.south) -- node[lbl,pos=0.5,anchor=east,xshift=-2pt]{nominal time-indexed\\ paths $\pi_1,\dots,\pi_k$} (exec.north west);
+% executive <-> replanning: two offset diagonals
+\draw[sbflow] ([xshift=-2pt,yshift=2pt]exec.north east) -- node[lbl,pos=0.5,anchor=south east,xshift=-2pt]{current cell, $t_{\mathrm{start}}$,\\ reservation of the others} ([xshift=-2pt,yshift=2pt]replan.south west);
+\draw[sbflow] ([xshift=2pt,yshift=-2pt]replan.south west) -- node[lbl,pos=0.5,anchor=north west,xshift=2pt]{new path $\pi_i'$} ([xshift=2pt,yshift=-2pt]exec.north east);
+% replanning -> global: the re-check (dashed, above the boxes' midline)
 \draw[sbflow,dashed] (replan.west) -- node[lbl,above,pos=0.5]{re-check conflicts and constraints;\\ local \cbs on the affected subset} (global.east);
 % prediction -> executive and -> replanning
-\draw[sbflow] (pred.north west) -- node[lbl,pos=0.55,right,xshift=1pt]{$\hat{\pos}_s$, $\mat{\Sigma}_s$ for $s\le T_{\mathrm{pred}}$} (exec.south east);
-\draw[sbflow] (pred.north) -- node[lbl,pos=0.5,right,xshift=1pt]{predicted cells\\ per time layer} (replan.south);
-% executive <-> local
-\draw[sbflow] (exec.south west) -- node[lbl,pos=0.5,left,xshift=-1pt]{$\vel^{\mathrm{pref}}$, mode: shares,\\ inflated radii} (local.north east);
-\draw[sbflow] (local.north) -- node[lbl,pos=0.45,left,xshift=-1pt]{feasible?\\ drift} (exec.west);
+\draw[sbflow] ([xshift=-9mm]pred.north) -- node[lbl,pos=0.5,anchor=north west,xshift=3pt]{$\hat{\pos}_s$, $\mat{\Sigma}_s$\\ for $s\le T_{\mathrm{pred}}$} (exec.south east);
+\draw[sbflow] ([xshift=9mm]pred.north) -- node[lbl,pos=0.45,anchor=west,xshift=2pt]{predicted cells\\ per time layer} ([xshift=9mm]replan.south);
+% executive <-> local: two offset diagonals
+\draw[sbflow] ([xshift=-2pt,yshift=-2pt]exec.south west) -- node[lbl,pos=0.5,anchor=south east,xshift=-2pt]{$\vel^{\mathrm{pref}}$, mode:\\ shares, inflated radii} ([xshift=-2pt,yshift=-2pt]local.north east);
+\draw[sbflow] ([xshift=2pt,yshift=2pt]local.north east) -- node[lbl,pos=0.5,anchor=north west,xshift=2pt]{feasible? drift} ([xshift=2pt,yshift=2pt]exec.south west);
 % world model links
 \draw[sbflow] (local.south) -- node[lbl,pos=0.5,right]{velocity command $\vel^{\mathrm{new}}$} (local.south |- world.north);
 \draw[sbflow] (pred.south |- world.north) -- node[lbl,pos=0.5,right]{observations $\meas_k$ of the intruder} (pred.south);
-\draw[sbflow] (exec.south) -- node[lbl,pos=0.55,right]{own and teammates' states} (exec.south |- world.north);
+\draw[sbflow] (exec.south |- world.north) -- node[lbl,pos=0.3,right]{own and teammates' states} (exec.south);
 \end{tikzpicture}

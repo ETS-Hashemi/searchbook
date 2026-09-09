@@ -68,7 +68,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 ### Part V — Sampling-Based Motion Planning
 - [x] 2.16 Ch 16 RRT (sampling, nearest, steer, collision checking, RRT-Connect) — written and compiled (20 pp); Opus review pending
-- [ ] 2.17 Ch 17 RRT* and Informed RRT* (rewiring, asymptotic optimality, informed ellipsoid sampling)
+- [~] 2.17 Ch 17 RRT* and Informed RRT* (rewiring, asymptotic optimality, informed ellipsoid sampling) — drafted on Fable (20 pp, 1403 lines, compiles); Opus review in progress
 
 ### Part VI — Tracking and Prediction
 - [~] 2.18 Ch 18 The Kalman Filter (linear-Gaussian model, predict/update, tuning, constant-velocity tracking) — drafted on Fable (24 pp, 1650 lines, compiles); Opus review in progress
