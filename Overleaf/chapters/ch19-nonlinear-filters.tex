@@ -810,17 +810,26 @@ be. The particle filter drops the Gaussian.
 \begin{definition}[Particle set]
 \label{def:ch19-particles}
 A \textbf{particle set}\index{particle filter!particle set} is a collection
-$\{(\state^{(i)}, w^{(i)})\}_{i=1}^N$ of states, the \textbf{particles},
+$\{(\state^{(i)}, \omega^{(i)})\}_{i=1}^N$ of states, the \textbf{particles},
 with non-negative weights summing to one. It represents the distribution
-$\sum_i w^{(i)}\,\delta(\state - \state^{(i)})$, so that $\E[g(\state)]
-\approx \sum_i w^{(i)} g(\state^{(i)})$ for any $g$; the estimate is the
-weighted mean $\hat{\state} = \sum_i w^{(i)}\state^{(i)}$ and the weighted
+$\sum_i \omega^{(i)}\,\delta(\state - \state^{(i)})$, so that $\E[g(\state)]
+\approx \sum_i \omega^{(i)} g(\state^{(i)})$ for any $g$; the estimate is the
+weighted mean $\hat{\state} = \sum_i \omega^{(i)}\state^{(i)}$ and the weighted
 covariance.
 \end{definition}
 
+Two remarks on the letters, because this section is where several of them
+meet. The weights are written with a Greek $\omega$, not a Latin $w$, because
+$\vect{w}_k$ is already the process noise of \cref{eq:ch19-model} and the two
+appear side by side in \cref{eq:ch19-sir}; the bracketed superscript counts
+particles and is never a power. And from here to the end of the chapter $N$ is
+the number of particles---$N_{\mathrm{eff}}$, $N_{\mathrm{thr}}$ and $N_i$ are
+all counts of particles---while the dimension of the state stays $n$ and the
+Gaussian keeps its own symbol $\Normal$.
+
 The weights come from \textbf{importance sampling}\index{importance
 sampling}: if we cannot draw from the posterior $p$ but can draw from a
-proposal $q$, then samples $\state^{(i)} \sim q$ with weights $w^{(i)}
+proposal $q$, then samples $\state^{(i)} \sim q$ with weights $\omega^{(i)}
 \propto p(\state^{(i)})/q(\state^{(i)})$ represent $p$. Done sequentially
 with the motion model as the proposal, this is the \textbf{bootstrap
 filter}\index{particle filter!bootstrap} of Gordon, Salmond and
@@ -833,7 +842,7 @@ new measurement,
 \begin{equation}
   \state_k^{(i)} = f(\state_{k-1}^{(i)}) + \vect{w}_k^{(i)},\quad
   \vect{w}_k^{(i)} \sim \Normal(\vect{0}, \mat{Q}_k), \qquad
-  w_k^{(i)} \propto w_{k-1}^{(i)}\, p(\meas_k \mid \state_k^{(i)}),
+  \omega_k^{(i)} \propto \omega_{k-1}^{(i)}\, p(\meas_k \mid \state_k^{(i)}),
   \label{eq:ch19-sir}
 \end{equation}
 followed by normalisation. This is the Bayes filter \cref{eq:ch19-bayes}
@@ -862,14 +871,14 @@ a state called
 standard diagnostic is the \textbf{effective sample size}\index{effective
 sample size}
 \begin{equation}
-  N_{\mathrm{eff}} = \frac{1}{\sum_{i=1}^N (w^{(i)})^2} \in [1, N],
+  N_{\mathrm{eff}} = \frac{1}{\sum_{i=1}^N (\omega^{(i)})^2} \in [1, N],
   \label{eq:ch19-ess}
 \end{equation}
 which equals $N$ when all weights are equal and $1$ when one particle has
 all the weight (\cref{exr:ch19-ess}). When $N_{\mathrm{eff}}$ falls below a
 threshold $N_{\mathrm{thr}}$, typically $N/2$, the filter
 \textbf{resamples}\index{resampling}: it draws $N$ particles from the
-current set with probabilities $w^{(i)}$, with replacement, and gives the
+current set with probabilities $\omega^{(i)}$, with replacement, and gives the
 copies equal weights $1/N$: heavy particles are duplicated, light ones
 disappear. Drawing $N$ times independently (multinomial resampling)
 costs $\bigO{N \log N}$ with one binary search per draw (or $\bigO{N}$ if
@@ -890,14 +899,14 @@ stored~\cite{douc2005comparison}.
 \begin{algorithm}[htb]
 \caption{Systematic resampling}
 \label{alg:ch19-resample}
-\KwIn{normalised weights $w^{(1)}, \dots, w^{(N)}$}
+\KwIn{normalised weights $\omega^{(1)}, \dots, \omega^{(N)}$}
 \KwOut{indices $j_1, \dots, j_N$ of the particles to copy}
-\Fn{\NlfSystematicResample{$w$}}{
-  draw $u \sim \mathcal{U}[0, 1/N)$; $c \gets w^{(1)}$; $i \gets 1$\label{alg:ch19-resample:draw}\;
-  \tcp{the test $i < N$ guards against rounding: $\sum_i w^{(i)}$ may be $1 - \epsilon$}
+\Fn{\NlfSystematicResample{$\omega$}}{
+  draw $u \sim \mathcal{U}[0, 1/N)$; $c \gets \omega^{(1)}$; $i \gets 1$\label{alg:ch19-resample:draw}\;
+  \tcp{the test $i < N$ guards against rounding: $\sum_i \omega^{(i)}$ may be $1 - \epsilon$}
   \For{$m = 1, \dots, N$}{
     $u_m \gets u + (m - 1)/N$\label{alg:ch19-resample:grid}\;
-    \While{$u_m > c$ \textnormal{and} $i < N$}{$i \gets i + 1$; $c \gets c + w^{(i)}$\label{alg:ch19-resample:walk}\;}
+    \While{$u_m > c$ \textnormal{and} $i < N$}{$i \gets i + 1$; $c \gets c + \omega^{(i)}$\label{alg:ch19-resample:walk}\;}
     $j_m \gets i$\;
   }
   \KwRet $(j_1, \dots, j_N)$\;
@@ -920,7 +929,7 @@ filter~\cite{arulampalam2002tutorial}).
 \label{sec:ch19-pf-algorithm}
 
 \Cref{alg:ch19-pf} collects the pieces. It keeps \textbf{log-weights}
-\index{log-weights} $\ell^{(i)} = \log w^{(i)}$: the likelihood of a
+\index{log-weights} $\ell^{(i)} = \log \omega^{(i)}$: the likelihood of a
 particle ten standard deviations off is $e^{-50}$, and a product of such
 factors underflows double precision within a few steps, whereas sums of
 logarithms do not.
@@ -935,11 +944,11 @@ logarithms do not.
     draw $\vect{w}^{(i)} \sim \Normal(\vect{0}, \mat{Q}_k)$; $\state_k^{(i)} \gets f(\state_{k-1}^{(i)}) + \vect{w}^{(i)}$, heading wrapped\label{alg:ch19-pf:predict}\;
     \If{$\meas_k \ne$ \KwNil}{$\ell^{(i)} \gets \ell^{(i)} + \log p(\meas_k \mid \state_k^{(i)})$\label{alg:ch19-pf:weight}\;}
   }
-  $w^{(i)} \gets \exp\bigl(\ell^{(i)} - \max_j \ell^{(j)}\bigr)$; $w^{(i)} \gets w^{(i)}/\sum_j w^{(j)}$; $\ell^{(i)} \gets \log w^{(i)}$\label{alg:ch19-pf:normalise}\;
-  $\hat{\state}_k \gets \sum_i w^{(i)}\state_k^{(i)}$ (circular mean for the heading); $\mat{P}_k \gets \sum_i w^{(i)}(\state_k^{(i)} \ominus \hat{\state}_k)(\state_k^{(i)} \ominus \hat{\state}_k)\T$\label{alg:ch19-pf:estimate}\;
-  $N_{\mathrm{eff}} \gets 1/\sum_i (w^{(i)})^2$\label{alg:ch19-pf:ess}\;
+  $\omega^{(i)} \gets \exp\bigl(\ell^{(i)} - \max_j \ell^{(j)}\bigr)$; $\omega^{(i)} \gets \omega^{(i)}/\sum_j \omega^{(j)}$; $\ell^{(i)} \gets \log \omega^{(i)}$\label{alg:ch19-pf:normalise}\;
+  $\hat{\state}_k \gets \sum_i \omega^{(i)}\state_k^{(i)}$ (circular mean for the heading); $\mat{P}_k \gets \sum_i \omega^{(i)}(\state_k^{(i)} \ominus \hat{\state}_k)(\state_k^{(i)} \ominus \hat{\state}_k)\T$\label{alg:ch19-pf:estimate}\;
+  $N_{\mathrm{eff}} \gets 1/\sum_i (\omega^{(i)})^2$\label{alg:ch19-pf:ess}\;
   \If{$N_{\mathrm{eff}} < N_{\mathrm{thr}}$}{
-    $(j_1, \dots, j_N) \gets$ \NlfSystematicResample{$w$}; $\state_k^{(i)} \gets \state_k^{(j_i)}$ and $\ell^{(i)} \gets -\log N$ for all $i$\label{alg:ch19-pf:resample}\;
+    $(j_1, \dots, j_N) \gets$ \NlfSystematicResample{$\omega$}; $\state_k^{(i)} \gets \state_k^{(j_i)}$ and $\ell^{(i)} \gets -\log N$ for all $i$\label{alg:ch19-pf:resample}\;
   }
   \KwRet $\{\state_k^{(i)}, \ell^{(i)}\}$, $\hat{\state}_k$, $\mat{P}_k$, $N_{\mathrm{eff}}$\;
 }
@@ -1088,17 +1097,17 @@ slowly.\index{unscented transform!second-order accuracy}
 \begin{proposition}[Systematic resampling]
 \label{thm:ch19-systematic}
 Let $N_i$ be the number of copies of particle $i$ produced by
-\cref{alg:ch19-resample}. Then $N_i \in \{\lfloor N w^{(i)}\rfloor,
-\lceil N w^{(i)}\rceil\}$, $\E[N_i] = N w^{(i)}$, and the algorithm runs in
+\cref{alg:ch19-resample}. Then $N_i \in \{\lfloor N \omega^{(i)}\rfloor,
+\lceil N \omega^{(i)}\rceil\}$, $\E[N_i] = N \omega^{(i)}$, and the algorithm runs in
 $\bigO{N}$ time.
 \end{proposition}
 \begin{proof}
 Particle $i$ owns the interval $(c_{i-1}, c_i]$ of the cumulative weights,
-of length $w^{(i)}$, and $N_i$ is the number of grid points $u + (m-1)/N$
-in it; a half-open interval of length $w$ contains $\lfloor Nw \rfloor$ or
-$\lceil Nw \rceil$ points of a grid with spacing $1/N$. Each $u_m$ is
+of length $\omega^{(i)}$, and $N_i$ is the number of grid points $u + (m-1)/N$
+in it; a half-open interval of length $\omega$ contains $\lfloor N\omega \rfloor$ or
+$\lceil N\omega \rceil$ points of a grid with spacing $1/N$. Each $u_m$ is
 uniform on $[(m-1)/N, m/N)$, so it lands in the interval with probability
-$N$ times the overlap, and summing over $m$ gives $N w^{(i)}$. The inner
+$N$ times the overlap, and summing over $m$ gives $N \omega^{(i)}$. The inner
 loop advances $i$ at most $N$ times in total.
 \end{proof}
 
@@ -1108,7 +1117,7 @@ Under mild conditions on the model (a bounded, continuous likelihood), for
 every bounded function $g$ and every time $k$ there is a constant $c_k$,
 independent of $N$, such that
 \[
-  \E\Bigl[\bigl(\textstyle\sum_i w_k^{(i)} g(\state_k^{(i)}) -
+  \E\Bigl[\bigl(\textstyle\sum_i \omega_k^{(i)} g(\state_k^{(i)}) -
   \E[g(\state_k) \mid \meas_{1:k}]\bigr)^2\Bigr] \le \frac{c_k\,\norm{g}_\infty^2}{N}.
 \]
 \end{theorem}
@@ -1227,7 +1236,7 @@ sigma-point images and of particles, and the differences from which a
 sigma-point mean is computed; wrap the heading of every estimate and every
 particle after prediction and update; and compute the heading of a particle
 cloud as the circular mean $\operatorname{atan2}(\sum_i
-w^{(i)}\sin\psi^{(i)}, \sum_i w^{(i)}\cos\psi^{(i)})$. The code centralises
+\omega^{(i)}\sin\psi^{(i)}, \sum_i \omega^{(i)}\cos\psi^{(i)})$. The code centralises
 this in \code{wrap\_angle}, \code{residual} and \code{weighted\_mean}.
 
 \Cref{lst:ch19-pf} shows the resampling and the update of the particle
@@ -1352,7 +1361,7 @@ chapter completes Week~9; its coding exercise is \cref{exr:ch19-coding}.
   for affine models, second-order accurate mean, less than twice the cost.
   \item The bootstrap particle filter moves $N$ samples through the motion
   model with sampled noise, weights them by the likelihood and resamples
-  systematically when $N_{\mathrm{eff}} = 1/\sum_i (w^{(i)})^2 < N/2$; it
+  systematically when $N_{\mathrm{eff}} = 1/\sum_i (\omega^{(i)})^2 < N/2$; it
   represents multimodal beliefs and constraints at a cost linear in $N$ and
   fails by degeneracy, impoverishment and too few particles.
   \item Wrap every angle difference, evaluate Jacobians and $\mat{Q}$ at the

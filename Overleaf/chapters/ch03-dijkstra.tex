@@ -118,7 +118,7 @@ is settled.
 
 Two consequences follow, and both are worth fixing in your mind now. First, vertices are settled
 in non-decreasing order of cost; that is the wave. Second, if you only want the cost of one
-target $t$, you may stop the moment $t$ is settled: everything settled before $t$ was at least
+target $\gamma$, you may stop the moment $\gamma$ is settled: everything settled before $\gamma$ was at least
 as cheap, everything still open is at least as expensive, and the answer cannot change any more.
 With this early exit the algorithm is what the artificial-intelligence literature calls
 \textbf{uniform-cost search}\index{uniform-cost search} \cite{russell2020aima}.
@@ -144,17 +144,21 @@ cost is $c(\pi)=\sum_{i=1}^{k}c(v_{i-1},v_i)$.
 
 \begin{definition}[Shortest-path distance]
 \label{def:ch03-distance}
-The \textbf{shortest-path distance}\index{shortest path!distance} $\delta(u,v)$ is the smallest
-cost of any path from $u$ to $v$, and $\delta(u,v)=\infty$ if no such path exists. A path with
-$c(\pi)=\delta(u,v)$ is a \textbf{shortest path}; there may be several.
+The \textbf{shortest-path distance}\index{shortest path!distance} $\dist(u,v)$ is the smallest
+cost of any path from $u$ to $v$, and $\dist(u,v)=\infty$ if no such path exists. A path with
+$c(\pi)=\dist(u,v)$ is a \textbf{shortest path}; there may be several. We use the book-wide
+$\dist$ of \cref{ch:ch02} throughout; CLRS \cite{cormen2009clrs} writes $\delta(u,v)$ for the
+same quantity, so keep that in mind when you read the standard proofs alongside this chapter.
 \end{definition}
 
-Three facts about $\delta$ are used throughout the chapter. For all $u,v,w\in V$,
+Three facts about $\dist$ are used throughout the chapter. For all $u,v,w\in V$,
 \begin{equation}
 \label{eq:ch03-triangle}
-\delta(u,u)=0,\qquad
-\delta(u,w)\le\delta(u,v)+\delta(v,w),\qquad
-\delta(u,v)\le\delta(u,w)+c(w,v)\ \text{ if }(w,v)\in E .
+\begin{gathered}
+\dist(u,u)=0,\qquad
+\dist(u,w)\le\dist(u,v)+\dist(v,w),\\
+\dist(u,v)\le\dist(u,w)+c(w,v)\ \text{ if }(w,v)\in E .
+\end{gathered}
 \end{equation}
 The second is the triangle inequality: going via $v$ can only be a detour. The third is the
 triangle inequality with a single edge as the second leg. A fourth fact is that \emph{subpaths
@@ -164,15 +168,15 @@ cheaper prefix would give a cheaper $\pi$.
 
 \begin{definition}[Single-source shortest-path problem]
 \label{def:ch03-sssp}
-Given $G=(V,E,c)$ with $c\ge0$ and a source $s\in V$, compute $\delta(s,v)$ for every $v\in V$
+Given $G=(V,E,c)$ with $c\ge0$ and a source $s\in V$, compute $\dist(s,v)$ for every $v\in V$
 together with a \textbf{shortest-path tree}\index{shortest-path tree}: a parent pointer
 $\mathrm{parent}(v)$ for every reachable $v\neq s$ such that following the pointers from $v$
-back to $s$ traces a shortest path. In the \textbf{single-pair} variant a target $t$ is also
-given, and only $\delta(s,t)$ and one shortest path from $s$ to $t$ are required.
+back to $s$ traces a shortest path. In the \textbf{single-pair} variant a target $\gamma$ is also
+given, and only $\dist(s,\gamma)$ and one shortest path from $s$ to $\gamma$ are required.
 \end{definition}
 
 During the search every vertex carries a \textbf{tentative cost}\index{tentative cost}
-$\gcost(v)$, the cost of the best path to $v$ found so far, so that $\gcost(v)\ge\delta(s,v)$ at
+$\gcost(v)$, the cost of the best path to $v$ found so far, so that $\gcost(v)\ge\dist(s,v)$ at
 all times. The open vertices form the priority queue \Open and the settled vertices the set
 \Closed. Both are new here; from \cref{ch:ch02} we reuse the implicit successor interface
 $\Succ$ and the lazy-deletion idiom of its priority queue \code{LazyPQ}
@@ -189,18 +193,18 @@ alone.
 book reuses. A binary min-heap holds pairs $(\gcost,v)$, and instead of decreasing the key of a
 vertex that is already in the heap, we push a second entry and ignore the older one when it
 surfaces. This is the \textbf{lazy deletion}\index{priority queue!lazy deletion}\index{lazy
-deletion} idiom of \cref{ch:ch02} (\cref{alg:ch02-lazypq}). An optional target $t$ turns the algorithm into uniform-cost
+deletion} idiom of \cref{ch:ch02} (\cref{alg:ch02-lazypq}). An optional target $\gamma$ turns the algorithm into uniform-cost
 search.
 
 \begin{algorithm}[htb]
 \caption{Dijkstra's algorithm with a binary heap and lazy deletion. Without a target it computes
-$\delta(s,v)$ for every vertex; with a target $t$ it stops as soon as $t$ is settled
+$\dist(s,v)$ for every vertex; with a target $\gamma$ it stops as soon as $\gamma$ is settled
 (uniform-cost search).}
 \label{alg:ch03-dijkstra}
 \KwIn{graph $G=(V,E,c)$ with $c\ge0$, given by a successor function $\Succ$; source $s$;
-optional target $t$}
+optional target $\gamma$}
 \KwOut{tentative costs $\gcost$, exact for every settled vertex; parent pointers}
-\Fn{\DijkstraSearch{$G$, $s$, $t$}}{
+\Fn{\DijkstraSearch{$G$, $s$, $\gamma$}}{
   $\gcost(v)\gets\infty$ for all $v\in V$; $\gcost(s)\gets0$; $\mathrm{parent}(s)\gets$
 \KwNil\label{alg:ch03-dijkstra:init}\;
   \Open $\gets$ min-heap holding the single entry $(0,s)$; \Closed
@@ -211,8 +215,8 @@ $\gets\emptyset$\label{alg:ch03-dijkstra:queue}\;
       \KwContinue\tcp*{stale entry: $u$ was settled earlier with a smaller key}
     }
     add $u$ to \Closed\label{alg:ch03-dijkstra:settle}\tcp*{settle $u$: from now on
-$\gcost(u)=\delta(s,u)$}
-    \If{$u=t$\label{alg:ch03-dijkstra:exit}}{
+$\gcost(u)=\dist(s,u)$}
+    \If{$u=\gamma$\label{alg:ch03-dijkstra:exit}}{
       \KwBreak\tcp*{early exit: uniform-cost search}
     }
     \ForEach{$v\in\Succ(u)$ with $v\notin$ \Closed\label{alg:ch03-dijkstra:succ}}{
@@ -240,7 +244,7 @@ lazy-deletion test. A vertex that was pushed several times sits in the heap seve
 every entry of it after the first one to be popped is \textbf{stale}\index{stale entry}: its key
 is at least the key with which the vertex was settled, and it is simply discarded.
 Line~\ref{alg:ch03-dijkstra:settle} settles $u$; this is the moment at which
-\cref{thm:ch03-invariant} guarantees $\gcost(u)=\delta(s,u)$.
+\cref{thm:ch03-invariant} guarantees $\gcost(u)=\dist(s,u)$.
 
 Line~\ref{alg:ch03-dijkstra:exit} is the early exit\index{Dijkstra's algorithm!early exit}. Note
 where it sits: the target is tested when it is \emph{popped}, not when it is first discovered on
@@ -259,14 +263,14 @@ with $c\ge0$ the test on line~\ref{alg:ch03-dijkstra:test} would fail for them a
 expansion is one non-stale pop together with the generation of its successors. The number of
 expansions is what \cref{fig:ch03-expansions} and the comparisons of \cref{ch:ch04} measure.
 
-\paragraph{The result.} After the loop, $\gcost(v)=\delta(s,v)$ for every settled vertex, and
+\paragraph{The result.} After the loop, $\gcost(v)=\dist(s,v)$ for every settled vertex, and
 $\gcost(v)=\infty$ for every vertex the wave never reached because there is no path from $s$.
 Without a target every reachable vertex is settled; \cref{cor:ch03-ucs} says exactly which
 vertices a run with a target settles. The shortest path to a settled vertex $v$ is read off
 the parent pointers\index{parent pointer}: start at $v$, move to $\mathrm{parent}(v)$, and
 repeat until the source is reached; reversing the list gives the path from $s$ to $v$
-(\textbf{path reconstruction}\index{path reconstruction}). If $t$ is unreachable, the queue runs
-empty before $t$ is popped and the search reports failure, which for a drone means that the goal
+(\textbf{path reconstruction}\index{path reconstruction}). If $\gamma$ is unreachable, the queue runs
+empty before $\gamma$ is popped and the search reports failure, which for a drone means that the goal
 is sealed off by obstacles or no-fly zones and the map, not the planner, has to change.
 
 % ---------------------------------------------------------------------
@@ -292,7 +296,7 @@ of \cref{tab:ch03-trace}.
   \inputfigure{ch03/example-graph}
   \caption{The waypoint graph of \cref{ex:ch03-graph}. Edge labels are costs; after the search
 the thick blue edges form the shortest-path tree from $A$, and the grey numbers are the final
-distances $\delta(A,v)$. Notice that the direct edge $A$--$C$ of cost 5 is not in the tree,
+distances $\dist(A,v)$. Notice that the direct edge $A$--$C$ of cost 5 is not in the tree,
 because the detour through $B$ costs only 3, and that $F$ is reached through the target $G$.}
   \label{fig:ch03-example-graph}
 \end{figure}
@@ -330,7 +334,7 @@ Step~2 is the first improvement: $C$ was discovered from $A$ at cost 5, but thro
 $2+1=3$, so $(3,C)$ is pushed while $(5,C)$ stays in the heap; step~4 pops the old entry and discards it,
 lazy deletion at work. The same pattern repeats for $D$ (steps 3--6) and for $E$ (steps 5--8). Vertex $F$ is the most
 instructive. It is discovered at cost 13 through $D$, improved to 12 through $E$ and to 11
-through $G$, and settled only at step~10 with $\delta(A,F)=11$ along the six-edge path
+through $G$, and settled only at step~10 with $\dist(A,F)=11$ along the six-edge path
 $A,B,C,D,E,G,F$, which beats both the direct edge $D$--$F$ ($5+8=13$) and the edge $E$--$F$
 ($8+4=12$). The settling order $A,B,C,D,E,G,F$ has costs $0,2,3,5,8,10,11$: non-decreasing,
 as the wave picture promised.
@@ -408,7 +412,7 @@ the cost of its first discovery; \cref{exr:ch03-grid8} shows that 8-connectivity
 
 Throughout this section $G=(V,E,c)$ is a finite graph with $c\ge0$, $s$ is the source, and
 $\gcost$, \Open and \Closed refer to \cref{alg:ch03-dijkstra}. Two facts hold at every moment
-of a run and are used without further comment. First, $\gcost(v)\ge\delta(s,v)$ for every $v$,
+of a run and are used without further comment. First, $\gcost(v)\ge\dist(s,v)$ for every $v$,
 because $\gcost(v)$ is always the cost of an actual path from $s$ to $v$, the one recorded by
 the parent pointers: line~\ref{alg:ch03-dijkstra:relax} only ever stores the cost of a path to
 $u$ extended by one edge. Second, $\gcost(v)$ never increases, because
@@ -442,49 +446,49 @@ sorted.
 \label{thm:ch03-invariant}
 \index{settled-node invariant}\index{Dijkstra's algorithm!correctness}%
 When \cref{alg:ch03-dijkstra} settles a vertex $u$ on line~\ref{alg:ch03-dijkstra:settle},
-$\gcost(u)=\delta(s,u)$, and from then on $\gcost(u)$ does not change. Consequently:
+$\gcost(u)=\dist(s,u)$, and from then on $\gcost(u)$ does not change. Consequently:
 \begin{enumerate}
   \item Without a target, the algorithm settles every vertex reachable from $s$, returns
-$\gcost(v)=\delta(s,v)$ for all $v\in V$ (with $\gcost(v)=\infty$ exactly for the unreachable
+$\gcost(v)=\dist(s,v)$ for all $v\in V$ (with $\gcost(v)=\infty$ exactly for the unreachable
 vertices), and its parent pointers form a shortest-path tree.
-  \item With a target $t$, the algorithm returns $\gcost(t)=\delta(s,t)$ and a shortest path
-from $s$ to $t$ if $t$ is reachable, and ends with an empty heap otherwise.
+  \item With a target $\gamma$, the algorithm returns $\gcost(\gamma)=\dist(s,\gamma)$ and a shortest path
+from $s$ to $\gamma$ if $\gamma$ is reachable, and ends with an empty heap otherwise.
 \end{enumerate}
 \end{theorem}
 \begin{proof}
 Suppose the claim fails, and let $u$ be the \emph{first} vertex settled with
-$\gcost(u)>\delta(s,u)$. Then $u\neq s$, because $s$ is settled first with
-$\gcost(s)=0=\delta(s,s)$, and $\delta(s,u)<\infty$, so a shortest path $\pi$ from $s$ to $u$
+$\gcost(u)>\dist(s,u)$. Then $u\neq s$, because $s$ is settled first with
+$\gcost(s)=0=\dist(s,s)$, and $\dist(s,u)<\infty$, so a shortest path $\pi$ from $s$ to $u$
 exists. Look at the moment just before $u$ is settled. The first vertex of $\pi$, namely $s$, is
 settled and the last, $u$, is not, so $\pi$ has a first unsettled vertex $y$; let $x$ be its
 predecessor on $\pi$ ($x$ may be $s$). We collect three facts.
 \begin{enumerate}[label=(\roman*)]
-  \item $\gcost(x)=\delta(s,x)$, because $x$ was settled before $u$ and $u$ is the first
+  \item $\gcost(x)=\dist(s,x)$, because $x$ was settled before $u$ and $u$ is the first
 violation.
-  \item $\gcost(y)=\delta(s,y)$, and the heap holds the entry $(\gcost(y),y)$. When $x$ was
+  \item $\gcost(y)=\dist(s,y)$, and the heap holds the entry $(\gcost(y),y)$. When $x$ was
 settled it was expanded, and the edge $(x,y)$ was relaxed on line~\ref{alg:ch03-dijkstra:test}:
-afterwards $\gcost(y)\le\gcost(x)+c(x,y)=\delta(s,x)+c(x,y)=\delta(s,y)$, the last step because
+afterwards $\gcost(y)\le\gcost(x)+c(x,y)=\dist(s,x)+c(x,y)=\dist(s,y)$, the last step because
 the prefix of $\pi$ up to $y$ is a shortest path to $y$ (subpaths of shortest paths are shortest
-paths, \cref{sec:ch03-problem}). Together with $\gcost(y)\ge\delta(s,y)$ this gives equality.
-The push that established this value put $(\delta(s,y),y)$ into the heap, and since $y$ is not
+paths, \cref{sec:ch03-problem}). Together with $\gcost(y)\ge\dist(s,y)$ this gives equality.
+The push that established this value put $(\dist(s,y),y)$ into the heap, and since $y$ is not
 settled, the entry is still there.
-  \item $\delta(s,y)\le\delta(s,u)$, because $y$ precedes $u$ on $\pi$ and the edges between
+  \item $\dist(s,y)\le\dist(s,u)$, because $y$ precedes $u$ on $\pi$ and the edges between
 them cost at least 0. \emph{This is the only place where $c\ge0$ is used.}
 \end{enumerate}
 Now $u$ is being settled because the heap returned $(\gcost(u),u)$ as its minimum, so every key
 in the heap is at least $\gcost(u)$. But by (ii) and (iii) the heap holds the key
-$\delta(s,y)\le\delta(s,u)<\gcost(u)$. This contradiction shows that no violation exists. That
+$\dist(s,y)\le\dist(s,u)<\gcost(u)$. This contradiction shows that no violation exists. That
 $\gcost(u)$ does not change after settling follows: it cannot increase, and it cannot decrease
-below $\delta(s,u)$.
+below $\dist(s,u)$.
 
 For consequence~1, let $v$ be reachable and let $\pi$ be a shortest path to $v$. By induction
 along $\pi$, every vertex of $\pi$ is settled: the source is, and when a vertex of $\pi$ is
 expanded, its successor on $\pi$ is pushed, or already has a finite cost and an entry in the
 heap, and is therefore popped before the heap runs empty. Unreachable vertices are never
 pushed. For the tree: when $u$ is settled, $\mathrm{parent}(u)$ is the vertex $x$ whose
-expansion produced $\gcost(u)=\gcost(x)+c(x,u)$; $x$ was settled, so $\gcost(x)=\delta(s,x)$ and
-$\delta(s,u)=\delta(s,x)+c(x,u)$: the edge $(x,u)$ lies on a shortest path, and following the
-pointers back to $s$ traces one. Consequence~2 is the invariant applied to $t$: if $t$ is
+expansion produced $\gcost(u)=\gcost(x)+c(x,u)$; $x$ was settled, so $\gcost(x)=\dist(s,x)$ and
+$\dist(s,u)=\dist(s,x)+c(x,u)$: the edge $(x,u)$ lies on a shortest path, and following the
+pointers back to $s$ traces one. Consequence~2 is the invariant applied to $\gamma$: if $\gamma$ is
 reachable it is pushed and settled by the argument above, and if it is not, it is never
 pushed, so the loop ends with an empty heap and never breaks on line~\ref{alg:ch03-dijkstra:exit}.
 \end{proof}
@@ -492,26 +496,26 @@ pushed, so the loop ends with an empty heap and never breaks on line~\ref{alg:ch
 \begin{corollary}[Uniform-cost search]
 \label{cor:ch03-ucs}
 \index{uniform-cost search!correctness}%
-With a target $t$, \cref{alg:ch03-dijkstra} settles only vertices $v$ with
-$\delta(s,v)\le\delta(s,t)$, and it settles every vertex with $\delta(s,v)<\delta(s,t)$. The
+With a target $\gamma$, \cref{alg:ch03-dijkstra} settles only vertices $v$ with
+$\dist(s,v)\le\dist(s,\gamma)$, and it settles every vertex with $\dist(s,v)<\dist(s,\gamma)$. The
 tentative costs of the vertices left in the heap are upper bounds on their distances and may be
 strictly larger.
 \end{corollary}
 \begin{proof}
-By \cref{lem:ch03-monotone} every vertex settled before $t$ has a key of at most $\gcost(t)$,
+By \cref{lem:ch03-monotone} every vertex settled before $\gamma$ has a key of at most $\gcost(\gamma)$,
 and by \cref{thm:ch03-invariant} these keys are the true distances. For the second claim,
-suppose $\delta(s,v)<\delta(s,t)$ and $v$ is not settled at the moment $t$ is popped. Take a
+suppose $\dist(s,v)<\dist(s,\gamma)$ and $v$ is not settled at the moment $\gamma$ is popped. Take a
 shortest path from $s$ to $v$ and let $y$ be its first unsettled vertex; it exists, since $s$ is
-settled and $v$ is not. Note first that $t$ does not lie on this path: the prefix of the path
-ending at $t$ would cost at least $\delta(s,t)$ and the rest of the path at least $0$, so
-$\delta(s,t)\le\delta(s,v)$, contradicting $\delta(s,v)<\delta(s,t)$ (here $c\ge0$ is used
-again). This step is needed because $t$ is the one vertex that the early exit on
-line~\ref{alg:ch03-dijkstra:exit} settles without expanding. Hence $y\neq t$, and the
-predecessor of $y$ on the path is a vertex settled \emph{and} expanded strictly before $t$ was
+settled and $v$ is not. Note first that $\gamma$ does not lie on this path: the prefix of the path
+ending at $\gamma$ would cost at least $\dist(s,\gamma)$ and the rest of the path at least $0$, so
+$\dist(s,\gamma)\le\dist(s,v)$, contradicting $\dist(s,v)<\dist(s,\gamma)$ (here $c\ge0$ is used
+again). This step is needed because $\gamma$ is the one vertex that the early exit on
+line~\ref{alg:ch03-dijkstra:exit} settles without expanding. Hence $y\neq \gamma$, and the
+predecessor of $y$ on the path is a vertex settled \emph{and} expanded strictly before $\gamma$ was
 popped, so, as in step~(ii) of the proof of \cref{thm:ch03-invariant}, it has relaxed the edge
-into $y$ and the heap holds the entry $(\delta(s,y),y)$ with $\delta(s,y)\le\delta(s,v)<\delta(s,t)=\gcost(t)$,
-contradicting that $(\gcost(t),t)$ was the minimum of the heap. Which of the vertices with
-$\delta(s,v)=\delta(s,t)$ are settled depends on tie-breaking, and termination in the presence
+into $y$ and the heap holds the entry $(\dist(s,y),y)$ with $\dist(s,y)\le\dist(s,v)<\dist(s,\gamma)=\gcost(\gamma)$,
+contradicting that $(\gcost(\gamma),\gamma)$ was the minimum of the heap. Which of the vertices with
+$\dist(s,v)=\dist(s,\gamma)$ are settled depends on tie-breaking, and termination in the presence
 of zero-cost edges is \cref{exr:ch03-monotone}; \cref{ex:ch03-graph} shows the upper bound
 $\gcost(F)=12>11$ at the exit.
 \end{proof}
@@ -530,9 +534,9 @@ third pop settles $B$ with cost 2 and looks at the edge $B\to A$: the new cost $
 improve $A$, but $A$ is settled, so line~\ref{alg:ch03-dijkstra:succ} skips it (and had it not,
 the successor $T$ of $A$ would still keep the cost 2 it inherited from the wrong value). The
 fourth pop settles $T$ with $\gcost(T)=2$ and the path $S,A,T$. The true distances are
-$\delta(S,A)=0$ and $\delta(S,T)=1$, along $S,B,A,T$. In the proof, the first violation is
+$\dist(S,A)=0$ and $\dist(S,T)=1$, along $S,B,A,T$. In the proof, the first violation is
 $u=A$: the shortest path to $A$ is $S,B,A$, its first unsettled vertex is $y=B$ with
-$\gcost(B)=\delta(S,B)=2$, and step~(iii) would need $\delta(S,B)\le\delta(S,A)$, that is
+$\gcost(B)=\dist(S,B)=2$, and step~(iii) would need $\dist(S,B)\le\dist(S,A)$, that is
 $2\le0$, which is false precisely because $c(B,A)<0$. The chapter code reproduces this run as
 \code{NEGATIVE\_EXAMPLE}: \code{dijkstra} returns 2 for $T$, and the Bellman--Ford reference
 returns 1.
@@ -637,12 +641,12 @@ bidirectional search.}
   \toprule
   Variant & Starts from & Runs on & Stops when & Delivers\\
   \midrule
-  Dijkstra & $s$ & $G$ & heap empty & $\delta(s,v)$ for all $v$, tree\\
-  Uniform-cost search & $s$ & $G$ & $t$ settled & $\delta(s,t)$, one path\\
-  Breadth-first search & $s$ & $G$, unit costs & $t$ discovered & hop counts, one path\\
+  Dijkstra & $s$ & $G$ & heap empty & $\dist(s,v)$ for all $v$, tree\\
+  Uniform-cost search & $s$ & $G$ & $\gamma$ settled & $\dist(s,\gamma)$, one path\\
+  Breadth-first search & $s$ & $G$, unit costs & $\gamma$ discovered & hop counts, one path\\
   Multi-source & every $s\in S$ & $G$ & heap empty & distance to the nearest source\\
-  Backward & $t$ & $G^{R}$ & heap empty & $\hcost^*(v)=\delta(v,t)$ for all $v$\\
-  Bidirectional & $s$ and $t$ & $G$ and $G^{R}$ & smallest keys sum to $\ge\mu$ & $\delta(s,t)$, one path\\
+  Backward & $\gamma$ & $G^{R}$ & heap empty & $\hcost^*(v)=\dist(v,\gamma)$ for all $v$\\
+  Bidirectional & $s$ and $\gamma$ & $G$ and $G^{R}$ & smallest keys sum to $\ge\mu$ & $\dist(s,\gamma)$, one path\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -655,7 +659,7 @@ line~\ref{alg:ch03-dijkstra:queue}, and leave the rest of the algorithm unchange
 identical to a single-source run from a virtual vertex joined to every $s\in S$ by an edge of
 cost 0, so \cref{thm:ch03-invariant} applies and the result is
 \[
-\gcost(v)=\delta(S,v)=\min_{s\in S}\delta(s,v),
+\gcost(v)=\dist(S,v)=\min_{s\in S}\dist(s,v),
 \]
 the cost from the source \emph{nearest} to $v$, with parent pointers that lead back to it.
 Started with key~0 from every free cell that touches an obstacle, on a grid with unit costs,
@@ -672,31 +676,31 @@ over single-source runs.
 \label{sec:ch03-backward}
 \index{Dijkstra's algorithm!backward}\index{backward Dijkstra}\index{heuristic!true-distance}%
 \astar (\cref{ch:ch04}) orders its queue by $\gcost(v)+\hcost(v)$, where $\hcost(v)$ estimates
-the cost that remains from $v$ to the target $t$. The best conceivable estimate is the true
-cost-to-go $\delta(v,t)$, and Dijkstra's algorithm can compute it for \emph{every} vertex at
-once: run it from $t$ on the graph with all edges reversed. \Cref{alg:ch03-backward} states the
+the cost that remains from $v$ to the target $\gamma$. The best conceivable estimate is the true
+cost-to-go $\dist(v,\gamma)$, and Dijkstra's algorithm can compute it for \emph{every} vertex at
+once: run it from $\gamma$ on the graph with all edges reversed. \Cref{alg:ch03-backward} states the
 recipe. The resulting table is written $\hcost^*$ and called the \textbf{true-distance
 heuristic}\index{true-distance heuristic} or \emph{perfect heuristic}.
 
 \begin{algorithm}[htb]
-\caption{Backward Dijkstra: the true-distance heuristic table for a goal $t$.}
+\caption{Backward Dijkstra: the true-distance heuristic table for a goal $\gamma$.}
 \label{alg:ch03-backward}
-\KwIn{graph $G=(V,E,c)$ with $c\ge0$; goal $t$}
-\KwOut{table $\hcost^*$ with $\hcost^*(v)=\delta(v,t)$ for every $v$ from which $t$ can be
+\KwIn{graph $G=(V,E,c)$ with $c\ge0$; goal $\gamma$}
+\KwOut{table $\hcost^*$ with $\hcost^*(v)=\dist(v,\gamma)$ for every $v$ from which $\gamma$ can be
 reached, and $\hcost^*(v)=\infty$ otherwise}
-\Fn{\DijkstraBackward{$G$, $t$}}{
+\Fn{\DijkstraBackward{$G$, $\gamma$}}{
   $G^{R}\gets(V,E^{R},c^{R})$ with $E^{R}=\set{(v,u):(u,v)\in E}$ and
 $c^{R}(v,u)=c(u,v)$\label{alg:ch03-backward:reverse}\tcp*{reverse every edge}
-  $(\gcost^{R},\cdot)\gets$ \DijkstraSearch{$G^{R}$, $t$,
-\KwNil}\label{alg:ch03-backward:run}\tcp*{one full run from $t$, no target}
+  $(\gcost^{R},\cdot)\gets$ \DijkstraSearch{$G^{R}$, $\gamma$,
+\KwNil}\label{alg:ch03-backward:run}\tcp*{one full run from $\gamma$, no target}
   \KwRet{$\hcost^*\gets\gcost^{R}$}\label{alg:ch03-backward:ret}\;
 }
 \end{algorithm}
 
-Reversing matters whenever the graph is directed: a path $v=v_0,v_1,\dots,v_k=t$ in $G$ is a
-path $t=v_k,\dots,v_0=v$ in $G^{R}$ with the same cost, so $\delta_G(v,t)=\delta_{G^{R}}(t,v)$,
-which is what the run from $t$ on $G^{R}$ computes. On an undirected graph $G^{R}=G$, and a
-plain forward run from $t$ suffices, as in \cref{exr:ch03-backward}(a). The grid of
+Reversing matters whenever the graph is directed: a path $v=v_0,v_1,\dots,v_k=\gamma$ in $G$ is a
+path $\gamma=v_k,\dots,v_0=v$ in $G^{R}$ with the same cost, so $\dist_G(v,\gamma)=\dist_{G^{R}}(\gamma,v)$,
+which is what the run from $\gamma$ on $G^{R}$ computes. On an undirected graph $G^{R}=G$, and a
+plain forward run from $\gamma$ suffices, as in \cref{exr:ch03-backward}(a). The grid of
 \cref{ex:ch03-grid} is directed, and \cref{fig:ch03-backward-heuristic} shows the difference: a
 forward run from $T$ would say that $(3,3)$ costs 4 from $T$ (leave $T$ for 1, enter the slow
 cell for 3), whereas $\hcost^*(3,3)=2$, because from $(3,3)$ the drone leaves the slow cell for
@@ -709,11 +713,11 @@ list in $\bigO{\abs{V}+\abs{E}}$ time.
   \centering
   \inputfigure{ch03/backward-heuristic}
   \caption{Forward and backward tables on the grid of \cref{ex:ch03-grid}, both from full runs.
-Left: $\gcost(v)=\delta(S,v)$ from $S$. Middle: $\hcost^*(v)=\delta(v,T)$ from
+Left: $\gcost(v)=\dist(S,v)$ from $S$. Middle: $\hcost^*(v)=\dist(v,T)$ from
 \cref{alg:ch03-backward}; because entering a slow cell costs 3 but leaving it costs 1, this is
 not the distance from $T$ (compare $\hcost^*(3,3)=2$ with the 4 that a forward run from $T$
 gives). Right: $\gcost(v)+\hcost^*(v)$, the cost of the best path from $S$ to $T$ through $v$.
-The green cells, where the sum equals $\delta(S,T)=8$, are exactly the cells of the optimal
+The green cells, where the sum equals $\dist(S,T)=8$, are exactly the cells of the optimal
 path; every other cell has a larger sum, which is how \astar will know to avoid them.}
   \label{fig:ch03-backward-heuristic}
 \end{figure}
@@ -721,47 +725,47 @@ path; every other cell has a larger sum, which is how \astar will know to avoid 
 \begin{theorem}[The true-distance heuristic]
 \label{thm:ch03-true-distance}
 \index{heuristic!consistent}\index{heuristic!admissible}%
-Let $\hcost^*$ be the table returned by \DijkstraBackward{$G$, $t$} for a graph with $c\ge0$.
+Let $\hcost^*$ be the table returned by \DijkstraBackward{$G$, $\gamma$} for a graph with $c\ge0$.
 Then:
 \begin{enumerate}
-  \item \emph{Exactness.} $\hcost^*(v)=\delta(v,t)$ for every $v\in V$, with
-$\hcost^*(v)=\infty$ if $t$ cannot be reached from $v$. Assume in addition
-$\delta(s,t)<\infty$. Then a vertex $v$ lies on some shortest path from $s$ to $t$ if and only
-if $\delta(s,v)+\hcost^*(v)=\delta(s,t)$; both terms are then finite.
-  \item \emph{Consistency.} $\hcost^*(t)=0$ and $\hcost^*(u)\le c(u,v)+\hcost^*(v)$ for every
-edge $(u,v)\in E$. Consequently $\hcost^*(v)\le c(\pi)$ for every path $\pi$ from $v$ to $t$.
+  \item \emph{Exactness.} $\hcost^*(v)=\dist(v,\gamma)$ for every $v\in V$, with
+$\hcost^*(v)=\infty$ if $\gamma$ cannot be reached from $v$. Assume in addition
+$\dist(s,\gamma)<\infty$. Then a vertex $v$ lies on some shortest path from $s$ to $\gamma$ if and only
+if $\dist(s,v)+\hcost^*(v)=\dist(s,\gamma)$; both terms are then finite.
+  \item \emph{Consistency.} $\hcost^*(\gamma)=0$ and $\hcost^*(u)\le c(u,v)+\hcost^*(v)$ for every
+edge $(u,v)\in E$. Consequently $\hcost^*(v)\le c(\pi)$ for every path $\pi$ from $v$ to $\gamma$.
   \item \emph{Admissibility in space-time.} Consider the space-time graph of \cref{ch:ch02}
 built on $G$, in which a state is a pair (vertex, time), a move along $(u,v)$ costs $c(u,v)$,
 waiting costs a non-negative amount, and any set of states or moves may be forbidden. Every
-path in it from a state $(v,\tau)$ to a state $(t,\tau')$ costs at least $\hcost^*(v)$.
+path in it from a state $(v,t)$ to a state $(\gamma,t')$ costs at least $\hcost^*(v)$.
 \end{enumerate}
 \end{theorem}
 \begin{proof}
-(1) By the correspondence between paths in $G$ and in $G^{R}$, $\delta_{G^{R}}(t,v)=\delta_G(v,t)$,
-and \cref{thm:ch03-invariant} applied to $G^{R}$ gives $\hcost^*(v)=\delta_{G^{R}}(t,v)$. For the
-second statement, if $v$ lies on a shortest $s$--$t$ path, its two halves are shortest paths,
-so $\delta(s,t)=\delta(s,v)+\delta(v,t)$. Conversely, if $\delta(s,v)+\delta(v,t)=\delta(s,t)<\infty$, then both summands are finite,
-since their sum is, so a shortest $s$--$v$ path and a shortest $v$--$t$ path both exist;
-concatenated they cost $\delta(s,t)$. The concatenation may repeat vertices, but removing the
+(1) By the correspondence between paths in $G$ and in $G^{R}$, $\dist_{G^{R}}(\gamma,v)=\dist_G(v,\gamma)$,
+and \cref{thm:ch03-invariant} applied to $G^{R}$ gives $\hcost^*(v)=\dist_{G^{R}}(\gamma,v)$. For the
+second statement, if $v$ lies on a shortest $s$--$\gamma$ path, its two halves are shortest paths,
+so $\dist(s,\gamma)=\dist(s,v)+\dist(v,\gamma)$. Conversely, if $\dist(s,v)+\dist(v,\gamma)=\dist(s,\gamma)<\infty$, then both summands are finite,
+since their sum is, so a shortest $s$--$v$ path and a shortest $v$--$\gamma$ path both exist;
+concatenated they cost $\dist(s,\gamma)$. The concatenation may repeat vertices, but removing the
 cycles costs nothing extra ($c\ge0$) and leaves a shortest path through $v$. The hypothesis
-$\delta(s,t)<\infty$ cannot be dropped: if $t$ is unreachable from $s$, every $v$ that is itself
-unreachable satisfies $\infty+\hcost^*(v)=\infty$ without lying on any $s$--$t$ path.
-(2) $\hcost^*(t)=\delta(t,t)=0$. For an edge $(u,v)$, going from $u$ to $v$ and then along a
-shortest path from $v$ to $t$ is a path from $u$ to $t$ of cost $c(u,v)+\delta(v,t)$, which is at
-least $\delta(u,t)$; this is the third fact of \cref{eq:ch03-triangle}. Applying the inequality
-to the edges $(v_0,v_1),\dots,(v_{k-1},v_k)$ of a path $\pi$ from $v_0=v$ to $v_k=t$ and adding
-up, the $\hcost^*$ terms telescope to $\hcost^*(v)\le c(\pi)+\hcost^*(t)=c(\pi)$.
+$\dist(s,\gamma)<\infty$ cannot be dropped: if $\gamma$ is unreachable from $s$, every $v$ that is itself
+unreachable satisfies $\infty+\hcost^*(v)=\infty$ without lying on any $s$--$\gamma$ path.
+(2) $\hcost^*(\gamma)=\dist(\gamma,\gamma)=0$. For an edge $(u,v)$, going from $u$ to $v$ and then along a
+shortest path from $v$ to $\gamma$ is a path from $u$ to $\gamma$ of cost $c(u,v)+\dist(v,\gamma)$, which is at
+least $\dist(u,\gamma)$; this is the third fact of \cref{eq:ch03-triangle}. Applying the inequality
+to the edges $(v_0,v_1),\dots,(v_{k-1},v_k)$ of a path $\pi$ from $v_0=v$ to $v_k=\gamma$ and adding
+up, the $\hcost^*$ terms telescope to $\hcost^*(v)\le c(\pi)+\hcost^*(\gamma)=c(\pi)$.
 (3) Drop the time index from the space-time path and delete every wait step. What remains is a
-walk in $G$ from $v$ to $t$ whose cost is at most that of the space-time path, because waiting
-costs at least 0 and every move keeps its cost. A walk from $v$ to $t$ costs at least
-$\delta(v,t)=\hcost^*(v)$, since removing its cycles cannot increase the cost. Forbidding states
+walk in $G$ from $v$ to $\gamma$ whose cost is at most that of the space-time path, because waiting
+costs at least 0 and every move keeps its cost. A walk from $v$ to $\gamma$ costs at least
+$\dist(v,\gamma)=\hcost^*(v)$, since removing its cycles cannot increase the cost. Forbidding states
 or moves removes paths from the space-time graph and adds none, so the bound is unaffected.
 \end{proof}
 
 \Cref{ch:ch04} calls property~2 of \cref{thm:ch03-true-distance} \emph{consistency} and its
 consequence \emph{admissibility}, and proves that they make \astar optimal. Property~1 is
 visible in the right-hand panel of \cref{fig:ch03-backward-heuristic}: the cells with
-$\gcost(v)+\hcost^*(v)=\delta(S,T)=8$, shaded green, are exactly the cells of the optimal path,
+$\gcost(v)+\hcost^*(v)=\dist(S,T)=8$, shaded green, are exactly the cells of the optimal path,
 and every other cell has a larger sum. An \astar search guided by $\hcost^*$ therefore expands
 only cells that lie on a shortest path; no heuristic can do better on a static map, which is
 why $\hcost^*$ is the reference against which the grid heuristics of \cref{ch:ch04} are judged.
@@ -779,11 +783,11 @@ table when the map changes instead of recomputing it.
 \subsection{Bidirectional search}
 \label{sec:ch03-bidirectional}
 \index{bidirectional search}\index{Dijkstra's algorithm!bidirectional}%
-For a single pair $(s,t)$ on a large graph, one may grow two waves at once: a forward wave from
-$s$ on $G$ with costs $\gcost_f$, and a backward wave from $t$ on $G^{R}$ with costs $\gcost_b$,
+For a single pair $(s,\gamma)$ on a large graph, one may grow two waves at once: a forward wave from
+$s$ on $G$ with costs $\gcost_f$, and a backward wave from $\gamma$ on $G^{R}$ with costs $\gcost_b$,
 each with its own heap and closed set, alternating expansions between the two sides. Whenever one side scans an edge
 $(u,v)$ during an expansion, including edges to vertices that either side has settled, and both
-$\gcost_f(u)$ and $\gcost_b(v)$ are finite, the concatenation is an $s$--$t$ path of cost
+$\gcost_f(u)$ and $\gcost_b(v)$ are finite, the concatenation is an $s$--$\gamma$ path of cost
 $\gcost_f(u)+c(u,v)+\gcost_b(v)$, and the best such cost seen so far is kept in $\mu$. The
 search stops when
 \begin{equation}
@@ -795,16 +799,16 @@ been settled by both sides'' is wrong: the first common vertex need not lie on a
 because the two waves may meet at a vertex that is close to both but not on the cheapest route.
 In \cref{eq:ch03-bidir-stop} an empty \Open counts as $\min=\infty$, so the rule also fires
 correctly when one side exhausts its component. The rule is correct, and the argument has two
-cases. Let $\pi$ be an $s$--$t$ path with $c(\pi)<\mu$ at the moment the rule fires. If $\pi$
+cases. Let $\pi$ be an $s$--$\gamma$ path with $c(\pi)<\mu$ at the moment the rule fires. If $\pi$
 holds a vertex still open on the forward side and, \emph{later} on $\pi$, a vertex still open on
 the backward side, let $u$ be the first vertex of $\pi$ the forward side has not settled and $w$
 the last one the backward side has not settled; by the case hypothesis $u$ comes no later than
 $w$ on $\pi$. The predecessor of $u$ on $\pi$ is settled forward, so step~(ii) of the proof of
 \cref{thm:ch03-invariant}, applied to the forward run, puts $u$ in $\text{\Open}_f$ with
-$\gcost_f(u)=\delta(s,u)$, and symmetrically $w$ is in $\text{\Open}_b$ with
-$\gcost_b(w)=\delta(w,t)$; hence $\min_{\text{\Open}_f}\gcost_f\le\delta(s,u)$ and
-$\min_{\text{\Open}_b}\gcost_b\le\delta(w,t)$. The prefix of $\pi$ up to $u$ costs at least
-$\delta(s,u)$, its suffix from $w$ at least $\delta(w,t)$, and the piece between them at least
+$\gcost_f(u)=\dist(s,u)$, and symmetrically $w$ is in $\text{\Open}_b$ with
+$\gcost_b(w)=\dist(w,\gamma)$; hence $\min_{\text{\Open}_f}\gcost_f\le\dist(s,u)$ and
+$\min_{\text{\Open}_b}\gcost_b\le\dist(w,\gamma)$. The prefix of $\pi$ up to $u$ costs at least
+$\dist(s,u)$, its suffix from $w$ at least $\dist(w,\gamma)$, and the piece between them at least
 $0$, so $c(\pi)$ is at least the sum of the two smallest keys, hence at least $\mu$: a
 contradiction. Otherwise the forward-settled prefix of $\pi$ and its backward-settled
 suffix touch, so $\pi$ has an edge $(x,y)$ with $x$ settled forward and $y$ settled backward.
@@ -1015,7 +1019,7 @@ second half is \astar.
 \section{Summary}
 \begin{summary}
 \begin{itemize}
-  \item Dijkstra's algorithm computes $\delta(s,v)$ for every vertex of a graph with
+  \item Dijkstra's algorithm computes $\dist(s,v)$ for every vertex of a graph with
 non-negative edge costs, together with a shortest-path tree, by settling vertices in
 non-decreasing order of tentative cost: a wave spreading from the source.
   \item The settled-node invariant (\cref{thm:ch03-invariant}) says that a vertex's cost is
@@ -1028,7 +1032,7 @@ and the early exit (uniform-cost search) stops the wave at the radius of the tar
 a closed set that is tested on every pop, parent pointers for the path, and tolerance-based
 comparisons of floating-point costs.
   \item One backward run from the goal on the reversed graph gives the true-distance heuristic
-$\hcost^*(v)=\delta(v,t)$, which is consistent, exact on the static map, and still admissible in
+$\hcost^*(v)=\dist(v,\gamma)$, which is consistent, exact on the static map, and still admissible in
 space-time and under constraints: the heuristic used throughout \cref{ch:ch04,ch:ch08,ch:ch09}.
 \end{itemize}
 \end{summary}
@@ -1068,11 +1072,11 @@ but not settled?
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch03-monotone}
 \Cref{cor:ch03-ucs} settles the two strict cases; this exercise closes the gap at equality and
-at cost 0. (a) Show that which of the vertices $v$ with $\delta(s,v)=\delta(s,t)$ uniform-cost
+at cost 0. (a) Show that which of the vertices $v$ with $\dist(s,v)=\dist(s,\gamma)$ uniform-cost
 search settles depends only on the order in which the heap returns entries of equal key, and
 give a three-vertex graph on which two tie-breaking rules settle different sets.
 (b) Show that the tentative cost of every vertex left in the queue at the exit is at least
-$\delta(s,t)$, and explain why it may nevertheless differ from $\delta(s,v)$.
+$\dist(s,\gamma)$, and explain why it may nevertheless differ from $\dist(s,v)$.
 (c) Show that edges of cost 0, including zero-cost cycles, do not endanger termination.
 \emph{Hint for (c):} count pushes, not pops --- a vertex is pushed only when its tentative cost
 strictly decreases, and by \cref{thm:ch03-invariant} it is settled at most once.
@@ -1091,14 +1095,14 @@ paths of interest have the same number of edges.
 \label{exr:ch03-grid8}
 Repeat \cref{ex:ch03-grid} on the same grid with 8-connectivity: a diagonal move costs $\sqrt2$,
 entering a hatched cell multiplies the cost of the move by 3, and corner cutting is forbidden.
-Determine $\delta(S,T)$ and an optimal path by hand, then run \code{dijkstra\_trace} on
+Determine $\dist(S,T)$ and an optimal path by hand, then run \code{dijkstra\_trace} on
 \code{GridGraph(cells, 8, cost)} and count the expansions and the stale entries. Why does this
 instance produce stale entries when the 4-connected one did not?
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch03-backward}
-(a) Compute the true-distance heuristic $\hcost^*(v)=\delta(v,G)$ for every vertex of
+(a) Compute the true-distance heuristic $\hcost^*(v)=\dist(v,G)$ for every vertex of
 \cref{ex:ch03-graph} by running \cref{alg:ch03-backward} by hand, and verify the consistency
 inequality $\hcost^*(u)\le c(u,v)+\hcost^*(v)$ on every edge. (b) On the grid of
 \cref{ex:ch03-grid}, explain why the forward table from $T$ and the backward table to $T$

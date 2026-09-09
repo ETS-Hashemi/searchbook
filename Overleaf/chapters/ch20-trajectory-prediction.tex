@@ -393,6 +393,12 @@ element-wise product,
 We write $(\vect{h}_t, \vect{c}_t) = \PredCell(\vect{x}_t, \vect{h}_{t-1}, \vect{c}_{t-1})$.
 \end{definition}
 
+In \crefrange{eq:ch20-forget}{eq:ch20-hidden}, and only there, $\sigma(\cdot)$
+is this squashing function applied entry by entry; everywhere else in the
+chapter $\sigma$ is a standard deviation, as in the measurement noise
+$\sigma$ of \cref{sec:ch20-baselines} and the predicted $\vect{\sigma}_h$ of
+\cref{eq:ch20-nll}.
+
 The two nonlinearities have different jobs. The logistic function maps every
 pre-activation into $(0, 1)$, so the gates are soft switches: a forget-gate
 entry near $1$ keeps that component of the memory, near $0$ erases it; an
@@ -670,8 +676,7 @@ benchmarks.
 \label{def:ch20-attention}
 Let $\mat{Q} \in \R^{n_q \times d_k}$ hold $n_q$ \textbf{queries}, $\mat{K} \in
 \R^{n_k \times d_k}$ hold $n_k$ \textbf{keys} and $\mat{V} \in \R^{n_k \times d_v}$
-the \textbf{values} attached to the keys, one per row ($\mat{Q}$ here is the
-query matrix, not the process noise of \cref{eq:ch20-q}). Then
+the \textbf{values} attached to the keys, one per row. Then
 \begin{equation}
   \operatorname{Attention}(\mat{Q}, \mat{K}, \mat{V})
   = \operatorname{softmax}\!\left(\frac{\mat{Q}\mat{K}\T}{\sqrt{d_k}}\right)\mat{V},
@@ -684,6 +689,17 @@ $\sum_j \alpha_{ij}\vect{v}_j$, a convex combination of the values with the
 \textbf{attention weights} $\alpha_{ij} \ge 0$, $\sum_j \alpha_{ij} = 1$.
 \index{attention!scaled dot-product}
 \end{definition}
+
+\begin{pitfall}[Three letters that mean something else in Part~VI]
+In this section, and nowhere else in the book, $\mat{Q}$, $\mat{K}$ and
+$\mat{V}$ are the query, key and value matrices of attention: they have
+nothing to do with the process-noise covariance $\mat{Q}$ of
+\cref{eq:ch20-q} and \cref{ch:ch18,ch:ch19}, with the measurement-noise
+covariance $\mat{R}$, with the Kalman gain $\Kgain$, or with the cost
+weights $\mat{Q}$ and $\mat{R}$ of \cref{ch:ch21}. The three attention
+matrices are data that the network builds from its own input; the
+covariances are properties of a motion model and a sensor.
+\end{pitfall}
 
 The dot product $\vect{q}_i\T\vect{k}_j$ scores how relevant input $j$ is to
 output $i$; the division by $\sqrt{d_k}$ keeps the scores of order one for
