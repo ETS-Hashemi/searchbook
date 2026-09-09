@@ -175,12 +175,12 @@ by $t$ in the closed loop.
 Given the current state $\state_0=\state_t$, reference states
 $\state_k^{\mathrm{ref}}=(\pos^{\mathrm{ref}}(t+k\dt),\vel^{\mathrm{ref}}(t+k\dt))$
 for $k=1,\dots,N$, symmetric weight matrices $\mat{Q}\succeq\mat{0}$,
-$\mat{R}\succ\mat{0}$ and $\mat{P}\succeq\mat{0}$, the problem is
+$\mat{R}\succ\mat{0}$ and $\mat{P}_f\succeq\mat{0}$, the problem is
 \begin{equation}
 \begin{aligned}
 \min_{\ctrl_0,\dots,\ctrl_{N-1}}\quad & J=\sum_{k=1}^{N-1}(\state_k-\state_k^{\mathrm{ref}})\T\mat{Q}\,(\state_k-\state_k^{\mathrm{ref}})
 +\sum_{k=0}^{N-1}\ctrl_k\T\mat{R}\,\ctrl_k
-+(\state_N-\state_N^{\mathrm{ref}})\T\mat{P}\,(\state_N-\state_N^{\mathrm{ref}})\\
++(\state_N-\state_N^{\mathrm{ref}})\T\mat{P}_f\,(\state_N-\state_N^{\mathrm{ref}})\\
 \st & \state_{k+1}=\mat{A}\state_k+\mat{B}\ctrl_k,\qquad k=0,\dots,N-1,\\
 & \abs{u_{k,i}}\le a_{\max},\qquad k=0,\dots,N-1,\\
 & \abs{v_{k,i}}\le v_{\max},\quad \pos_k\in\mathcal{X},\qquad k=1,\dots,N,\\
@@ -190,7 +190,7 @@ $\mat{R}\succ\mat{0}$ and $\mat{P}\succeq\mat{0}$, the problem is
 \end{equation}
 The \textbf{stage cost}\index{stage cost} weighs the tracking error with
 $\mat{Q}$ and the effort with $\mat{R}$; the \textbf{terminal
-cost}\index{terminal cost} $\mat{P}$ weighs the last predicted state;
+cost}\index{terminal cost} $\mat{P}_f$ weighs the last predicted state;
 $\mathcal{X}$ is an optional polytope (a geofence). The \textbf{MPC control
 law}\index{model predictive control!control law} applies the first element
 of the minimiser: $\ctrl_t=\ctrl_0^{*}(\state_t)$.
@@ -204,8 +204,13 @@ have nothing to do with the process and measurement noise covariances that the
 Kalman filter of \cref{ch:ch18} also calls $\mat{Q}$ and $\mat{R}$; the
 letters coincide by tradition, not by meaning. A natural choice is
 $\mat{Q}=\diag(q_p\mat{I},q_v\mat{I})$ with $q_p\gg q_v$ and
-$\mat{R}=r\mat{I}$, and the terminal weight $\mat{P}$ is best taken from the
-Riccati equation (\cref{sec:ch21-properties}). Increasing $\mat{Q}$ relative
+$\mat{R}=r\mat{I}$, and the terminal weight $\mat{P}_f$ is best taken from the
+Riccati equation (\cref{sec:ch21-properties}). That weight carries the
+subscript of the terminal cost $V_f$ and of the terminal set $\mathcal{X}_f$
+precisely so that it is not read as the estimate covariance $\mat{P}_k$ that
+the filters of \cref{ch:ch18,ch:ch19} propagate: $\mat{P}_k$ says how
+uncertain an estimate is, $\mat{P}_f$ says how expensive the last predicted
+state is. Increasing $\mat{Q}$ relative
 to $\mat{R}$ makes the drone track harder and use more acceleration; the
 absolute scale of the cost is irrelevant.
 
@@ -310,7 +315,10 @@ the reference. An alternative with the same flavour is a \textbf{convex
 corridor}\index{convex corridor}: a planner (for instance the path of
 \cref{ch:ch04} inflated as in \cref{ch:ch02}) provides for every step $k$ a
 convex polygon $\mathcal{C}_k$ of free space, and the constraint
-$\pos_k\in\mathcal{C}_k$ is a handful of linear inequalities. Corridors are
+$\pos_k\in\mathcal{C}_k$ is a handful of linear inequalities. This
+$\mathcal{C}_k$ is one polygon per step of the horizon, not the configuration
+space $\Cspace$ of \cref{ch:ch02} and not the constraint set $\mathcal{C}_i$
+that \cref{ch:ch09} attaches to an agent. Corridors are
 the method of choice for static clutter; half-planes are the method of choice
 for a moving intruder, whose predicted disc moves with $k$.
 
@@ -415,8 +423,8 @@ $\mathcal{X}$ of \cref{def:ch21-ocp} is the geofence, a set.
 \subsection{The quadratic program}
 \label{sec:ch21-qp}
 
-Let $\bar{\mat{Q}}=\diag(\mat{Q},\dots,\mat{Q},\mat{P})$ ($N$ blocks, the last
-one $\mat{P}$), $\bar{\mat{R}}=\diag(\mat{R},\dots,\mat{R})$ and
+Let $\bar{\mat{Q}}=\diag(\mat{Q},\dots,\mat{Q},\mat{P}_f)$ ($N$ blocks, the last
+one $\mat{P}_f$), $\bar{\mat{R}}=\diag(\mat{R},\dots,\mat{R})$ and
 $\mat{X}^{\mathrm{ref}}$ the stacked reference. Substituting
 \cref{eq:ch21-prediction} into the cost of \cref{eq:ch21-ocp},
 \begin{equation}
@@ -431,7 +439,7 @@ the whole problem is the \textbf{quadratic program}\index{quadratic program}
 (QP) in standard form
 \begin{equation}
 \min_{\vect{z}}\ \tfrac12\vect{z}\T\mat{H}\vect{z}+\vect{f}\T\vect{z}
-\qquad\st\ \vect{l}\le\mat{G}\vect{z}\le\vect{u},
+\qquad\st\ \vect{l}\le\mat{G}\vect{z}\le\vect{u}_{\max},
 \label{eq:ch21-qp}
 \end{equation}
 with the cost matrices
@@ -444,9 +452,15 @@ and the constraint rows, one block per constraint type,
 \begin{equation}
 \mat{G}=\begin{pmatrix}\mat{I}&\mat{0}\\ \mat{S}_u^{v}&\mat{0}\\ \mat{N}^{c}\mat{S}_u^{p}&\mat{0}\\ -\mat{N}^{o}\mat{S}_u^{p}&-\mat{I}\\ \mat{0}&\mat{I}\end{pmatrix},\qquad
 \vect{l}=\begin{pmatrix}-a_{\max}\vect{1}\\ -v_{\max}\vect{1}-\mat{S}_x^{v}\state_0\\ -\infty\\ -\infty\\ \vect{0}\end{pmatrix},\qquad
-\vect{u}=\begin{pmatrix}a_{\max}\vect{1}\\ v_{\max}\vect{1}-\mat{S}_x^{v}\state_0\\ \vect{c}\\ \vect{b}\\ +\infty\end{pmatrix}.
+\vect{u}_{\max}=\begin{pmatrix}a_{\max}\vect{1}\\ v_{\max}\vect{1}-\mat{S}_x^{v}\state_0\\ \vect{c}\\ \vect{b}\\ +\infty\end{pmatrix}.
 \label{eq:ch21-qp-constraints}
 \end{equation}
+Here $\vect{l}$ and $\vect{u}_{\max}$ are the lower and upper bounds of the
+constraint rows. The QP literature writes that upper bound $\vect{u}$; this
+book cannot, because $\ctrl$ is the control input, so the bound carries a
+subscript here and in \cref{alg:ch21-admm} (the implementation still calls the
+two arrays \code{l} and \code{u}, as \cref{lst:ch21-admm} shows).
+
 Read the blocks from top to bottom. The input box is a bound on $\mat{U}$
 itself. The velocity box is a bound on the velocity rows of the prediction,
 $\mat{S}_u^{v}\mat{U}$, shifted by the free response $\mat{S}_x^{v}\state_0$.
@@ -503,15 +517,15 @@ constraints, but the algorithm is the same.
 \begin{algorithm}[htb]
 \caption{ADMM for the quadratic program \cref{eq:ch21-qp} (the OSQP iteration)}
 \label{alg:ch21-admm}
-\KwIn{$\mat{H}$, $\vect{f}$, $\mat{G}$, $\vect{l}$, $\vect{u}$; warm start $\vect{z}$, $\vect{y}$; penalty $\rho$, regularisation $\sigma$, relaxation $\alpha$, tolerance $\eps$}
+\KwIn{$\mat{H}$, $\vect{f}$, $\mat{G}$, $\vect{l}$, $\vect{u}_{\max}$; warm start $\vect{z}$, $\vect{y}$; penalty $\rho$, regularisation $\sigma$, relaxation $\alpha$, tolerance $\eps$}
 \KwOut{minimiser $\vect{z}$, multipliers $\vect{y}$, status}
-\Fn{\MpcAdmm{$\mat{H},\vect{f},\mat{G},\vect{l},\vect{u},\vect{z},\vect{y}$}}{
-  scale every row of $\mat{G}$ and of $\vect{l},\vect{u}$ to unit infinity norm\label{alg:ch21-admm:scale}\;
-  $\vect{w}\gets\Pi_{[\vect{l},\vect{u}]}(\mat{G}\vect{z})$; $\mat{M}\gets\mat{H}+\sigma\mat{I}+\rho\mat{G}\T\mat{G}$, factorised once\label{alg:ch21-admm:factor}\;
+\Fn{\MpcAdmm{$\mat{H},\vect{f},\mat{G},\vect{l},\vect{u}_{\max},\vect{z},\vect{y}$}}{
+  scale every row of $\mat{G}$ and of $\vect{l},\vect{u}_{\max}$ to unit infinity norm\label{alg:ch21-admm:scale}\;
+  $\vect{w}\gets\Pi_{[\vect{l},\vect{u}_{\max}]}(\mat{G}\vect{z})$; $\mat{M}\gets\mat{H}+\sigma\mat{I}+\rho\mat{G}\T\mat{G}$, factorised once\label{alg:ch21-admm:factor}\;
   \For{$i=1,2,\dots,i_{\max}$}{
     $\tilde{\vect{z}}\gets\mat{M}\inv\bigl(\sigma\vect{z}-\vect{f}+\mat{G}\T(\rho\vect{w}-\vect{y})\bigr)$\label{alg:ch21-admm:linsys}\;
     $\hat{\vect{w}}\gets\alpha\mat{G}\tilde{\vect{z}}+(1-\alpha)\vect{w}$;\quad $\vect{z}\gets\alpha\tilde{\vect{z}}+(1-\alpha)\vect{z}$\label{alg:ch21-admm:relax}\;
-    $\vect{w}^{+}\gets\Pi_{[\vect{l},\vect{u}]}(\hat{\vect{w}}+\vect{y}/\rho)$\label{alg:ch21-admm:proj}\;
+    $\vect{w}^{+}\gets\Pi_{[\vect{l},\vect{u}_{\max}]}(\hat{\vect{w}}+\vect{y}/\rho)$\label{alg:ch21-admm:proj}\;
     $\vect{y}\gets\vect{y}+\rho(\hat{\vect{w}}-\vect{w}^{+})$;\quad $\vect{w}\gets\vect{w}^{+}$\label{alg:ch21-admm:dual}\;
     \If{$\norm{\mat{G}\vect{z}-\vect{w}}_\infty\le\eps$ \KwAnd $\norm{\mat{H}\vect{z}+\vect{f}+\mat{G}\T\vect{y}}_\infty\le\eps$}{
       polish: re-solve the KKT system on the active rows; \KwRet{$(\vect{z},\vect{y},\mathit{solved})$}\label{alg:ch21-admm:polish}\;
@@ -524,8 +538,8 @@ constraints, but the algorithm is the same.
 \end{algorithm}
 
 \Cref{alg:ch21-admm} works with a copy $\vect{w}$ of $\mat{G}\vect{z}$ that
-is forced into the box $[\vect{l},\vect{u}]$ by the componentwise projection
-$\Pi_{[\vect{l},\vect{u}]}(\vect{a})=\min(\max(\vect{a},\vect{l}),\vect{u})$,
+is forced into the box $[\vect{l},\vect{u}_{\max}]$ by the componentwise projection
+$\Pi_{[\vect{l},\vect{u}_{\max}]}(\vect{a})=\min(\max(\vect{a},\vect{l}),\vect{u}_{\max})$,
 and a vector of
 \textbf{Lagrange multipliers}\index{Lagrange multiplier} $\vect{y}$ that
 pushes the two copies together. Line~\ref{alg:ch21-admm:linsys} minimises
@@ -563,7 +577,7 @@ equality-constrained problem on those rows exactly, which makes the active
 constraints hold to machine precision. Finally, if the program is infeasible
 the multipliers grow along a direction $\delta\vect{y}$ with
 $\mat{G}\T\delta\vect{y}=\vect{0}$ and
-$\vect{u}\T\delta\vect{y}^{+}+\vect{l}\T\delta\vect{y}^{-}<0$, where
+$\vect{u}_{\max}\T\delta\vect{y}^{+}+\vect{l}\T\delta\vect{y}^{-}<0$, where
 $\delta\vect{y}^{+}=\max(\delta\vect{y},\vect{0})$ and
 $\delta\vect{y}^{-}=\min(\delta\vect{y},\vect{0})$ are the positive and
 negative parts, which is a
@@ -584,7 +598,7 @@ step is active from exactly these numbers.
 \begin{algorithm}[htb]
 \caption{Model predictive control loop with linearised avoidance and keep-in constraints}
 \label{alg:ch21-loop}
-\KwIn{model $(\mat{A},\mat{B})$, weights $(\mat{Q},\mat{R},\mat{P})$, horizon $N$, limits $a_{\max},v_{\max}$, reference $\state^{\mathrm{ref}}(\cdot)$, predicted obstacles $\hat{\vect{o}}_k$ with radii $r_k$, keep-in centres $\vect{c}_k$ with radii $e$}
+\KwIn{model $(\mat{A},\mat{B})$, weights $(\mat{Q},\mat{R},\mat{P}_f)$, horizon $N$, limits $a_{\max},v_{\max}$, reference $\state^{\mathrm{ref}}(\cdot)$, predicted obstacles $\hat{\vect{o}}_k$ with radii $r_k$, keep-in centres $\vect{c}_k$ with radii $e$}
 \KwOut{the input $\ctrl_t$ applied at every step}
 \Fn{\MpcLoop{}}{
   precompute $\mat{S}_x$, $\mat{S}_u$ and $\mat{H}$ of \cref{eq:ch21-qp-cost}; $\mat{U}^{\mathrm{prev}}\gets\vect{0}$\label{alg:ch21-loop:pre}\;
@@ -598,7 +612,7 @@ step is active from exactly these numbers.
   $\bar{\mat{U}}\gets$ $\mat{U}^{\mathrm{prev}}$ without its first input, with the last input repeated\label{alg:ch21-loop:shift}\;
   $\bar{\mat{X}}\gets\mat{S}_x\state_0+\mat{S}_u\bar{\mat{U}}$\tcp*{linearisation point}
   $\vect{f}\gets2\mat{S}_u\T\bar{\mat{Q}}(\mat{S}_x\state_0-\mat{X}^{\mathrm{ref}})$, extended by $w_1\vect{1}$ for the slacks\label{alg:ch21-loop:cost}\;
-  add the input and velocity boxes to $(\mat{G},\vect{l},\vect{u})$\label{alg:ch21-loop:boxes}\;
+  add the input and velocity boxes to $(\mat{G},\vect{l},\vect{u}_{\max})$\label{alg:ch21-loop:boxes}\;
   \ForEach{obstacle \KwAnd step $k=1,\dots,N$}{
     $\vect{n}_k\gets(\bar{\pos}_k-\hat{\vect{o}}_k)/\norm{\bar{\pos}_k-\hat{\vect{o}}_k}$ (use $\pos_k^{\mathrm{ref}}$ instead of $\bar{\pos}_k$ if the two coincide)\label{alg:ch21-loop:normal}\;
     add the row $-\vect{n}_k\T\mat{S}_{u,k}^{p}\mat{U}-s_k\le\vect{n}_k\T\bigl((\mat{S}_x\state_0)^{p}_k-\hat{\vect{o}}_k\bigr)-r_k$\label{alg:ch21-loop:avoid}\;
@@ -606,7 +620,7 @@ step is active from exactly these numbers.
   \ForEach{keep-in disc, step $k$ \KwAnd direction $m=1,\dots,M$}{
     add the row $\vect{n}_m\T\mat{S}_{u,k}^{p}\mat{U}\le e\cos(\pi/M)-\vect{n}_m\T\bigl((\mat{S}_x\state_0)^{p}_k-\vect{c}_k\bigr)$\label{alg:ch21-loop:keepin}\;
   }
-  $(\vect{z},\vect{y},\mathit{status})\gets$ \MpcSolveQp{$\mat{H},\vect{f},\mat{G},\vect{l},\vect{u}$, warm start $(\bar{\mat{U}},\vect{0})$ and the shifted multipliers}\label{alg:ch21-loop:solve}\;
+  $(\vect{z},\vect{y},\mathit{status})\gets$ \MpcSolveQp{$\mat{H},\vect{f},\mat{G},\vect{l},\vect{u}_{\max}$, warm start $(\bar{\mat{U}},\vect{0})$ and the shifted multipliers}\label{alg:ch21-loop:solve}\;
   \If{status $\ne$ solved}{
     \KwRet{$\bigl(\Pi_{[-a_{\max},a_{\max}]}(-\vel_0/\dt),\ \bar{\mat{U}}\bigr)$}\tcp*{fallback: brake}\label{alg:ch21-loop:fallback}
   }
@@ -658,7 +672,7 @@ constant-velocity extrapolation exactly. The controller uses $N=15$
 (a horizon of $1.5$~s), $\mat{Q}=\diag(1,1,0.1,0.1)$, $\mat{R}=0.1\,\mat{I}$,
 the terminal weight from the Riccati equation,
 \begin{equation*}
-\mat{P}=\begin{pmatrix}9.078&0&3.166&0\\0&9.078&0&3.166\\3.166&0&2.766&0\\0&3.166&0&2.766\end{pmatrix},
+\mat{P}_f=\begin{pmatrix}9.078&0&3.166&0\\0&9.078&0&3.166\\3.166&0&2.766&0\\0&3.166&0&2.766\end{pmatrix},
 \end{equation*}
 and hard avoidance constraints. The simulation runs for $8$~s
 ($80$ steps) with the exact model \cref{eq:ch21-model} as the plant.
@@ -762,7 +776,7 @@ when an intruder moves and a half-plane is linearised around a guess.
 
 Consider regulation to the origin ($\state^{\mathrm{ref}}=\vect{0}$), the
 stage cost $\ell(\state,\ctrl)=\state\T\mat{Q}\state+\ctrl\T\mat{R}\ctrl$ with
-$\mat{Q},\mat{R}\succ\mat{0}$, the terminal cost $V_f(\state)=\state\T\mat{P}\state$,
+$\mat{Q},\mat{R}\succ\mat{0}$, the terminal cost $V_f(\state)=\state\T\mat{P}_f\state$,
 and constraint sets $\state_k\in\mathcal{X}$, $\ctrl_k\in\mathcal{U}$ that contain
 the origin. Write $V_N(\state)$ for the optimal cost of \cref{eq:ch21-ocp}
 from the state $\state$ (the \textbf{value function}\index{value function}).
@@ -821,17 +835,17 @@ the standard argument gives asymptotic stability
 \end{proof}
 
 The natural terminal ingredients for the double integrator come from LQR. Let
-$\mat{P}$ be the solution of the discrete algebraic \textbf{Riccati
+$\mat{P}_f$ be the solution of the discrete algebraic \textbf{Riccati
 equation}\index{Riccati equation}
 \begin{equation}
-\mat{P}=\mat{Q}+\mat{A}\T\mat{P}\mat{A}-\mat{A}\T\mat{P}\mat{B}\,(\mat{R}+\mat{B}\T\mat{P}\mat{B})\inv\mat{B}\T\mat{P}\mat{A},
-\qquad \mat{K}=(\mat{R}+\mat{B}\T\mat{P}\mat{B})\inv\mat{B}\T\mat{P}\mat{A},
+\mat{P}_f=\mat{Q}+\mat{A}\T\mat{P}_f\mat{A}-\mat{A}\T\mat{P}_f\mat{B}\,(\mat{R}+\mat{B}\T\mat{P}_f\mat{B})\inv\mat{B}\T\mat{P}_f\mat{A},
+\qquad \mat{K}=(\mat{R}+\mat{B}\T\mat{P}_f\mat{B})\inv\mat{B}\T\mat{P}_f\mat{A},
 \label{eq:ch21-riccati}
 \end{equation}
 which the code computes by iterating the right-hand side until it stops
 changing (\code{dare}). With $\kappa_f(\state)=-\mat{K}\state$ condition (ii)
-holds \emph{with equality}: $(\mat{A}-\mat{B}\mat{K})\T\mat{P}(\mat{A}-\mat{B}\mat{K})-\mat{P}=-(\mat{Q}+\mat{K}\T\mat{R}\mat{K})$
-is a rearrangement of \cref{eq:ch21-riccati}. In words, $\state\T\mat{P}\state$
+holds \emph{with equality}: $(\mat{A}-\mat{B}\mat{K})\T\mat{P}_f(\mat{A}-\mat{B}\mat{K})-\mat{P}_f=-(\mat{Q}+\mat{K}\T\mat{R}\mat{K})$
+is a rearrangement of \cref{eq:ch21-riccati}. In words, $\state\T\mat{P}_f\state$
 is the infinite-horizon cost of the unconstrained LQR from $\state$, so the
 finite-horizon problem with this terminal cost ``knows'' what happens after
 the horizon, and without active constraints MPC \emph{is} LQR. The terminal set
@@ -842,8 +856,8 @@ book's code, drop the explicit terminal constraint and rely on the terminal
 cost and a reasonably long horizon; the theory says that for a long enough
 horizon the terminal constraint would be inactive anyway on a large region
 of states \cite{rawlings2017mpc}, and the practice says that with the Riccati
-$\mat{P}$ the closed loop behaves. What you should not do is take
-$\mat{P}=\mat{Q}$ with a short horizon: such a controller is myopic and can be
+$\mat{P}_f$ the closed loop behaves. What you should not do is take
+$\mat{P}_f=\mat{Q}$ with a short horizon: such a controller is myopic and can be
 unstable even without constraints.
 
 \subsection{Feasibility, soft constraints and the exact penalty}
@@ -949,7 +963,7 @@ Time step $\dt$ & Smaller: finer control and constraints checked more often, mor
 $q_p$ (position weight) & Larger: tighter tracking, harder accelerations, larger multipliers (raise $w_1$ with it).\\
 $q_v$ (velocity weight) & Larger: the drone matches the reference speed even when its position lags; too large and it never catches up.\\
 $r$ (input weight) & Larger: smoother, lazier; the recovery after a disturbance takes longer.\\
-$\mat{P}$ (terminal weight) & Riccati solution: consistent with the infinite horizon, stable design. $\mat{P}=\mat{Q}$: myopic, avoid with short horizons.\\
+$\mat{P}_f$ (terminal weight) & Riccati solution: consistent with the infinite horizon, stable design. $\mat{P}_f=\mat{Q}$: myopic, avoid with short horizons.\\
 $w_1,w_2$ (slack weights) & $w_1$ above the largest multiplier makes the penalty exact; $w_2>0$ spreads an unavoidable violation over the horizon.\\
 $r_k$, $e_{\max}$, $M$ & Margins absorb discretisation, model and solver error; more polygon directions $M$ reduce the loss $1-\cos(\pi/M)$.\\
 \bottomrule
@@ -1333,7 +1347,7 @@ repaired after it, is \cref{exr:ch21-coding}.
   applies the first input and repeats from the measured state; the constraints
   hold in the plan and therefore, if the model is right, in the next state.
   \item With the double integrator, a quadratic cost with weights $\mat{Q}$,
-  $\mat{R}$ (not the Kalman covariances) and $\mat{P}$, and linear
+  $\mat{R}$ (not the Kalman covariances) and $\mat{P}_f$, and linear
   constraints, the problem is a quadratic program. Eliminating the dynamics
   with $\mat{X}=\mat{S}_x\state_0+\mat{S}_u\mat{U}$ gives the condensed form
   \cref{eq:ch21-qp}, whose Hessian is fixed and whose linear term and rows
@@ -1437,7 +1451,7 @@ with the largest multiplier of the hard problem.
 \label{exr:ch21-feasibility}
 (a)~Give a complete proof of the recursive feasibility part of
 \cref{thm:ch21-stability} for a static geofence $\mathcal{X}$, the input box,
-and the terminal set $\mathcal{X}_f=\set{\state:\state\T\mat{P}\state\le c}$
+and the terminal set $\mathcal{X}_f=\set{\state:\state\T\mat{P}_f\state\le c}$
 with the LQR controller, stating what $c$ must satisfy. (b)~Construct an
 explicit example with a moving intruder in which the hard problem is feasible
 at time $t$ and infeasible at time $t+\dt$ although the intruder moves exactly
