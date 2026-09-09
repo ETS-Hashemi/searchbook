@@ -1,0 +1,31 @@
+% Pareto plot: mean path-length ratio against the near-miss rate, one marker
+% per strategy and one-intruder cell; labels are the collision rates.
+% Data: figures/data/ch25-study-pareto.dat (rows 4-7: k=2, m=1; rows
+% 12-15: k=4, m=1), written by code/figures/gen_ch25_study.py.
+\begin{tikzpicture}
+\begin{axis}[width=0.78\textwidth, height=6.6cm, font=\footnotesize, grid=major,
+  xlabel={mean path-length ratio $\rho_L$ (efficiency loss, right is worse)},
+  ylabel={near-miss rate (safety loss, up is worse)},
+  xmin=0.98, xmax=1.12, ymin=-0.06, ymax=1.06,
+  legend pos=north east, legend style={font=\scriptsize}, legend cell align=left,
+  unbounded coords=discard]
+\addplot[scatter, only marks, scatter src=explicit symbolic, mark size=3pt,
+  scatter/classes={none={mark=*,sbGray}, local={mark=square*,sbBlue},
+    replan={mark=triangle*,sbOrange}, hybrid={mark=diamond*,sbGreen}},
+  x filter/.code={\ifnum\coordindex<4 \def\pgfmathresult{nan}\fi \ifnum\coordindex>7 \def\pgfmathresult{nan}\fi},
+  visualization depends on={value \thisrow{coll_rate} \as \collrate},
+  nodes near coords={\pgfmathprintnumber[fixed,precision=2]{\collrate}},
+  nodes near coords style={font=\tiny, anchor=west, xshift=3pt}]
+  table[x=path_ratio, y=near_miss, meta=strategy]{figures/data/ch25-study-pareto.dat};
+\addplot[scatter, only marks, scatter src=explicit symbolic, mark size=3pt, forget plot,
+  scatter/classes={none={mark=o,sbGray}, local={mark=square,sbBlue},
+    replan={mark=triangle,sbOrange}, hybrid={mark=diamond,sbGreen}},
+  x filter/.code={\ifnum\coordindex<12 \def\pgfmathresult{nan}\fi},
+  visualization depends on={value \thisrow{coll_rate} \as \collrate},
+  nodes near coords={\pgfmathprintnumber[fixed,precision=2]{\collrate}},
+  nodes near coords style={font=\tiny, anchor=west, xshift=3pt}]
+  table[x=path_ratio, y=near_miss, meta=strategy]{figures/data/ch25-study-pareto.dat};
+\legend{no avoidance, local-only, replan-only, hybrid}
+\node[sbannot, align=left] at (axis description cs:0.62,0.62) {filled: $k = 2$, hollow: $k = 4$\\ label: collision rate};
+\end{axis}
+\end{tikzpicture}

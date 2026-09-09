@@ -1,0 +1,22 @@
+% The state machine of Chapter 24 with the switches of the experiment
+% matrix marked.  Concept figure, no data.
+\begin{tikzpicture}[font=\small]
+\node[sbbox, minimum width=2.4cm] (nom) at (0,0) {Nominal};
+\node[sbboxalt, minimum width=2.4cm] (avo) at (4.6,0) {Avoiding};
+\node[sbboxgreen, minimum width=2.4cm] (rec) at (9.2,0) {Reconnecting};
+\node[sbboxgray, minimum width=2.4cm] (rep) at (4.6,-2.8) {Replanning};
+\draw[sbflow] (nom) -- node[sbannot, above, align=center]{conflict inside $\tau_h$\\ (trigger)} (avo);
+\draw[sbflow] (avo) -- node[sbannot, above, align=center]{conflict\\ clear} (rec);
+\draw[sbflow] (rec.north) to[out=110,in=70] node[sbannot, above, align=center, pos=0.5]{leg to the nominal path safe and constraints hold} (nom.north);
+\draw[sbflow] (rec.south west) -- node[sbannot, below right, align=left, pos=0.35]{leg unsafe, too costly\\ or violates constraints} (rep.north east);
+\draw[sbflow] (avo) -- node[sbannot, right, align=left]{deviation $> d_{\max}$\\ or too long in Avoiding} (rep);
+\draw[sbflow] (rep.north west) -- node[sbannot, above left, align=right, pos=0.45]{new plan;\\ conflicts re-checked} (nom.south east);
+\draw[sbflow, dashed] (nom.south) |- node[sbannot, below, pos=0.75]{replan-only: trigger goes straight to a replan} (rep.west);
+% switches
+\node[text=sbRed, font=\Large] at ($(avo)!0.5!(rep)$) {$\times$};
+\node[text=sbRed, font=\Large] at ($(rec.south west)!0.5!(rep.north east)$) {$\times$};
+\node[sbannot, text=sbRed, align=left] at (8.0,-3.0) {local-only cuts\\ both crossed transitions};
+\node[sbannot, text=sbBlue, align=center] at (2.3,1.35) {prediction level\\ feeds the trigger};
+\node[sbannot, text=sbGreen, align=center] at (7.2,-1.9) {constraint level\\ gates these};
+\node[sbannot, align=center] at (-0.2,-2.8) {$k$, $m$: size of the plan,\\ number of predictions};
+\end{tikzpicture}

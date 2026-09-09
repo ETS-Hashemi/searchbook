@@ -126,7 +126,7 @@ def ellipses_figure(wide):
     first_it = res.solution_iter
     values = [(first_it, res.history[first_it - 1, 3])]
     values += [(it, res.history[it - 1, 3]) for it in its]
-    scale = 0.2
+    scale = 0.17
     tr = (lambda q: ((q[0] + 10) * scale, (q[1] + 10) * scale))
     s = res.sampler
     lines = ["% The informed set of the wide field shrinking as c_best improves",

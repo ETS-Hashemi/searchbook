@@ -17,7 +17,7 @@
 \begin{itemize}
   \item Draw the four-layer architecture as a block diagram with its data flows and rates, and state the inputs, outputs and guarantees of every layer.
   \item Describe the world model that the layers share, and convert a time-indexed grid path into a velocity reference and a continuous state back into a space-time start.
-  \item Run the decision logic by hand: the state machine Nominal / Avoiding / Reconnecting / Replanning, the safety-horizon trigger built from a predicted trajectory and its uncertainty, the reconnection search, the replanning trigger and the conflict re-check.
+  \item Run the decision logic by hand: the state machine, the safety-horizon trigger built from a predicted trajectory and its uncertainty, the reconnection search, the replanning trigger and the conflict re-check.
   \item Say precisely which guarantees of \cbs, \orca and space-time \astar survive the integration, which do not, and which experiment of \cref{ch:ch25} measures the gap.
   \item Build the capstone prototype of the study plan (\cref{ch:appA}, Week~12) from the modules of the earlier chapters, and recognise the four integration pitfalls that break it.
 \end{itemize}
@@ -91,12 +91,11 @@ blocked and the other drones' routes are reserved.
 The glue between them is the \textbf{executive}\index{executive}: a small
 state machine that runs in every drone at the control rate and decides which
 layer is in charge. While no predicted conflict lies inside a short
-\emph{safety horizon}, the executive follows the nominal path and the local
-layer is idle. When the prediction says that the intruder will come too
-close within the horizon, the local layer takes the velocity command, and the
-nominal path is kept in memory. When the danger has passed, the executive
-tries to \emph{reconnect}: it picks a waypoint a little further along the
-nominal path and checks whether a straight flight to it is safe. Only if that
+\emph{safety horizon}, it follows the nominal path and the local layer is
+idle. When the prediction says that the intruder will come too close within
+the horizon, the local layer takes the velocity command and the nominal path
+is kept in memory. When the danger has passed, the executive tries to
+\emph{reconnect} at a waypoint a little further along the path; only if that
 fails does it call the replanner, and after any replan it re-checks the new
 route against the routes of the other drones, because a route that is safe
 against the intruder may now cross a teammate.
@@ -238,7 +237,7 @@ $\mathcal{B}_{t'}$; they change every cycle, which is the situation
 \dstarlite was built for (\cref{ch:ch05}).
 
 % ---------------------------------------------------------------------
-\section{The decision logic: a state machine and a control loop}
+\section[The decision logic]{The decision logic: a state machine and a control loop}
 \label{sec:ch24-logic}
 
 The five steps of the training plan (follow, avoid, reconnect, replan,
@@ -281,12 +280,12 @@ local layer and retries. \Cref{tab:ch24-transitions} lists the transitions.
   \midrule
   Nominal & Avoiding & a predicted conflict is inside the horizon: $t_c \le \tau_h$ (\cref{def:ch24-inside}) & remember $t_{\mathrm{enter}} = t$; keep $\pi_i$\\
   Avoiding & Reconnecting & no predicted conflict for $n_{\mathrm{clear}}$ consecutive cycles, and \HybridReconnect finds $(k, \Delta)$ & target $\pi_i[k]$ at $t_0^i + k + \Delta$; if $\Delta > 0$ shift the remainder of $\pi_i$ and re-check\\
-  Avoiding & Replanning & drift $d_i > d_{\max}$, or $t - t_{\mathrm{enter}} > t_{\mathrm{avoid}}$, or the local program was infeasible, or \HybridReconnect fails & release the formation slot; keep hovering safely until a path exists\\
+  Avoiding & Replanning & drift $d_i > d_{\max}$, or $t - t_{\mathrm{enter}} > t_{\mathrm{avoid}}$, or the local program was infeasible, or \HybridReconnect fails & hover safely until a path exists\\
   Reconnecting & Nominal & the target waypoint time has been reached & clear the target\\
   Reconnecting & Avoiding & a predicted conflict is inside the horizon again & as Nominal $\to$ Avoiding\\
   Reconnecting & Replanning & the segment to the target is no longer free & as above\\
-  Replanning & Reconnecting & \HybridReplan returned a path and the re-check passed (possibly after a local \cbs) & target the first cell of $\pi_i'$ at $t_{\mathrm{start}}$\\
-  Nominal & Reconnecting & another drone's re-check changed $\pi_i$ (partial replanning) & target the first cell of the new path\\
+  Replanning & Reconnecting & \HybridReplan returned a path and the re-check passed (possibly after a local \cbs) & target $\pi_i'[0]$ at $t_{\mathrm{start}}$\\
+  Nominal & Reconnecting & another drone's re-check changed $\pi_i$ (partial replanning) & target the new $\pi_i[0]$\\
   \bottomrule
   \end{tabularx}
 \end{table}
@@ -371,7 +370,7 @@ deviated.
 \end{table}
 
 % ---------------------------------------------------------------------
-\section{The safety horizon and the time-to-collision trigger}
+\section[The safety horizon]{The safety horizon and the time-to-collision trigger}
 \label{sec:ch24-horizon}
 
 The first decision is whether an intruder is a problem \emph{now}. It is
@@ -580,14 +579,13 @@ $\langle B, C, (6,2), 7 \rangle$ that the shift created.
 
 When is a reconnection ``too costly'' or ``impossible''? Impossible when
 every candidate fails line~\ref{alg:ch24-reconnect:fast} or the segment
-test, as for drone~A at $t = 9.1$\,s in the scenario, where the intruder
-flies along A's own lane and every segment back to it crosses the predicted
-tube. Too costly when only delays beyond $\Delta_{\max}$ would work, or, in a
-design that keeps a formation, when the segment would stretch a link beyond
-$R_{\mathrm{comm}}$ or leave the formation slot for longer than the mission
-tolerates (\cref{sec:ch24-constraints}). All of these end on
-line~\ref{alg:ch24-reconnect:fail}, and \cref{alg:ch24-loop} escalates to
-Replanning.
+test, as for drone~A at $t = 9.1$\,s, where the intruder flies along A's own
+lane and every segment back to it crosses the predicted tube. Too costly
+when only delays beyond $\Delta_{\max}$ would work or, with a formation, when
+the segment would stretch a link beyond $R_{\mathrm{comm}}$ or leave the slot
+for longer than the mission tolerates (\cref{sec:ch24-constraints}). All of
+these end on line~\ref{alg:ch24-reconnect:fail}, and \cref{alg:ch24-loop}
+escalates to Replanning.
 
 % ---------------------------------------------------------------------
 \section{Replanning and the conflict re-check}
@@ -697,7 +695,7 @@ grid time, never from zero.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
-\section{Formation and communication constraints during avoidance and replanning}
+\section[Formation and communication constraints]{Formation and communication constraints during avoidance and replanning}
 \label{sec:ch24-constraints}
 
 A swarm that must keep a formation or a radio link has two more
@@ -768,7 +766,7 @@ so \cref{eq:ch24-comm} never acts and the communication graph stays
 connected throughout.
 
 % ---------------------------------------------------------------------
-\section{Prediction-aware constraints with uncertainty}
+\section[Prediction-aware constraints]{Prediction-aware constraints with uncertainty}
 \label{sec:ch24-uncertainty}
 
 Every decision above uses the prediction through one number, the inflation
@@ -817,47 +815,43 @@ most $H n (1 - p)$, which is why $p$ is chosen close to one and why the
 safety horizon is short.
 
 \paragraph{Three consumers.}
-The same sequence of discs is read three ways. The trigger and the local
-layer use one disc: \cref{alg:ch24-trigger} inflates at every look-ahead,
-and once the trigger has fired the \orca half-plane of the intruder is built
-with the radius $r_B + \Delta r + \kappa_p\sigma(h_c)$ at the step $h_c$ of
-the predicted collision, with full responsibility because the intruder does
-not reciprocate (\cref{ch:ch13}). The replanner uses one layer of cells per
-grid time, \cref{alg:ch24-replan} line~\ref{alg:ch24-replan:layers}; in the
-worked scenario the replan of drone~A at $t = 9.1$\,s blocks $72$ cells over
-five layers, nine of them in the first. The MPC tracker of \cref{ch:ch21}
-uses one half-plane per step with the inflated radius. A predictor that
-reports a wrong covariance corrupts all three: the LSTM of \cref{ch:ch20}
-covered $54\,\%$ instead of $95\,\%$ at $2.4$\,s before calibration, and an
-over-confident predictor makes the trigger fire late, the layers too thin
-and the MPC margin too small. Calibrate the ellipses per horizon on
-validation data before they enter this chapter.
+The same discs are read three ways. The trigger inflates at every
+look-ahead, and once it has fired the \orca half-plane of the intruder is
+built with the radius $r_B + \Delta r + \kappa_p\sigma(h_c)$ at the step
+$h_c$ of the predicted collision, with full responsibility because the
+intruder does not reciprocate (\cref{ch:ch13}). The replanner reads one
+layer of cells per grid time (\cref{alg:ch24-replan},
+line~\ref{alg:ch24-replan:layers}); the replan of drone~A at $t = 9.1$\,s
+blocks $72$ cells over five layers, nine of them in the first. The MPC
+tracker of \cref{ch:ch21} reads one half-plane per step. A wrong covariance
+corrupts all three: the LSTM of \cref{ch:ch20} covered $54\,\%$ instead of
+$95\,\%$ at $2.4$\,s before calibration, and an over-confident predictor
+makes the trigger late, the layers thin and the MPC margin small. Calibrate
+the ellipses per horizon before they enter this chapter.
 
 \paragraph{Particles instead of ellipses.}
 When the prediction is a set of $N$ weighted trajectories, from the
-particle filter of \cref{ch:ch19} or from a multimodal predictor of
-\cref{ch:ch20}, the disc is replaced by a count. The trigger fires at
-look-ahead $s$ when the total weight of the particles $\pos^{(n)}_h$ with
+particle filter of \cref{ch:ch19} or a multimodal predictor of
+\cref{ch:ch20}, the disc becomes a count: the trigger fires at look-ahead
+$s$ when the weight of the particles $\pos^{(n)}_h$ with
 $\norm{\tilde{\pos}_i(s) - \pos^{(n)}_h} < R_{\mathrm{safe}}$ exceeds
-$1 - p$; a cell enters the layer $\mathcal{B}_{t'}$ when the weight of the
-particles within $R_{\mathrm{safe}} + \ell/2$ of its centre exceeds the same
-threshold; and the \orca disc is built around the mode that threatens the
-drone, with a radius that covers its particles. This handles an intruder
-that may pass on either side of a building without inflating one ellipse
-over the whole block, at a cost linear in $N$ per test.
-\Cref{exr:ch24-particles} works this out.
+$1 - p$, a cell enters $\mathcal{B}_{t'}$ when the weight within
+$R_{\mathrm{safe}} + \ell/2$ of its centre exceeds the same threshold, and
+the \orca disc is built around the mode that threatens the drone. An
+intruder that may pass on either side of a building is then handled
+without one ellipse over the whole block, at a cost linear in $N$
+(\cref{exr:ch24-particles}).
 
 \paragraph{How fast the inflation grows.}
 For the constant-velocity Kalman model with white-noise acceleration
-(\cref{ch:ch18}), the position variance of an extrapolation grows with the
-cube of the look-ahead, so $\sigma(h)$ grows like $s^{3/2}$. In the
-scenario the tracker reports $\sigma = 0.06, 0.14, 0.24, 0.35$\,m at
-$s = 0, 1, 2, 3$\,s, hence an inflation of $0.86$\,m at the horizon, larger
-than $R_{\mathrm{safe}}$ itself. The uncertainty, not the geometry, decides
-the trigger at the horizon, and a longer horizon with a constant-velocity
-prediction would mostly add false alarms; a learned predictor with a
-calibrated, slower-growing covariance is what a longer horizon buys, which
-is one of the research directions of \cref{sec:ch24-research}.
+(\cref{ch:ch18}) the extrapolated position variance grows with the cube of
+the look-ahead, so $\sigma(h)$ grows like $s^{3/2}$: the tracker of the
+scenario reports $\sigma = 0.06, 0.14, 0.24, 0.35$\,m at $s = 0, 1, 2, 3$\,s,
+an inflation of $0.86$\,m at the horizon, larger than $R_{\mathrm{safe}}$
+itself. The uncertainty, not the geometry, decides the trigger at the
+horizon; a longer horizon with a constant-velocity prediction would mostly
+add false alarms, and a calibrated predictor with a slower-growing
+covariance is what a longer horizon buys (\cref{sec:ch24-research}).
 
 % ---------------------------------------------------------------------
 \section{A worked scenario}
@@ -917,18 +911,16 @@ the separations, states, formation error and drift over the run, and
   \toprule
   $t$ & Drone: transition & What happened\\
   \midrule
-  0.0 & all: Nominal & \cbs expands $2$ constraint-tree nodes: A costs $13$, B $9$ (one wait at $(6,3)$ at $t = 5,6$ to let C cross $(6,2)$), C $13$; $\sumcost = 35$, $\makespan = 13$.\\
+  0.0 & all: Nominal & \cbs expands $2$ constraint-tree nodes: A costs $13$, B $9$ (one wait at $(6,3)$, $t = 5,6$, to let C cross $(6,2)$), C $13$; $\sumcost = 35$, $\makespan = 13$.\\
   1.3 & --- & B is $6.0$\,m from the intruder and detects it; the filter is trusted after $n_{\mathrm{warm}} = 10$ updates, at $t = 2.2$.\\
   3.5 & A: Nominal $\to$ Avoiding & $t_c = 3.0$: separation $1.53$, inflation $0.86$, $R_{\mathrm{safe}} = 0.70$, margin $-0.03$. Estimate $(10.37, 4.35)$, velocity $(-0.55, 0.00)$; truth $(10.40, 4.30)$, $(-0.60, 0)$.\\
   4.3 & C: Nominal $\to$ Avoiding & $t_c = 2.9$: A's climb and the growing inflation reach C's lane.\\
-  4.9 & C: Avoiding $\to$ Reconnecting & five clear cycles; \HybridReconnect returns $k = 5$, $\Delta = 1$; the tail of $\pi_C$ is shifted ($t_0 = 6$). Re-check: $\langle B, C, (6,2), 7 \rangle$. Local \cbs on $\set{B, C}$ from $t_{\mathrm{start}} = 6$ with A reserved: B waits one more step at $(6,3)$ and reaches $(6,2)$ at $8$; C unchanged.\\
-  4.9 & B: Nominal $\to$ Reconnecting & B's plan was changed by the re-check (partial replanning).\\
+  4.9 & C: Avoiding $\to$ Reconnecting; B: Nominal $\to$ Reconnecting & five clear cycles; $k = 5$, $\Delta = 1$; the tail of $\pi_C$ is shifted ($t_0 = 6$). Re-check: $\langle B, C, (6,2), 7 \rangle$. Local \cbs on $\set{B, C}$ from $t_{\mathrm{start}} = 6$ with A reserved: B waits one more step at $(6,3)$ and reaches $(6,2)$ at $8$; C unchanged; B's plan changed (partial replanning).\\
   5.0 & C: Reconnecting $\to$ Avoiding & $t_c = 2.8$: the repaired plan leads C back into the tube.\\
-  6.0 & B: Reconnecting $\to$ Nominal & B reaches waypoint $0$ of its new path at $t = 6$.\\
-  6.0 & C: Avoiding $\to$ Reconnecting $\to$ Replanning $\to$ Reconnecting & clear again, but every segment is blocked; replan from $(5,2)$ at $t_{\mathrm{start}} = 7$: wait until $8$, pass under the tube along row~1 from $(5,1)$ to $(8,1)$, back to row~2 at $t = 13$, goal at $t = 18$. Re-check: no conflict.\\
+  6.0 & B: Reconnecting $\to$ Nominal; C: Avoiding $\to$ Reconnecting $\to$ Replanning $\to$ Reconnecting & B reaches waypoint $0$ of its new path. C is clear again but every segment is blocked; replan from $(5,2)$ at $t_{\mathrm{start}} = 7$: wait until $8$, pass under the tube along row~1 from $(5,1)$ to $(8,1)$, back to row~2 at $t = 13$, goal at $18$. Re-check: no conflict.\\
   7.0 & C: Reconnecting $\to$ Nominal & C reaches $(5,2)$, the first cell of its new path.\\
-  9.1 & A: Avoiding $\to$ Reconnecting $\to$ Replanning $\to$ Reconnecting & clear after $5.6$\,s of avoiding, drift $3.22 < d_{\max}$; candidates $k = 10, \dots, 13$ with $\Delta = 0$ and $k = 10, 11, 12$ with $\Delta = 1$ are too fast, $k = 13$ with $\Delta = 1$ crosses the tube. Replan from $(6,5)$ at $t_{\mathrm{start}} = 10$ with $72$ blocked cells: hover, climb to row~6 at $t = 11$, east to $(13,6)$ at $18$, down to the goal at $20$. Re-check: no conflict.\\
-  10.0 & A: Reconnecting $\to$ Nominal & A is on its new path; all drones Nominal.\\
+  9.1 & A: Avoiding $\to$ Reconnecting $\to$ Replanning $\to$ Reconnecting & clear after $5.6$\,s of avoiding, drift $3.22 < d_{\max}$; $k = 10, \dots, 13$ with $\Delta = 0$ and $k = 10, 11, 12$ with $\Delta = 1$ are too fast, $k = 13$ with $\Delta = 1$ crosses the tube. Replan from $(6,5)$ at $t_{\mathrm{start}} = 10$ with $72$ blocked cells: hover, climb to row~6 at $t = 11$, east to $(13,6)$ at $18$, down to the goal at $20$. Re-check: no conflict.\\
+  10.0 & A: Reconnecting $\to$ Nominal & all drones Nominal.\\
   10, 18, 20 & --- & arrivals of B, C, A (nominal $9$, $13$, $13$): $\sumcost = 48$, $\makespan = 20$.\\
   \bottomrule
   \end{tabularx}
@@ -1087,27 +1079,23 @@ planning (\cref{ch:ch08}).
 \paragraph{What is not guaranteed.}
 \begin{itemize}
   \item \emph{Deadlock-freedom.} \orca deadlocks in symmetric and corridor
-  configurations (\cref{ch:ch13}); the time bound $t_{\mathrm{avoid}}$ turns
-  such a deadlock into a replan, but the replan may find no path within the
-  horizon and the drone then hovers and retries. The executive is live only
-  if the escalation eventually succeeds, and nothing in the design forces
-  that.
-  \item \emph{Optimality after a deviation.} The first deviation destroys
-  the optimality of \cref{thm:ch24-nominal} for good: reconnections add
-  delays, replans are single-agent optima, partial replans are optimal for
-  the pair only. In the scenario the sum of costs rose by $37\,\%$.
-  \item \emph{Safety against an adversarial or manoeuvring intruder.} The
-  trigger, the local layer and the replanner assume that the intruder stays
-  inside the $p$-disc of a prediction whose covariance grows with the
-  modelled process noise. An intruder that turns or accelerates towards a
-  drone faster than the covariance allows defeats every finite horizon;
-  the risk is also only bounded per step and per intruder.
-  \item \emph{Completeness of the replanner within the horizon.} Blocked
-  layers can disconnect the grid in a corridor; soft layers keep the search
-  complete at the price of crossing the tube.
+  configurations (\cref{ch:ch13}); $t_{\mathrm{avoid}}$ turns a deadlock into
+  a replan, but the replan may find no path and the drone then hovers and
+  retries. Nothing forces the escalation to succeed.
+  \item \emph{Optimality after a deviation.} Reconnections add delays,
+  replans are single-agent optima, partial replans are optimal for the pair
+  only; in the scenario the sum of costs rose by $37\,\%$.
+  \item \emph{Safety against an adversarial or manoeuvring intruder.} Every
+  layer assumes the intruder stays inside the $p$-disc of a prediction whose
+  covariance grows with the modelled process noise; an intruder that turns
+  or accelerates towards a drone faster than that defeats every finite
+  horizon, and the risk is bounded only per step and per intruder.
+  \item \emph{Completeness of the replanner} within the horizon: blocked
+  layers can disconnect a corridor; soft layers keep the search complete at
+  the price of crossing the tube.
   \item \emph{Formation and connectivity.} The range term is soft and the
-  formation is deliberately relaxed while Avoiding; recovery is fast on
-  a connected graph (\cref{ch:ch23}) but has no bound during a manoeuvre.
+  formation is deliberately relaxed while Avoiding; recovery has no bound
+  during a manoeuvre.
 \end{itemize}
 \Cref{tab:ch24-guarantees} pairs every claim with the assumption it needs and
 the metric of \cref{ch:ch25} that measures the gap when the assumption
@@ -1141,31 +1129,26 @@ fails; the experiment matrix there varies exactly these assumptions
 \paragraph{Modules and interfaces.}
 The code of this chapter is one file so that it can be read in one sitting,
 but it is organised as the modules of \cref{tab:ch24-layers}, each behind
-the interface that the table names: \code{cbs} for the global planner,
-\code{IntruderTracker} with \code{update} and \code{predict\_horizon} for the
-prediction layer, \code{orca\_half\_plane} and \code{orca\_velocity} for the
-local layer, \code{space\_time\_astar} over a \code{Reservation} for the
-replanner, and \code{HybridSimulation.decide} for the executive. A real
-system replaces each module by the full implementation of its chapter
-(\code{ch09\_cbs.py}, \code{ch18\_kalman.py}, \code{ch13\_orca.py},
-\code{ch05\_dstarlite.py}) without touching the executive, provided the
-interfaces are kept.
+the interface the table names: \code{cbs}, \code{IntruderTracker}
+(\code{update}, \code{predict\_horizon}), \code{orca\_half\_plane} and
+\code{orca\_velocity}, \code{space\_time\_astar} over a \code{Reservation},
+and \code{HybridSimulation.decide} for the executive. A real system replaces
+each module by the full implementation of its chapter without touching the
+executive, provided the interfaces are kept.
 
 \paragraph{Threads and rates.}
 Three loops run at three rates. The \emph{control loop} runs the executive
-and the local layer once per $\dt$ for every drone; it must never block. The
-\emph{prediction loop} runs one filter per tracked object at the sensor
+and the local layer once per $\dt$ for every drone and must never block.
+The \emph{prediction loop} runs one filter per tracked object at the sensor
 rate and publishes a snapshot (means and covariances over the horizon) that
 the control loop reads without waiting. The \emph{planning loop} runs the
-replanner and the local \cbs on demand in a worker with a deadline: the
+replanner and the local \cbs on demand in a worker with a deadline; the
 executive stays in Replanning, hovering under the local layer, until the
 result arrives, and an anytime planner (\cref{ch:ch06}) is the right choice
-when the deadline is tight. Within one control cycle all drones decide from
-one snapshot of everybody's state and the commands are applied afterwards,
-so that the outcome does not depend on the order in which the drones are
-processed. \Cref{lst:ch24-rates} is the schedule that the simulation uses
-for the first two loops, together with the interface map that heads the
-section.
+when the deadline is tight. Within one cycle all drones decide from one
+snapshot of everybody's state and the commands are applied afterwards, so
+the outcome does not depend on the processing order. \Cref{lst:ch24-rates}
+is the schedule of the simulation with the interface map of its modules.
 
 \begin{lstlisting}[caption={The module map and the rate schedule (from \code{code/ch24\_hybrid.py}). Each module runs when its period has elapsed; the executive asks the schedule once per control cycle.},label={lst:ch24-rates}]
 #   module (layer)      interface                        rate
@@ -1192,39 +1175,14 @@ class RateSchedule:
 \end{lstlisting}
 
 \paragraph{The executive in code.}
-\Cref{lst:ch24-trigger} is the trigger of \cref{alg:ch24-trigger}: the
-profile of separations and inflations over the horizon, and the first
-look-ahead at which the margin is negative. \Cref{lst:ch24-loop} is the
-control cycle of \cref{alg:ch24-loop} line by line; \code{try\_reconnect}
-installs the result of \cref{alg:ch24-reconnect} (\code{reconnect} and
-\code{segment\_free}), and \code{replan} and \code{recheck} in the file
-complete \cref{alg:ch24-replan}.
+\Cref{lst:ch24-loop} is the control cycle of \cref{alg:ch24-loop} line by
+line. In the file, \code{conflict\_profile} and \code{predicted\_conflict}
+implement \cref{alg:ch24-trigger}, \code{reconnect} and \code{segment\_free}
+implement \cref{alg:ch24-reconnect} and \code{try\_reconnect} installs
+their result, and \code{replan} and \code{recheck} complete
+\cref{alg:ch24-replan}.
 
-\begin{lstlisting}[caption={The safety-horizon trigger (from \code{code/ch24\_hybrid.py}): \code{conflict\_profile} returns the look-ahead times, the predicted separations and the inflations; \code{predicted\_conflict} applies \cref{def:ch24-inside}.},label={lst:ch24-trigger}]
-def conflict_profile(self, d: Drone, pred):
-    """Over the safety horizon: the look-ahead times s, the predicted
-    separation sep(s) and the uncertainty inflation kappa*sigma(s)."""
-    means, covs = pred
-    n = min(int(round(self.p["tau_h"] / DT)), len(means) - 1)
-    times = [i * DT for i in range(n + 1)]
-    own = self.intended_positions(d, times)
-    sep = [float(np.linalg.norm(own[i] - means[i])) for i in range(n + 1)]
-    infl = [self.p["kappa"] * sigma_max(covs[i]) for i in range(n + 1)]
-    return times, sep, infl, own
 
-def predicted_conflict(self, d: Drone, pred):
-    """(inside, t_c, worst margin): the safety-horizon test of the
-    chapter.  A conflict is inside the horizon when the predicted
-    separation minus the uncertainty inflation drops below R_safe
-    within tau_h seconds; t_c is the first such look-ahead time."""
-    if pred is None:
-        return False, None, INF
-    times, sep, infl, _ = self.conflict_profile(d, pred)
-    margin = [sep[i] - infl[i] - self.R_safe for i in range(len(times))]
-    worst = min(margin)
-    t_c = next((times[i] for i in range(len(times)) if margin[i] < 0), None)
-    return t_c is not None, t_c, worst
-\end{lstlisting}
 
 \begin{lstlisting}[caption={The per-drone control cycle (from \code{code/ch24\_hybrid.py}), the state machine of \cref{alg:ch24-loop}.},label={lst:ch24-loop}]
 def decide(self, d: Drone, pred) -> np.ndarray:
@@ -1309,86 +1267,77 @@ is one step stale, a layer $\mathcal{B}_{t'}$ built for the wrong second.
 
 The components of this chapter are established; the training plan places
 the research in how they are combined, constrained, predicted and
-evaluated. Each direction below comes with a concrete formulation and a way
-to evaluate it.
+evaluated. Each direction comes with a formulation and a way to evaluate it.
 
 \paragraph{Non-cooperative, uncertain intruders.}
-The chapter models the intruder as a Gaussian around a constant-velocity
-prediction. A stronger formulation treats its future as a \emph{set}: the
-positions reachable under a bound $a_B$ on its acceleration form a tube
-that grows quadratically, and a robust trigger fires when the tube meets the
-intended path; a probabilistic formulation keeps a mixture over manoeuvre
-modes (straight, turning left, turning right) with the interacting-model
-filter of \cref{ch:ch19} and a per-mode disc. Evaluate on intruders of
-increasing hostility: constant velocity, random turns, and an adversary that
-steers towards the nearest drone at $a_B$; report the collision rate and the
-minimum separation against $a_B$, and the price in path length of the
-robust trigger against the probabilistic one.
+Replace the Gaussian around a constant-velocity prediction by a
+\emph{set}: the positions reachable under a bound $a_B$ on the intruder's
+acceleration form a tube that grows quadratically, and a robust trigger
+fires when the tube meets the intended path; or by a mixture over manoeuvre
+modes (straight, left, right) from the interacting-model filter of
+\cref{ch:ch19} with one disc per mode. Evaluate on intruders of increasing
+hostility, constant velocity, random turns, an adversary steering towards
+the nearest drone at $a_B$, and report collision rate and minimum
+separation against $a_B$, and the path length that robustness costs.
 
 \paragraph{Coordinating \cbs with real-time local avoidance without losing the global guarantees unnecessarily.}
-Every deviation currently costs a re-check, and every delayed reconnection
-can cost a partial replan. The alternative is to plan with slack: let the
-global layer reserve, for each drone, a tube of cells around its path and a
-window of time around each step, so that a deviation that stays inside the
-tube and a delay below the window need no re-check at all. This is a
-robust MAPF problem, solvable by \cbs with enlarged constraints at a known
-price in cost. Measure the number of re-checks and partial replans and the
-sum of costs as functions of the slack, and find the slack at which the
-re-checks vanish for a given intruder density.
+Every deviation costs a re-check and every delayed reconnection may cost a
+partial replan. Plan with slack instead: let the global layer reserve a
+tube of cells around each path and a time window around each step, so that
+a deviation inside the tube and a delay within the window need no re-check.
+This is a robust MAPF problem, solvable by \cbs with enlarged constraints at
+a known price in cost; measure re-checks, partial replans and $\sumcost$ as
+functions of the slack and find where the re-checks vanish for a given
+intruder density.
 
 \paragraph{Formation and communication constraints during avoidance and replanning.}
-\Cref{sec:ch24-constraints} relaxes the formation while Avoiding and tests
-the range after the fact. A formulation that keeps both inside the decision
-is the multi-drone MPC of \cref{ch:ch21} with prioritised slacks (safety,
-then range, then formation) and, one level up, a formation-level replan in
-which the global layer plans the virtual leader of \cref{ch:ch23} through
-the layers $\mathcal{B}_{t'}$ with the formation's footprint. Evaluate by the
-recovery time of $e_F$, the count of communication violations and the
-minimum separation, for formations of $4$ to $16$ drones and one or two
-intruders.
+\Cref{sec:ch24-constraints} relaxes the formation and tests the range after
+the fact. Keep both inside the decision with the multi-drone MPC of
+\cref{ch:ch21} and prioritised slacks (safety, then range, then formation),
+and one level up with a formation-level replan in which the global layer
+routes the virtual leader of \cref{ch:ch23} through the layers
+$\mathcal{B}_{t'}$ with the formation's footprint. Evaluate by the recovery
+time of $e_F$, the communication violations and the minimum separation for
+formations of $4$ to $16$ drones with one or two intruders.
 
 \paragraph{Prediction-aware constraints with uncertainty.}
-The per-step risk bound $1 - p$ is allocated uniformly in this chapter.
-Risk allocation across steps and intruders, calibrated predictors whose
-ellipses hold their nominal coverage, and sampled predictions with the
-particle tests of \cref{sec:ch24-uncertainty} are three refinements with a
-common evaluation: the trade-off curve between collision rate and path
-length as $p$ varies, for the constant-velocity Kalman prediction and for a
-learned predictor of \cref{ch:ch20}, and the calibration error of each.
+The per-step risk $1 - p$ is allocated uniformly here. Allocate it across
+steps and intruders, calibrate the predictors so that their ellipses hold
+their coverage, and use the particle tests of \cref{sec:ch24-uncertainty};
+evaluate all three by the trade-off curve between collision rate and path
+length as $p$ varies, for the Kalman prediction and for a learned predictor
+of \cref{ch:ch20}, together with the calibration error of each.
 
 \paragraph{Deciding automatically between local and global.}
 The thresholds $d_{\max}$, $t_{\mathrm{avoid}}$, $n_{\mathrm{clear}}$ and
-$\tau_h$ are set by hand. Formulate the choice at every cycle among
-\emph{continue avoiding}, \emph{reconnect} and \emph{replan} as a decision
-with an estimated cost for each: the expected extra flight time of staying
-local, the delay of a reconnection, and the cost of a replan plus its
-expected re-checks. The estimates can come from the prediction (how long
-the tube will cover the lane) or be learned from runs. Evaluate by the
-regret against an oracle that knows the intruder's true future and chooses
-the cheapest safe option, on the scenario generator of \cref{ch:ch25}.
+$\tau_h$ are set by hand. Formulate the choice among \emph{continue
+avoiding}, \emph{reconnect} and \emph{replan} as a decision with an
+estimated cost for each: the expected extra flight time of staying local,
+the delay of a reconnection, the cost of a replan plus its expected
+re-checks, estimated from the prediction (how long the tube covers the lane)
+or learned from runs. Evaluate by the regret against an oracle that knows
+the intruder's future, on the scenario generator of \cref{ch:ch25}.
 
 \paragraph{Computation for larger swarms in dynamic 3D environments.}
-Every module of this chapter scales differently: \cbs exponentially in the
-conflicts, the detector quadratically in the drones, \orca linearly in the
-neighbours, the replanner with the horizon and the layers. For swarms of
-tens of drones in three dimensions the candidates are \ecbs with
+\cbs scales exponentially in the conflicts, the detector quadratically in
+the drones, \orca linearly in the neighbours, the replanner with the horizon
+and the layers. For tens of drones in three dimensions combine \ecbs with
 independence detection (\cref{ch:ch10,ch:ch11}), windowed replanning as in
 WHCA\textsuperscript{*} (\cref{ch:ch08}), incremental search
-(\cref{ch:ch05}) for the layers that change every cycle, lattices or
-sampling (\cref{ch:ch16,ch:ch17}) for the continuous detours, and
-neighbour lists for the local layer. Report computation time per control
-cycle against the number of drones ($2$ to $64$) and the fraction of cycles
-that miss the deadline.
+(\cref{ch:ch05}) for layers that change every cycle, lattices or sampling
+(\cref{ch:ch16,ch:ch17}) for continuous detours, and neighbour lists for
+the local layer; report the computation time per control cycle against the
+number of drones ($2$ to $64$) and the fraction of cycles that miss the
+deadline.
 
 \paragraph{Benchmarks comparing local-only, replan-only and hybrid.}
-The claim of the training plan, that the hybrid policy beats either extreme,
-must be measured under identical conditions: the same scenarios, seeds,
-intruders and prediction quality for a local-only policy (\orca for
-everything, no replan), a replan-only policy (every intruder triggers a
-replan, no local layer) and the hybrid of this chapter. \Cref{ch:ch25}
+The claim that the hybrid policy beats either extreme must be measured
+under identical scenarios, seeds, intruders and prediction quality for a
+local-only policy (\orca for everything), a replan-only policy (every
+intruder triggers a replan) and the hybrid of this chapter. \Cref{ch:ch25}
 defines the experiment matrix and the metrics; the research contribution is
-the scenario generator that spans easy to hard instances and the statistics
-that make the comparison reproducible.
+a scenario generator that spans easy to hard instances and statistics that
+make the comparison reproducible.
 
 % ---------------------------------------------------------------------
 \section{Where this fits in the drone system}
@@ -1397,13 +1346,11 @@ that make the comparison reproducible.
 This chapter \emph{is} the drone system: the executive that the droneboxes of
 \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch07,ch:ch09,ch:ch10,ch:ch13,ch:ch14,ch:ch18,ch:ch20,ch:ch21,ch:ch23}
 have been pointing to. It receives the nominal plan from \cbs or \ecbs, the
-predictions with covariances from the tracker and the predictor, one
-velocity per cycle from \orca or DWA, and repaired paths from \dstarlite or
-\astar, and it delivers the decisions: which layer is in charge, when to
-hand over, when to reconnect, when to replan and what to re-check. Its
-output is a swarm that flies its contract, deviates for seconds, and
-returns. \Cref{ch:ch25} measures it. In the study plan (\cref{ch:appA})
-this is Week~12, the capstone: the coding exercise is
+predictions from the tracker and the predictor, one velocity per cycle from
+\orca or DWA and repaired paths from \dstarlite or \astar, and it delivers
+the decisions: which layer is in charge, when to hand over, reconnect,
+replan and re-check. \Cref{ch:ch25} measures the result. In the study plan
+(\cref{ch:appA}) this is Week~12, the capstone: the coding exercise is
 \cref{exr:ch24-coding}, and its milestone is a research prototype with an
 experiment matrix suitable for a thesis chapter.
 \end{dronebox}
@@ -1416,12 +1363,10 @@ experiment matrix suitable for a thesis chapter.
   take-off; the tracker and predictor deliver $\hat{\pos}_{T+h}$,
   $\mat{\Sigma}_h$; \orca or DWA chooses a safe velocity for seconds;
   \dstarlite or \astar replans from the current cell; the executive decides
-  which is in charge, ten times a second, from one shared world model with
-  one clock and one frame.
-  \item The world model converts a time-indexed path into a reference and a
-  preferred velocity (\cref{eq:ch24-reference,eq:ch24-vpref}) and a
-  continuous state into a space-time start $(c_0, t_{\mathrm{start}})$;
-  paths are stored with their start times $t_0$.
+  which is in charge, ten times a second, from one world model with one
+  clock and one frame, which converts paths into references
+  (\cref{eq:ch24-reference,eq:ch24-vpref}) and states into space-time
+  starts, and stores every path with its start time $t_0$.
   \item The state machine Nominal / Avoiding / Reconnecting / Replanning
   has conditions on every edge (\cref{tab:ch24-transitions}); Avoiding is
   bounded by drift and time; Reconnecting is the only way back.
@@ -1519,15 +1464,14 @@ $t_0$ is read or written, and check that each one is in absolute grid time.
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch24-states}
-Extend the state machine in two ways and draw the new diagram. (a) Replace
-the blocked layers by \emph{expensive} layers: a cell in $\mathcal{B}_{t'}$
-costs $c_{\mathcal{B}} > 1$ instead of being forbidden. Which guarantee of
-\cref{sec:ch24-guarantees} changes, and how should $c_{\mathcal{B}}$ depend on
-$\kappa_p\sigma(h)$? (b) Add an \emph{Emergency} state entered when the
-local program has been infeasible for $m$ consecutive cycles, in which the
-drone brakes at $a_{\max}$ or climbs, and specify its exits. Implement (a)
-in \code{ch24\_hybrid.py} and report the change in A's replanned path and
-arrival time.
+Extend the state machine in two ways and draw the new diagram. (a) Make
+the layers \emph{expensive} instead of blocked: a cell in $\mathcal{B}_{t'}$
+costs $c_{\mathcal{B}} > 1$. Which guarantee of \cref{sec:ch24-guarantees}
+changes, and how should $c_{\mathcal{B}}$ depend on $\kappa_p\sigma(h)$?
+(b) Add an \emph{Emergency} state, entered when the local program has been
+infeasible for $m$ consecutive cycles, in which the drone brakes or climbs,
+and specify its exits. Implement (a) in \code{ch24\_hybrid.py} and report
+the change in A's replanned path and arrival time.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
@@ -1535,25 +1479,23 @@ arrival time.
 In the worked scenario C is a follower of A. (a) Explain, using
 \cref{eq:ch24-formation}, why C triggered at $t = 4.3$\,s although the
 intruder never came closer to it than $2.25$\,m, and what would have
-happened if the formation term had stayed active while A was Avoiding.
-(b) Run the code with $k_F \in \set{0, 0.5, 1.0}$ and a version in which
-the gain is ramped linearly over one second when Reconnecting begins, and
-report the peak and the recovery time of $e_F$ and the minimum separations.
-(c) Propose a rule for a formation in which the \emph{leader} is the drone
-that must avoid.
+happened had the formation term stayed active while A was Avoiding.
+(b) Run the code with $k_F \in \set{0, 0.5, 1.0}$ and with the gain ramped
+over one second when Reconnecting begins; report the peak and recovery time
+of $e_F$ and the minimum separations. (c) Propose a rule for a formation
+whose \emph{leader} is the drone that must avoid.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch24-dwa}
 Replace \orca by the dynamic window approach of \cref{ch:ch14} in the local
 layer. Specify the interface: what the rollouts receive from the prediction
-layer (the predicted intruder velocity and the inflated radius at each
-step of the rollout), where the heading term points while Avoiding and
-while Reconnecting (the reconnection target), and which DWA output plays
-the role of \orca's feasibility flag in \cref{alg:ch24-loop}. Implement it
-for a double-integrator drone with $a_{\max} = 1$\,m/s$^2$ and compare, on
-the worked scenario, the minimum separation, the time spent in Avoiding and
-the number of replans.
+layer (predicted intruder velocity, inflated radius per rollout step),
+where the heading term points while Avoiding and while Reconnecting, and
+which DWA output replaces \orca's feasibility flag in \cref{alg:ch24-loop}.
+Implement it for a double-integrator drone with $a_{\max} = 1$\,m/s$^2$ and
+compare, on the worked scenario, the minimum separation, the time in
+Avoiding and the number of replans.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3} Coding: the capstone]
@@ -1572,9 +1514,7 @@ local-only and replan-only policies as two more executives with the same
 interfaces. (e) Run the experiment matrix of \cref{ch:ch25}: $2$, $4$ and
 $8$ drones; $0$, $1$ and $2$ intruders; perfect, noisy and constant-velocity
 predictions; the three policies; with and without formation and range
-constraints; at least $20$ seeds per cell. Report collision rate, minimum
-separation, path length, travel time, makespan, sum of costs, replanning
-count, computation time, formation error and communication violations
-with confidence intervals, and state in one page which policy wins where
-and why.
+constraints; at least $20$ seeds per cell. Report the ten metrics of
+\cref{ch:ch25} with confidence intervals, and state in one page which policy
+wins where and why.
 \end{exercise}
