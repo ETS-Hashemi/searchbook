@@ -197,3 +197,81 @@ and the details of `lozanoperez1983spatial` (IEEE Trans. Computers C-32(2):108-1
 `mellinger2011minimum` (ICRA 2011, 2520-2525), `panerati2021learning` (IROS 2021,
 7512-7519), `hagberg2008networkx` (SciPy 2008, 11-15) and `fiorini1998motion`
 (IJRR 17(7):760-772, 1998) are all correct - nothing fabricated.
+
+## Response to review (round 1)
+
+All five required changes were applied, together with every suggestion that was cheap.
+Build: `cd Overleaf && ./build.sh ch02-toolbox` -> status 0, no `!` errors, no undefined
+reference or citation belonging to this chapter, no multiply-defined labels; the only
+overfull box above 15 pt (29.10 pt) is still the front-matter *List of Algorithms*.
+Code: `python3 code/ch02_toolbox.py` -> `ch02_toolbox self-test passed`, exit 0. Both
+figure generators were left untouched, so their `.dat` files are unchanged and still match
+the numbers in the text; every other number quoted in the chapter is printed or asserted by
+`ch02_toolbox.py`.
+
+### Required changes
+
+1. **Cost of a time-indexed path vs. arrival time.** Done, both parts.
+   (a) `def:ch02-space-time-state` now reads "the wait costs $c_{\text{wait}}>0$ for every
+   wait made before the agent's final arrival at its goal; by the stay-at-goal convention of
+   \cref{def:ch02-time-indexed-path} the waits at the goal after arrival are free."
+   (b) A new sentence follows `def:ch02-travel-time`: with unit move costs and free trailing
+   waits, $\cost(\pi)=T(\pi)$, so a search that accumulates action costs in $g$ returns the
+   travel time defined here; it names \textcite{stern2019mapf}, the $\cost(\pi_i)$ of
+   \cref{ch:ch07} and the notation table's $\sumcost$.
+2. **The letter $T$ overloaded in Definition 2.12.** Done. The stored list is now
+   $\pi=(v_0,\dots,v_H)$, with $H$ named as the **horizon** (new index entry); $T(\pi)$ is
+   the arrival time only. Added: "the arrival time satisfies $T(\pi)\le H$, with equality
+   exactly when the path ends without a trailing wait at the goal. \Cref{ch:ch07} uses the
+   same two letters, writing the horizon of agent $i$'s stored path as $T_i$." The same
+   letter $H$ now appears in `def:ch02-time-expanded-graph`, in the vertex/edge count in the
+   surrounding text, in `exr:ch02-time-expanded` and in that exercise's solution.
+3. **Proof of Proposition 2.24 stops one step short.** Done: the chain now ends
+   "$=v^2/a_{\max}-v^2/(2a_{\max})=v^2/(2a_{\max})$, which is
+   \cref{eq:ch02-stopping-distance}."
+4. **Figure 2.5 used $d$ for two distances.** Done. In `figures/ch02/segment-circle.tex`
+   panel (a) the two labels are now $d_1$ (to $\vect c$) and $d_2>r$ (to $\vect c'$). The
+   caption says $d_1=\dist(\vect c,\overline{\vect a\vect b})$ is the point-to-segment
+   distance, that $\vect c'$ is missed because its point-to-segment distance $d_2$ exceeds
+   $r$, and that in panel (b) $d=\norm{\vect p-\vect c}$ is the distance to the *centre*,
+   the quantity of \cref{thm:ch02-tangents}.
+5. **Length.** All five prescribed cuts were made, exactly as specified:
+   (a) Listing 2.2 (`lst:ch02-geometry`) deleted; the sentence that announced it now reads
+   "In the same file `tangent_points` transcribes \cref{eq:ch02-tangent-points} of
+   \cref{thm:ch02-tangents} line for line, `time_of_closest_approach` ...". Listing 2.1 and
+   the reference to it are untouched, and no dangling `\Cref{lst:ch02-geometry}` remains.
+   (b) The "two variants in the literature" discussion is now two sentences (name both
+   variants, say they coincide under a consistent heuristic, forward-reference
+   \cref{ch:ch04}).
+   (c) "Why dictionaries are enough" is now two sentences (the $10^6$-state / 150 MB
+   estimate and the conclusion, pointing at \cref{ch:ch25}).
+   (d) The one-sentence second paragraph of `sec:ch02-motivation` was merged into the
+   paragraph above it.
+   (e) The quadrotor caveats keep acceleration-cannot-jump, asymmetric limits and the
+   margin advice; the drag and payload elaboration is gone.
+   Beyond these I also tightened six wordy sentences and reduced the drawing height of the
+   time-expanded and Gaussian figures. **Result: the chapter body is now 21 printed pages
+   (was 22), not 20.** The remaining page could only be recovered by deleting content that
+   this review says must be kept (the definitions the other chapters cite by number, the
+   worked example with Table 2.3, the proofs, the four remaining "must cover" tables, the
+   ten exercises), so it was left in place rather than cut. Every "must cover" item of
+   `docs/specs/ch02.md` is still present.
+
+### Suggestions
+
+Applied: symmetric edge costs required for undirected weighted graphs
+(`def:ch02-graph`); the touching case $d_{ij}=R_{ij}$ declared safe here and in
+\cref{ch:ch12,ch:ch13}, with a note on why \cref{thm:ch02-disc-minkowski} calls it an
+overlap; `time_to_collision` returning `None` stated in `def:ch02-closest-approach`; all
+three generating files named in `sec:ch02-motivation`; `lattice_stretch(2)`,
+`lattice_stretch(3)` and the two straight-move values added to the printed output of
+`worked_example`; Figure 2.2(c) made checkable (its two-cell obstacle blocks 16 further
+cells at $r=1.5$, now also asserted in the self-test, and the caption says the 5/9/21 counts
+belong to the single-cell case of the text); the \cref{ch:ch07} spelling $\pi_i[t]$
+mentioned in `def:ch02-plan`; "Lifelong Planning A*" expanded at first use; the
+`LazyPQ.pop`/`IndexError` discrepancy stated where Algorithm 2.1 returns "empty"; the
+integer-lattice clause added to the endpoint argument about inflation on a grid; a solution
+for Exercise 2.2 added to `appendices/solutions/ch02-solutions.tex` (all ten exercises now
+have one).
+
+Nothing in the review was judged technically wrong; no required change was skipped.

@@ -363,21 +363,22 @@ off because the goal needs no second copy.
 are \rrt. Line~\ref{alg:ch17-rrtstar:radius} computes the radius from the
 \emph{current} number of vertices, which is why the radius is recomputed in
 every iteration, and line~\ref{alg:ch17-rrtstar:near} collects the
-candidates. \textsc{ChooseParent} starts from the nearest vertex as the
-default (line~\ref{alg:ch17-helpers:default}), whose segment is already known
-to be free, and improves on it only with a candidate whose segment passes
-the check in line~\ref{alg:ch17-helpers:cpfree}; the early \KwBreak after
-the sorted loop means that no candidate is tested once it cannot beat the
-best value found. The new vertex is inserted with its cost
-(line~\ref{alg:ch17-rrtstar:add}) \emph{before} rewiring, because
-\textsc{Rewire} reads $\mathrm{Cost}(x_{\mathrm{new}})$ in
-line~\ref{alg:ch17-helpers:via}. Line~\ref{alg:ch17-helpers:rwfree} tests
-the improvement first and the collision second, so segments are checked only
+candidates. In \cref{alg:ch17-helpers}, \textsc{ChooseParent} starts from
+the nearest vertex as the default (line~\ref{alg:ch17-helpers:default}),
+whose segment is already known to be free, and improves on it only with a
+candidate whose segment passes the check in
+line~\ref{alg:ch17-helpers:cpfree}; the early \KwBreak after the sorted loop
+means that no candidate is tested once it cannot beat the best value found.
+The new vertex is inserted with its cost (line~\ref{alg:ch17-rrtstar:add} of
+\cref{alg:ch17-rrtstar}) \emph{before} rewiring, because \textsc{Rewire}
+reads $\mathrm{Cost}(x_{\mathrm{new}})$ in line~\ref{alg:ch17-helpers:via}
+of \cref{alg:ch17-helpers}. Its line~\ref{alg:ch17-helpers:rwfree} tests the
+improvement first and the collision second, so segments are checked only
 when they would be used; line~\ref{alg:ch17-helpers:cut} swaps the parent
 and line~\ref{alg:ch17-helpers:update} pushes the new cost down the subtree.
-Line~\ref{alg:ch17-rrtstar:best} reads $c_{\mathrm{best}}$ from the tree; it
-can only decrease, since \textsc{Rewire} never increases any cost
-(\cref{prop:ch17-invariant}).
+Line~\ref{alg:ch17-rrtstar:best} of \cref{alg:ch17-rrtstar} reads
+$c_{\mathrm{best}}$ from the tree; it can only decrease, since
+\textsc{Rewire} never increases any cost (\cref{prop:ch17-invariant}).
 
 \subsection{The connection radius}
 \label{sec:ch17-radius}
@@ -642,21 +643,22 @@ sequence of samples.
 
 \begin{proof}
 (i) Every edge is inserted only after $\CollisionFree$ has accepted it
-(lines~\ref{alg:ch17-rrtstar:free}, \ref{alg:ch17-helpers:cpfree} and
-\ref{alg:ch17-helpers:rwfree}). A rewire could create a cycle only if
+(line~\ref{alg:ch17-rrtstar:free} of \cref{alg:ch17-rrtstar}, lines~\ref{alg:ch17-helpers:cpfree}
+and \ref{alg:ch17-helpers:rwfree} of \cref{alg:ch17-helpers}). A rewire could create a cycle only if
 $x_{\mathrm{new}}$ were a descendant of the rewired vertex $v$; but then the
 tree path to $x_{\mathrm{new}}$ passes through $v$, so
 $\mathrm{Cost}(x_{\mathrm{new}})\ge\mathrm{Cost}(v)+\norm{x_{\mathrm{new}}-v}$
 by the triangle inequality, and the test $c<\mathrm{Cost}(v)$ in
-line~\ref{alg:ch17-helpers:rwfree} fails. (ii) The new vertex receives
+line~\ref{alg:ch17-helpers:rwfree} of \cref{alg:ch17-helpers} fails. (ii) The new vertex receives
 $\mathrm{Cost}(x_{\mathrm{parent}})+\norm{x_{\mathrm{new}}-x_{\mathrm{parent}}}$,
 and after a rewire \textsc{UpdateSubtree} recomputes exactly the vertices
 whose tree path changed, namely $v$ and its descendants. (iii)
 \textsc{ChooseParent} touches no existing cost, and \textsc{Rewire} lowers
 $\mathrm{Cost}(v)$ and, by the same amount, the cost of every descendant.
 (iv) Whether a sample becomes a vertex, and where, depends only on
-$\Nearest$, $\Steer$ and the check of line~\ref{alg:ch17-rrtstar:free};
-these are the steps of \rrt, and the extra steps only change edges.
+$\Nearest$, $\Steer$ and the check of line~\ref{alg:ch17-rrtstar:free} of
+\cref{alg:ch17-rrtstar}; these are the steps of \rrt, and the extra steps
+only change edges.
 \end{proof}
 
 Part~(iv) has a pleasant consequence: \rrtstar inherits the probabilistic
@@ -1026,11 +1028,10 @@ against $7\,399$, because samples inside the ellipsoid see more neighbours.
 \label{sec:ch17-variants}
 
 \paragraph{The graph and the batch.} The rapidly-exploring random graph
-(RRG)\index{RRG} of Karaman and Frazzoli keeps \emph{all} edges between
-vertices within $r_n$; \rrtstar is its tree, and PRM\textsuperscript{*}\index{PRM*}
-is the probabilistic roadmap of \cref{ch:ch16} built with the same radius
-on a batch of $n$ samples. Both are asymptotically optimal with the same
-constant. Fast marching trees (FMT\textsuperscript{*})\index{FMT*}
+(RRG)\index{RRG} keeps \emph{all} edges between vertices within $r_n$;
+\rrtstar is its tree, and PRM\textsuperscript{*}\index{PRM*} is the
+probabilistic roadmap of \cref{ch:ch16} built with the same radius on a
+batch of $n$ samples; both are asymptotically optimal. Fast marching trees (FMT\textsuperscript{*})\index{FMT*}
 \cite{janson2015fmt} process one batch of samples in a single Dijkstra-like
 sweep with lazy collision checks, often faster than \rrtstar for a fixed
 budget, but not anytime: the batch size is chosen before the run.
@@ -1144,10 +1145,9 @@ the code estimates it by Monte Carlo for the text, but plans with
 $\gamma=1.1\,\gamma^*(\mu(\mathcal{X}))$ by default, because
 $\mu(\mathcal{X})\ge\mu(\Xfree)$ keeps the condition safe. On the 3D scene
 of \cref{ch:ch16} this gives $\gamma=15.0$ against a threshold of $12.2$
-for the true free volume of about $716$. A larger $\gamma$ is never wrong
-for optimality; it buys more rewiring per iteration
-(\cref{fig:ch17-radius}) at a higher price per iteration, and doubling it
-multiplies the expected \textsc{Near} set by $2^d$.
+for the true free volume of about $716$. A larger $\gamma$ is never wrong for optimality; it buys more rewiring per
+iteration at a higher price (\cref{fig:ch17-radius}): doubling it multiplies
+the expected \textsc{Near} set by $2^d$.
 
 \paragraph{The cost of rewiring.} Collision checks dominate. Three habits
 keep them rare: sort the candidates of \textsc{ChooseParent} by cost and
@@ -1213,8 +1213,7 @@ the optimal route stay empty (\cref{sec:ch17-radius}). Two ways to get
 there by accident: forgetting the root, $r_n=\gamma\log n/n$ instead of
 $\gamma(\log n/n)^{1/d}$, and reusing a $\gamma$ tuned in 2D for a 3D
 problem, where $\zeta_3$ and the exponent $1/3$ change the threshold. Always
-compute $\gamma^*$ from \cref{eq:ch17-radius} with $\mu(\mathcal{X})$ and
-check that $r_n$ is capped by $\eta$ only in the early phase.
+compute $\gamma^*$ from \cref{eq:ch17-radius} with $\mu(\mathcal{X})$.
 \end{pitfall}
 
 \begin{pitfall}[Rewiring without propagating]
@@ -1222,11 +1221,10 @@ If \textsc{Rewire} updates $\mathrm{Cost}(v)$ but not the costs of $v$'s
 descendants, the tree still returns valid paths, but $\mathrm{Cost}$ of
 those descendants is now too high: \textsc{ChooseParent} undervalues them
 as parents and \textsc{Rewire} rewires them when it should not.
-Convergence slows down and $c_{\mathrm{best}}$ may even be reported wrongly,
-because it is read from $\mathrm{Cost}(x_{\mathrm{goal}})$. Keep children
-lists and propagate (\cref{lst:ch17-subtree}), and assert the invariant of
-\cref{prop:ch17-invariant}(ii) in your tests; the bug shows up only under
-that assertion.
+Convergence slows down and $c_{\mathrm{best}}$, read from
+$\mathrm{Cost}(x_{\mathrm{goal}})$, may be reported wrongly. Keep children
+lists and propagate (\cref{lst:ch17-subtree}), and assert
+\cref{prop:ch17-invariant}(ii) in your tests; the bug shows up only there.
 \end{pitfall}
 
 \begin{pitfall}[Sampling the ellipse before a solution exists]
@@ -1243,11 +1241,11 @@ $c_{\mathrm{best}}^2-c_{\min}^2$ at zero.
 The temptation is to skip the collision check in \textsc{Rewire} because
 ``$x_{\mathrm{new}}$ was checked when it was inserted''. Only the segment to
 its parent was. Every rewired edge is a new segment and needs its own check
-(line~\ref{alg:ch17-helpers:rwfree}); the same holds for the candidate
-segments of \textsc{ChooseParent}, and for a checker that is not symmetric
-(a drone with a heading) it must be run in the direction the edge will be
-flown. The self-test re-checks every returned path with a ten times finer
-subdivision.
+(line~\ref{alg:ch17-helpers:rwfree} of \cref{alg:ch17-helpers}); the same
+holds for the candidate segments of \textsc{ChooseParent}, and a checker
+that is not symmetric (a drone with a heading) must run in the direction the
+edge will be flown. The self-test re-checks every returned path with a ten
+times finer subdivision.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
@@ -1268,23 +1266,20 @@ replanning layer wants a short, smooth detour rather than a staircase. It
 keeps \astar or \dstarlite (\cref{ch:ch04,ch:ch05}) when the map is small,
 when the plan must be time-indexed for the conflict re-check, or when the
 map keeps changing and incremental repair is cheaper than a new tree.
-
 Three habits make the planner fit the architecture. \emph{Anytime
 operation}: return the first path after a few hundred iterations, hand it
 to the local layer (\orca or DWA, \cref{ch:ch13,ch:ch14}), and keep
-improving it in the background while the drone flies, re-rooting at every
-waypoint. \emph{Seeding}: the drone already has a grid path from \cbs;
-string-pull it (\cref{ch:ch16}), insert its waypoints as the initial tree
-and set $c_{\mathrm{best}}$ to its length, so that \irrtstar samples the
-ellipsoid of the grid path from the first iteration. On the map of
-\cref{ex:ch17-map} the pulled grid path costs $17.23$ where the first
-random solution costs $21.0$, so the seeded ellipse is already close to
-final. \emph{Re-check}: a path planned in continuous space is still a
-single-agent path; after any replan, run the conflict check of
+improving it while the drone flies, re-rooting at every waypoint.
+\emph{Seeding}: string-pull the grid path from \cbs (\cref{ch:ch16}),
+insert its waypoints as the initial tree and set $c_{\mathrm{best}}$ to its
+length, so that \irrtstar samples its ellipsoid from the first iteration;
+on the map of \cref{ex:ch17-map} the pulled grid path costs $17.23$ where
+the first random solution costs $21.0$. \emph{Re-check}: a continuous path
+is still a single-agent path; after any replan, run the conflict check of
 \cref{ch:ch24} against the other drones' reservations before flying it.
 This is Week~8 of the study plan (\cref{ch:appA}); its milestone is being
-able to say, for a given mission, which of \cref{tab:ch17-comparison} and
-grid search to call.
+able to say, for a given mission, which planner of
+\cref{tab:ch17-comparison} or which grid search to call.
 \end{dronebox}
 
 % ---------------------------------------------------------------------
@@ -1395,10 +1390,9 @@ work, and say which order minimises that work.
 Explain why the root of an \rrt tree has only finitely many children with
 probability one, and why this implies that the best cost of \rrt converges
 to a random limit above $c^*$. Then test it: run \code{rrt\_plain} on
-\cref{ex:ch17-map} for $20$ seeds and $10\,000$ iterations, recording the
-cost of the best of \emph{all} goal-reaching paths (keep the goal bias on
-after the first solution), and compare the distribution of final costs
-with \cref{fig:ch17-convergence}(a).
+\cref{ex:ch17-map} for $20$ seeds and $10\,000$ iterations, keeping the goal
+bias on and recording the best of \emph{all} goal-reaching paths, and
+compare the final costs with \cref{fig:ch17-convergence}(a).
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
@@ -1422,15 +1416,14 @@ stuck: a tree class with parents, edge lengths, costs and children lists;
 \textsc{Near} by radius and by $k$ nearest; \textsc{ChooseParent} with
 sorted candidates; \textsc{Rewire} with subtree propagation. (a) Reproduce
 \cref{tab:ch17-hand} and \cref{tab:ch17-convergence}. (b) Run it in the
-3D box field of \cref{ch:ch16} with $\eta=1.5$ and record
-$c_{\mathrm{best}}$ against iterations; compare with 26-connected grid
-\astar at $h=0.25$ (\cref{ch:ch04}) after string pulling, both in path
-length and in computation time. (c) Add informed sampling with
-\cref{eq:ch17-transform} and show, with a plot like
-\cref{fig:ch17-convergence}, on which of your maps it helps. (d) Write the
-self-test: paths collision-free at a finer subdivision, costs consistent,
-$c_{\mathrm{best}}$ non-increasing, all informed samples inside the
-ellipsoid, and the final cost within $5\,\%$ of the grid reference.
+3D box field of \cref{ch:ch16} with $\eta=1.5$, record $c_{\mathrm{best}}$
+against iterations, and compare with 26-connected grid \astar at $h=0.25$
+(\cref{ch:ch04}) after string pulling, in path length and in computation
+time. (c) Add informed sampling with \cref{eq:ch17-transform} and show, with
+a plot like \cref{fig:ch17-convergence}, on which of your maps it helps.
+(d) Write the self-test: paths collision-free at a finer subdivision, costs
+consistent, $c_{\mathrm{best}}$ non-increasing, informed samples inside the
+ellipsoid, final cost within $5\,\%$ of the grid reference.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3}]

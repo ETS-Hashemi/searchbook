@@ -110,10 +110,10 @@ def snapshots_figure(world):
             lines += draw_path(path, "sbpath", tr)
         lines += markers(tr)
         c = res.history[it - 1, 3]
-        label = "(%s) %d iterations, %d vertices, %s" % (
-            "abc"[panel], it, n, "no path yet" if not np.isfinite(c) else "cost %.2f" % c)
-        lines.append("\\node[sbannot] at (%s,%s) {%s};"
-                     % (f(x0 + 5 * scale), f(-0.4), label))
+        label = "(%s) $%d$ iterations\\\\$%d$ vertices, %s" % (
+            "abc"[panel], it, n, "no path yet" if not np.isfinite(c) else "cost $%.2f$" % c)
+        lines.append("\\node[sbannot,align=center] at (%s,%s) {%s};"
+                     % (f(x0 + 5 * scale), f(-0.55), label))
     lines.append("\\end{tikzpicture}")
     write("snapshots.tex", lines)
     return res

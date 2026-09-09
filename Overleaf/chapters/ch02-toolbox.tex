@@ -24,7 +24,7 @@ Picture eight quadrotors inspecting the racks of a warehouse. A global planner h
 
 The local avoidance layer needs the drone's \emph{motion limits} (how fast, how hard it can brake) and a small kit of \emph{geometry}: when do two moving discs touch, and which velocities steer clear of an obstacle? The prediction layer describes the intruder with a mean and a covariance, so the planner must understand \emph{uncertainty}. Finally, everything has to run in a few milliseconds, which is a question of \emph{computation}: complexity, priority queues and hashing.
 
-This chapter collects these tools in one place. It is the only chapter of the book that does not present an algorithm; instead it fixes the definitions and conventions that every later chapter cites by number. Read it once from beginning to end, then come back to it as a reference; the drone box of \cref{sec:ch02-drone} says which layer uses what. Every formal object is introduced in a numbered definition, and every number quoted in the text is produced by one of the companion files \code{code/ch02\_toolbox.py}, \code{code/figures/gen\_ch02\_gaussian.py} and \code{code/figures/gen\_ch02\_double\_integrator.py}.
+This chapter collects these tools in one place. It is the only chapter that presents no algorithm; it fixes instead the definitions and conventions that every later chapter cites by number. Read it once, then use it as a reference; the drone box of \cref{sec:ch02-drone} says which layer uses what. Every formal object gets a numbered definition, and every number quoted in the text comes from one of the companion files \code{code/ch02\_toolbox.py}, \code{code/figures/gen\_ch02\_gaussian.py} and \code{code/figures/gen\_ch02\_double\_integrator.py}.
 
 
 % ---------------------------------------------------------------------
@@ -70,7 +70,7 @@ For all vertices $u,v,w$ of a graph with non-negative costs, $\dist(u,w)\le \dis
 If either distance on the right is infinite there is nothing to show. Otherwise take a shortest path from $u$ to $v$ and append a shortest path from $v$ to $w$. The result is a path from $u$ to $w$ of cost $\dist(u,v)+\dist(v,w)$, and the shortest path from $u$ to $w$ cannot cost more. \qedhere
 \end{proof}
 
-This small fact is the reason why consistent heuristics work in \cref{ch:ch04} and why the backward search of \cref{ch:ch03} yields an exact heuristic; you will see it again.
+This small fact is why consistent heuristics work (\cref{ch:ch04}) and why the backward search of \cref{ch:ch03} yields an exact heuristic.
 
 \subsection{Grid graphs}
 \label{sec:ch02-grids}
@@ -95,7 +95,7 @@ Which connectivity should you use? \Cref{tab:ch02-connectivity} lists the \textb
 
 \begin{table}[tb]
 \centering\small
-\caption{Neighbourhoods on grids and lattices. The stretch is the worst-case ratio between the cost of the cheapest lattice path and the straight-line distance in an empty space; it is attained in the direction that the available moves imitate worst, e.g.\ $22.5^\circ$ for 8-connectivity. The numbers are computed by \code{lattice\_stretch} in \code{ch02\_toolbox.py}.}
+\caption{Neighbourhoods on grids and lattices. The stretch is the worst-case ratio between the cost of the cheapest lattice path and the straight-line distance in an empty space, attained in the direction that the available moves imitate worst. The numbers are computed by \code{lattice\_stretch} in \code{ch02\_toolbox.py}.}
 \label{tab:ch02-connectivity}
 \begin{tabular}{@{}lclll@{}}
 \toprule
@@ -125,7 +125,7 @@ The box rule generalises the two side cells of the plane: a move with two non-ze
 \section{Workspace and configuration space}
 \label{sec:ch02-cspace}
 
-The map lives in the \textbf{workspace}\index{workspace} $\mathcal{W}\subseteq\R^2$ or $\R^3$, the physical space in which obstacles occupy a region $\mathcal{O}\subset\mathcal{W}$. A drone is not a point of this space; it is a body that occupies a region. Planning a route for the point at the centre of the drone and then flying it would scrape every wall. The classical remedy, due to \textcite{lozanoperez1983spatial} and presented in every planning textbook \cite{lozanoperez1983spatial,lavalle2006planning,choset2005principles}, is to move the problem into the configuration space.
+The map lives in the \textbf{workspace}\index{workspace} $\mathcal{W}\subseteq\R^2$ or $\R^3$, the physical space in which obstacles occupy a region $\mathcal{O}\subset\mathcal{W}$. A drone is not a point of this space but a body that occupies a region, so planning a route for its centre and then flying it would scrape every wall. The classical remedy, due to \textcite{lozanoperez1983spatial} and presented in every planning textbook \cite{lozanoperez1983spatial,lavalle2006planning,choset2005principles}, is to move the problem into the configuration space.
 
 \begin{definition}[Configuration space, free space, obstacle region]
 \label{def:ch02-configuration-space}
@@ -168,7 +168,7 @@ The disc $\disc{\pos}{r}$ meets $\mathcal{O}$ if and only if there is an obstacl
 \Cref{fig:ch02-minkowski} shows the construction. Inflating a polygon by a disc rounds its corners, and inflating a union of obstacles inflates each of them. The same idea serves twice more: \cref{ch:ch12} turns an encounter between two discs into a point and a disc of radius $r_A+r_B$ (\cref{thm:ch02-disc-minkowski}), and in \cref{ch:ch24} the inflation radius grows with the uncertainty of a predicted position.
 
 \paragraph{The drone as a bounding sphere.}
-A quadrotor with its rotor guards is not a disc, and it rotates about its vertical axis while flying. Modelling it exactly would add the yaw angle to the configuration, giving $\Cspace=\R^3\times S^1$ and an obstacle region that depends on the heading; for a car-like ground robot this is unavoidable \cite{lavalle2006planning}. For a drone it is unnecessary: the body fits into a \textbf{bounding sphere}\index{bounding sphere} of radius $r$ that is the same in every heading, so the configuration is the position alone, $\Cspace=\R^3$ (or $\R^2$ at constant altitude), and \cref{thm:ch02-inflation} applies with the sphere radius. In this book every drone is such a sphere. Its radius includes a safety margin, as the following pitfall explains.
+A quadrotor with its rotor guards is not a disc, and it rotates about its vertical axis while flying. Modelling it exactly would add the yaw angle to the configuration, giving $\Cspace=\R^3\times S^1$ and a heading-dependent obstacle region \cite{lavalle2006planning}. For a drone that is unnecessary: the body fits into a \textbf{bounding sphere}\index{bounding sphere} of radius $r$ that is the same in every heading, so the configuration is the position alone, $\Cspace=\R^3$ (or $\R^2$ at constant altitude), and \cref{thm:ch02-inflation} applies with the sphere radius. In this book every drone is such a sphere. Its radius includes a safety margin, as the following pitfall explains.
 
 \paragraph{Inflation on a grid.}
 On a grid the inflation is approximated cell by cell: a cell is added to $O$ if its centre lies within $r$ of some obstacle square, which is what \code{Grid.inflate} does. Blocking a single cell and inflating by $r=0.6$, $1.0$ and $1.6$ cell widths blocks $5$, $9$ and $21$ cells respectively: a plus shape, a $3\times3$ block, and the block with a ring of $12$ further cells. The grid version is only a sampled Minkowski sum; a free cell may still contain points that are closer than $r$ to an obstacle. This is harmless for straight moves between cell centres, because obstacle centres and move endpoints both lie on the integer lattice, so for grid-aligned squares the distance to the obstacle along such a move is smallest at one of its endpoints, and the corner-cutting rule guards the diagonal moves.
@@ -578,7 +578,7 @@ and the major axis makes the angle $\operatorname{atan2}(e_{1,y},e_{1,x})$ with 
 Substitute $\vect{y}=\mat{E}\T(\state-\vect{\mu})$. Since $\mat{E}$ is orthogonal, $\mat{\Sigma}\inv=\mat{E}\mat{\Lambda}\inv\mat{E}\T$ and the quadratic form becomes $y_1^2/\lambda_1+y_2^2/\lambda_2=k^2$, an axis-aligned ellipse with semi-axes $k\sqrt{\lambda_i}$, which \cref{eq:ch02-ellipse-param} parametrises; $\state=\vect{\mu}+\mat{E}\vect{y}$ rotates it back onto the eigenvectors. For the mass, note that $\vect{y}$ scaled by $\mat{\Lambda}^{-1/2}$ is a standard Gaussian in $\R^2$, whose squared norm is $\chi^2$-distributed with two degrees of freedom, i.e.\ exponential with mean $2$; hence $\Prob(\text{inside }\mathcal{E}_k)=1-e^{-k^2/2}$. \qedhere
 \end{proof}
 
-To draw the ellipse, call \code{numpy.linalg.eigh} on $\mat{\Sigma}$ (it returns the eigenvalues in ascending order, so reverse them), take the square roots and evaluate \cref{eq:ch02-ellipse-param} at, say, $72$ angles; the toolbox does this in \code{covariance\_ellipse} and \code{ellipse\_points}.
+To draw the ellipse, call \code{numpy.linalg.eigh} on $\mat{\Sigma}$ (its eigenvalues come in ascending order, so reverse them), take the square roots and evaluate \cref{eq:ch02-ellipse-param} at, say, $72$ angles; the toolbox does this in \code{covariance\_ellipse} and \code{ellipse\_points}.
 
 \begin{example}[Reading a covariance matrix]
 \label[example]{ex:ch02-ellipse}
