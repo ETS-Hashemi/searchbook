@@ -261,3 +261,132 @@ did not beat constant velocity on this data" is a legitimate result), the warnin
 collision rate hides near misses and that a mean computation time hides the missed deadline,
 the explicit derivation of the 768 cells, and the total study budget of 72-96 hours. The
 objectives and summary boxes added in round 1 are well judged and should stay as they are.
+
+## Response to review (round 2)
+
+All nine required changes are applied. Build: `cd Overleaf && ./build.sh appA-study-plan`
+returns status 0, no `!` errors, no undefined citations, no multiply-defined labels; the only
+remaining overfull boxes are the two pre-existing 0.70782 pt ones in the Table A.1 longtable
+header. The appendix now runs PDF pages 21-37 (17 pages) of
+`build/only-appA-study-plan.pdf`. There is no `Overleaf/code/appA_*.py` and no `.dat` file
+for this appendix, so steps (3) and the regeneration step do not apply; the two arithmetic
+claims (72-96 hours, 768 cells) are unchanged and still correct.
+
+**A. Week 6 Focus: the velocity obstacle was defined on the wrong velocity space.** Applied.
+The sentence now reads: "The velocity obstacle (VO) $\VO^{\ttc}_{A|B}$ is the set of
+velocities of $A$ that, if $B$ held its current velocity, would bring the two discs into
+contact within the horizon $\ttc$; subtracting $\vel_B$ gives the relative-velocity form --
+the truncated cone of \cref{ch:ch12} -- which is the form \orca reasons in." I kept the
+parenthetical "(VO)" so that the acronym is still expanded at first use in the appendix
+(STYLE_GUIDE section 3); nothing else in the reviewer's wording was changed.
+
+**D. Week 2 is a dead end and Week 6 does not feed the capstone
+(`figures/appA/week-dependencies.tex`).** Applied. Two `dep` edges were added into the
+capstone box: `(w2.east) -- (10.9,6.9) -- (10.9,2.7)` and
+`(w6.east) -- (2.2,2.4) -- (2.2,3.2) -- (9.3,3.2) -- (9.45,2.6)`. I used x = 10.9 for the
+W2 rail rather than the suggested 11.6 because a descent at 11.6 would have crossed the
+existing W1 rail where it drops at x = 11.2; for spacing, that W1 descent was moved from
+x = 11.2 to x = 11.5, so the three arrowheads on the top of the capstone box now sit at
+10.4, 10.9 and 11.5. The W6 route is the reviewer's, and crosses no node (it does cross the
+W5 curve at a near-right angle, as the reviewer's own route does). The caption is unchanged,
+so the counts "four arrows leave Week 1 and two leave Week 3" still hold: the new edges leave
+Weeks 2 and 6. Verified in the rendered page.
+
+**D. The replan-only cut leaves the strategy undefined
+(`figures/appA/decision-logic.tex`).** Applied. A dotted red bypass now leaves the *yes*
+branch of the first diamond above the cut and runs down the left-hand side into step 4:
+`(0,3.06) -- (-2.7,3.06) -- (-2.7,-3.49) -- (s4.west)`, labelled "replan-only". I routed the
+rail at x = -2.7 rather than the suggested -3.4 because x = -3.4 runs through the
+`Trigger 2 / Trigger 3` annotation block (the `trig` nodes are `anchor=east` at x = -3.0 with
+`text width=3.1cm`, so they occupy x in [-6.1,-3.0]). The caption gained the required clause:
+"In replan-only the *yes* branch goes straight to step 4 (dotted); in local-only step 4 is
+never reached and the drone stays on the local layer until it can reconnect."
+
+**C. Week 7 named as the first place to save time.** Applied, option (a). The compression
+list in section A.3 is now "Week 5 (benchmark two values of $w$ instead of four), Week 8 (use
+a library for RRT*) and the MILP part of Week 11"; Week 7's Build and its
+`\difficulty{1}` are untouched. The summary bullet mirrors it: "compress Week 5 (two values
+of $w$ instead of four), Week 8 ... and the MILP part of Week 11". Week 5's Build does ask
+for `w in {1.0, 1.1, 1.5, 2.0}`, so the saving is real, and Week 5 is not on the
+"do not compress" list.
+
+**E. The self-check was ungraded and covered only half the plan.** Applied. The paragraph is
+now "An eight-question self-check". The six existing prompts carry `\difficulty{}` exactly as
+prescribed (items 1 and 3 one star, items 2, 4, 5 two stars, the capstone item three stars),
+and two prompts were added from existing "Done when" lines: item 6 (Week 6, two stars) draws
+the VO cone and the ORCA half-plane for one crossing pair and says which velocities each
+forbids; item 7 (Weeks 9-10, two stars) shows the filtered estimate beating the raw
+measurements and the ADE/FDE table per horizon for constant velocity and the LSTM. No
+chapter-style `exercise` environments were added; it is still a self-check.
+
+**G. `\cref{sec:appA-...}` printed "Appendix A.3" / "Appendix A.5".** Applied in all four
+places (Table A.1 Week 12, the pitfall on carrying a red test forward, the caption of
+Figure A.2, and the Week-12 Focus): each now uses `Section~\ref{sec:appA-capstone}` or
+`Section~\ref{sec:appA-timeline}`, and the PDF reads "Section A.5" and "Section A.3". The
+book-level alternative is **not** applied and is listed here for the book editor: adding
+`\crefalias{section}{appendixsection}` (or a `\crefname` switch) after `\appendix` in
+`main.tex` would let `\cref` print "Section A.3" for sections of an appendix throughout the
+book, after which these four `\ref`s could go back to `\cref`.
+
+**G. Figure A.4 occupied a float page two pages after its text.** Applied. The flowchart was
+compressed vertically (the diamonds went from `aspect=2.4` to `aspect=3`, and the boxes moved
+to s1 5.60, d1 3.93, s2 1.76, s3 0.35, d2 -1.32, s4 -3.49, s5 -4.90, with the three return
+rails now at y = 5.6 / 6.1 / 6.5 and the two cuts at y = 2.82/2.61 and -2.43/-2.64). I did
+not use the literal coordinates in the fix: with `y=0.8cm` and s1 at 6.2, d1 at 4.4 the gap
+between the bottom of box 1 and the top of the first diamond is about 1 mm, which is not
+enough for the connecting arrow (the diamond's half-height is about 8.5 mm at this text
+width). The chosen layout keeps every gap between 4.5 and 9.5 mm and is 1.8 cm shorter
+overall (11.9 cm instead of 13.7 cm). The figure float is now `[tbh]`; section A.5.2 with its
+five steps is on PDF p.32 and Figure A.4 sits at the top of p.33 with section A.5.3 under it,
+with no white space anywhere. Requirement met ("the page after section A.5.2").
+
+**G. Bad hyphenation inside TikZ nodes.** Applied.
+`\hyphenpenalty=10000\exhyphenpenalty=10000` was added to the `font=` key (braced, so the
+key parser keeps the `=` signs) of `wk` and `capbox` in `week-dependencies.tex`, `logicstep`,
+`test`, `trig` and `cutlab` in `decision-logic.tex`, and `lay`, `src` and `ifc` in
+`architecture.tex`. `pdftotext` of the rebuilt PDF no longer contains "ob-servations",
+"nomi-nal", "lo-cal", "communi-cation", "vio-lated", "con-flict", "avoid-ance",
+"predic-tion" or "ob-stacle"; no new overfull box appeared.
+
+**G. "(Weeks~3)" in self-check item 3.** Applied; it reads "(Week~3)".
+
+### Suggestions
+
+Taken:
+
+* The objectives box now promises "say what the headline metrics hide", matching the two
+  metrics the Metrics paragraph actually dissects.
+* `tab:appA-layers` is now `\begin{table}[H]`, so it sits directly under section A.5.1
+  instead of drifting; and its Layer-4 Job cell explains the "11" in the Weeks column:
+  "(Week 11 adds the formation and communication constraints this re-check must test.)"
+* Acronyms expanded at first use: "bounded-suboptimal variant enhanced CBS (ECBS)" in
+  section A.1, and "SciPy only for the quadratic program (QP) and mixed-integer linear
+  program (MILP) solvers".
+* A second `pitfall` box, "Benchmarking on one instance", was added after the Metrics
+  paragraph, built from the Week-5 trap ("concluding from one instance") and the Week-10 trap
+  ("tuning on the test set"). The appendix now meets STYLE_GUIDE section 2 item 10.
+* Week 6's "Done when" no longer asserts an experimental outcome as a pass criterion: the
+  falsifiable part (draw the cone and the half-plane, say what each forbids) leads, and the
+  comparison is phrased as "you should see ...", with a sentence telling the reader to report
+  separation numbers rather than doubt a correct implementation whose speeds and radii differ.
+
+Not taken:
+
+* The extra Layer 1 -> command edge in `fig:appA-architecture`. The only clear route is down
+  the far left at about x = -4.7, which widens the picture past the text block (the `inst`
+  node already reaches x = -4.2 and the right-hand interface label reaches x = 7.95). The
+  point it would make -- that the nominal waypoint is the command when no risk is detected --
+  is now carried by the dotted replan-only rail and the extended caption of Figure A.4.
+* The book-level `\crefname`/`\crefalias` fix, per the reviewer's own instruction; listed
+  above for the editor.
+
+### For the book editor (outside this appendix)
+
+* `main.tex`: a `\crefalias{section}{appendixsection}` after `\appendix` would fix
+  "Appendix A.3" for `\cref` to sections of an appendix book-wide.
+* Chapters 6, 15, 16, 17, 18, 23, 24 and 25 are still stubs with no `exercise`
+  environments, so "the coding exercise of Chapter NN" cannot yet be honoured for Weeks 2,
+  7, 8, 9, 11 and 12, and the Week-12 descriptions of `ch:ch24` and `ch:ch25` cannot be
+  verified. Re-check once those chapters exist.
+* `frontmatter/notation.tex` (13 lines) lists neither `\ttc` nor `\rhs` nor
+  `\Open`/`\Closed`, all of which this appendix uses.

@@ -151,3 +151,87 @@ deliberately differs from the pseudocode - and the split of the coding exercise 
 Finally, the length: at 19 pages the chapter is one page over the style-guide range and four over
 the spec target, but every remaining page is definitions, the worked example, the benchmark section
 or floats. Do not trim further; completeness here is worth more than the page.
+
+## Response to review (round 2)
+
+All four required changes are applied, together with seven of the ten suggestions. The chapter
+still builds with status 0 and no `!` errors, `python3 code/ch07_mapf.py` still passes its
+self-test (0.8 s), and the chapter body is unchanged at 19 pages (pages 15-33 of
+`build/only-ch07-mapf-problem.pdf`). Nothing on the "what must be kept" list was touched.
+
+### Required changes
+
+1. **`prop:ch07-hierarchy`(c), non-consecutive pairs (A).** *Done.* The one-sentence swap argument
+   is replaced by the argument the review asked for, stated for an arbitrary pair and flagged as
+   such: "No pair swaps either, and this has to be checked for *every* pair, not only for
+   neighbours in the rotation. Suppose $a_{i_a}$ and $a_{i_b}$ swap, so $\pi_{i_a}[t+1] =
+   \pi_{i_b}[t]$ and $\pi_{i_b}[t+1] = \pi_{i_a}[t]$. The rotation gives $\pi_{i_a}[t+1] =
+   \pi_{i_{a+1}}[t]$, and because the $m$ vertices are distinct, $\pi_{i_b}[t] = \pi_{i_{a+1}}[t]$
+   forces $i_b = i_{a+1}$; symmetrically the second equation forces $i_a = i_{b+1}$ (indices modulo
+   $m$). Together $a \equiv a+2 \pmod m$, so $m = 2$, and no pair of a cycle with $m \ge 3$ swaps."
+   The vertex-conflict half of (c) and parts (a), (b), (d) are unchanged.
+2. **$T_i$ versus the arrival time of `ch02`/`ch08`/`ch09` (F).** *Done.* A short paragraph now
+   follows `def:ch07-plan` immediately: it names $T(\pi_i)$ of \cref{ch:ch02} as this chapter's
+   $\cost(\pi_i)$, says that $T_i$ is only the last index the stored list mentions, states
+   $T_i \ge \cost(\pi_i)$ and $T \ge \makespan(\Pi)$ with equality exactly when no path ends with
+   waits at its goal, points at how `ch08`/`ch09` store paths, and closes with "Read $T$ as 'how far
+   the tables go', never as a cost". It is plain text rather than a fourth `pitfall` box, so the
+   page count does not move and the three protected pitfall boxes stay the only ones. The glossary
+   entry *Horizon of a plan* now carries the same "at least the makespan" clause.
+3. **`prop:ch07-bounds`: `\dist` instead of $d(u,v)$ (F).** *Done.* All four occurrences are now
+   `\dist`, and the preamble reads "Let $\dist(u,v)$ be the distance of \cref{ch:ch02} in $G$". The
+   fifth occurrence, in the solution to `exr:ch07-objectives`
+   (`appendices/solutions/ch07-solutions.tex`), was changed too, so no $d(\cdot,\cdot)$ is left in
+   the chapter's files.
+4. **`tab:ch07-solver-families` credits a hardness paper with a SAT encoding (H).** *Done.* The
+   reduction-based cell now reads "SAT encodings (surveyed in \cite{felner2017search}); integer
+   programming \cite{yu2016optimal} (\cref{ch:ch22})"; `\cite{surynek2010optimization}` is gone from
+   that cell and survives only where it belongs (the NP-hardness discussion around
+   `thm:ch07-nphard` and the further-reading paragraph). I did **not** add the ECAI 2016 Surynek,
+   Felner, Stern and Boyarski paper: I could not verify its pages from here, and STYLE_GUIDE section
+   3 forbids adding an entry that is not fully verified.
+
+### Suggestions
+
+* **ICTS expanded in the table.** Done: the cell reads "increasing cost tree search (ICTS)
+  \cite{sharon2013icts}" and the later paragraph now says only "ICTS searches the vectors of path
+  costs in increasing order".
+* **Caption of `fig:ch07-example-instance`.** Done: "The cross on $(0,1)$ carries both vertex
+  conflicts found by hand in \cref{tab:ch07-example-paths}, and the cross on the edge
+  $(0,1)$--$(0,2)$ marks the swap."
+* **`figures/ch07/solver-families.tex`.** Deleted; the seven remaining files in `figures/ch07/` are
+  all `\inputfigure`d by the chapter.
+* **MAPF-POST (line 1027).** Done: "Deciding that network is a shortest-path computation on its
+  distance graph (a special linear program), so real arrival times ... follow in polynomial time."
+* **Line 36.** Done: "The number of conflicts grows roughly in proportion to the number of pairs,
+  $k(k-1)/2$."
+* **Line 366.** Done: the parenthesis is now its own sentence, "\Cref{alg:ch07-pairwise} states the
+  direct version of that subroutine."
+* **Overfull box in `tab:ch07-conflict-summary`.** Done: "one edge apart at integer times". The box
+  is down from 14.64 pt to 0.67 pt, and it is now the only overfull box in the chapter.
+* **Solutions for `exr:ch07-corridor`(b)-(c).** Done, so the solutions file now covers 9 of 9
+  exercises. (b) gives the explicit plan $\pi_1 = ((0,0),(0,1),(1,1),(0,1),(0,2),(0,3))$,
+  $\pi_2 = ((0,3),(0,2),(0,1),(0,0))$ on the corridor with a pocket at $(1,1)$, notes that the one
+  suspicious step is a following conflict and not a swap, and reports $\sumcost = 8$,
+  $\makespan = 5$, both optimal. Every number is now produced by the code: `_self_test()` of
+  `code/ch07_mapf.py` gained four lines asserting `validate_plan(pocket, pocket_plan) == (True, [])`,
+  `[path_cost(q) for q in pocket_plan] == [5, 3]`, `sum_of_costs == 8` and `makespan == 5`, next to
+  the existing `optimal_makespan_bruteforce(pocket) == 5` / `optimal_soc_bruteforce(pocket) == 8`.
+  (c) explains that `thm:ch07-feasible` promises a polynomial *decision*, not feasibility, so the
+  unsolvable corridor with $k \le |V| - 2$ is no contradiction, and that Push-and-Rotate reports
+  unsolvability rather than looping.
+* **`frontmatter/notation.tex`.** Not done, and not mine to do: the finisher brief forbids editing
+  files outside the chapter's own set. See the editor notes below.
+
+### Editor notes (outside this chapter's files)
+
+* `frontmatter/notation.tex` is still the two-row placeholder. It should carry $\pi_i$, $\pi_i[t]$,
+  $\Pi$, $T_i$, $T$, $k$, $\cost(\pi_i)$, $\sumcost$ and $\makespan$, with the
+  $T_i$-versus-arrival-time distinction of required change 2 stated once for the whole book.
+* `ch02`'s summary bullet (line 756) writes "$\makespan = \max_i T_i$, $\sumcost = \sum_i T_i$";
+  with this chapter's convention it should read $\max_i T(\pi_i)$ and $\sum_i T(\pi_i)$.
+* ch07 cites `sharon2013icts` (solver table and the ICTS sentence) and the entry is supplied by
+  `bib/ch09-extra.bib`, not by `references.bib` or `bib/ch07-extra.bib`.
+* A primary SAT reference for `tab:ch07-solver-families` (Surynek, Felner, Stern, Boyarski, ECAI
+  2016) is still missing on purpose; an editor who can verify its bibliographic data should add it
+  to `references.bib` and put the key back into the reduction-based cell.
