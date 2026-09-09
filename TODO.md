@@ -36,7 +36,7 @@ Legend: `[ ]` open · `[x]` done · `[~]` in progress · `[-]` dropped (with rea
 
 - [x] 1.1 Title page and copyright/colophon page (`frontmatter/titlepage.tex`, `copyright.tex`; final polish in 7.5)
 - [~] 1.2 Preface: who the book is for, prerequisites, how to read it, how it maps to the 12-week plan, conventions (boxes, difficulty stars, priorities), how to run the code — drafted (`frontmatter/preface.tex`, 3 pages, compiles); final check after the chapters are reviewed
-- [ ] 1.3 Notation and symbols table (complete, consistent with all chapters)
+- [~] 1.3 Notation and symbols table (complete, consistent with all chapters) — Opus agent writing it from the macros and the 15 written chapters
 - [ ] 1.4 List of algorithms (auto-generated; check titles)
 
 ## Phase 2 — Chapter drafts
@@ -98,7 +98,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [ ] 4.3 Appendix C: hints and solutions to selected exercises (≥2 per chapter)
 - [ ] 4.4 Glossary (every bold term of the book)
 - [ ] 4.5 Index (≥15 entries per chapter; check for duplicates and synonyms)
-- [ ] 4.6 Bibliography audit: every citation resolves; every entry is a real, correctly described publication
+- [~] 4.6 Bibliography audit: every citation resolves; every entry is a real, correctly described publication — Opus agent auditing every entry via web search (docs/bib-audit.md)
 
 ## Phase 5 — Peer review and revision (per chapter, repeated until Accept)
 
@@ -178,6 +178,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 15 | 13:55 | 8.2/8.3 produced `Overleaf/searchbook.pdf` and `Overleaf/searchbook-overleaf.zip` (202 files) from the current state | delivered |
 | 24 | 13:00-17:40 | first wave: authors finished Ch 7, 9, 11, 13, 19, 20, 21 (20-24 pp each, all compile); then the session limit hit again (reset 17:40 UTC) before any review completed | 17 drafted files |
 | 26 | 09-08 | review loops finished for Ch 1-5, 7, 9-11, 13, 14, 19-21 and App. A (Ch 1 Accept; 14 others: two Opus rounds, minor items applied). All 12 remaining authors (Ch 6, 8, 12, 15-18, 22-25, App. B) stopped by the WEEKLY Fable limit | 15 reviewed |
+| 28 | 09-09 08:55 | workflows resumed (cached reviews replay; 12 authors to run). In parallel on Opus: 4.6 bibliography audit via web search (docs/bib-audit.md) and 1.3 notation table (frontmatter/notation.tex) | running |
 | 27 | 09-09 08:50 | full build currently fails on partial figures left by interrupted authors (ch12, ch22); resuming the workflows so those authors finish their chapters | resuming |
 | 25 | 19:15 | workflows resumed from their run IDs: the seven finished authors replay from cache; Opus reviews of Ch 7, 9, 11, 13, 19, 20, 21 and the review-only passes start; remaining authors (Ch 6, 8, 12, 14-18, 22-25, App B) follow | running |
 | 23 | 12:46 | session limit reset; three workflows relaunched from docs/workflows/batches/w1-3.json (Fable authors, Opus reviewers, Essential chapters 16-24 pp) | running |
