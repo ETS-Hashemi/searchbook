@@ -198,3 +198,96 @@ drone's point of view with the broadcast line, the seven figures (all referenced
 shared `sb*` styles, three of them generated with a committed script), Table 23.4 of the
 three formation-control families, the 36 index entries, and the complete, accurate
 bibliography.
+
+## Response to review (round 1)
+
+All six required changes are applied. The chapter builds with status 0, no errors, no
+undefined references and no overfull boxes above 15 pt; `python3 code/ch23_consensus.py`
+still passes its self-test in 3.5 s and every number quoted in the chapter still comes from
+`worked_example()`. No code changed, so no `.dat` file needed regenerating. The chapter body
+is still 23 PDF pages: the four non-content cuts below paid for the added text.
+
+### Required changes
+
+1. **Example 23.1, "Discrete time." parenthesis (category A).** Fixed. The false claim that
+   drone 3 does not move in the first step is replaced by "(after the first step drone 3
+   lands exactly on the average of its three neighbours, $(7.75+6.25+2.5)/3 = 5.5$, so its
+   update term is zero and it never moves again, while the others keep converging towards
+   it)". This now agrees with Table 23.2 (drone 3 goes 7.000 -> 5.500 and then stays) and
+   with row 3 of $\mat{L}\vect{z}(0) = 6$.
+
+2. **Proof sketch of Theorem 23.2, $\mu_k^k$ (category A).** Fixed by separating the two
+   indices, as suggested. The proof now reads
+   $\vect{\delta}_m = \mat{P}^m\vect{\delta}_0 = \sum_{k\ge2} c_k \mu_k^m \vect{v}_k$ after
+   $m$ steps, "so mode $k$ is damped by the factor $\mu_k^m$", matching
+   `appendices/solutions/ch23-solutions.tex`. For consistency inside the theorem, the
+   statement and (23.17) were switched to the same time index: the iteration is written
+   $\vect{x}_{m+1} = (\mat{I}-\eps\mat{L})\vect{x}_m$ and the bound
+   $\norm{\vect{\delta}_m} \le \rho^m\norm{\vect{\delta}_0}$. The mode index stays $k$, as
+   in Theorem 23.1 and Proposition 23.5.
+
+3. **Two meanings of $\mat{B}$ (category F).** The power-iteration matrix in Section 23.7.3
+   is renamed $\mat{W} = s\mat{I} - \mat{L} - \frac{s}{n}\vect{1}\vect{1}\T$, with an added
+   parenthesis "(a different matrix from the pinning matrix $\mat{B}$ of (23.10))"; the
+   sentence about its largest eigenvalue $s - \lambda_2$ was adjusted to the new name.
+   $\mat{B} = \diag(b_1,\dots,b_n)$ keeps its single meaning as the pinning matrix.
+
+4. **$\eps$ in the sigma-norm (category F).** The smoothed norm is now
+   $\norm{\vect{z}}_\sigma = (\sqrt{1+\sigma\norm{\vect{z}}^2}-1)/\sigma$ with a small
+   $\sigma > 0$, followed by "he calls this parameter $\epsilon$, which in this chapter is
+   the step size of (23.8)". No conflict with the notation table remains.
+
+5. **First-order gain $k$ renamed $k_c$ (category F).** Done at every listed place:
+   line 320 (now with an index entry, `\index{consensus!gain $k_c$}`, and the added sentence
+   "The letter $k$ is reserved for the time step and the mode index"), the step size
+   $\eps = k_c\dt$ (line 327), the `\KwIn` of Algorithm 23.1 and its line 5, the walkthrough
+   ($\eps = k_c\dt$, $k_c\dt < 1/d_{\max}$), the caption of Table 23.3, Corollary 23.1 (rate
+   $k_c\lambda_2$), the caption of Figure 23.4, the implementation notes (twice), and
+   Exercise 23.7(b). The matching occurrences in the solution to Exercise 23.7(b) were
+   renamed too. The Python keyword `gain=` in Listing 23.2 is unchanged, and Listing 23.2's
+   caption contains no gain symbol.
+   **Front-matter edit (reported as required):** one row was added to the "Networks and
+   consensus" block of `Overleaf/frontmatter/notation.tex`, immediately above the
+   $k_p, k_v, k_d$ row:
+   `$k_c$, $k_l$ & consensus gain of the first-order protocol; pinning gain of the leader & \cref{ch:ch23}\\`
+
+6. **Exercise 23.5(a) and its solution (category E).** The exercise now asks the student to
+   show that the centroid moves with the constant velocity
+   $-\frac1n\sum_i\sum_{j\in N_i}\vect{d}_{ij}$, to conclude that it is stationary whenever
+   $\vect{d}_{ji} = -\vect{d}_{ij}$ on every edge, and to give an example that is
+   antisymmetric on no edge and still leaves the centroid fixed. The solution states that
+   antisymmetry is sufficient but not necessary and gives the reviewer's counterexample on
+   the path 1-2-3 with $\vect{d}_{12}=\vect{d}_{21}=(1,0)\T$ and
+   $\vect{d}_{23}=\vect{d}_{32}=(-1,0)\T$.
+
+### Suggestions
+
+* **Length.** (i) The section-by-section roadmap at the end of Section 23.1 is cut to two
+  sentences. (ii) Further reading no longer re-lists the six papers narrated in the history
+  note; it now opens by pointing at that note and keeps only the sources it alone
+  introduces. (iii) The "Asynchronous updates and packet loss" paragraph is compressed from
+  fourteen lines to seven, keeping only the asymmetric-loss content that is not already in
+  Section 23.6.3. (iv) *Not done*: rows $k = 3, 4$ of Table 23.2 were kept. They cost two
+  lines, they carry the divergence continuing to $11.262$, and the "what to keep" list asks
+  for both discrete runs of Example 23.1 in full.
+* **(23.21) sign grouping.** Applied: the navigation feedback is now
+  `+ \underbrace{\bigl(-c_1(\pos_i-\pos_\gamma) - c_2(\vel_i-\vel_\gamma)\bigr)}`.
+* **Solutions coverage.** Three solutions added, taking the file from 4 to 7 of 8 exercises:
+  Exercise 23.2 (including the proof of
+  $\sum_{i<j}\norm{\vect{y}_i-\vect{y}_j}^2 = n\sum_i\norm{\vect{y}_i-\bar{\vect{y}}}^2$ and
+  hence $e_F^2 = \frac{2n}{n-1}e_c^2$, checked on the example: $2.930$ m over all six pairs
+  against $2.500$ m over the four edges), Exercise 23.4 (directed graphs, with the left
+  eigenvectors and the explicit solutions), and Exercise 23.6 (including the inscribed
+  polygon and the $1-\cos(\pi/8) = 7.6\%$ of range given away, $0.24$ m of a $3.2$ m radio).
+  Exercise 23.8 is the coding exercise and is left without a written solution.
+* **Figure 23.7 caption.** Now says the intruder distance is drawn divided by ten so that
+  both curves fit one axis.
+* **Disconnected-graph pitfall.** "stays at 10 for ever" is now "settles at 10 instead of
+  decaying to zero".
+* **Figure 23.1 caption.** Now "their sum (orange) is $\abs{N_i}$ times the vector from
+  $\vect{x}_i$ to the neighbours' average".
+* **Line 368 stacking.** $\vect{e} = \vect{x} - \vect{1}\otimes\vect{r}$, matching
+  Proposition 23.3 and Exercise 23.7(b).
+* **Section 23.4.5.** Added: the absolute damping $-k_d(\vel_i - \dot{\vect{r}})$ "is local
+  only once every follower has been told $\dot{\vect{r}}$, forwarded from the leader through
+  the graph".
