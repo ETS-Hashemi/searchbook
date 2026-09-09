@@ -81,8 +81,8 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [x] 2.23 Ch 23 Consensus and Formation Control (graph Laplacian, consensus protocol, formation error, communication radius) — written and compiled (23 pp); Opus review pending
 
 ### Part VIII — Putting It Together
-- [~] 2.24 Ch 24 The Hybrid Collision-Avoidance Architecture (layers, decision logic, safety horizon, reconnection, replanning triggers) — drafted on Fable (24 pp, 1514 lines, compiles); Opus review in progress
-- [~] 2.25 Ch 25 Evaluating a Hybrid Planner (experiment matrix, metrics, benchmarks, reproducibility, reporting) — drafted on Fable (24 pp, 1501 lines, compiles); Opus review in progress
+- [x] 2.24 Ch 24 The Hybrid Collision-Avoidance Architecture (layers, decision logic, safety horizon, reconnection, replanning triggers) — written and compiled (24 pp); reviewed and revised (see review log)
+- [x] 2.25 Ch 25 Evaluating a Hybrid Planner (experiment matrix, metrics, benchmarks, reproducibility, reporting) — written and compiled (24 pp); reviewed and revised (see review log)
 
 ## Phase 3 — Reference code and figure generators
 
@@ -127,8 +127,8 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 - [~] 5.21 Ch 21 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [ ] 5.22 Ch 22 — review/revise until Accept
 - [ ] 5.23 Ch 23 — review/revise until Accept
-- [ ] 5.24 Ch 24 — review/revise until Accept
-- [ ] 5.25 Ch 25 — review/revise until Accept
+- [x] 5.24 Ch 24 — review/revise until Accept — two Opus rounds (Minor 8 -> Minor 4), all applied; loop complete
+- [x] 5.25 Ch 25 — review/revise until Accept — two Opus rounds (Minor 6 -> Minor 5), all applied; loop complete
 - [~] 5.26 Front matter and appendices — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 
 ## Phase 6 — Book-level review (whole manuscript)
@@ -217,4 +217,6 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | Ch 19 | 1-2 | Minor revision (8) -> Minor revision (4), applied | see reviews/ch19-round1.md, ch19-round2.md | minor items applied, unreviewed |
 | Ch 20 | 1-2 | Minor revision (12) -> Minor revision (6), applied | see reviews/ch20-round1.md, ch20-round2.md | minor items applied, unreviewed |
 | Ch 21 | 1-2 | Minor revision (9) -> Minor revision (3), applied | see reviews/ch21-round1.md, ch21-round2.md | minor items applied, unreviewed |
+| Ch 24 | 1-2 | Minor (8) -> Minor (4), all applied | see reviews/ch24-round*.md | loop complete |
+| Ch 25 | 1-2 | Minor (6) -> Minor (5), all applied | see reviews/ch25-round*.md | loop complete |
 | App. A | 1-2 | Minor revision (6) -> Minor revision (9), applied | see reviews/appA-round1.md, appA-round2.md | minor items applied, unreviewed |
