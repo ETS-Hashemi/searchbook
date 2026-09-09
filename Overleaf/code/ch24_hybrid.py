@@ -559,6 +559,7 @@ PARAMS = dict(
     r_comm=8.5,               # communication range, m
     ell_act=7.5,              # link length at which the communication pull acts, m
     k_form=0.5,               # formation correction gain, 1/s
+    k_comm=1.0,               # gain of the soft communication-range term, 1/s
     period_prediction=0.1,    # rate of the prediction layer, s (control cycle: DT)
     replan_period=1.0,        # a drone replans at most once per this many seconds
     sigma_z=0.15, q_kf=0.05,  # measurement noise (m) and process noise of the KF
@@ -734,7 +735,8 @@ class HybridSimulation:
             nearest = min(mates, key=lambda o: np.linalg.norm(o.pos - d.pos))
             gap = np.linalg.norm(nearest.pos - d.pos)
             if gap > self.p["ell_act"]:
-                v = v + (nearest.pos - d.pos) / gap * (gap - self.p["ell_act"])
+                v = v + (self.p["k_comm"] * (gap - self.p["ell_act"])
+                         * (nearest.pos - d.pos) / gap)
         n = np.linalg.norm(v)
         if n > self.p["v_max"]:
             v = v / n * self.p["v_max"]
@@ -934,7 +936,7 @@ class HybridSimulation:
                 v_pref = self.preferred_velocity(d, with_formation=False)
                 return self.local_layer(d, v_pref, pred, t_c, with_intruder=True)[0]
             if self.t >= d.target_time - DT / 2:
-                self.transition(d, NOMINAL, "back on the plan at k=%d" % d.target_index)
+                self.transition(d, NOMINAL, "back on the plan at waypoint %d" % d.target_index)
         v_pref = self.preferred_velocity(d, with_formation=True)
         return self.local_layer(d, v_pref, pred, t_c, with_intruder=False)[0]
 
@@ -980,6 +982,8 @@ class HybridSimulation:
         snap = dict(t=self.t, pos=[d.pos.copy() for d in self.drones],
                     state=[d.state for d in self.drones], intruder=p_true.copy(),
                     est=(self.tracker.position if self.tracker.x is not None else None),
+                    est_v=(self.tracker.velocity if self.tracker.x is not None else None),
+                    est_P=(self.tracker.P.copy() if self.tracker.x is not None else None),
                     pred=pred, e_form=self.formation_error(), connected=self.connected(),
                     sep=[float(np.linalg.norm(d.pos - p_true)) for d in self.drones],
                     drift=[float(np.linalg.norm(d.pos - d.plan_position(self.t))) for d in self.drones],

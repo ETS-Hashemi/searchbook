@@ -207,10 +207,10 @@ Let $\mat{A}$ be symmetric.
 \end{proof}
 
 Geometrically, the level set $\vect{x}\T\mat{A}\vect{x} = 1$ of a PD quadratic
-form is an ellipsoid whose axes are the eigenvectors $\vect{q}_i$ and whose
-semi-axes are $1/\sqrt{\lambda_i}$; the covariance ellipse of a Gaussian in
-\cref{sec:appB-probability} is the level set of the form built from
-$\mat{\Sigma}\inv$, so its semi-axes are $\sqrt{\lambda_i(\mat{\Sigma})}$.
+form is an ellipsoid with axes $\vect{q}_i$ and semi-axes $1/\sqrt{\lambda_i}$;
+the covariance ellipse of a Gaussian in \cref{sec:appB-probability} is the
+level set of the form built from $\mat{\Sigma}\inv$, so its semi-axes are
+$\sqrt{\lambda_i(\mat{\Sigma})}$.
 
 \begin{example}[A covariance matrix taken apart]
 \label{ex:appB-eigen}
@@ -387,7 +387,7 @@ Dropping $\vect{r}$ in \cref{eq:appB-taylor1} is
 \cref{ch:ch19} replaces its motion and measurement models by their Jacobians
 $\mat{F}$ and $\mat{H}$ at the current estimate, and the size of $\vect{r}$
 over the spread of the estimate decides whether that is good enough or whether
-the unscented or particle filters of the same chapter are needed. The
+the unscented or particle filters of the same chapter are needed; the
 second-order expansion underlies Newton's method and the convexity test of
 \cref{sec:appB-optimization}.
 
@@ -433,11 +433,7 @@ through $\mat{B}$, which is where its white-noise-acceleration covariance
 $\mat{Q}$ comes from; \cref{ch:ch21} stacks $N$ copies of \cref{eq:appB-AB}
 into the prediction matrices of its quadratic program; \cref{ch:ch14} bounds
 the velocities reachable in one step by $\norm{\vel_{k+1} - \vel_k} \le
-a_{\max}\dt$, its dynamic window. The explicit Euler step $\pos_{k+1} = \pos_k
-+ \vel_k\dt$ drops the term $\tfrac12\acc\dt^2$: with $\dt = 0.1$\,s, $v =
-2$\,m/s and $a = 1$\,m/s$^2$ the exact step moves the drone $0.205$\,m and
-leaves it at $2.1$\,m/s, the Euler step moves it $0.200$\,m, and the difference
-accumulates over a trajectory.
+a_{\max}\dt$, its dynamic window. The explicit Euler step $\pos_{k+1} = \pos_k + \vel_k\dt$ drops the term $\tfrac12\acc\dt^2$ (with $\dt = 0.1$\,s, $v = 2$\,m/s and $a = 1$\,m/s$^2$: $0.200$\,m instead of the exact $0.205$\,m, at $2.1$\,m/s afterwards), an error that accumulates over a trajectory.
 
 % ---------------------------------------------------------------------
 \section{Probability and Gaussians}
@@ -623,12 +619,7 @@ rule}\index{Bayes' rule}
 which turns a \textbf{prior} $p(\state)$ and a \textbf{likelihood} $p(\meas
 \mid \state)$ into the \textbf{posterior} $p(\state \mid \meas)$; the
 denominator is a constant that makes the posterior integrate to one. For
-discrete events the integrals are sums. A small example: a detector flags an
-intruder with probability $0.9$ when one is present and with probability
-$0.2$ when none is (a false alarm); if intruders are present $10\,\%$ of the
-time, a flag raises the probability of an intruder only to $0.09/(0.09 +
-0.18) = 1/3$, because false alarms on the common ``no intruder'' case
-outnumber true detections on the rare one.
+discrete events the integrals are sums. For example, a detector that flags an intruder with probability $0.9$ when one is present and $0.2$ when none is, on a day with intruders present $10\,\%$ of the time, raises the probability of an intruder on a flag only to $0.09/(0.09 + 0.18) = 1/3$: false alarms on the common case outnumber true detections on the rare one.
 
 Every filter of \cref{ch:ch18,ch:ch19} is these two rules applied over and
 over: with the Markov assumption $p(\state_k \mid \state_{k-1},
@@ -692,13 +683,13 @@ covariance $\mat{S}$ accepts it only if $\vect{y}\T\mat{S}\inv\vect{y} \le
 \gamma$, with $\gamma$ the quantile of $\chi^2_n$ at the chosen confidence $p$:
 for $n = 2$ the $95\,\%$ and $99\,\%$ gates are $\gamma = -2\ln(1-p) = 5.991$
 and $9.210$, for $n = 1$ they are $3.841$ and $6.635$, and for $n = 3$ they
-are $7.815$ and $11.345$; a true measurement is then wrongly rejected with
+are $7.815$ and $11.345$. A true measurement is then wrongly rejected with
 probability $1 - p$, and a detection from another target or from clutter is
-rejected whenever it lands outside the ellipsoid
-\cite{barshalom2001estimation}. This is the gate of \cref{ch:ch18,ch:ch19},
-and the same quantiles size the uncertainty-inflated constraints of
-\cref{ch:ch24}, where an obstacle known only as a Gaussian is enlarged to the
-ellipse that holds a required probability mass.
+rejected whenever it lands outside the ellipsoid \cite{barshalom2001estimation}.
+This is the gate of \cref{ch:ch18,ch:ch19}; the same quantiles size the
+uncertainty-inflated constraints of \cref{ch:ch24}, where an obstacle known
+only as a Gaussian is enlarged to the ellipse that holds a required
+probability mass.
 
 % ---------------------------------------------------------------------
 \section{Optimization}
@@ -775,16 +766,16 @@ If $f$ and the $g_i$ are convex and the $h_j$ affine, these conditions are also 
 \end{theorem}
 
 The proof is in \textcite[Chapter~12]{nocedal2006numerical} and, for the
-convex case, in \textcite[Chapter~5]{boyd2004convex}. The conditions say that
-at the optimum the negative gradient of the cost is balanced by the normals of
-the \emph{active} constraints, those with $g_i(\vect{x}^*) = 0$, which by
-\cref{eq:appB-kkt-cs} are the only ones that can carry a positive multiplier;
-$\lambda_i^*$ measures how much the optimal cost would drop if constraint $i$
-were relaxed by one unit. This is the theory behind the soft constraints of
-\cref{ch:ch21}: a slack variable with a linear penalty reproduces the hard
-constraint exactly, whenever it is feasible, as soon as the penalty weight
-exceeds the multiplier \cite[Chapter~17]{nocedal2006numerical}. With equality
-constraints only, the conditions reduce to the classical Lagrange multipliers.
+convex case, in \textcite[Chapter~5]{boyd2004convex}. At the optimum the
+negative gradient of the cost is balanced by the normals of the \emph{active}
+constraints, those with $g_i(\vect{x}^*) = 0$, which by \cref{eq:appB-kkt-cs}
+are the only ones that can carry a positive multiplier; $\lambda_i^*$ measures
+how much the optimal cost would drop if constraint $i$ were relaxed by one
+unit. This is the theory behind the soft constraints of \cref{ch:ch21}: a slack
+variable with a linear penalty reproduces the hard constraint exactly, whenever
+it is feasible, as soon as the penalty weight exceeds the multiplier
+\cite[Chapter~17]{nocedal2006numerical}. With equality constraints only, the
+conditions reduce to the classical Lagrange multipliers.
 
 \subsection{Linear programs}
 \label{sec:appB-lp}
@@ -908,10 +899,10 @@ $[x_{\min}, x_{\max}] \times [y_{\min}, y_{\max}]$, \cref{ch:ch22} writes the
 four ``outside'' conditions $x \le x_{\min}$, $x \ge x_{\max}$, $y \le
 y_{\min}$ and $y \ge y_{\max}$ in the form \cref{eq:appB-bigM} with binaries
 $b_1, \dots, b_4$ and adds $b_1 + b_2 + b_3 + b_4 \le 3$, so that at least one
-of the four conditions stays enforced and the position lies beyond at least
-one face. The value of $M$ matters: too small cuts off feasible positions; too large
-makes the LP relaxation so loose that branch and bound has little to prune,
-besides the numerical trouble of mixing coefficients of very different sizes.
+condition stays enforced. The value of $M$ matters: too small cuts off
+feasible positions, too large makes the LP relaxation so loose that branch and
+bound has little to prune, besides the numerical trouble of mixing
+coefficients of very different sizes.
 
 \subsection{Gradient descent}
 \label{sec:appB-gd}
@@ -937,10 +928,9 @@ Proofs are in \textcite[Chapter~9]{boyd2004convex} and
 \tfrac12\vect{x}\T\mat{A}\vect{x}$ with $\mat{A} \succ \mat{0}$ shows the
 mechanism exactly: in the eigenbasis of $\mat{A}$ each coordinate is
 multiplied by $1 - \alpha\lambda_i$ per step, so the iteration converges iff
-$\abs{1 - \alpha\lambda_i} < 1$ for all $i$, that is iff $\alpha <
-2/\lambda_{\max}$, and the slowest coordinate is the one with the smallest
-eigenvalue. A large eigenvalue ratio, a long narrow valley, forces a small
-step and a slow crawl along the valley floor.
+$\alpha < 2/\lambda_{\max}$, and the slowest coordinate is the one with the
+smallest eigenvalue: a large eigenvalue ratio, a long narrow valley, forces a
+small step and a slow crawl along the valley floor.
 
 \begin{example}[Step sizes on a narrow valley]
 \label{ex:appB-gd}
@@ -1014,13 +1004,13 @@ Let $\mat{L}$ be the Laplacian of an undirected graph with eigenvalues $\lambda_
 
 The eigenvalue $\lambda_2$ is the \textbf{algebraic
 connectivity}\index{algebraic connectivity} of the graph
-\cite{fiedler1973algebraic}: it is zero exactly when the network is cut, and
-the larger it is, the faster information spreads. \Cref{ch:ch23} shows that
-under the consensus dynamics $\dot{\vect{x}} = -\mat{L}\vect{x}$ the average
+\cite{fiedler1973algebraic}: zero exactly when the network is cut, and the
+larger, the faster information spreads. \Cref{ch:ch23} shows that under the
+consensus dynamics $\dot{\vect{x}} = -\mat{L}\vect{x}$ the average
 $\tfrac1n\vect{1}\T\vect{x}$ is conserved, because $\vect{1}\T\mat{L} =
 \vect{0}\T$ by (i) and (ii), and the disagreement decays like $e^{-\lambda_2
 t}$ \cite{olfatisaber2007consensus}. The discrete version $\vect{x}_{k+1} =
-(\mat{I} - \eps\mat{L})\vect{x}_k$ multiplies the eigencomponent $i$ by $1 -
+(\mat{I} - \eps\mat{L})\vect{x}_k$ multiplies eigencomponent $i$ by $1 -
 \eps\lambda_i$ per step, so it converges iff $0 < \eps < 2/\lambda_n$, and by
 (iv) any $\eps < 1/d_{\max}$ is safe without knowing the spectrum.
 
@@ -1076,11 +1066,11 @@ says the bound is tight. Constants and lower-order terms are dropped ($3n^2 +
 50n = \Theta(n^2)$), the base of a logarithm is irrelevant, and the usual
 ladder is $1 \prec \log n \prec n \prec n\log n \prec n^2 \prec 2^n \prec n!$.
 A bound describes the worst case unless it says \emph{expected} (average over
-random choices) or \emph{amortised} (average over a sequence of operations).
-Read a bound with the right variables: Dijkstra's algorithm with a binary heap
-runs in $\bigO{(\abs{V} + \abs{E})\log\abs{V}}$ (\cref{ch:ch03}), which on a
-grid with $\abs{E} = \Theta(\abs{V})$ is $\bigO{\abs{V}\log\abs{V}}$; a
-space-time search over $T$ steps has $(T+1)\abs{V}$ states; and the
+random choices) or \emph{amortised} (average over a sequence of operations),
+and it must be read with the right variables: Dijkstra's algorithm with a
+binary heap runs in $\bigO{(\abs{V} + \abs{E})\log\abs{V}}$ (\cref{ch:ch03}),
+which on a grid with $\abs{E} = \Theta(\abs{V})$ is $\bigO{\abs{V}\log\abs{V}}$;
+a space-time search over $T$ steps has $(T+1)\abs{V}$ states; and the
 exponential worst case of the multi-agent solvers of \cref{ch:ch09,ch:ch10} is
 in the number of agents, not in the size of the map.
 
@@ -1094,11 +1084,11 @@ $a[0]$ is the minimum. Inserting appends the key and swaps it upwards while it
 is smaller than its parent (\emph{sift-up}); extracting the minimum moves the
 last key to the root and swaps it downwards with its smaller child
 (\emph{sift-down}); each walks one root-to-leaf path of length $\lfloor \log_2
-n \rfloor$, hence $\bigO{\log n}$. Building a heap from an unsorted array by
-sifting down from the last internal node upwards costs $\bigO{n}$
+n \rfloor$, hence $\bigO{\log n}$, and building a heap from an unsorted array
+by sifting down from the last internal node costs only $\bigO{n}$
 \cite[Chapter~6]{cormen2009clrs}. \Cref{tab:appB-heap} collects the costs of
-the operations a search needs, together with those of the \python containers
-used in this book's code.
+the operations a search needs, with those of the \python containers used in
+the book's code.
 
 \begin{table}[tb]
   \centering\small
@@ -1128,11 +1118,11 @@ A \textbf{hash table}\index{hash table} maps a key to an array position with
 a hash function and resolves the occasional collision by probing or chaining,
 so that insertion, lookup and deletion take constant expected time
 \cite[Chapter~11]{cormen2009clrs}; \code{dict} and \code{set} are hash tables.
-Keys must be \emph{hashable}, which in \python means immutable: tuples of
-integers such as a cell $(x, y)$ or a space-time state $(x, y, t)$ are ideal,
-lists and NumPy arrays are not accepted, and floating-point keys are legal but
-dangerous because two values that are equal on paper may differ in the last
-bit. This is why the search code of the book indexes cells by integer tuples.
+Keys must be \emph{hashable}, in \python immutable: tuples of integers such as
+a cell $(x, y)$ or a space-time state $(x, y, t)$ are ideal, lists and NumPy
+arrays are not accepted, and floating-point keys are legal but dangerous
+because two values equal on paper may differ in the last bit, which is why the
+search code of the book indexes cells by integer tuples.
 
 The \code{heapq} module implements a binary heap on a plain list, but it has
 no decrease-key. The idiom of \cref{ch:ch03,ch:ch04}, inherited by every
@@ -1140,10 +1130,8 @@ planner built on them, is \emph{lazy deletion}\index{lazy deletion}: keep the
 best known $\gcost$ of every node in a \code{dict}; when a better cost is
 found, push a fresh entry $(\fcost, -\gcost, \mathit{counter}, \mathit{node})$
 and leave the old one in the heap; when an entry is popped, skip it if its node
-is already in the closed set. The heap then holds at most one entry per
-relaxation, $\bigO{\abs{E}}$ in total, which leaves the asymptotic bounds
-unchanged, and the \code{dict} lookup that guards each push costs constant
-expected time.
+is already closed. The heap then holds at most one entry per relaxation,
+$\bigO{\abs{E}}$ in total, which leaves the asymptotic bounds unchanged.
 
 \begin{pitfall}[Heap entries must be comparable]
 \code{heapq} orders tuples lexicographically, so when two entries agree on $\fcost$ and $\gcost$ it compares the next field. If that field is a node without an ordering (a dictionary, an object) the search crashes at the first tie, and if it is a NumPy array it crashes at the first comparison. A running counter from \code{itertools.count()}, placed before the node, guarantees that the comparison never reaches the node and makes tie-breaking deterministic; the entry $-\gcost$ before the counter prefers the larger $\gcost$ among equal $\fcost$, as \cref{ch:ch04} recommends.

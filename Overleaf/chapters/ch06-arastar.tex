@@ -439,26 +439,23 @@ below is produced by its self-test. The optimal cost is $C^* = 6 + 3\sqrt{2}
 
 \paragraph{First iteration, $\eps = 3$.}
 \Cref{tab:ch06-trace} lists every expansion; three moments matter. The greedy
-dive: the start has key $0 + 3 \cdot 7.41 = 22.24$, and of the five cells that
-step~2 generates from its only free neighbour $(1,3)$ the diagonal ones
-$(2,4)$ and $(2,2)$ have the larger $\gcost$ but the smaller keys, since
-$\hcost$ counts three times; the search takes $(2,2)$, then $(3,2)$ and
-$(4,2)$, and the keys fall from $22.24$ to $13.41$ in five steps. The wall: at
-$(4,2)$ the obstacle $(5,2)$ blocks the way, the next key jumps to $15.07$ for
-$(4,3)$, the climb to $(5,4)$ in step~8 meets the wall segment
-$(6,3)$--$(6,4)$, and the search falls back on cells with keys around $17$.
-And step~12, which expands $(2,3)$, in \Open since step~2 with key $18.24$: it
-finds the cheaper way to $(3,3)$, $\gcost = 3.00$ instead of $3.83$
-(\cref{fig:ch06-incons}), and $(3,3)$, being closed, is moved to
-\textsc{Incons} while its successors, in particular $(4,3)$ with $\gcost =
-4.83$, keep their values. Five further expansions cross the wall and generate
-the goal with $\gcost(\gamma) = 12.24$, which is the smallest key in \Open, so
-the loop stops: 17 expansions, the path of the left panel of
-\cref{fig:ch06-example}, cost $8 + 3\sqrt{2} = 12.24$. The certificate: the
-inconsistent states are the eight cells in \Open and $(3,3)$ in
-\textsc{Incons}, the smallest $\gcost + \hcost$ among them is $L = 3.00 + 4.41
-= 7.41$, at $(3,3)$, so $\eps' = \min(3,\ 12.24/7.41) = 1.65$, while the true
-ratio is $12.24/10.24 = 1.20$.
+dive: from the start, key $0 + 3 \cdot 7.41 = 22.24$, through its only free
+neighbour $(1,3)$, whose diagonal successors $(2,2)$ and $(2,4)$ have the
+larger $\gcost$ but the smaller keys because $\hcost$ counts three times, on
+to $(3,2)$ and $(4,2)$, the keys falling to $13.41$ in five steps. The wall:
+the obstacle $(5,2)$ ends the dive, the next key jumps to $15.07$, the climb
+to $(5,4)$ in step~8 meets the segment $(6,3)$--$(6,4)$, and the search falls
+back on cells with keys around $17$. And step~12, which expands $(2,3)$, in
+\Open since step~2 with key $18.24$: it finds the cheaper way to $(3,3)$,
+$\gcost = 3.00$ instead of $3.83$ (\cref{fig:ch06-incons}), so $(3,3)$, being
+closed, goes to \textsc{Incons} while its successors, $(4,3)$ with $\gcost =
+4.83$ among them, keep their values. Five more expansions cross the wall and
+generate the goal with $\gcost(\gamma) = 12.24 = 8 + 3\sqrt{2}$, the smallest
+key in \Open, and the loop stops after 17 expansions with the path of the left
+panel of \cref{fig:ch06-example}. The certificate: over the eight cells in
+\Open and $(3,3)$ in \textsc{Incons} the smallest $\gcost + \hcost$ is $L =
+3.00 + 4.41 = 7.41$, at $(3,3)$, so $\eps' = \min(3,\ 12.24/7.41) = 1.65$,
+against a true ratio of $12.24/10.24 = 1.20$.
 
 \begin{table}[p]
   \centering\footnotesize
@@ -633,16 +630,14 @@ When $\mathrm{parent}(n') \gets n$ is set, $\gcost(n') = \gcost(n) + c(n,
 n')$; afterwards $\gcost(n)$ can only decrease, so $\gcost(n) + c(n, n') \le
 \gcost(n')$ holds from then on for every pointer, and summing along the
 pointers gives a path cost of at most $\gcost(\gamma)$. The chain cannot
-cycle. Suppose the pointers closed one, and look at the moment its last
-pointer was set, say $\mathrm{parent}(u) \gets p$; the relaxation that set it
-was strict, $\gcost(p) + c(p,u) < \gcost(u)$ for the value $\gcost(u)$ had a
-moment earlier. Every other pointer of the cycle was already in place and
-satisfied $\gcost(\mathrm{parent}(x)) + c(\mathrm{parent}(x),x) \le
-\gcost(x)$, so following them from $p$ around the cycle back to $u$ and adding
-the inequalities telescopes to $\gcost(u) + (\text{costs}) \le \gcost(p)$,
-hence $\gcost(u) \le \gcost(p)$ because costs are non-negative. Together with
-the strict relaxation this gives $c(p,u) < 0$, which is impossible. So the
-chain ends at the only state without a parent, $s$.
+cycle. Suppose it closed one and look at the moment its last pointer was set,
+say $\mathrm{parent}(u) \gets p$: that relaxation was strict, $\gcost(p) +
+c(p,u) < \gcost(u)$ for the value $\gcost(u)$ had a moment earlier. The other
+pointers of the cycle were already in place, so telescoping the inequality
+above from $p$ around the cycle back to $u$ gives $\gcost(u) \le \gcost(p)$
+for non-negative costs, and with the strict relaxation that forces $c(p,u) <
+0$, which is impossible. So the chain ends at the only state without a parent,
+$s$.
 \end{proof}
 
 \begin{theorem}[$\eps$-suboptimality; Likhachev, Gordon and Thrun 2003]
@@ -847,21 +842,19 @@ means. A single optimal \astar on the same instances expands $1\,177$ cells.
 
 Four observations.
 \begin{enumerate}
-  \item The cheap path comes first and the work is spent at the end: the first
-        iteration is weighted \astar and buys a path $8.3\,\%$ longer than
-        optimal, with a certificate of $1.41$ far below $\eps = 3$, for $215$
-        expansions or $18\,\%$ of the work of \astar, while the three
-        iterations with $\eps \le 1.25$ cost $1\,243$ of the $1\,541$
-        expansions, because a small $\eps$ makes the search behave like
-        \astar, which must rule out every cell with $\gcost^* + \hcost < C^*$.
+  \item The cheap path comes first, the work is spent at the end: iteration~1
+        is weighted \astar and buys a path $8.3\,\%$ above optimal, certified
+        $1.41$, for $18\,\%$ of the work of \astar, while the three iterations
+        with $\eps \le 1.25$ cost $1\,243$ of the $1\,541$ expansions, because
+        a small $\eps$ makes the search behave like \astar and rule out every
+        cell with $\gcost^* + \hcost < C^*$.
   \item Iterations~2 and~3 expand nothing: the $\eps = 3$ path already passes
         the termination test for $\eps = 2.5$ and $2$
-        (\cref{thm:ch06-properties}(iv)). They cost only the re-keying of
-        \Open, and the certificate stays where it was. Restarting weighted
-        \astar at those $\eps$ costs $224$ and $244$ expansions and improves
-        the path a little, to $7\,\%$ and $5\,\%$ above optimal: \arastar
-        delivers the guarantee, not the best path the effort could have
-        bought.
+        (\cref{thm:ch06-properties}(iv)), so they cost only the re-keying of
+        \Open and the certificate stays where it was. Restarting weighted
+        \astar at those $\eps$ costs $224$ and $244$ expansions and does
+        improve the path, to $7\,\%$ and $5\,\%$ above optimal: \arastar
+        delivers the guarantee, not the best path the effort could buy.
   \item The total is $1.3$ times one \astar for \arastar and $3.4$ times for
         the restarts. \arastar to optimality is more expensive than \astar
         alone, by $31\,\%$ here; this is the price of having had a path after
@@ -879,11 +872,11 @@ The schedule is the only parameter of \arastar, and \cref{tab:ch06-schedule}
 summarises what its two knobs, the initial factor $\eps_1$ and the decrement,
 do. Three things the table cannot say are worth adding. Values of $\eps_1$
 between $2$ and $3$ are the usual choice on grids and lattices
-\cite{likhachev2003ara,likhachev2008anytime}, because a greedier first search
-must back out of every dead end cell by cell and is rarely faster. Small
-decrements cost almost nothing, since an iteration that expands nothing costs
-only the re-keying of \Open and one that expands something publishes a path,
-so err on the side of small steps; $0.2$ is a common value. And the
+\cite{likhachev2003ara,likhachev2008anytime}: a greedier first search must
+back out of every dead end cell by cell and is rarely faster. Small decrements
+cost almost nothing, since an iteration that expands nothing costs only the
+re-keying of \Open and one that expands something publishes a path; $0.2$ is a
+common value. And the
 certificate can drive the schedule: an inflation factor above $\eps'_k$, which
 has already been achieved, cannot improve the published guarantee, so the next
 iteration may start at $\eps_{k+1} = \max(1, \eps'_k - \Delta)$
