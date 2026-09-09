@@ -1,4 +1,378 @@
 \chapter{The Kalman Filter}
 \label{ch:ch18}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode are prefixed with "Kalman" to stay unique
+% across the book.
+\SetKwFunction{KalmanPredict}{KalmanPredict}
+\SetKwFunction{KalmanUpdate}{KalmanUpdate}
+\SetKwFunction{KalmanTrack}{TrackIntruder}
+\SetKwFunction{KalmanInitTwo}{InitFromTwoMeasurements}
+\SetKwFunction{KalmanAhead}{PredictAhead}
+
+\begin{objectives}
+\begin{itemize}
+  \item Write down the linear-Gaussian state-space model of a moving drone, $\state_k=\mat{F}\state_{k-1}+\mat{B}\ctrl_k+\vect{w}_k$ and $\meas_k=\mat{H}\state_k+\vect{v}_k$, and say what each of $\mat{F}$, $\mat{H}$, $\mat{Q}$ and $\mat{R}$ encodes.
+  \item Derive the predict and update steps of the Kalman filter from two facts about Gaussians, and explain the Kalman gain as a precision-weighted compromise between prediction and measurement.
+  \item Build the constant-velocity model in 2D and 3D with the white-noise-acceleration process noise, derive its $\mat{Q}$, and run the filter by hand for a few steps.
+  \item Tune $\mat{Q}$ and $\mat{R}$ with the innovation statistics, gate outliers with the Mahalanobis distance, initialise a track from two measurements and cope with missing measurements.
+  \item Propagate the covariance several steps ahead to obtain the growing uncertainty ellipses that the safety layer uses, implement the filter in \python, and verify its accuracy and consistency on a simulation.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch18-motivation}
+
+The planners of Parts~II and~III know where every drone of the swarm is,
+because the swarm reports its own positions. An intruder reports nothing. A
+foreign drone that crosses the swarm's airspace is seen only through a sensor
+--- a radar, a camera with a depth estimate, a receiver of broadcast position
+messages --- that delivers a noisy position a few times per second. Suppose
+the sensor reports the intruder's position every $\dt=0.1$~s with an error of
+about $1$~m in each coordinate. The local avoidance layer of \cref{ch:ch13}
+needs the intruder's \emph{velocity} to build a velocity obstacle, and the
+obvious way to obtain it is to difference two consecutive reports. That
+divides the difference of two $1$-metre errors by $0.1$~s: the velocity
+estimate carries a noise of about $\sqrt2\cdot1/0.1\approx14$~m/s, several
+times the speed of the intruder itself. \Cref{fig:ch18-raw} shows what this
+looks like. The raw positions jitter by metres from one report to the next,
+and the differenced velocity is useless. No avoidance rule can work with that
+input: \orca would see a different collision cone every tenth of a second, and
+a formation would scatter in response to noise.
+
+The Kalman filter turns this stream of jittery reports into a stable estimate
+of the intruder's state --- position \emph{and} velocity --- together with a
+covariance matrix that says how far the estimate can be trusted. It does so by
+carrying a model of how the intruder moves, predicting where it will be at the
+next report, and correcting the prediction by the new measurement, weighting
+the two by their uncertainties. In the experiment of \cref{fig:ch18-raw},
+produced by the code of this chapter, the filter reduces the position error
+from $1.18$~m to $0.52$~m (root mean square) and the velocity error from
+$16.8$~m/s to $0.79$~m/s, at the cost of a few small matrix products per
+report.
+
+In the hybrid architecture of \cref{ch:ch24} the filter is the core of the
+\emph{prediction layer}: it tracks the intruder, hands its state and
+covariance to the local safety layer (\orca or DWA, \cref{ch:ch13,ch:ch14})
+and to the trajectory predictors of \cref{ch:ch20}, and its covariance,
+propagated a few seconds ahead, gives the growing uncertainty ellipses with
+which the safety layer inflates the intruder's radius. The filter is the
+Week~9 topic of the study plan (\cref{ch:appA}), and the milestone of that
+week is precisely that your planner receives a stable estimated state instead
+of raw observations.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch18/raw-vs-filtered}
+  \caption{Why raw measurements are unusable for planning. Left: four seconds
+  of the experiment of \cref{sec:ch18-experiment}; the sensor reports the
+  intruder's position at $10$~Hz with a noise of $1$~m along $x$ and $0.5$~m
+  along $y$ (grey), the true path is dashed and the Kalman estimate is the
+  blue line. Right: the velocity $v_x$ obtained by differencing consecutive
+  reports (grey) swings by tens of metres per second, while the filter's
+  velocity estimate (blue) follows the true velocity (dashed) to within a
+  fraction of a metre per second.}
+  \label{fig:ch18-raw}
+\end{figure}
+
+The chapter proceeds as follows. \Cref{sec:ch18-intuition} gives the idea,
+\cref{sec:ch18-problem} the linear-Gaussian model, the two facts about
+Gaussians on which the filter rests, and the constant-velocity model of a
+drone. \Cref{sec:ch18-algorithm} derives the predict and update steps and
+explains the gain; \cref{sec:ch18-example} runs the filter by hand for five
+steps, and \cref{sec:ch18-properties} proves what it guarantees.
+\Cref{sec:ch18-tuning} covers tuning, gating, missing measurements and track
+initialisation, \cref{sec:ch18-prediction} the propagation of uncertainty
+into the future, and \cref{sec:ch18-experiment} an experiment on simulated
+data. \Cref{sec:ch18-variants,sec:ch18-implementation,sec:ch18-drone} close
+with variants, implementation notes and the place of the filter in the drone
+system.
+
+% ---------------------------------------------------------------------
+\section{The idea in plain words}
+\label{sec:ch18-intuition}
+
+You have two sources of information about the intruder, and both are
+imperfect. The first is a \emph{motion model}: a drone that was at some
+position with some velocity a tenth of a second ago is now, very probably, a
+tenth of a second further along that velocity. The model is not exact, because
+the intruder may accelerate, so its prediction becomes less certain the longer
+you rely on it. The second is the \emph{sensor}, which reports the position
+with an error that does not accumulate but is large at every single report.
+Neither source alone is good enough; combined, they are.
+
+The Kalman filter\index{Kalman filter} is the combination. It keeps a Gaussian
+belief about the state, a mean $\hat{\state}$ and a covariance $\mat{P}$, and
+alternates two steps (\cref{fig:ch18-idea}). In the \textbf{predict
+step}\index{Kalman filter!predict step} it pushes the belief through the
+motion model: the mean moves along the velocity and the covariance grows,
+because the model's own noise is added. In the \textbf{update
+step}\index{Kalman filter!update step} it compares the new measurement with
+the predicted measurement; the difference is the \emph{innovation}, the news
+that the measurement brings. The state is corrected by a fraction of the
+innovation, and that fraction, the \emph{Kalman gain}, is large when the
+prediction is uncertain and the sensor accurate, small in the opposite case.
+The covariance shrinks, because two independent pieces of information are
+worth more than one. Then the cycle repeats.
+
+The arithmetic behind the fraction is that of a weighted average. If you weigh
+an object on two scales with variances $\sigma_1^2$ and $\sigma_2^2$, the best
+combination weights each reading by its inverse variance, its
+\emph{precision}, and the precision of the result is the sum of the two
+precisions. The update step is this rule applied to vectors: the prediction
+plays the role of the first reading, the measurement that of the second, and
+the matrices $\mat{P}^-$ and $\mat{R}$ play the variances. Everything else in
+the chapter is the bookkeeping that keeps the rule exact when the state has
+several components, the sensor sees only some of them, and time passes between
+readings.
+
+\begin{keyidea}
+Keep a Gaussian belief $\Normal(\hat{\state},\mat{P})$ over the state. Predict
+by pushing it through the motion model: the mean moves, the covariance grows
+by $\mat{Q}$. Update by moving the mean towards the measurement with a gain
+that weights prediction and measurement by their precisions: the covariance
+shrinks. For a linear model with Gaussian noise this recursion is exact and
+optimal --- no estimator, linear or not, has a smaller mean-square error.
+\end{keyidea}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch18/idea}
+  \caption{One cycle of the Kalman filter. Left, in the plane of positions:
+  the estimate at step $k-1$ (blue ellipse) is moved by the motion model and
+  inflated by the process noise into the prediction (grey, dashed); the
+  measurement $\meas_k$ (red cross, with its noise circle) pulls the mean
+  towards itself, and the updated estimate (green) is both shifted and
+  tighter than the prediction. Right: the same cycle as a loop; the planner
+  reads $\hat{\state}_k$ and $\mat{P}_k$ after every update.}
+  \label{fig:ch18-idea}
+\end{figure}
+
+% ---------------------------------------------------------------------
+\section{Problem statement and notation}
+\label{sec:ch18-problem}
+
+\subsection{The linear-Gaussian state-space model}
+
+\begin{definition}[Linear-Gaussian state-space model]
+\label{def:ch18-model}
+A \textbf{linear-Gaussian state-space model}\index{state-space model!linear-Gaussian}
+for a state $\state_k\in\R^n$ observed through measurements $\meas_k\in\R^m$ at
+steps $k=1,2,\dots$ consists of a \textbf{motion model}\index{motion model}
+and a \textbf{measurement model},
+\begin{align}
+  \state_k &= \mat{F}\state_{k-1}+\mat{B}\ctrl_k+\vect{w}_k, & \vect{w}_k&\sim\Normal(\vect{0},\mat{Q}),\label{eq:ch18-motion}\\
+  \meas_k &= \mat{H}\state_k+\vect{v}_k, & \vect{v}_k&\sim\Normal(\vect{0},\mat{R}),\label{eq:ch18-measurement}
+\end{align}
+with an initial belief $\state_0\sim\Normal(\hat{\state}_0,\mat{P}_0)$.
+$\mat{F}\in\R^{n\times n}$ is the \textbf{state transition matrix},
+$\mat{B}\in\R^{n\times l}$ the control matrix acting on a known input
+$\ctrl_k\in\R^l$ (absent for an intruder, $\mat{B}\ctrl_k=\vect{0}$),
+$\mat{H}\in\R^{m\times n}$ the \textbf{measurement matrix}, $\mat{Q}$ the
+\textbf{process noise covariance}\index{process noise} and $\mat{R}$ the
+\textbf{measurement noise covariance}\index{measurement noise}. The noise
+vectors $\vect{w}_1,\vect{w}_2,\dots$, $\vect{v}_1,\vect{v}_2,\dots$ and
+$\state_0$ are mutually independent. The matrices may depend on $k$; the index
+is dropped when they do not.
+\end{definition}
+
+The motion model says that the next state is a linear function of the current
+one plus a random disturbance: $\mat{F}$ carries the deterministic part of the
+motion (a drone keeps its velocity), $\vect{w}_k$ collects what the model
+cannot know (the intruder's accelerations), and $\mat{Q}$ says how large these
+unknowns are per step. The measurement model says which linear combinations of
+the state the sensor sees ($\mat{H}$ selects them) and how noisy it is
+($\mat{R}$). The independence assumption is what makes a recursion possible:
+once the current state is known, the past measurements carry no further
+information about the future.
+
+\begin{notebox}{Notation: $\mat{F}$ and $\mat{H}$, or $\mat{A}$ and $\mat{C}$?}
+This book writes the transition matrix as $\mat{F}$ and the measurement
+matrix as $\mat{H}$, the convention of the tracking literature
+\cite{barshalom2001estimation}. Control texts, and the model predictive
+controller of \cref{ch:ch21}, write the same matrices as $\mat{A}$ and
+$\mat{C}$; the double-integrator model of \cref{ch:ch02} uses $\mat{A}$ and
+$\mat{B}$; \textcite{thrun2005probabilistic} use $\mat{A}$, $\mat{B}$,
+$\mat{C}$, and \textcite{welch1995introduction} use $\mat{A}$ and $\mat{H}$.
+Beware also that $\mat{Q}$ and $\mat{R}$ are noise covariances here but cost
+weights in \cref{ch:ch21}; the notation table in the front matter lists both
+meanings.
+\end{notebox}
+
+\subsection{What the filter computes}
+
+\begin{definition}[Filtering, prediction, estimate]
+\label{def:ch18-filtering}
+Write $\meas_{1:k}=(\meas_1,\dots,\meas_k)$ for the measurements received up
+to step $k$. The \textbf{filtering problem}\index{filtering problem} is to
+compute, at every step, the posterior density $p(\state_k\mid\meas_{1:k})$.
+Under \cref{def:ch18-model} this density is Gaussian, and the filter
+represents it by its mean and covariance, the \textbf{estimate}
+\begin{equation}
+  \hat{\state}_k=\E[\state_k\mid\meas_{1:k}],\qquad
+  \mat{P}_k=\Cov(\state_k\mid\meas_{1:k}).
+  \label{eq:ch18-estimate}
+\end{equation}
+The density $p(\state_k\mid\meas_{1:k-1})$, before $\meas_k$ has been used,
+is the \textbf{prediction}\index{Kalman filter!prediction}; it is Gaussian
+too, with mean $\hat{\state}^-_k$ and covariance $\mat{P}^-_k$. As in the
+notation table, the superscript minus marks quantities computed before the
+current measurement is used.
+\end{definition}
+
+The Bayes filter of \cref{ch:ch02} computes the posterior in two moves: it
+propagates the previous posterior through the motion model to obtain the
+prediction, and it multiplies the prediction by the likelihood
+$p(\meas_k\mid\state_k)$ to obtain the new posterior. For general densities
+both moves are integrals without a closed form. For the linear-Gaussian model
+they reduce to matrix arithmetic, because of two facts about Gaussians.
+
+\subsection{Two facts about Gaussians}
+
+\begin{lemma}[Affine transformation and conditioning of Gaussians]
+\label{thm:ch18-gaussian-facts}
+Let $\state\sim\Normal(\vect{\mu},\mat{\Sigma})$ in $\R^n$.
+\begin{enumerate}[label=(\roman*)]
+  \item If $\vect{y}=\mat{A}\state+\vect{b}+\vect{w}$ with
+  $\vect{w}\sim\Normal(\vect{0},\mat{Q})$ independent of $\state$, then
+  $\vect{y}\sim\Normal(\mat{A}\vect{\mu}+\vect{b},\;\mat{A}\mat{\Sigma}\mat{A}\T+\mat{Q})$.
+  \item If $\vect{a}$ and $\vect{b}$ are jointly Gaussian,
+  \[
+    \begin{pmatrix}\vect{a}\\ \vect{b}\end{pmatrix}\sim
+    \Normal\!\left(\begin{pmatrix}\vect{\mu}_a\\ \vect{\mu}_b\end{pmatrix},
+    \begin{pmatrix}\mat{\Sigma}_{aa}&\mat{\Sigma}_{ab}\\ \mat{\Sigma}_{ba}&\mat{\Sigma}_{bb}\end{pmatrix}\right)
+  \]
+  with $\mat{\Sigma}_{bb}$ invertible, then $\vect{a}$ given $\vect{b}$ is
+  Gaussian with
+  \begin{equation}
+    \E[\vect{a}\mid\vect{b}]=\vect{\mu}_a+\mat{\Sigma}_{ab}\mat{\Sigma}_{bb}\inv(\vect{b}-\vect{\mu}_b),\qquad
+    \Cov(\vect{a}\mid\vect{b})=\mat{\Sigma}_{aa}-\mat{\Sigma}_{ab}\mat{\Sigma}_{bb}\inv\mat{\Sigma}_{ba}.
+    \label{eq:ch18-conditioning}
+  \end{equation}
+\end{enumerate}
+\end{lemma}
+\begin{proof}[Proof sketch]
+(i) is the closure of Gaussians under affine maps and under sums of
+independent Gaussians, stated in \cref{ch:ch02}: the mean and covariance follow
+from the rules for affine maps and from the independence of $\vect{w}$. For
+(ii), write the joint density as $\exp(-\tfrac12\phi)$ with $\phi$ the
+quadratic form of the block covariance, and expand $\phi$ with the block
+inverse of $\mat{\Sigma}$ (the Schur-complement identity of the refresher,
+\cref{ch:appB}). Collecting the terms that contain $\vect{a}$ gives a
+quadratic form in
+$\vect{a}-\vect{\mu}_a-\mat{\Sigma}_{ab}\mat{\Sigma}_{bb}\inv(\vect{b}-\vect{\mu}_b)$
+with the precision matrix
+$(\mat{\Sigma}_{aa}-\mat{\Sigma}_{ab}\mat{\Sigma}_{bb}\inv\mat{\Sigma}_{ba})\inv$,
+plus terms that depend on $\vect{b}$ alone and are absorbed by the normalising
+constant. The full computation is in \cref{ch:appB} and in
+\textcite[ch.~3]{thrun2005probabilistic}.
+\end{proof}
+
+Fact (i) is the predict step in disguise: the motion model
+\cref{eq:ch18-motion} is an affine map of $\state_{k-1}$ plus independent
+noise. Fact (ii) is the update step: the state and the measurement are jointly
+Gaussian, and conditioning on the observed value of $\meas_k$ gives the
+posterior. Note that the conditional covariance in \cref{eq:ch18-conditioning}
+does not depend on the value of $\vect{b}$: the covariances of the Kalman
+filter can be computed before any measurement arrives, a fact that
+\cref{sec:ch18-prediction} exploits.
+
+\subsection{Motion models for a drone}
+\label{sec:ch18-models}
+
+\begin{definition}[Constant-velocity model]
+\label{def:ch18-cv}
+The \textbf{constant-velocity (CV) model}\index{constant-velocity model} of a
+drone in $d$ dimensions ($d=2$ or $3$) has the state $\state=(\pos,\vel)\in\R^{2d}$,
+position and velocity, and, for a sampling interval $\dt$,
+\begin{equation}
+  \mat{F}=\begin{pmatrix}\mat{I}_d&\dt\,\mat{I}_d\\ \mat{0}&\mat{I}_d\end{pmatrix},\qquad
+  \mat{Q}=q\begin{pmatrix}\tfrac{\dt^3}{3}\mat{I}_d&\tfrac{\dt^2}{2}\mat{I}_d\\[3pt] \tfrac{\dt^2}{2}\mat{I}_d&\dt\,\mat{I}_d\end{pmatrix},\qquad
+  \mat{H}=\begin{pmatrix}\mat{I}_d&\mat{0}\end{pmatrix}\ \text{ or }\ \mat{H}=\mat{I}_{2d},
+  \label{eq:ch18-cv}
+\end{equation}
+where $q>0$ is the \textbf{white-noise-acceleration intensity}\index{white-noise acceleration}
+in $\mathrm{m^2/s^3}$. The first $\mat{H}$ describes a sensor that measures
+positions only, the second one that measures positions and velocities;
+$\mat{R}$ is then $\sigma_p^2\mat{I}_d$, or
+$\diag(\sigma_p^2\mat{I}_d,\sigma_v^2\mat{I}_d)$ for a sensor with independent
+errors of standard deviation $\sigma_p$ in position and $\sigma_v$ in velocity.
+\end{definition}
+
+$\mat{F}$ is the double-integrator matrix of \cref{ch:ch02} with the
+acceleration removed: $\pos_k=\pos_{k-1}+\dt\,\vel_{k-1}$ and
+$\vel_k=\vel_{k-1}$. The intruder does accelerate, of course; the model treats
+its acceleration as noise, and the shape of $\mat{Q}$ is what makes that
+treatment consistent.
+
+\begin{proposition}[Process noise of the constant-velocity model]
+\label{thm:ch18-cv-q}
+Suppose that between two samples the acceleration of the drone along one axis
+is a continuous-time white noise $a(t)$ with $\E[a(t)]=0$ and
+$\E[a(t)a(s)]=q\,\delta(t-s)$. Then the disturbance of position and velocity
+along that axis over a step of length $\dt$ has covariance
+$q\begin{psmallmatrix}\dt^3/3&\dt^2/2\\ \dt^2/2&\dt\end{psmallmatrix}$, and
+the disturbances of different axes are independent, which gives the $\mat{Q}$
+of \cref{eq:ch18-cv}.
+\end{proposition}
+\begin{proof}
+Integrate the continuous-time model $\dot p=v$, $\dot v=a(t)$ over $[0,\dt]$
+along one axis. A unit impulse of acceleration at time $\tau\in[0,\dt]$ changes
+the velocity at time $\dt$ by $1$ and the position by the remaining time
+$\dt-\tau$, because it acts on the velocity, which then integrates into the
+position. Superposing all instants,
+\[
+  \vect{w}=\begin{pmatrix}w_p\\ w_v\end{pmatrix}
+  =\int_0^{\dt}\begin{pmatrix}\dt-\tau\\ 1\end{pmatrix}a(\tau)\,d\tau .
+\]
+Its covariance is
+$\E[\vect{w}\vect{w}\T]=\int_0^{\dt}\!\!\int_0^{\dt}
+\begin{psmallmatrix}\dt-\tau\\1\end{psmallmatrix}
+\begin{psmallmatrix}\dt-\tau'&1\end{psmallmatrix}\E[a(\tau)a(\tau')]\,d\tau\,d\tau'$,
+and the delta function collapses the double integral to a single one. With
+$s=\dt-\tau$,
+\[
+  \E[\vect{w}\vect{w}\T]=q\int_0^{\dt}\begin{pmatrix}s^2&s\\ s&1\end{pmatrix}ds
+  =q\begin{pmatrix}\dt^3/3&\dt^2/2\\ \dt^2/2&\dt\end{pmatrix}.
+\]
+Independence across axes follows from independent accelerations along the
+axes. In matrix form, $\vect{w}=\int_0^{\dt}e^{\mat{A}(\dt-\tau)}\mat{G}\,a(\tau)\,d\tau$
+with $\mat{A}=\begin{psmallmatrix}0&1\\0&0\end{psmallmatrix}$ and
+$\mat{G}=(0,1)\T$, and $e^{\mat{A}s}=\mat{I}+s\mat{A}$ because
+$\mat{A}^2=\mat{0}$; the self-test of \code{ch18\_kalman.py} checks the closed
+form against this integral numerically.
+\end{proof}
+
+Two features of $\mat{Q}$ matter in practice. First, $q$ is a \emph{rate}: it
+does not change when the sampling interval changes, because $\mat{Q}$ carries
+all the dependence on $\dt$. A sensor that suddenly reports at $20$~Hz instead
+of $10$~Hz needs a new $\mat{Q}$ but the same $q$
+(\cref{sec:ch18-implementation} returns to this). Second, the off-diagonal
+term couples position and velocity: an unknown acceleration moves both, in
+the same direction. A diagonal $\mat{Q}$ is a common shortcut and a mild
+error; $\mat{Q}=q\,\mat{I}$ regardless of $\dt$ is a common shortcut and a
+serious one. As a starting value, if the intruder's accelerations have a
+magnitude of about $a_{\max}$ and persist for about $T_a$ seconds, take
+$q\approx a_{\max}^2\,T_a$, so that the model's velocity uncertainty after
+$T_a$, $\sqrt{q\,T_a}$, matches the velocity change $a_{\max}T_a$ that a real
+manoeuvre produces; \cref{sec:ch18-tuning} shows how to refine the value from
+data.
+
+\paragraph{The constant-acceleration model.}
+When the intruder manoeuvres persistently --- long turns, sustained climbs
+--- a model that carries the acceleration as a state reacts faster. The
+\textbf{constant-acceleration (CA) model}\index{constant-acceleration model}
+has the state $(\pos,\vel,\acc)\in\R^{3d}$,
+\[
+  \mat{F}=\begin{pmatrix}\mat{I}&\dt\mat{I}&\tfrac{\dt^2}{2}\mat{I}\\ \mat{0}&\mat{I}&\dt\mat{I}\\ \mat{0}&\mat{0}&\mat{I}\end{pmatrix},\qquad
+  \mat{Q}=q\begin{pmatrix}\tfrac{\dt^5}{20}\mat{I}&\tfrac{\dt^4}{8}\mat{I}&\tfrac{\dt^3}{6}\mat{I}\\[2pt] \tfrac{\dt^4}{8}\mat{I}&\tfrac{\dt^3}{3}\mat{I}&\tfrac{\dt^2}{2}\mat{I}\\[2pt] \tfrac{\dt^3}{6}\mat{I}&\tfrac{\dt^2}{2}\mat{I}&\dt\mat{I}\end{pmatrix},\qquad
+  \mat{H}=\begin{pmatrix}\mat{I}&\mat{0}&\mat{0}\end{pmatrix},
+\]
+where the noise is now a white-noise \emph{jerk} of intensity $q$ in
+$\mathrm{m^2/s^5}$; the derivation is that of \cref{thm:ch18-cv-q} with the
+vector $\bigl((\dt-\tau)^2/2,\ \dt-\tau,\ 1\bigr)\T$ in place of
+$(\dt-\tau,1)\T$. The price is a larger state with a component, the
+acceleration, that the sensor sees only through two integrations, so the
+estimate is noisier during straight flight. \textcite{barshalom2001estimation}
+treat both models in detail, together with turning models, and \cref{ch:ch19}
+compares filters on a turning target. This chapter uses the CV model
+throughout; \code{ch18\_kalman.py} builds both.

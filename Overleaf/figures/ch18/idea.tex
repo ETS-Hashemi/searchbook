@@ -1,0 +1,31 @@
+% Concept figure for the Kalman filter: one predict-update cycle drawn as
+% covariance ellipses in the plane (left) and as a block loop (right).
+\begin{tikzpicture}[font=\footnotesize]
+\begin{scope}
+  \draw[sbBlue,thick,fill=sbBlue!15,rotate around={15:(0,0)}] (0,0) ellipse (0.5 and 0.32);
+  \fill[sbBlue] (0,0) circle (1.6pt);
+  \node[sbannot,text=sbBlue,align=center] at (0.1,-0.85) {estimate\\$\hat{\state}_{k-1},\ \mat{P}_{k-1}$};
+  \draw[sbvec,draw=sbGray] (0.55,0.15) -- (2.3,0.62);
+  \node[sbannot,above,sloped] at (1.4,0.4) {predict: $\mat{F}$ moves, $\mat{Q}$ inflates};
+  \draw[sbGray,thick,dashed,fill=sbGray!12,rotate around={15:(3,0.8)}] (3,0.8) ellipse (1.05 and 0.62);
+  \fill[sbGray] (3,0.8) circle (1.6pt);
+  \node[sbannot,align=center] at (2.4,2.05) {prediction\\$\hat{\state}^-_k,\ \mat{P}^-_k$};
+  \draw[sbRed,thick,dotted] (4.1,0.15) circle (0.55);
+  \draw[sbRed,thick] (3.95,0.0) -- (4.25,0.3) (3.95,0.3) -- (4.25,0.0);
+  \node[sbannot,text=sbRed,align=center] at (4.9,-0.85) {measurement\\$\meas_k$, noise $\mat{R}$};
+  \draw[sbvec,draw=sbGreen,thick] (3,0.8) -- (3.7,0.47);
+  \draw[sbGreen,thick,fill=sbGreen!25,rotate around={15:(3.8,0.42)}] (3.8,0.42) ellipse (0.42 and 0.3);
+  \fill[sbGreen] (3.8,0.42) circle (1.6pt);
+  \node[sbannot,text=sbGreen,align=center] at (4.75,1.6) {update\\$\hat{\state}_k=\hat{\state}^-_k+\Kgain_k\vect{y}_k$};
+\end{scope}
+\begin{scope}[xshift=9.6cm,yshift=0.55cm]
+  \node[sbbox,text width=3.4cm] (pred) at (0,1.05) {\textbf{Predict}\\[1pt] $\hat{\state}^-_k=\mat{F}\hat{\state}_{k-1}+\mat{B}\ctrl_k$\\ $\mat{P}^-_k=\mat{F}\mat{P}_{k-1}\mat{F}\T+\mat{Q}$};
+  \node[sbboxgreen,text width=3.4cm] (upd) at (0,-1.35) {\textbf{Update}\\[1pt] $\vect{y}_k=\meas_k-\mat{H}\hat{\state}^-_k$\\ $\hat{\state}_k=\hat{\state}^-_k+\Kgain_k\vect{y}_k$};
+  \draw[sbflow] (pred) -- (upd);
+  \draw[sbflow] (upd.east) -- ++(0.45,0) |- (pred.east);
+  \node[sbannot,anchor=west] at (2.15,-0.15) {$k\gets k+1$};
+  \node[sbintruder,left=0.8cm of upd] (z) {$\meas_k$};
+  \draw[sbflow] (z) -- (upd);
+  \draw[sbflow] (upd.south) -- ++(0,-0.5) node[below,sbannot]{$\hat{\state}_k,\ \mat{P}_k$ to the planner};
+\end{scope}
+\end{tikzpicture}

@@ -88,19 +88,6 @@ class KalmanFilter:
         self.P = symmetrize(F @ self.P @ F.T + Q)
         return self.x.copy(), self.P.copy()
 
-    def innovation(self, z, R=None):
-        """Innovation y = z - H x^- and its covariance S = H P^- H^T + R."""
-        R = self.R if R is None else np.asarray(R, float)
-        y = np.asarray(z, float) - self.H @ self.x
-        S = self.H @ self.P @ self.H.T + R
-        return y, S
-
-    def nis(self, z, R=None):
-        """Normalised innovation squared, the squared Mahalanobis distance
-        of z from the predicted measurement."""
-        y, S = self.innovation(z, R)
-        return float(y @ np.linalg.solve(S, y))
-
     def update(self, z, R=None, gate_prob=None, joseph=True):
         """Update with measurement z.  With gate_prob, z is rejected (state
         unchanged) when its NIS exceeds the chi-square threshold."""
@@ -118,6 +105,19 @@ class KalmanFilter:
             self.P = I_KH @ self.P
         self.P = symmetrize(self.P)
         return UpdateResult(y, S, K, d2, True)
+
+    def innovation(self, z, R=None):
+        """Innovation y = z - H x^- and its covariance S = H P^- H^T + R."""
+        R = self.R if R is None else np.asarray(R, float)
+        y = np.asarray(z, float) - self.H @ self.x
+        S = self.H @ self.P @ self.H.T + R
+        return y, S
+
+    def nis(self, z, R=None):
+        """Normalised innovation squared, the squared Mahalanobis distance
+        of z from the predicted measurement."""
+        y, S = self.innovation(z, R)
+        return float(y @ np.linalg.solve(S, y))
 
     def step(self, z=None, u=None, gate_prob=None):
         """One cycle: predict, then update if a measurement arrived."""
@@ -463,13 +463,19 @@ def _self_test():
     kfa.predict(); kfb.predict()
     kfa.update(z, joseph=True); kfb.update(z, joseph=False)
     assert np.allclose(kfa.P, kfb.P, atol=1e-12) and np.allclose(kfa.x, kfb.x)
-    Pm = kf.P.copy()
-    Kbad = np.linalg.solve(H @ Pm @ H.T + R, H @ Pm).T * 1.5   # wrong gain
+    Pm = 4.0 * np.eye(4)                                   # a wide prior
+    Kopt = np.linalg.solve(H @ Pm @ H.T + R, H @ Pm).T
+    Kbad = 1.5 * Kopt                                       # a wrong gain
+    S = H @ Pm @ H.T + R
+    P_opt = (np.eye(4) - Kopt @ H) @ Pm
     I_KH = np.eye(4) - Kbad @ H
     P_joseph = I_KH @ Pm @ I_KH.T + Kbad @ R @ Kbad.T
     P_short = symmetrize(I_KH @ Pm)
     assert np.min(np.linalg.eigvalsh(P_joseph)) > 0.0
-    assert np.min(np.linalg.eigvalsh(P_short)) < 0.0
+    assert np.min(np.linalg.eigvalsh(P_short)) < 0.0     # (1 - 1.2) * 4 < 0
+    # Joseph(K) = P_opt + (K - Kopt) S (K - Kopt)^T: the optimal gain wins
+    assert np.allclose(P_joseph, P_opt + (Kbad - Kopt) @ S @ (Kbad - Kopt).T)
+    assert np.trace(P_joseph) > np.trace(P_opt)
 
     # 6. gating rejects a wild measurement, the ungated filter jumps
     kfg, kfu = kf.copy(), kf.copy()
