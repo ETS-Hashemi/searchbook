@@ -24,30 +24,28 @@ After working through this appendix you will be able to
 This appendix collects the mathematics that the chapters use without proving
 it. It is a refresher, not a course: every result is stated exactly, short
 proofs are given in full, long ones are sketched with a pointer to a textbook,
-and each section names the chapters that depend on it (\cref{tab:appB-map}).
-Read a section when a chapter sends you here; nothing has to be read in order.
-The notation is that of the notation table at the front of the book, and every
-number quoted in the examples is produced by the script
+and each result names the chapters that depend on it. Read a section when a
+chapter sends you here; nothing has to be read in order.
+\Cref{sec:appB-linalg,sec:appB-calculus} serve the filtering, control and
+consensus chapters (\cref{ch:ch18,ch:ch19,ch:ch21,ch:ch23}) and the potential
+fields of \cref{ch:ch15}; \cref{sec:appB-probability} serves the tracking and
+prediction chapters (\cref{ch:ch18,ch:ch19,ch:ch20});
+\cref{sec:appB-optimization} the velocity-space, control and integer-programming
+chapters (\cref{ch:ch13,ch:ch15,ch:ch20,ch:ch21,ch:ch22}); and
+\cref{sec:appB-graphs,sec:appB-complexity} the search chapters
+(\cref{ch:ch03,ch:ch04,ch:ch08,ch:ch09}) and the consensus chapter
+(\cref{ch:ch23}). The notation is that of the notation table at the front of
+the book, and every number quoted in the examples is produced by the script
 \code{code/figures/gen\_appB\_numbers.py}, so you can check your own hand
 calculations against it.
 
-\begin{table}[tb]
-  \centering\small
-  \caption{Where the book uses each part of this appendix.}
-  \label{tab:appB-map}
-  \begin{tabular}{@{}lL{7.2cm}l@{}}
-  \toprule
-  Section & Contents & Used mainly in\\
-  \midrule
-  \ref{sec:appB-linalg} & norms, products, eigenvalues, definiteness, block matrices, Schur complement, least squares & \cref{ch:ch02,ch:ch18,ch:ch21,ch:ch23}\\
-  \ref{sec:appB-calculus} & gradient, Jacobian, Hessian, Taylor expansion, double-integrator step & \cref{ch:ch02,ch:ch15,ch:ch19,ch:ch21}\\
-  \ref{sec:appB-probability} & covariance, Gaussians, conditioning, Bayes, Monte Carlo, chi-square gating & \cref{ch:ch18,ch:ch19,ch:ch20}\\
-  \ref{sec:appB-optimization} & convexity, KKT, linear, quadratic and mixed-integer programs, gradient descent & \cref{ch:ch13,ch:ch15,ch:ch20,ch:ch21,ch:ch22}\\
-  \ref{sec:appB-graphs} & adjacency and Laplacian matrices, algebraic connectivity, shortest-path notation & \cref{ch:ch03,ch:ch04,ch:ch23}\\
-  \ref{sec:appB-complexity} & asymptotic notation, binary heaps, hashing, \code{heapq} and \code{dict} & \cref{ch:ch03,ch:ch04,ch:ch08,ch:ch09}\\
-  \bottomrule
-  \end{tabular}
-\end{table}
+\begin{keyidea}
+Four moves carry almost every derivation in this book: diagonalise a symmetric
+matrix ($\mat{A} = \mat{Q}\mat{\Lambda}\mat{Q}\T$), linearise a nonlinear map
+(keep the Jacobian, bound the rest), push a Gaussian through an affine map and
+condition it on what was measured (the Kalman filter is nothing else), and
+check convexity before trusting a local minimum.
+\end{keyidea}
 
 % ---------------------------------------------------------------------
 \section{Vectors and matrices}
@@ -342,8 +340,8 @@ Least squares is the quiet workhorse of Parts VI and VII: the Kalman update
 of \cref{ch:ch18} is a weighted least-squares compromise between a prediction
 and a measurement, weighted by the inverses of their covariances, and an MPC
 problem without inequality constraints (\cref{ch:ch21}) is a least-squares
-problem in the stacked control inputs, which the constraints turn into the
-quadratic program of \cref{sec:appB-qp}.
+problem in the stacked inputs, which the constraints turn into the quadratic
+program of \cref{sec:appB-qp}.
 
 \begin{pitfall}[Do not form the inverse]
 The formulas above are written with $\mat{A}\inv$ because that is how they are proved, not how they should be computed. Solving $\mat{A}\vect{x} = \vect{b}$ with \code{numpy.linalg.solve}, or with a Cholesky factor when $\mat{A} \succ \mat{0}$, is faster and more accurate than forming \code{numpy.linalg.inv(A)} and multiplying. Two more habits pay off in \cref{ch:ch18,ch:ch19}: re-symmetrise a covariance as $\tfrac12(\mat{P} + \mat{P}\T)$ after each update, and check its smallest eigenvalue before a Cholesky factorisation, because rounding can turn a PSD matrix into one with a slightly negative eigenvalue.
@@ -525,16 +523,15 @@ that follow still make sense for it.
 If $\state \sim \Normal(\vect{\mu}, \mat{\Sigma})$ in $\R^n$ and $\vect{y} = \mat{A}\state + \vect{b}$ with $\mat{A} \in \R^{m \times n}$, then $\vect{y} \sim \Normal(\mat{A}\vect{\mu} + \vect{b},\ \mat{A}\mat{\Sigma}\mat{A}\T)$.
 \end{theorem}
 \begin{proof}
-The mean and the covariance follow from \cref{thm:appB-cov-rules}. For the shape, take first $m = n$ and $\mat{A}$ invertible: the change of variables $\state = \mat{A}\inv(\vect{y} - \vect{b})$ multiplies the density by $\abs{\det\mat{A}\inv}$, and substituting into \cref{eq:appB-gaussian} gives the exponent $-\tfrac12(\vect{y} - \mat{A}\vect{\mu} - \vect{b})\T(\mat{A}\mat{\Sigma}\mat{A}\T)\inv(\vect{y} - \mat{A}\vect{\mu} - \vect{b})$ and the constant $((2\pi)^{n}\det(\mat{A}\mat{\Sigma}\mat{A}\T))^{-1/2}$. A general $\mat{A}$ of full row rank is extended to an invertible matrix, and the extra coordinates are integrated out with the marginalisation half of \cref{thm:appB-conditioning}, whose proof does not use this theorem; the remaining cases follow with characteristic functions \cite[Chapter~4]{sarkka2013bayesian}. \qedhere
+The mean and the covariance follow from \cref{thm:appB-cov-rules}. For the shape, take first $m = n$ and $\mat{A}$ invertible: substituting $\state = \mat{A}\inv(\vect{y} - \vect{b})$ into \cref{eq:appB-gaussian} and multiplying by the change-of-variables factor $\abs{\det\mat{A}\inv}$ gives exactly the density $\Normal(\vect{y}; \mat{A}\vect{\mu} + \vect{b}, \mat{A}\mat{\Sigma}\mat{A}\T)$, because $(\mat{A}\mat{\Sigma}\mat{A}\T)\inv = \mat{A}^{-\mathsf{T}}\mat{\Sigma}\inv\mat{A}\inv$ and $\det(\mat{A}\mat{\Sigma}\mat{A}\T) = (\det\mat{A})^2\det\mat{\Sigma}$. A non-square $\mat{A}$ of full row rank is extended to an invertible matrix, and the extra coordinates are integrated out with the marginalisation half of \cref{thm:appB-conditioning}, whose proof does not use this theorem; the remaining cases follow with characteristic functions \cite[Chapter~4]{sarkka2013bayesian}. \qedhere
 \end{proof}
 
 Two consequences are used constantly: the joint vector of two independent
-Gaussians is Gaussian with block-diagonal covariance (the product of the
-densities has the form \cref{eq:appB-gaussian}), so with $\mat{A} = [\mat{I}\ \
-\mat{I}]$ the sum of independent Gaussians is Gaussian with the sums of the
-means and of the covariances, which is how process noise enters the
-prediction step of \cref{ch:ch18}; and a linear filter never has to represent
-more than a mean and a covariance.
+Gaussians is Gaussian with block-diagonal covariance, so with $\mat{A} =
+[\mat{I}\ \ \mat{I}]$ the sum of independent Gaussians is Gaussian with the
+sums of the means and of the covariances, which is how process noise enters
+the prediction step of \cref{ch:ch18}; and a linear filter therefore never has
+to represent more than a mean and a covariance.
 
 \begin{theorem}[Marginal and conditional of a joint Gaussian]
 \label{thm:appB-conditioning}
@@ -726,8 +723,6 @@ and the same quantiles size the uncertainty-inflated constraints of
 \cref{ch:ch24}, where an obstacle known only as a Gaussian is enlarged to the
 ellipse that holds a required probability mass.
 
-
-
 % ---------------------------------------------------------------------
 \section{Optimization}
 \label{sec:appB-optimization}
@@ -824,7 +819,7 @@ A \textbf{linear program}\index{linear program} (LP) minimises a linear function
   \min_{\vect{z} \in \R^n}\ \vect{c}\T\vect{z}\quad \st \mat{A}\vect{z} \le \vect{b},\qquad P = \set{\vect{z} : \mat{A}\vect{z} \le \vect{b}} \text{ the feasible polyhedron}.
   \label{eq:appB-lp}
 \end{equation}
-Equality constraints, sign constraints $\vect{z} \ge \vect{0}$ and maximisation are all reduced to this form by writing $\vect{a}\T\vect{z} = b$ as two inequalities, $z_j \ge 0$ as $-z_j \le 0$ and $\max \vect{c}\T\vect{z}$ as $\min (-\vect{c})\T\vect{z}$.
+Equality constraints, sign constraints $\vect{z} \ge \vect{0}$ and maximisation are all reduced to this form by writing $\vect{a}\T\vect{z} = b$ as two inequalities, $z_j \ge 0$ as $-z_j \le 0$ and $\max \vect{c}\T\vect{z}$ as $\min (-\vect{c})\T\vect{z}$. Simplex solvers and most textbooks use instead the \textbf{standard form}\index{linear program!standard form} $\min \vect{c}\T\vect{z}$ subject to $\mat{A}\vect{z} = \vect{b}$, $\vect{z} \ge \vect{0}$, reached from \cref{eq:appB-lp} by adding a \emph{slack} variable $s_i \ge 0$ to every inequality, $\vect{a}_i\T\vect{z} + s_i = b_i$, and by splitting a free variable into $z_j = z_j^+ - z_j^-$ with $z_j^\pm \ge 0$; \code{scipy.optimize.linprog} accepts inequalities, equalities and bounds directly.
 \end{definition}
 
 An LP is convex, so \cref{thm:appB-kkt} applies with $\nabla g_i =
@@ -922,8 +917,6 @@ the trade-off that \cref{ch:ch22} explores.
 Maximise $5z_1 + 4z_2$ subject to $6z_1 + 4z_2 \le 24$, $z_1 + 2z_2 \le 6$, $z_1, z_2 \ge 0$ and integer. The relaxation (node~1) has the optimum $(3, 1.5)$ with value $21$, so no integer solution can exceed $21$. Branching on $z_2$ gives node~2 ($z_2 \le 1$), whose relaxation is $(3.33, 1)$ with value $20.67$, and node~3 ($z_2 \ge 2$), whose relaxation is $(2, 2)$ with value $18$. Branching node~2 on $z_1$ gives node~4 ($z_1 \le 3$) with the integral optimum $(3, 1)$ of value $19$, which becomes the incumbent, and node~5 ($z_1 \ge 4$), whose relaxation $(4, 0)$ is integral with value $20$ and replaces it. Node~3 is now pruned: its bound $18$ cannot beat $20$, so none of its integer points needs to be examined. The optimum is $(4, 0)$ with value $20$, which an enumeration of all feasible integer points confirms; rounding the relaxed optimum to $(3, 2)$ would have been infeasible and rounding it to $(3, 1)$ suboptimal.
 \end{example}
 
-
-
 \paragraph{Big-$M$ constraints.}
 Binaries make it possible to say ``at least one of these constraints holds'',
 which no LP can express. Given a constant $M$ larger than any value that
@@ -985,15 +978,14 @@ Take $f(\vect{x}) = \tfrac12(x_1^2 + 10x_2^2)$, so $\lambda_{\min} = 1$, $\lambd
 \end{figure}
 
 The same picture explains two phenomena in the book. The potential-field
-controller of \cref{ch:ch15} is gradient descent on the potential $U$, with
-the drone's motion as the iteration: its oscillations in narrow corridors are
-the zigzag of \cref{fig:appB-gd}, its local minima the non-convexity of
-\cref{fig:appB-convex}. The training of the prediction networks of
-\cref{ch:ch20} is gradient descent on a loss averaged over data, with the
-gradient computed by the chain rule \cref{eq:appB-chain} on random
-mini-batches (\emph{stochastic} gradient descent); the learning rate is the
-$\alpha$ above, and momentum and adaptive step sizes (Adam) are devices
-against exactly the narrow-valley effect.
+controller of \cref{ch:ch15} is gradient descent on its potential, with the
+drone's motion as the iteration: its oscillations in narrow corridors are the
+zigzag of \cref{fig:appB-gd}, its local minima the non-convexity of
+\cref{fig:appB-convex}. Training the prediction networks of \cref{ch:ch20} is
+gradient descent on a loss averaged over data, with the gradient obtained by
+the chain rule \cref{eq:appB-chain} on random mini-batches (\emph{stochastic}
+gradient descent); the learning rate is the $\alpha$ above, and momentum and
+adaptive step sizes are remedies for the narrow-valley effect.
 
 % ---------------------------------------------------------------------
 \section{Graphs and the Laplacian}
@@ -1167,42 +1159,35 @@ lists and NumPy arrays are not accepted, and floating-point keys are legal but
 dangerous because two values that are equal on paper may differ in the last
 bit. This is why the search code of the book indexes cells by integer tuples.
 
-The \code{heapq} module implements a binary heap on a plain list, but no
-decrease-key. The standard idiom of \cref{ch:ch03,ch:ch04}, inherited by every
-planner built on them, is \emph{lazy deletion}: when a better cost is found
-for a node, a new entry is pushed and the old one is left in the heap, to be
-skipped as stale when it surfaces (\cref{lst:appB-heapq}). The heap then holds
-at most one entry per relaxation, $\bigO{\abs{E}}$ in total, which leaves the
-asymptotic bounds unchanged.
-
-\begin{lstlisting}[caption={Best-first search with \code{heapq} and lazy deletion.},label={lst:appB-heapq}]
-import heapq
-import itertools
-
-def best_first(start, goal, succ, h):
-    """A* skeleton; succ(n) yields (neighbour, edge cost) pairs."""
-    tie = itertools.count()       # breaks ties without comparing nodes
-    g = {start: 0.0}              # best cost found so far, a dict
-    open_heap = [(h(start), 0.0, next(tie), start)]
-    closed = set()
-    while open_heap:
-        f, neg_g, _, n = heapq.heappop(open_heap)
-        if n in closed:           # a stale duplicate: skip it
-            continue
-        closed.add(n)
-        if n == goal:
-            return -neg_g
-        for m, c in succ(n):
-            g_new = g[n] + c
-            if g_new < g.get(m, float("inf")):
-                g[m] = g_new      # "decrease-key" = push a fresh entry
-                heapq.heappush(open_heap, (g_new + h(m), -g_new, next(tie), m))
-    return None
-\end{lstlisting}
+The \code{heapq} module implements a binary heap on a plain list, but it has
+no decrease-key. The idiom of \cref{ch:ch03,ch:ch04}, inherited by every
+planner built on them, is \emph{lazy deletion}\index{lazy deletion}: keep the
+best known $\gcost$ of every node in a \code{dict}; when a better cost is
+found, push a fresh entry $(\fcost, -\gcost, \mathit{counter}, \mathit{node})$
+and leave the old one in the heap; when an entry is popped, skip it if its node
+is already in the closed set. The heap then holds at most one entry per
+relaxation, $\bigO{\abs{E}}$ in total, which leaves the asymptotic bounds
+unchanged, and the \code{dict} lookup that guards each push costs constant
+expected time.
 
 \begin{pitfall}[Heap entries must be comparable]
-\code{heapq} orders tuples lexicographically, so when two entries agree on $\fcost$ and $\gcost$ it compares the next field. If that field is a node without an ordering (a dictionary, an object) the search crashes at the first tie, and if it is a NumPy array it crashes at the first comparison. The counter in \cref{lst:appB-heapq} guarantees that the comparison never reaches the node and makes tie-breaking deterministic; the entry $-\gcost$ before it prefers the larger $\gcost$ among equal $\fcost$, as \cref{ch:ch04} recommends.
+\code{heapq} orders tuples lexicographically, so when two entries agree on $\fcost$ and $\gcost$ it compares the next field. If that field is a node without an ordering (a dictionary, an object) the search crashes at the first tie, and if it is a NumPy array it crashes at the first comparison. A running counter from \code{itertools.count()}, placed before the node, guarantees that the comparison never reaches the node and makes tie-breaking deterministic; the entry $-\gcost$ before the counter prefers the larger $\gcost$ among equal $\fcost$, as \cref{ch:ch04} recommends.
 \end{pitfall}
+
+\begin{dronebox}
+Each layer of the hybrid architecture of \cref{ch:ch24} leans on one part of
+this appendix. The global planner (\cbs, \ecbs; \cref{ch:ch09,ch:ch10}) lives
+on the graphs, heaps and hash tables of \cref{sec:appB-graphs,sec:appB-complexity}.
+The prediction layer (\cref{ch:ch18,ch:ch19,ch:ch20}) is the Gaussian algebra of
+\cref{sec:appB-probability}: affine maps for the predict step, conditioning for
+the update, chi-square gates for rejecting stray detections, and gradient
+descent for its learned models. The local layer (\cref{ch:ch13,ch:ch14}) is the
+convex geometry of half-planes and the double-integrator step of
+\cref{sec:appB-calculus}. The control and formation layers (\cref{ch:ch21,ch:ch22,ch:ch23})
+are quadratic and mixed-integer programs, KKT multipliers and the Laplacian
+spectrum. When a chapter's first pages send you here, read only the
+section named and return.
+\end{dronebox}
 
 % ---------------------------------------------------------------------
 \section{Summary}
@@ -1252,8 +1237,6 @@ Apply \cref{thm:appB-woodbury} to $\mat{P} - \mat{P}\mat{H}\T(\mat{H}\mat{P}\mat
 \label{exr:appB-conditioning}
 In \cref{ex:appB-conditioning}, condition on $x = 3$ instead and find the distribution of $y$. Check that the variance shrinks by the same factor $1 - \rho^2$.
 \end{exercise}
-
-
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:appB-lp}

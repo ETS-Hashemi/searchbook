@@ -131,14 +131,14 @@ def circle():
                              done=all(a.done for a in agents))
         st = stream_metrics(n)
         st0 = stream_metrics(n, avoid_a=False)
-        print("stream k=%d: none sep %.3f | VO sep %.3f at t=%.1f ratio %.3f time %.1f"
+        print("stream k=%d: none sep %.4f | VO sep %.4f at t=%.1f ratio %.3f time %.1f"
               " infeasible-steps %d" % (n, st0["min_sep"], st["min_sep"],
                                         st["t_min_sep"], st["path_ratio"],
                                         st["time"], st["infeasible"]))
         rows.append([n, st0["min_sep"], st["min_sep"], st["path_ratio"], st["time"],
                      st["infeasible"], res["none"]["sep"], res["vo"]["sep"],
                      res["vo"]["ratio"], res["vo"]["coll"], res["vo"]["inf"]])
-        print("circle n=%d: none sep %.3f coll %d | VO sep %.3f at t=%.1f ratio %.3f"
+        print("circle n=%d: none sep %.4f coll %d | VO sep %.4f at t=%.1f ratio %.3f"
               " coll %d time %.1f infeasible-steps %d finished %s" % (
                   n, res["none"]["sep"], res["none"]["coll"], res["vo"]["sep"],
                   res["vo"]["t"], res["vo"]["ratio"], res["vo"]["coll"],

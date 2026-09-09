@@ -81,7 +81,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [x] 2.23 Ch 23 Consensus and Formation Control (graph Laplacian, consensus protocol, formation error, communication radius) — written and compiled (23 pp); Opus review pending
 
 ### Part VIII — Putting It Together
-- [ ] 2.24 Ch 24 The Hybrid Collision-Avoidance Architecture (layers, decision logic, safety horizon, reconnection, replanning triggers)
+- [~] 2.24 Ch 24 The Hybrid Collision-Avoidance Architecture (layers, decision logic, safety horizon, reconnection, replanning triggers) — drafted on Fable (24 pp, 1514 lines, compiles); Opus review in progress
 - [ ] 2.25 Ch 25 Evaluating a Hybrid Planner (experiment matrix, metrics, benchmarks, reproducibility, reporting)
 
 ## Phase 3 — Reference code and figure generators

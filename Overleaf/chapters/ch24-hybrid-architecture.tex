@@ -78,15 +78,14 @@ Think of the four layers as four people with different time budgets
 take-off, with seconds or minutes, and produces one time-indexed path
 $\pi_i$ per drone; it is the only component that reasons about all drones at
 once, and its output is the contract the drones fly by. The \emph{prediction
-layer} watches the sensors ten times a second and maintains, for each
-unknown object, an estimate with a covariance and a short predicted
-trajectory. The \emph{local safety layer} also runs ten times a second; it
-receives a preferred velocity and the predicted obstacles and returns the
-closest velocity that is safe for the next few seconds. The \emph{replanning
-layer} runs only on demand: when a drone has been pushed so far off its
-route that it cannot get back safely, it computes a new route from where the
-drone actually is, on a map in which the predicted intruder positions are
-blocked and the other drones' routes are reserved.
+layer} watches the sensors ten times a second and keeps, for each unknown
+object, an estimate with a covariance and a short predicted trajectory. The
+\emph{local safety layer} also runs ten times a second; given a preferred
+velocity and the predicted obstacles it returns the closest velocity that is
+safe for the next few seconds. The \emph{replanning layer} runs on demand
+only: when a drone cannot get back to its route safely, it computes a new
+route from where the drone actually is, on a map in which the predicted
+intruder positions are blocked and the other drones' routes are reserved.
 
 The glue between them is the \textbf{executive}\index{executive}: a small
 state machine that runs in every drone at the control rate and decides which
@@ -104,12 +103,11 @@ against the intruder may now cross a teammate.
   \centering
   \inputfigure{ch24/architecture}
   \caption{The four layers, the executive and the shared world model, with
-  the data that flows between them and the rate at which each block runs.
-  What to notice: the global planner and the replanner work on the
-  grid-and-time side of the world model, the local layer and the predictor on
-  the continuous side; the executive sits in the middle and is the only
-  block that converts between the two. The dashed arrow is the conflict
-  re-check that closes the loop back to the global planner.}
+  the data flows and the rate of each block. What to notice: the global
+  planner and the replanner work on the grid-and-time side of the world
+  model, the local layer and the predictor on the continuous side, and the
+  executive is the only block that converts between the two. The dashed
+  arrow is the conflict re-check that closes the loop.}
   \label{fig:ch24-architecture}
 \end{figure}
 
@@ -332,17 +330,16 @@ functions it calls are the subject of the next three sections:
 Three details of the loop deserve a comment. First, the trigger on
 line~\ref{alg:ch24-loop:trigger} is evaluated in every state, so that a
 reconnecting drone that flies into a new prediction returns to Avoiding on
-line~\ref{alg:ch24-loop:again} before it is hit. Second, the Avoiding state
-has two exits and the bounded one, line~\ref{alg:ch24-loop:bound}, is the
-important one: without a bound on the drift and on the time, the local layer
-can carry the drone arbitrarily far from its plan, and the reservation table
-of the others, which assumes the plan, becomes fiction (first pitfall of
-\cref{sec:ch24-implementation}). Third, the velocities returned on
-lines~\ref{alg:ch24-loop:avoid}, \ref{alg:ch24-loop:hover} and
-\ref{alg:ch24-loop:nominal} all pass through the local layer; even the
-nominal flight is filtered by the teammates' half-planes, which costs nothing
-while the plan is conflict-free and protects the drone when a teammate has
-deviated.
+line~\ref{alg:ch24-loop:again} before it is hit. Second, the bounded exit of
+Avoiding, line~\ref{alg:ch24-loop:bound}, is the important one: without a
+bound on drift and time the local layer can carry the drone arbitrarily far
+from its plan, and the reservation table of the others, which assumes the
+plan, becomes fiction (first pitfall of \cref{sec:ch24-implementation}).
+Third, every velocity returned on lines~\ref{alg:ch24-loop:avoid},
+\ref{alg:ch24-loop:hover} and \ref{alg:ch24-loop:nominal} passes through the
+local layer; even the nominal flight is filtered by the teammates'
+half-planes, which costs nothing while the plan is conflict-free and
+protects the drone when a teammate has deviated.
 
 \begin{table}[tb]
   \centering\small
@@ -414,14 +411,14 @@ collision}\index{time to collision!predicted} is the first such look-ahead,
 In practice $s$ runs over the multiples of $\dt$ up to $\tau_h$.
 \end{definition}
 
-The definition subtracts the inflation from the separation rather than
-adding it to the radius; the two are the same thing, and
-\cref{sec:ch24-uncertainty} explains why $\kappa_p\,\sigma(h)$ is the right
-amount. \Cref{alg:ch24-trigger} is the test, and \cref{fig:ch24-horizon}
-shows it at the moment it fires in the worked scenario: the predicted
-separation of drone~A falls to $1.53$\,m at $s = 3.0$\,s while the threshold
-$R_{\mathrm{safe}} + \kappa_p\sigma$ has grown to $0.70 + 0.86 = 1.56$\,m; one
-cycle earlier the margin at the same look-ahead was still $+0.01$\,m.
+Subtracting the inflation from the separation is the same as adding it to
+the radius; \cref{sec:ch24-uncertainty} explains why $\kappa_p\,\sigma(h)$
+is the right amount. \Cref{alg:ch24-trigger} is the test and
+\cref{fig:ch24-horizon} shows it at the moment it fires in the worked
+scenario: the predicted separation of drone~A falls to $1.53$\,m at
+$s = 3.0$\,s while the threshold $R_{\mathrm{safe}} + \kappa_p\sigma$ has
+grown to $0.70 + 0.86 = 1.56$\,m; one cycle earlier the margin at the same
+look-ahead was still $+0.01$\,m.
 
 \begin{algorithm}[htb]
 \caption{The safety-horizon trigger}
@@ -559,11 +556,10 @@ $\makespan$ by at most that.
 The search order of \cref{alg:ch24-reconnect} encodes the preferences:
 delay zero first, because a reconnection with $\Delta = 0$ returns the drone
 to its own reservation and nothing else in the world model changes; among
-equal delays the earliest waypoint first, because it minimises the time
-spent off the plan. The look-ahead $K$ bounds the work to
-$(\Delta_{\max} + 1)(K + 1)$ segment tests, each of $\bigO{n\,k}$ distance
-computations, and it also bounds the detour: a reconnection never aims more
-than $K$ steps ahead, so the segment is at most $(K + \Delta_{\max})\ell$ long.
+equal delays the earliest waypoint, which minimises the time off the plan.
+The look-ahead $K$ bounds the work to $(\Delta_{\max} + 1)(K + 1)$ segment
+tests of $\bigO{n\,k}$ distance computations each, and bounds the detour to
+a segment of at most $(K + \Delta_{\max})\ell$.
 
 Two consequences matter for the rest of the design. A reconnection with
 $\Delta = 0$ needs no conflict re-check: the plan in force is unchanged,
@@ -592,18 +588,17 @@ escalates to Replanning.
 \label{sec:ch24-replan}
 
 \paragraph{The replanning trigger.}
-The executive replans in four situations, all visible in
+The executive replans in four situations, all in
 \cref{tab:ch24-transitions}: the reconnection search failed; the drift
 exceeded $d_{\max}$ while Avoiding, so that the plan has lost contact with
 the drone; the drone has been Avoiding for longer than $t_{\mathrm{avoid}}$,
 which is how a deadlock of the local layer (\cref{ch:ch13}) is detected; or
-the local program was infeasible, meaning the half-planes left no velocity
-in the disc and the dense fallback of \cref{ch:ch13} is choosing the least
-bad one. A fifth trigger comes from the constraints of
-\cref{sec:ch24-constraints}. None of these fires because the plan is
-\emph{suboptimal}; a drone that is safe and connected keeps its plan even
-if a shorter one has become available, because every replan costs a re-check
-and risks a cascade (second pitfall of \cref{sec:ch24-implementation}).
+the local program was infeasible, so that the dense fallback of
+\cref{ch:ch13} is choosing the least bad velocity. A fifth trigger comes
+from the constraints of \cref{sec:ch24-constraints}. None of them fires
+because the plan is \emph{suboptimal}: a safe, connected drone keeps its
+plan even if a shorter one has appeared, because every replan costs a
+re-check and risks a cascade (second pitfall of \cref{sec:ch24-implementation}).
 
 \paragraph{What the replanner searches.}
 The replanning layer searches the time-expanded grid of \cref{ch:ch04} from
@@ -1250,15 +1245,14 @@ hysteresis ($n_{\mathrm{clear}}$). The replanning count is a metric of
 \end{pitfall}
 
 \begin{pitfall}[Mixing frames and time bases]
-The four layers use four coordinate conventions: cell indices, cell centres
-(offset by $\ell/2$), continuous positions in the world frame, and the
-relative frame of \orca; and three time bases: grid time in steps of
-$\Delta T$, control time in steps of $\dt$, and the prediction step $h$
-counted from the latest observation. Every conversion belongs in one place,
-the world model of \cref{sec:ch24-world}, and every function should say in
-its docstring which convention it expects. The symptoms of a mix-up are
-subtle: a drone that aims half a cell beside its waypoint, a prediction that
-is one step stale, a layer $\mathcal{B}_{t'}$ built for the wrong second.
+The four layers use four coordinate conventions (cell indices, cell centres
+offset by $\ell/2$, world-frame positions, the relative frame of \orca) and
+three time bases (grid time in steps of $\Delta T$, control time in steps of
+$\dt$, the prediction step $h$ counted from the latest observation). Every
+conversion belongs in one place, the world model of \cref{sec:ch24-world},
+and every function should say which convention it expects. The symptoms of
+a mix-up are subtle: a drone aiming half a cell beside its waypoint, a
+prediction one step stale, a layer $\mathcal{B}_{t'}$ built for the wrong second.
 \end{pitfall}
 
 % ---------------------------------------------------------------------

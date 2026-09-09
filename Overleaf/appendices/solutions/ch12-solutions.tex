@@ -1,6 +1,46 @@
 % Solutions/hints for ch12 exercises (assembled into Appendix C)
+\begin{solution}{exr:ch12-halfangle}
+With $R=r_A+r_B=0.8\,\mathrm{m}$ and $d=4\,\mathrm{m}$, \cref{eq:ch12-halfangle}
+gives $\theta=\arcsin(0.8/4)=\arcsin(0.2)=11.54^\circ$, a wedge $23.07^\circ$
+wide. Forgetting $r_A$ leaves $R=0.5$ and $\theta=\arcsin(0.125)=7.18^\circ$
+(wedge $14.36^\circ$), so the cone is too narrow by more than a third of its
+width; forgetting both radii leaves $R=0$ and $\theta=0^\circ$, a single
+dangerous direction and no wedge at all. That is the mistake of the pitfall
+\emph{Forgetting to add the radii} in \cref{sec:ch12-implementation}: the test
+reports safety while the discs graze. The half-angle reaches $30^\circ$ when
+$\sin\theta=R/d=0.5$, i.e.\ at $d=R/\sin30^\circ=1.6\,\mathrm{m}$. As
+$d\downarrow R=0.8\,\mathrm{m}$, $\arcsin(R/d)\to90^\circ$ and the cone opens
+into the half-plane of all velocities with a positive component towards $B$;
+at $d=R$ the discs touch, \cref{alg:ch12-ttc} returns $0$, and no choice of
+velocity can undo the contact --- which is why the horizon must trigger the
+manoeuvre while $\theta$ is still small.
+\end{solution}
 \begin{solution}{exr:ch12-tangent}
 (a)~Let $\vect{t}$ be a point of contact of a tangent from the origin to the circle of radius $R$ around $\pos_{\mathrm{rel}}$. The radius $\pos_{\mathrm{rel}}-\vect{t}$ is perpendicular to the tangent, so the triangle with vertices $\vect{0}$, $\vect{t}$, $\pos_{\mathrm{rel}}$ has a right angle at $\vect{t}$, hypotenuse $d$ and the leg $R$ opposite to the angle $\theta$ at the origin; hence $\sin\theta=R/d$ and, by Pythagoras, $\norm{\vect{t}}=\sqrt{d^2-R^2}$. (b)~If $t\vel\in\disc{\pos_{\mathrm{rel}}}{R}$ for some $t>0$, then $(t/\lambda)(\lambda\vel)$ is the same point, so $\lambda\vel\in CC_{A|B}$ for every $\lambda>0$. For the velocity obstacle, $\lambda(\vel_B+\vel)=\vel_B+(\lambda\vel+(\lambda-1)\vel_B)$ lies in $\vel_B\oplus CC_{A|B}$ for all $\lambda>0$ and all $\vel\in CC_{A|B}$ only if $(\lambda-1)\vel_B$ is a difference of cone vectors for every $\lambda$, which fails for $\vel_B\ne\vect{0}$ (take $\lambda$ large and $\vel$ near a boundary ray). (c)~By (b) membership in $CC_{A|B}$ depends only on the direction of $\vel_A-\vel_B$. After truncation the collision must occur before $\ttc$, and the time to collision scales like $1/\norm{\vel_{\mathrm{rel}}}$, so a slow velocity in the cone may be allowed while a fast one in the same direction is forbidden.
+\end{solution}
+\begin{solution}{exr:ch12-truncation}
+By \cref{eq:ch12-collision} the discs are in contact at time $t>0$ exactly
+when $\norm{\pos_{\mathrm{rel}}-t\vel}\le R$; dividing by $t$ gives
+$\norm{\pos_{\mathrm{rel}}/t-\vel}\le R/t$, i.e.\
+$\vel\in\disc{\pos_{\mathrm{rel}}/t}{R/t}$. That disc is the image of
+$\disc{\pos_{\mathrm{rel}}}{R}$ under the scaling $\vect{x}\mapsto\vect{x}/t$
+about the origin, and a scaling about the origin maps every ray from the
+origin onto itself and preserves tangency, so every one of these discs is
+inscribed in the same cone. For the two distances use the scaling identity
+$t_c(s\vel)=t_c(\vel)/s$ of \cref{eq:ch12-scaling}. Along the axis, the unit
+vector $\pos_{\mathrm{rel}}/d$ first touches the disc at $t_c=d-R$, so the
+truncated set begins on the axis at $s=(d-R)/\ttc$. Along a leg, the unit
+direction touches the disc at its tangent point, at distance
+$\sqrt{d^2-R^2}$ by \cref{exr:ch12-tangent}, so the tangency point of the
+truncation disc sits at $s=\sqrt{d^2-R^2}/\ttc$. With $d=\sqrt{50}$, $R=1$ and
+$\ttc=5$ these are $(7.0711-1)/5=1.2142$ and $7/5=1.4$. Check them in
+\cref{fig:ch12-geometry}(b), where the apex is $\vel_B=(0,0.9)$ and the
+truncation disc has centre $(1,-0.1)$ and radius $R/\ttc=0.2$: the leg point
+$(0,0.9)+1.4\,(0.8,-0.6)=(1.12,0.06)$ is at distance
+$\norm{(0.12,0.16)}=0.2$ from that centre, and the axis point
+$(0,0.9)+1.2142\,(0.7071,-0.7071)=(0.8586,0.0414)$ is at distance $0.2$ from
+it as well. Both lie on the truncation circle, the first at the tangency with
+the leg and the second at the point of the arc nearest the apex.
 \end{solution}
 \begin{solution}{exr:ch12-ttc}
 With $\pos=(6,2)$, $\vel=(3,0)$ and $R=2.5$: $\vel\cdot\vel=9$, $\pos\cdot\vel=18$, $\pos\cdot\pos-R^2=40-6.25=33.75$, so the quadratic is $9t^2-36t+33.75=0$ with $\Delta/4=324-303.75=20.25$ and $\sqrt{\Delta/4}=4.5$. The roots are $t=(18\mp4.5)/9$, i.e.\ $t_c=1.5$ and $t_2=2.5$: the discs overlap between $1.5$ and $2.5$. The closest approach is at $t^*=\pos\cdot\vel/(\vel\cdot\vel)=2$, where the relative position is $(0,2)$ and the distance $2<R$, consistent with the overlap interval being symmetric around $t^*$. For $\vel=(-3,0)$ the discriminant is the same but $\pos\cdot\vel=-18<0$: both roots are negative ($-1.5$ and $-2.5$), the ``collision'' lies in the past and \cref{thm:ch12-ttc} reports none. \code{time\_to\_collision((6,2),(3,0),2.5)} returns $1.5$ and \code{time\_to\_collision((6,2),(-3,0),2.5)} returns \code{inf}.
@@ -8,6 +48,60 @@ With $\pos=(6,2)$, $\vel=(3,0)$ and $R=2.5$: $\vel\cdot\vel=9$, $\pos\cdot\vel=1
 \begin{solution}{exr:ch12-empty}
 The apex $\vel_B=-s\,\pos_{\mathrm{rel}}/d$ lies on the axis of the wedge at distance $s$ from the origin, on the side away from $B$. The reachable disc $\disc{\vect{0}}{v_{\max}}$ is centred on the axis at distance $s>v_{\max}$ from the apex, so seen from the apex it subtends the half-angle $\arcsin(v_{\max}/s)$ (the same right triangle as in \cref{exr:ch12-tangent}). It lies entirely inside the wedge of half-angle $\arcsin(R/d)$ if and only if $v_{\max}/s\le R/d$, i.e.\ $s\ge v_{\max}d/R$. With $v_{\max}=1.5$, $d=7.07$, $R=1$ the threshold is $s=10.6\,\mathrm{m/s}$. Just above it every candidate collides; the fallback minimises $\norm{\vel-\vel^{\mathrm{pref}}}+\kappa/t_c$ and, for a large enough $\kappa$, picks the reachable velocity with the largest time to collision, which is the one closest to the boundary of the wedge: full speed perpendicular to the line of sight, slightly away from $B$. Truncation does not help because at $s\approx10.6$ the collision happens after about $(d-R)/(s+v)\approx0.5\,\mathrm{s}<\ttc$. For $s$ well below the threshold but $d$ small, the wedge is wide ($\theta\to90^\circ$ as $d\to R$), the feasible velocities are those pointing away from $B$ or nearly perpendicular to the line of sight, and the closer $B$ is, the harder the manoeuvre; a horizon of a few times $R/v$ makes the agent react while $\theta$ is still small.
 \end{solution}
+\begin{solution}{exr:ch12-static}
+(a)~With $\vel_B=\vect{0}$, \cref{eq:ch12-vo} reads
+$\VO_{A|B}=\vect{0}\oplus CC_{A|B}=CC_{A|B}$, so the velocity obstacle is the
+collision cone itself, and the truncation disc
+$\disc{\vel_B+\pos_{\mathrm{rel}}/\ttc}{R/\ttc}$ of \cref{thm:ch12-truncated}
+becomes $\disc{\pos_{\mathrm{rel}}/\ttc}{R/\ttc}$. (b)~A velocity is dangerous
+exactly when its ray from the origin meets $\mathcal{O}$, so the forbidden set
+is the union of the rays through the points of $\mathcal{O}$, i.e.\ the set of
+directions $\set{\vect{x}/\norm{\vect{x}} : \vect{x}\in\mathcal{O}}$ scaled by
+every positive factor. Since $\mathcal{O}$ is convex and does not contain the
+origin, it lies in an open half-plane through the origin, so those directions
+form an arc of angular width less than $\pi$; and if two directions are
+attained, so is every direction between them, because the segment joining the
+two witnesses stays in $\mathcal{O}$ and its rays sweep the intermediate
+directions. The arc is therefore closed and bounded by the two extreme tangent
+rays, and the union is the wedge between them. (c)~Inflating the wall by
+$r_A=0.5$ moves its face to $1.5\,\mathrm{m}$ from the drone's centre. Let
+$\vect{n}$ be the unit normal pointing at the wall. Untruncated, the obstacle
+forbids every velocity with $\vel\cdot\vect{n}>0$: any component towards the
+wall reaches it eventually, and only velocities parallel to the wall or away
+from it survive --- the frozen behaviour of the pitfall \emph{No truncation}.
+With $\ttc=4\,\mathrm{s}$ the drone must cover $1.5\,\mathrm{m}$ within the
+horizon to be in danger, so the forbidden velocities are those with
+$\vel\cdot\vect{n}>1.5/4=0.375\,\mathrm{m/s}$: the drone may close on the wall
+slowly and is constrained only when the horizon catches up.
+\end{solution}
 \begin{solution}{exr:ch12-coding}
 Hints. Use \cref{alg:ch12-simulate} with synchronous updates and record positions and velocities at every step; the metrics are the minimum over time and pairs of the centre distance, the path length divided by the start--goal distance, the first time at which the goal is within a tolerance, and the count of steps at which the feasible set of \cref{alg:ch12-choose} was empty. Count sign changes of the velocity component perpendicular to the start--goal line. With the book's parameters ($\dt=0.1$, $\ttc=5$, $R=1$, speed $1$, $v_{\max}=1.5$) the circle scenario gives the numbers of \cref{tab:ch12-crossing}; with $\ttc=\infty$ agents facing a wall of static discs stop before reaching it, with $\ttc=1$ the agents of the circle scenario turn late and pairs collide from $n=4$ on, and $36$ directions produce visibly larger sign-change counts than $180$. Keep the scenario generator, the metrics and the plotting code separate from the avoidance rule, so that RVO and \orca can be plugged in as alternative implementations of \code{choose\_velocity} in \cref{ch:ch13}.
+\end{solution}
+\begin{solution}{exr:ch12-3d}
+(a)~The proof of \cref{thm:ch12-cone} never uses the dimension. For
+$\vel\ne\vect{0}$ let $\varphi$ be the angle between $\vel$ and
+$\pos_{\mathrm{rel}}$; the distance from the centre to the ray
+$\set{t\vel : t\ge0}$ is $d\sin\varphi$ when $\varphi\le\pi/2$ and $d$
+otherwise. Since $d>R$ the second case never meets the ball, so the ray meets
+it exactly when $\varphi\le\pi/2$ and $d\sin\varphi\le R$, that is
+$\varphi\le\arcsin(R/d)$. The set of vectors of $\R^3$ making an angle at most
+$\theta$ with a fixed axis is the right circular cone of half-angle $\theta$,
+and cutting it with a plane through the axis leaves the planar wedge of
+\cref{thm:ch12-cone}. (b)~By the rotational symmetry about the axis, the
+tangency set is the circle traced by the planar tangent point of
+\cref{exr:ch12-tangent}, which lies at distance $\sqrt{d^2-R^2}$ from the apex
+at the angle $\theta$ from the axis. Its distance along the axis is
+$\sqrt{d^2-R^2}\cos\theta=(d^2-R^2)/d$ and its radius is
+$\sqrt{d^2-R^2}\sin\theta=R\sqrt{d^2-R^2}/d$. For the self-test geometry
+$\pos_{\mathrm{rel}}=(3,4,12)$, $d=13$, $R=1$ this is a circle at
+$168/13=12.923$ along the axis with radius $\sqrt{168}/13=0.997$. (c)~Sample a
+few speeds times a few hundred well-spread directions on the unit sphere (a
+Fibonacci lattice spreads them evenly) and feed the candidates to
+\code{time\_to\_collision}, which already accepts 3-vectors. In a strictly
+head-on encounter $\vel_{\mathrm{rel}}$ lies on the axis of the cone, so by
+that same rotational symmetry a climb and a lateral turn need exactly the same
+deviation from $\vel^{\mathrm{pref}}$: the geometry does not prefer either,
+and the choice is made by the weights in \cref{eq:ch12-cost}, by the
+acceleration limits and by airspace rules. Offset the encounter slightly and
+the cheaper escape is the one on the side the offset points to.
 \end{solution}
