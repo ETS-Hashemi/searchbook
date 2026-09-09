@@ -206,3 +206,110 @@ clean: all eleven keys resolve, and authors, venues, volumes and pages of Silver
 (IROS 430-435), Ma et al. 2019 (AAAI 7643-7650), Ma et al. 2017 (AAMAS 837-845), Phillips and
 Likhachev 2011 (ICRA 5628-5635), Hoenig et al. 2016 (ICAPS 477-485) and Stern et al. 2019
 (SoCS 151-158) are all correct - nothing is fabricated.
+
+## Response to review (round 1)
+
+All eight required changes are applied. Build status 0, no errors, no undefined
+references or citations belonging to Chapter 8 (`\cref{thm:ch04-surely}` resolves to
+"Corollary 4.11"). The self-test of `Overleaf/code/ch08_prioritized.py` passes.
+
+**Required 1 - "All six orders" paragraph (sec:ch08-example).** Replaced the false
+clause. The text now reads "Whenever agent~1 is planned before agent~3 -- the orders
+$(1,2,3)$, $(1,3,2)$ and $(2,1,3)$ -- the plan costs $16$, which is also the optimal sum
+of costs of the instance (the self-test asserts `optimal_soc(inst) == 16`, a brute-force
+search over the joint space of the three agents)."
+
+**Required 2 - HCA* dominance claim (sec:ch08-hca).** Rewritten as the reviewer asked:
+the dominance statement is now restricted to a single agent against a fixed table and to
+states with $\fcost < C^*$, cites `\cref{thm:ch04-surely}`, leaves $\fcost = C^*$ to the
+tie-breaking rule, states that the guarantee is weaker across a whole prioritized run
+because the two heuristics give the later agents different sub-problems, and presents
+32509 vs 11034 as an empirical measurement. The following sentence, which repeated the
+sub-problem point, was shortened to "Under both heuristics every path is a shortest
+unblocked one for the agent that plans it; the paths differ only where several shortest
+paths exist."
+
+**Required 3 - the "about a second" wall clock.** A timed benchmark was added to
+`_self_test()` (step 7): three 100x100 grids with 40 agents and 20% obstacles, seeds 1,
+2, 3, `order_longest_first`, `heuristic="true"`, printing all three times and the median.
+On the machine used here it prints `2.2, 4.1, 7.3 s (median 4.1 s)` and is reproducible
+to about 0.1 s across runs. Both places were changed. sec:ch08-properties now says the
+run takes "a few seconds ... the self-test plans three such instances and prints times of
+about $2$, $4$ and $7$ seconds, a median of roughly $4$ seconds, on the laptop used for
+this book; the spread comes from the instances, not from the machine, and your own times
+will differ." The drone box now says "forty space-time searches instead of one joint
+search ... they finish in a few seconds in plain Python and much faster in a compiled
+implementation". Note: the benchmark is inherently expensive, so the self-test now takes
+about 19 s rather than the under-10 s of STYLE_GUIDE section 6.
+
+**Required 4 - WHCA* "First, ..." (sec:ch08-whca).** Replaced by the reviewer's text:
+entries beyond $t = w$ are invisible, a cell parked on inside the window is the
+exception, the goal-stay check reports $t_g = \infty$, the search fails at once and the
+agent takes the stay-put branch of line~\ref{alg:ch08-whca:search}. Verified against
+`ReservationTable.last_reserved` (returns `INF` when `self.in_window(self.parked[cell])`)
+and `space_time_astar` (`if t_goal == INF or table.is_blocked(start, 0): return None`).
+The code was left as it is; `last_reserved` was not changed to `window - 1`.
+
+*One deviation.* The reviewer's sentence ends "which is where the plans of
+\cref{exr:ch08-whca} lose their guarantee". That link is not correct for the instance of
+that exercise. Instrumenting `whca_star` on the nine-cell corridor with pocket $(0,1)$
+shows that `space_time_astar` never fails there and the stay-put branch never fires: the
+agent planned first sees an empty table and plans straight through the other agent, and
+the agent planned second retreats. The sentence therefore ends "which is one of the two
+ways in which a windowed plan loses its guarantee" instead; everything else is as
+prescribed.
+
+*Consequence for exr:ch08-whca(b).* The exercise claimed "For $w \le 5$ the rounds never
+end and the function returns None; for $w \ge 6$ it returns an executed plan that the
+validator rejects". Running `whca_star(inst, window=w, step=1)` for $w = 2, \dots, 12$
+returns `None` for every window, so part (b) was corrected to that and now asks why a
+larger window does not help. Part (c)'s hint is confirmed by the code:
+`prioritized_planning` with the fixed order $(2,1)$ and the full horizon returns costs
+$15$ and $8$.
+
+**Required 5 - "as if the map were empty" (sec:ch08-whca).** Replaced by "which means it
+completes the path as if no other agent existed (the static obstacles are still
+respected, because $\hcost^*$ is the distance on the real map)."
+
+**Required 6 - fig:ch08-orders caption and paragraph.** Caption is now "Longest path
+first almost never fails; it and most constrained first produce the most expensive plans
+(within one point of each other for $k \ge 24$); five random restarts give the cheapest
+plans and fail once in $240$ instances." The paragraph gained the sentences on most
+constrained first. All numbers recomputed from `figures/data/ch08-orders.dat`: failures
+15/240 for mcf and 19/240 for a single random order; `soc_mcf` $=1.207$ at $k = 32$
+against `soc_lpf` $=1.201$, `soc_random` $=1.163$, `soc_restart` $=1.124$; the gap
+between lpf and mcf is 0.9, 0.3 and 0.6 points at $k = 24, 28, 32$. The `.dat` file was
+not regenerated because the generator was not touched.
+
+**Required 7 - notation $\pi_i(t) \to \pi_i[t]$.** Rewritten throughout the chapter (29
+occurrences, including $\pi_i[0] = s_i$, $\pi_i[T_i] = g_i$ and the
+$(\pi[t], \pi[t+1])$ of def:ch08-reservation) and in the two occurrences in
+`appendices/solutions/ch08-solutions.tex`. No `\pi(...)` form is left in either file.
+
+**Required 8 - acronym expansion (sec:ch08-motivation).** Now "the global layer is
+conflict-based search (\cbs, \cref{ch:ch09}) or its bounded-suboptimal variant \ecbs
+(\cref{ch:ch10})".
+
+### Suggestions
+
+Applied: solutions added for `exr:ch08-following` (both parts; part (b) reasoned from the
+reservation entries, all six orders succeed at the lower bound 14 because the goal-stay
+condition disappears with the convention) and for `exr:ch08-whca` (all three parts,
+matching the corrected part (b)); the missing arrival label "6" in
+`figures/ch08/counterexamples.tex` panel (a); the `\PpPlan` and `\PpStar` signatures now
+list *revised* and $\hcost$, and the three call sites were updated; thm:ch08-sound gained
+"returns a path whenever an unblocked one with arrival time at most $T_{\max}$ exists";
+the goal-test step of thm:ch08-wellformed now handles $s_i = g_i$; def:ch08-order gained
+the note that the revised rule needs $g_i$ not to be the start of a lower-priority agent;
+the trace paragraph now says steps 4 and 5 "find their moves towards the goal blocked as
+well"; sec:ch08-implementation now names `static_time()` as what Chapter 4 calls
+`horizon()`.
+
+Not applied: the notation-table row for $R = (R_V, R_E)$. `frontmatter/notation.tex` is
+outside the files this chapter may edit, so it is left for the front-matter owner; the
+suggested row is "$R=(R_V,R_E)$ & reservation table: (vertex, time) and (move, time)
+entries, plus parked goals & \cref{ch:ch08}".
+
+Length: the chapter is now 20 printed pages (PDF pages 22-41 of the single-chapter
+build), one more than in round 1, because every required change added text. Nothing was
+removed to compensate, per the revision instructions.
