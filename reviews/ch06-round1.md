@@ -193,3 +193,80 @@ subsection, whose key rule (inflate the keys of overconsistent states only, leav
 underconsistent keys exact, search backward from the goal) is stated correctly, and keep the
 drone framing of §6.10 - "read the certificate, not $\eps$" is the sentence an engineer will
 remember.
+
+## Response to review (round 1)
+
+All six required changes were applied. Build status 0, no errors, no undefined
+citations; `python3 Overleaf/code/ch06_arastar.py` still prints
+`self-test passed: 202 published paths on 55 grids ...`. The code was not
+changed, so no `.dat` file needed regenerating.
+
+**Required change 1 (§6.2.2, the weighted-A\* bound).** Replaced the false
+"with an admissible heuristic ..." sentence by the reviewer's wording: the
+bound holds without re-opening when *h* is consistent (`\cref{thm:ch06-bound}`),
+needs re-opening for a merely admissible *h* (`\cref{thm:ch04-weighted}`), and
+`\cref{exr:ch06-proof}` shows what breaks. The chapter no longer contradicts
+ch04 or its own Theorem.
+
+**Required change 2 (§6.2.2, the ch04 numbers).** Replaced "a factor of about
+ten" by the figures of ch04 §4.9 (verified against `ch04-astar.tex`
+lines 828-838): 3 324 -> 271 expansions on the 8-connected grid, 756 -> 372 on
+the 4-connected one, paths 6 % and 12 % longer respectively.
+
+**Required change 3 (§6.9, the self-test).** Reworded to what the code does:
+80 random 24x18 grids with a quarter of the cells blocked, half of them
+4-connected; the path/bound checks run on the 55 solvable ones, and on the
+other 25 the test asserts that nothing is published; the worked example is
+checked separately.
+
+**Required change 4 (§6.9, the weighted-A\* assertion).** Took the preferred
+one-line option: the text now states the relation instead of claiming a check
+-- weighted A\* is ARA\* with a one-element schedule, which is exactly how
+`weighted_astar()` is implemented, so the first iteration and the restarts of
+§6.7.1 use the same code path and tie-breaking as ARA\* itself. The assertion
+in the code was left in place (it is a cheap regression guard) but is no
+longer advertised as evidence.
+
+**Required change 5 (the eps convention).** Took the second of the two
+alternatives, the one that stays inside this chapter's files: one sentence
+after `def:ch06-key` says that Pearl and Kim's A\*_eps writes the slack as eps
+so its bound reads 1+eps, while here eps is the multiplier itself and the
+bound is eps*C\*. `frontmatter/notation.tex` was left untouched (it is not a
+chapter file; the finisher brief forbids editing shared front matter). Only
+one of the two fixes was applied, as instructed.
+
+**Required change 6 (length).** All four passages were compressed as
+directed: (a) the "First iteration" narration keeps the three turning points
+and the certificate computation and drops the retelling of steps 13-17;
+(b) observations 1 and 3 are merged into a single item, 2, 4 and 5 are kept;
+(c) the prose of §6.7.2 is reduced to the three things `tab:ch06-schedule`
+cannot say (and the give-away numbers of `exr:ch06-schedule`(d) were moved
+into the solution, per the suggestion); (d) the two practical rules that
+repeat summary bullets 4 and 6 are now two clauses, "Search backward when the
+start moves" is kept in full. Net effect on the body: those four passages lost
+about 40 % of their prose, but the corrections above (changes 1-5) and the
+accepted suggestions add roughly as much text back, so the body is 20 pages
+(pp. 21-40 of `build/only-ch06-arastar.pdf`) rather than 18. Getting to 18
+would mean cutting the worked example, a proof, a pitfall or an exercise --
+all of them on the reviewer's "must keep" list -- so the remaining excess was
+left in place rather than paid for with content.
+
+**Suggestions.** Adopted: solutions for `exr:ch06-trace`, `exr:ch06-schedule`
+and `exr:ch06-deadline` were added to
+`appendices/solutions/ch06-solutions.tex` (all numbers recomputed or taken
+from `ch06_arastar.py`: keys 17.41/18.24/19.90/20.00/22.49 for eps=3 and the
+eps=2 re-keying 11.83 < 12.24 < ... < 16.66; the adaptive schedule
+3 -> 1.45 -> 1 with 17, 13 and 2 expansions and eps' = 1.65, 1.16, 1.00;
+1 000 expansions per 50 ms cycle); the give-away in §6.7.2 was removed;
+§6.5 now names the call that reproduces the 22 expansions
+(`weighted_astar(grid, start, goal, 1.0)`) and says the reference A\* of the
+self-test breaks ties differently and needs 25; the caption of
+`fig:ch06-incons` now writes g = 1 + 2*sqrt2 = 3.83 and g = 3; the proof of
+`thm:ch06-pointer` spells out the acyclicity argument (last pointer set,
+strict relaxation, telescoping around the cycle); `def:ch06-certificate` gains
+the clause that gamma is never expanded, so L <= g(gamma) < inf and eps' >= 1,
+and L = inf can only coincide with the failure exit; CBS, ECBS, ORCA and DWA
+are expanded at first use in §6.1; §6.7.2 gains the clause about a schedule
+that stops before eps = 1. Not adopted: the ANA\* clause in §6.8.2, which
+would need a new bibliography entry -- the suggestion made it conditional, and
+no entry was added rather than risk an unverified reference.

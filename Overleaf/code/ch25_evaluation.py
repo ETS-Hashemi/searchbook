@@ -917,7 +917,7 @@ def _selftest_statistics():
     assert w6["exact"] and abs(w6["p"] - 2 / 64) < 1e-12 and w6["W"] == 21.0
     # ties are handled by average (half-integer) ranks and still enumerated exactly
     w4 = wilcoxon_signed_rank(np.array([1.0, 1.0, -2.0, 3.0]))
-    assert w4["exact"] and abs(w4["W"] - 6.5) < 1e-12
+    assert w4["exact"] and abs(w4["W"] - 7.0) < 1e-12
     assert not wilcoxon_signed_rank(np.arange(1.0, 26.0))["exact"]   # n = 25 > EXACT_MAX_N
     assert paired_compare(a, a)["mean_diff"] == 0.0 and paired_compare(a, a)["p_wilcoxon"] == 1.0
     bs = bootstrap_ci(a)

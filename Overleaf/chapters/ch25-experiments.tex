@@ -126,7 +126,9 @@ under the assumption of linear motion, using the closest-approach formula of
 $\vect{w} = \pos_i(t+1) - \pos_j(t+1) - \vect{r}_0$, the minimum over the
 interval is $\norm{\vect{r}_0 + s^*\vect{w}}$ with
 $s^* = \operatorname{clip}(-\vect{r}_0 \cdot \vect{w} / \norm{\vect{w}}^2,
-0, 1)$. With $\dt = 0.1$~s and relative speeds up to $4$~m/s a sampled
+0, 1)$. If $\vect{w} = \vect{0}$ the two agents move identically over the
+interval, the quotient is undefined and the minimum is $\norm{\vect{r}_0}$;
+the code takes that branch, and \cref{exr:ch25-metrics-log} needs it. With $\dt = 0.1$~s and relative speeds up to $4$~m/s a sampled
 minimum can be off by $0.2$~m, a third of the collision distance of two
 $0.3$~m drones.
 
@@ -274,8 +276,9 @@ last column is the one to reread before you believe a number.
 \end{table}
 
 \begin{pitfall}[Collision rate without minimum separation]
-A collision rate of $0/20$ says that the true rate is below about $16\,\%$
-(\cref{thm:ch25-three}) and nothing more. Two strategies with $0/20$ each
+A collision rate of $0/20$ says that the true rate is below about $14\,\%$
+(\cref{thm:ch25-three}; the Wilson interval of \cref{eq:ch25-wilson} gives
+$16\,\%$) and nothing more. Two strategies with $0/20$ each
 can differ enormously in how close they came: in the mini-study of
 \cref{sec:ch25-study} the local-only and the replan-only strategies both
 score $0/20$ collisions with two drones, but their median minimum
@@ -318,7 +321,10 @@ most of the cells answer no question anyone asked.
   \caption{The experiment matrix of the training plan. The base cell (bold)
   is the reference around which a fractional design varies one factor at a
   time; the two starred factors interact and deserve a small full factorial
-  of their own.}
+  of their own. The count $3 \times 4 \times 4 \times 3 \times 4 = 576$ reads
+  the two binary constraint choices as the one four-level factor of the last
+  row, and the strategy factor as three levels, with ``no avoidance'' kept
+  outside the design as a sanity check.}
   \label{tab:ch25-matrix}
   \begin{tabularx}{\textwidth}{@{}lY@{}}
   \toprule
@@ -657,7 +663,15 @@ things.\index{paired comparison}
         which ranks $\abs{D_s}$ and asks whether the positive ranks
         dominate, and the sign test, which only counts how often $A$ beat
         $B$. Print the counts ``better / worse / tie'' in any case; ``16 of
-        20 scenarios'' is understood faster than any $p$-value.
+        20 scenarios'' is understood faster than any $p$-value. Compute both
+        $p$-values from the \emph{exact} null distribution. With $N \le 20$
+        scenarios --- fewer once the ties are dropped --- the usual normal
+        approximation to the signed-rank statistic is wrong by a factor of
+        several in the tail, which is the only part anyone reads; it needs
+        $N$ of about $25$. Enumerating the $2^n$ sign patterns costs
+        microseconds: the polynomial $\prod_i (1 + x^{r_i})$ counts them by
+        rank sum, and its coefficients are the null distribution
+        (\code{wilcoxon\_signed\_rank} in \code{ch25\_evaluation.py}).
 \end{enumerate}
 Every comparison is a chance to be fooled by noise: with $10$ metrics and
 $3$ strategy pairs you run $30$ tests, and at the $5\,\%$ level one or two
@@ -743,7 +757,10 @@ near-miss rate, and marks the points that no other point dominates. In
 \cref{fig:ch25-pareto} the three avoidance strategies form a front ---
 local-only the most efficient, replan-only the safest, the hybrid between
 them --- and no-avoidance is dominated by all of them. The plot states the
-trade-off; the text must say which point the application wants.
+trade-off; the text must say which point the application wants. Both panels
+of \cref{fig:ch25-plots} are drawn from the $320$ runs of
+\cref{sec:ch25-study}, so the same study can be read three ways: as a table,
+as a distribution and as a front.
 
 \begin{figure}[tb]
   \centering
@@ -789,15 +806,21 @@ $[45^\circ, 135^\circ]$ and a speed in $[1, 2]$~m/s. The world is the toy of
 \cref{sec:ch25-scenarios}: drones of radius $0.3$~m at $1.5$~m/s (limit
 $2$~m/s), $\dt = 0.1$~s, safety radius $r_{\mathrm{safe}} = 1$~m, planned
 separation $1.5$~m, safety horizon $\tau_h = 3$~s, mission cap $40$~s. The
-local layer is a sampled velocity-obstacle avoider (97 candidate velocities,
+local layer is a sampled velocity-obstacle avoider ($97$ sampled velocities
+plus the preferred one,
 constant over the horizon), the replanner a detour planner with waits, the
 hybrid the state machine of \cref{ch:ch24} with a deviation threshold of
 $3$~m, at most $4$~s in Avoiding and a reconnection lead of $2$~s; all are
 stand-ins for the modules of the earlier chapters, documented as such in
-\code{ch25\_evaluation.py}. The $320$ runs take $21$~s and produce
-\cref{tab:ch25-results,tab:ch25-paired} and
-\cref{fig:ch25-boxplot,fig:ch25-cactus,fig:ch25-pareto}; every number below
-is printed by the self-test of the file.
+\code{ch25\_evaluation.py}. The $320$ runs take about $20$~s on the author's
+machine and produce \cref{tab:ch25-results,tab:ch25-paired} and
+\cref{fig:ch25-boxplot,fig:ch25-cactus,fig:ch25-pareto}. Every number below
+is produced by the code: the summary rows and the paired comparisons by
+\code{gen\_ch25\_study.py}, which prints the \LaTeX{} of both tables; the
+metric definitions and the determinism of the runner by the self-test of
+\code{ch25\_evaluation.py}, which also prints the per-cell summary, the
+paired rows and the family breakdown; and the per-seed facts of the
+discussion by the raw rows in \code{ch25-study-runs.dat}.
 \end{example}
 
 \begin{table}[tb]
@@ -809,7 +832,10 @@ is printed by the self-test of the file.
   decision (ms, one machine); mean formation error against the nominal
   geometry (m); mean number of steps with a communication violation;
   success rate (all drones at their goals, no collision). Without an
-  intruder the four strategies produce identical runs, so one row serves.}
+  intruder the four strategies produce identical runs, so one row serves.
+  The $\bar c$ column is wall-clock time on one machine; it is the only
+  column that will differ when you re-run the study, and only its ordering is
+  meaningful.}
   \label{tab:ch25-results}
   \begin{tabular}{@{}llccccccccccc@{}}
   \toprule
@@ -837,33 +863,35 @@ is printed by the self-test of the file.
   \caption{Paired comparisons of \cref{ex:ch25-study}, hybrid minus the
   other strategy, one-intruder cells. Mean difference with its $95\,\%$
   $t$ interval, Cohen's $d_z$, the number of scenarios in which the hybrid
-  value was smaller / larger / equal, and the Wilcoxon signed-rank
-  $p$-value. For $d_{\min}$ larger is better; for the other three smaller is
-  better.}
+  value was smaller / larger / equal, and the two-sided $p$-values of the
+  Wilcoxon signed-rank test and of the sign test. Both are \emph{exact}
+  (the null distribution is enumerated, not approximated by a normal), which
+  matters here: the $d_{\min}$ rows have only $7$ non-zero differences. For
+  $d_{\min}$ larger is better; for the other three smaller is better.}
   \label{tab:ch25-paired}
-  \begin{tabular}{@{}llrccc@{}}
+  \begin{tabular}{@{}llrcccc@{}}
   \toprule
-  Metric & Cell & \multicolumn{1}{c}{Difference [CI]} & $d_z$ & smaller/larger/equal & $p$\\
+  Metric & Cell & \multicolumn{1}{c}{Difference [CI]} & $d_z$ & smaller/larger/equal & $p_{\mathrm{W}}$ & $p_{\mathrm{sign}}$\\
   \midrule
-  \multicolumn{6}{@{}l}{\emph{Hybrid minus local-only}}\\
-  $\rho_L$ & $k{=}2$ & $+0.025$ [$+0.004$, $+0.045$] & $0.57$ & 5 / 9 / 6 & 0.041\\
-  $\rho_L$ & $k{=}4$ & $+0.021$ [$+0.006$, $+0.036$] & $0.66$ & 4 / 10 / 6 & 0.011\\
-  $d_{\min}^{\mathrm{di}}$ (m) & $k{=}2$ & $+0.082$ [$+0.004$, $+0.159$] & $0.49$ & 0 / 7 / 13 & 0.018\\
-  $d_{\min}^{\mathrm{di}}$ (m) & $k{=}4$ & $+0.023$ [$-0.003$, $+0.050$] & $0.41$ & 2 / 5 / 13 & 0.063\\
-  $n_{\mathrm{rp}}$ & $k{=}2$ & $+0.85$ [$+0.54$, $+1.16$] & $1.27$ & 0 / 14 / 6 & 0.001\\
-  $n_{\mathrm{rp}}$ & $k{=}4$ & $+1.50$ [$+0.87$, $+2.14$] & $1.11$ & 0 / 14 / 6 & 0.001\\
-  $\bar e_F$ (m) & $k{=}2$ & $+0.36$ [$-0.19$, $+0.91$] & $0.31$ & 3 / 11 / 6 & 0.026\\
-  $\bar e_F$ (m) & $k{=}4$ & $+0.43$ [$+0.20$, $+0.66$] & $0.88$ & 0 / 14 / 6 & 0.001\\
+  \multicolumn{7}{@{}l}{\emph{Hybrid minus local-only}}\\
+  $\rho_L$ & $k{=}2$ & $+0.025$ [$+0.004$, $+0.045$] & $0.57$ & 5 / 9 / 6 & 0.042 & 0.424\\
+  $\rho_L$ & $k{=}4$ & $+0.021$ [$+0.006$, $+0.036$] & $0.66$ & 4 / 10 / 6 & 0.009 & 0.180\\
+  $d_{\min}^{\mathrm{di}}$ (m) & $k{=}2$ & $+0.082$ [$+0.004$, $+0.159$] & $0.49$ & 0 / 7 / 13 & 0.016 & 0.016\\
+  $d_{\min}^{\mathrm{di}}$ (m) & $k{=}4$ & $+0.023$ [$-0.003$, $+0.050$] & $0.41$ & 2 / 5 / 13 & 0.078 & 0.453\\
+  $n_{\mathrm{rp}}$ & $k{=}2$ & $+0.85$ [$+0.54$, $+1.16$] & $1.27$ & 0 / 14 / 6 & 0.0001 & 0.0001\\
+  $n_{\mathrm{rp}}$ & $k{=}4$ & $+1.50$ [$+0.87$, $+2.14$] & $1.11$ & 0 / 14 / 6 & 0.0001 & 0.0001\\
+  $\bar e_F$ (m) & $k{=}2$ & $+0.36$ [$-0.19$, $+0.91$] & $0.31$ & 3 / 11 / 6 & 0.025 & 0.057\\
+  $\bar e_F$ (m) & $k{=}4$ & $+0.43$ [$+0.20$, $+0.66$] & $0.88$ & 0 / 14 / 6 & 0.0001 & 0.0001\\
   \midrule
-  \multicolumn{6}{@{}l}{\emph{Hybrid minus replan-only}}\\
-  $\rho_L$ & $k{=}2$ & $-0.012$ [$-0.049$, $+0.025$] & $-0.15$ & 14 / 6 / 0 & 0.433\\
-  $\rho_L$ & $k{=}4$ & $-0.029$ [$-0.053$, $-0.006$] & $-0.58$ & 16 / 4 / 0 & 0.008\\
-  $d_{\min}^{\mathrm{di}}$ (m) & $k{=}2$ & $-0.56$ [$-0.84$, $-0.28$] & $-0.94$ & 17 / 3 / 0 & 0.001\\
-  $d_{\min}^{\mathrm{di}}$ (m) & $k{=}4$ & $-0.71$ [$-1.05$, $-0.36$] & $-0.96$ & 17 / 3 / 0 & $<0.001$\\
-  $n_{\mathrm{rp}}$ & $k{=}2$ & $-3.30$ [$-4.05$, $-2.56$] & $-2.07$ & 20 / 0 / 0 & $<0.001$\\
-  $n_{\mathrm{rp}}$ & $k{=}4$ & $-5.95$ [$-7.59$, $-4.31$] & $-1.70$ & 20 / 0 / 0 & $<0.001$\\
-  $\bar e_F$ (m) & $k{=}2$ & $-0.38$ [$-0.80$, $+0.04$] & $-0.42$ & 13 / 7 / 0 & 0.108\\
-  $\bar e_F$ (m) & $k{=}4$ & $-0.73$ [$-1.02$, $-0.44$] & $-1.19$ & 17 / 3 / 0 & 0.001\\
+  \multicolumn{7}{@{}l}{\emph{Hybrid minus replan-only}}\\
+  $\rho_L$ & $k{=}2$ & $-0.012$ [$-0.049$, $+0.025$] & $-0.15$ & 14 / 6 / 0 & 0.452 & 0.115\\
+  $\rho_L$ & $k{=}4$ & $-0.029$ [$-0.053$, $-0.006$] & $-0.58$ & 16 / 4 / 0 & 0.006 & 0.012\\
+  $d_{\min}^{\mathrm{di}}$ (m) & $k{=}2$ & $-0.56$ [$-0.84$, $-0.28$] & $-0.94$ & 17 / 3 / 0 & 0.0003 & 0.003\\
+  $d_{\min}^{\mathrm{di}}$ (m) & $k{=}4$ & $-0.71$ [$-1.05$, $-0.36$] & $-0.96$ & 17 / 3 / 0 & 0.0001 & 0.003\\
+  $n_{\mathrm{rp}}$ & $k{=}2$ & $-3.30$ [$-4.05$, $-2.56$] & $-2.07$ & 20 / 0 / 0 & $<0.0001$ & $<0.0001$\\
+  $n_{\mathrm{rp}}$ & $k{=}4$ & $-5.95$ [$-7.59$, $-4.31$] & $-1.70$ & 20 / 0 / 0 & $<0.0001$ & $<0.0001$\\
+  $\bar e_F$ (m) & $k{=}2$ & $-0.38$ [$-0.80$, $+0.04$] & $-0.42$ & 13 / 7 / 0 & 0.114 & 0.263\\
+  $\bar e_F$ (m) & $k{=}4$ & $-0.73$ [$-1.02$, $-0.44$] & $-1.19$ & 17 / 3 / 0 & 0.0001 & 0.003\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -915,17 +943,21 @@ longest run took $17.2$~s.
 Replan-only replans $4.15$ and $7.45$ times per run, the hybrid $0.85$ and
 $1.50$, local-only never. Under noisy prediction the replan-only strategy
 thrashes: every change of the predicted trajectory re-triggers a replan a
-second later, and each replan re-times the mission. Computation per
-decision costs $0.08$~ms for prediction and tracking alone, $0.09$~ms with
-replanning and $0.16$--$0.17$~ms with a reactive layer, whose velocity
-sampling runs at every Avoiding step (\cref{fig:ch25-cactus}). Detours
+second later, and each replan re-times the mission. The ordering of the
+computation times is the part that transfers to another machine: a step with
+a reactive layer costs about twice a replanning step and about twice a pure
+prediction-and-tracking step, because the velocity sampling runs at every
+Avoiding step (\cref{fig:ch25-cactus}). On the author's machine those steps
+are $0.16$--$0.17$~ms, $0.09$~ms and $0.08$~ms; on yours all three will move
+together. Detours
 distort the swarm geometry more than dodges: the mean formation error against
 the nominal plan is $0.3$--$0.7$~m for local-only, $0.7$--$1.0$~m for the
 hybrid and $1.4$--$1.5$~m for replan-only. Communication violations occur in
 the two-drone cell only, where a lagging drone can fall $10$~m behind its
 partner, and the means of $3.5$ and $1.6$ steps each come from a single run:
 a mean of a quantity that is zero in $19$ of $20$ runs should be reported as
-``$1$ of $20$ runs, for $69$ steps'' instead.
+``$1$ of $20$ runs, for $69$ steps'' for replan-only and ``$1$ of $20$ runs,
+for $32$ steps'' for the hybrid instead.
 
 \paragraph{A cautious interpretation.}
 The study supports the following statements, and no more.
@@ -1436,8 +1468,9 @@ two strategies across scenarios, how many unpaired runs per strategy give
 the precision of $20$ paired runs? (b) Construct a situation in which
 pairing \emph{hurts}, and explain why it is rare in planner evaluations.
 (c) The hybrid has the shorter path in $16$ of $20$ scenarios and the longer
-one in $4$: compute the two-sided sign-test $p$-value exactly and compare
-with \cref{tab:ch25-paired}. (d) Why does the table report $d_{\min}$ as
+one in $4$: compute the two-sided sign-test $p$-value exactly, find the row
+of \cref{tab:ch25-paired} it belongs to, and explain why the Wilcoxon
+$p$-value of that row is smaller. (d) Why does the table report $d_{\min}$ as
 ``$0 / 7 / 13$'' for hybrid against local-only, and what does the $13$ say
 about the two strategies?
 \end{exercise}
