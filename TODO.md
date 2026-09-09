@@ -105,10 +105,10 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 Round k for chapter N: reviewer report → required changes applied → compile → re-review.
 
 - [x] 5.01 Ch 1 — review/revise until Accept — Accept (round 2)
-- [~] 5.02 Ch 2 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [x] 5.02 Ch 2 — four Opus rounds, every required change applied; loop complete
 - [~] 5.03 Ch 3 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [x] 5.04 Ch 4 — four Opus rounds (Major 13 -> Minor 7 -> Minor 3 -> Minor 3), every required change applied; loop complete
-- [~] 5.05 Ch 5 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [x] 5.05 Ch 5 — four Opus rounds (Minor 9 -> Minor 2 -> Minor 6 -> Minor 2), every required change applied; loop complete
 - [ ] 5.06 Ch 6 — review/revise until Accept
 - [~] 5.07 Ch 7 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
 - [ ] 5.08 Ch 8 — review/revise until Accept
@@ -179,6 +179,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 24 | 13:00-17:40 | first wave: authors finished Ch 7, 9, 11, 13, 19, 20, 21 (20-24 pp each, all compile); then the session limit hit again (reset 17:40 UTC) before any review completed | 17 drafted files |
 | 26 | 09-08 | review loops finished for Ch 1-5, 7, 9-11, 13, 14, 19-21 and App. A (Ch 1 Accept; 14 others: two Opus rounds, minor items applied). All 12 remaining authors (Ch 6, 8, 12, 15-18, 22-25, App. B) stopped by the WEEKLY Fable limit | 15 reviewed |
 | 29 | 09-09 09:00-13:50 | authors finished Ch 6, 8, 12, 15, 16, 22, 23 (19-23 pp each); fresh Opus reviews of Ch 1, 2, 4, 5, 10 found 3-6 minor items each (not yet applied); then the session limit hit again | 23 chapters drafted |
+| 32 | 09-09 18:40 | apply-review workflow finished with no errors: Ch 10 ACCEPT; Ch 1, 2, 4, 5 confirming rounds left 2-3 minor items each, all applied | 5 loops complete |
 | 31 | 09-09 ~18:30 | ALL 25 chapters and both appendices now have complete drafts (Ch 17, 18, 24, 25 finished today); review loops running for 17 chapters | drafting complete |
 | 30 | 09-09 16:15 | fresh workflows (no resume, to avoid re-reviewing): authors for Ch 17, 18, App. B (finish drafts) and Ch 24, 25; first Opus reviews for Ch 6, 8, 12, 15, 16, 22, 23; apply pending reviews + confirming round for Ch 1, 2, 4, 5, 10 | running |
 | 28 | 09-09 08:55 | workflows resumed (cached reviews replay; 12 authors to run). In parallel on Opus: 4.6 bibliography audit via web search (docs/bib-audit.md) and 1.3 notation table (frontmatter/notation.tex) | running |
@@ -205,7 +206,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | Ch 2 | 1-4 | Minor (10) -> Minor (3) -> Minor (5) -> Minor (3), all applied | see reviews/ch02-round*.md | loop complete |
 | Ch 3 | 1-2 | Minor revision (4) -> Minor revision (2), applied | see reviews/ch03-round1.md, ch03-round2.md | minor items applied, unreviewed |
 | Ch 4 | 1-4 | Major (13) -> Minor (7) -> Minor (3) -> Minor (3), all applied | see reviews/ch04-round*.md | loop complete |
-| Ch 5 | 1-2 | Minor revision (9) -> Minor revision (2), applied | see reviews/ch05-round1.md, ch05-round2.md | minor items applied, unreviewed |
+| Ch 5 | 1-4 | Minor (9) -> Minor (2) -> Minor (6) -> Minor (2), all applied | see reviews/ch05-round*.md | loop complete |
 | Ch 7 | 1-2 | Minor revision (8) -> Minor revision (4), applied | see reviews/ch07-round1.md, ch07-round2.md | minor items applied, unreviewed |
 | Ch 9 | 1-2 | Minor revision (11) -> Minor revision (2), applied | see reviews/ch09-round1.md, ch09-round2.md | minor items applied, unreviewed |
 | Ch 10 | 1-4 | Minor revision (7) -> Minor (2) -> Minor (5, applied) -> Accept | see reviews/ch10-round*.md | ACCEPT |
