@@ -1,0 +1,28 @@
+% Gaussian conditioning: joint ellipses, the slice y = 2, conditional and marginal densities.
+% Numbers from code/figures/gen_appB_numbers.py: mean (2,1), Sigma [[2,1.2],[1.2,1]],
+% eigenvalues 2.8 and 0.2, orientation 33.69 deg, x|y=2 ~ N(3.2, 0.56), x ~ N(2, 2.0).
+\begin{tikzpicture}[font=\footnotesize,x=1.05cm,y=1.05cm]
+  \draw[->,black!60] (-1.4,-1.3) -- (6.3,-1.3) node[below left] {$x$};
+  \draw[->,black!60] (-1.2,-1.5) -- (-1.2,3.6) node[below right] {$y$};
+  \foreach \t in {0,1,...,6} \draw[black!60] (\t,-1.35) -- (\t,-1.25) node[below,yshift=-1pt] {\t};
+  \foreach \t in {0,1,2,3} \draw[black!60] (-1.25,\t) -- (-1.15,\t) node[left,xshift=-1pt] {\t};
+  % marginal density of x along the bottom (scaled by 2.25)
+  \fill[sbBlue!12] plot[domain=-1.2:6.2,samples=90] (\x,{-1.3+0.635*exp(-(\x-2)^2/4)}) -- (6.2,-1.3) -- (-1.2,-1.3) -- cycle;
+  \draw[sbBlue,thick] plot[domain=-1.2:6.2,samples=90] (\x,{-1.3+0.635*exp(-(\x-2)^2/4)});
+  \node[sbannot,text=sbBlue] at (0.35,-0.45) {$p(x)$: $\Normal(2,\,2.0)$};
+  % joint ellipses
+  \draw[sbBlue,thick,rotate around={33.69:(2,1)}] (2,1) ellipse (1.673 and 0.447);
+  \draw[sbBlue,thick,rotate around={33.69:(2,1)}] (2,1) ellipse (3.347 and 0.894);
+  \node[sbannot,text=sbBlue] at (4.7,3.15) {$2\sigma$};
+  \node[sbannot,text=sbBlue] at (3.55,2.35) {$1\sigma$};
+  \draw[sbvec,draw=sbBlue!70] (2,1) -- (3.392,1.928) node[sbannot,text=sbBlue,right,xshift=-1pt] {$\vect{q}_1$};
+  \fill[black] (2,1) circle (1.6pt) node[below right,sbannot,text=black] {$\vect{\mu}=(2,1)$};
+  % slice y = 2 and the conditional density along it (scaled by 2.25)
+  \draw[black!70,dashed] (-1.2,2) -- (6.2,2) node[sbannot,text=black,above left] {$y=2$};
+  \fill[sbOrange!15] plot[domain=1.0:5.4,samples=80] (\x,{2+1.2*exp(-(\x-3.2)^2/1.12)}) -- (5.4,2) -- (1.0,2) -- cycle;
+  \draw[sbOrange,thick] plot[domain=1.0:5.4,samples=80] (\x,{2+1.2*exp(-(\x-3.2)^2/1.12)});
+  \draw[sbOrange] (3.2,1.9) -- (3.2,2.1);
+  \node[sbannot,text=sbOrange,align=left] at (5.15,2.85) {$p(x\mid y=2)$:\\ $\Normal(3.2,\,0.56)$};
+  \draw[sbOrange,densely dotted] (3.2,-1.3) -- (3.2,1.9);
+  \node[sbannot,text=sbOrange,below] at (3.2,-1.7) {$3.2$};
+\end{tikzpicture}

@@ -1,327 +1,203 @@
 # Review of Chapter 1 (Planning for Drone Swarms) - round 1
 
-Reviewed artefacts: `Overleaf/chapters/ch01-introduction.tex` (1079 lines),
+Reviewed artefacts: `Overleaf/chapters/ch01-introduction.tex` (1073 lines),
 `Overleaf/figures/ch01/{scenario,planned-vs-unexpected,architecture,decision,timescales,reading-paths}.tex`,
-`Overleaf/code/ch01_scenario.py`, `Overleaf/code/figures/gen_ch01_scenario.py`,
+`Overleaf/code/ch01_scenario.py` and `Overleaf/code/figures/gen_ch01_scenario.py`,
 `Overleaf/appendices/solutions/ch01-solutions.tex`, `Overleaf/appendices/glossary/ch01-terms.tex`,
-`Overleaf/bib/ch01-extra.bib`, and the training plan `docs/core-idea.txt`.
+`Overleaf/bib/ch01-extra.bib`, `Overleaf/references.bib`, `Overleaf/frontmatter/{notation,preface}.tex`,
+and, for consistency, `Overleaf/chapters/{ch02-toolbox,ch04-astar,ch07-mapf-problem,ch12-velocity-obstacles,ch13-rvo-orca}.tex`.
 There is no `docs/specs/ch01.md`, so completeness was checked against the chapter's own
-objectives box and against the training plan (sections 1-5 of `core-idea.txt`).
+objectives box and against the training plan `docs/core-idea.txt` (sections 1-6).
 
-Build: `cd Overleaf && ./build.sh ch01-introduction` returns status 0. No `!` errors, no
-`Overfull`/`Underfull` boxes at all, no undefined citations, no multiply-defined labels, and no
-undefined reference belonging to this chapter (the `??` in the log and the PDF are all
-cross-chapter `\cref{ch:chNN}` targets, which is expected in a single-chapter build).
-The chapter occupies printed pages 1-20 (PDF pages 12-30 of `build/only-ch01-introduction.pdf`),
-i.e. 20 pages - inside the 20-page cap, above the style guide's 12-18 band.
+**Build.** `cd Overleaf && ./build.sh ch01-introduction` returns status 0. No `!` errors, no
+undefined citation, no multiply-defined label, and no undefined reference belonging to this
+chapter (every `??` in the log and the PDF is a cross-chapter `\cref{ch:chNN}`, expected in a
+single-chapter build; the numbers that *do* print for other chapters, e.g. "Chapters 5 to 6"
+for `\ref{ch:ch12}`-`\ref{ch:ch15}`, come from stale per-chapter `.aux` files of an earlier
+partial build - I checked `build/chapters/*.aux` and this is a build artefact, not a chapter
+defect). Two overfull boxes, 11.10 pt (`figures/ch01/timescales.tex`) and 1.15 pt
+(`reading-paths.tex`), both under the 15 pt threshold, plus one underfull box in the listing
+caption. The chapter occupies printed pages 2-20 (PDF pages 18-36), i.e. **19 printed pages**,
+inside the 20-page cap and one page above the style guide's 12-18 band.
 
-Code: `python3 code/ch01_scenario.py` prints `self-test passed` in well under a second.
-I re-derived every quoted number independently (see "What must be kept"); all of them match.
-`python3 code/figures/gen_ch01_scenario.py` regenerates `figures/ch01/scenario.tex` byte-identically.
+**Code.** `python3 code/ch01_scenario.py` prints `self-test passed` in well under a second and
+reproduces every quoted number. I re-derived the whole numeric spine independently (see
+"What must be kept") and also re-ran the two results the default run does not print: the
+conflict fractions of `exr:ch01-coding`(c) and the wait-step minima of `exr:ch01-trace`(d).
+One of the six re-derived solution numbers is misrounded; everything else is exact.
 
 ## Verdict
 
-**Minor revision.** The technical substance is sound and unusually well verified: every number in
-the worked example, the trace table, the exercises and the solutions is reproduced by
-`code/ch01_scenario.py`, the map table agrees item by item with the training plan, and all 17
-citation keys resolve to real entries in `references.bib`. One statement in the properties table
-(completeness of CBS) contradicts what Chapter 9 proves and is wrong as written; the remaining
-items are local fixes to acronyms, two dangling forward references, one figure, one caption and a
-modest trim. No required change asks for new content or a restructuring.
+**Minor revision.**
+
+The chapter is accurate, complete against the training plan, and unusually well verified: every
+number in the example, the trace table, the exercises and the solutions is produced by the
+chapter's Python file; the map table reproduces the plan's six groups, 27 entries and priority
+tags item by item; all 17 citation keys resolve to genuine, correctly detailed entries. Four
+required changes remain, all local and all one-paragraph or smaller: one over-strong safety
+claim, one misrounded number in the solutions, one notation clash with Chapter 12 that makes a
+cross-reference point at the wrong object, and one paragraph that repeats the preface. Nothing
+needs to be re-written or restructured, and no required change is in categories B-E.
 
 ## Required changes
 
-1. **Table 1.3 `tab:ch01-properties`, row "Complete" (`chapters/ch01-introduction.tex` line 398), and
-   `appendices/glossary/ch01-terms.tex` line 4.** *Category A (technical accuracy).*
-   The informal definition given is the strong one - "if a solution exists, the algorithm finds one,
-   **and if none exists it says so**" - and `\cbs` is then listed as having it. That is false for CBS
-   as published, and it contradicts this book's own Chapter 9, which states the objective as "Prove
-   that CBS is complete **on solvable instances**" (`ch09-cbs.tex` line 14) and carries an explicit
-   `rem:ch09-unsolvable` saying "there is no explicit stopping rule for unsolvable instances"
-   (line 328, line 621: "Sharon et al. state completeness for solvable instances only").
-   *Fix:* split the definition into the weak and strong forms - "if a solution exists the algorithm
-   finds one; in the strong form it also reports failure when none exists, which needs a finite
-   search space or a separate feasibility test" - and change the CBS entry to
-   `\cbs on solvable instances (\cref{ch:ch09}; see the remark there on unsolvable instances)`.
-   Keep Dijkstra/`\astar` in the strong form (finite graph) and prioritized planning as *not*
-   complete. Apply the same correction to the glossary line, which currently reads "finding a
-   solution whenever one exists and reporting failure when none exists".
+1. **`chapters/ch01-introduction.tex`, section `sec:ch01-two-kinds`, lines 141-142.**
+   *Category A (technical accuracy).*
+   **Problem.** The text asserts flatly that "no algorithm can guarantee safety against an
+   object whose motion is unknown". As a universal claim this is false, and a reader who knows
+   the reachability / inevitable-collision-state literature will notice: if the intruder's
+   speed (and, if you like, acceleration) is bounded, one *can* plan against its reachable set
+   and guarantee safety - the reason nobody flies that way is conservatism, not impossibility.
+   The book is careful everywhere else, and this sentence is the chapter's justification for
+   the whole reactive layer, so it should not overstate.
+   **Fix.** Add the qualifying clause, e.g.: "...and no algorithm can guarantee safety against
+   an object whose motion is completely unknown; one can only do so by bounding its speed and
+   planning against everywhere it could reach, which at a few seconds of horizon blocks so much
+   of the airspace that the swarm cannot fly (\cref{ch:ch12} truncates the velocity obstacle
+   for exactly this reason)."
 
-2. **Acronyms are used before (or without) their expansion, throughout.** *Category F (consistency
-   with the style guide, section 3: "Define each acronym at first use in every chapter").*
-   Never expanded anywhere in the chapter: **ORCA** (optimal reciprocal collision avoidance;
-   first use line 302), **ECBS** (Enhanced CBS; first use in Table 1.3, line 400), **LSTM** (long
-   short-term memory; line 457), **RRT/RRT\*** (rapidly-exploring random tree; line 302),
-   **LPA\*** (Lifelong Planning A\*; line 640), **ARA\*** (Anytime Repairing A\*; line 641),
-   **M\*** (line 647), **QP** (line 901). Expanded, but only *after* the acronym has been used:
-   **MAPF** (first use Table 1.5 line 816 and Figure 1.6; expansion only at lines 680/782),
-   **MPC**, **MILP**, **VO**, **RVO**, **DWA** (all first used at lines 302 / 403, expanded later
-   in Table 1.4).
-   *Fix:* expand at first use. Concretely: line 302 -> "`\rrt` (rapidly-exploring random tree),
-   `\rrtstar`, model predictive control (MPC), mixed-integer linear programming (MILP) and the
-   velocity-space methods"; put the expansion in the "Algorithm" column of Table 1.4 for
-   `\lpastar`, `\arastar`, `\orca`, `\ecbs`, `\mstar` and LSTM; write "multi-agent path finding
-   (MAPF)" at line 262 or 613 so the acronym is defined before Table 1.5 and Figure 1.6 use it;
-   spell out "quadratic program (QP)" at line 901.
+2. **`appendices/solutions/ch01-solutions.tex`, solution to `exr:ch01-coding`, part (c).**
+   *Category A (numbers must be reproduced by the code).*
+   **Problem.** The solution reports "about $0.22$ for $k=2$, $0.60$ for $k=4$ and $0.99$ for
+   $k=8$". Running the book's own generator
+   (`ch01_scenario.generate(12, 8, k, 0.15, seed)` for `seed` in `range(200)`, then
+   `plan_independently` and `find_conflicts`) gives **0.215, 0.595 and 0.995**. The first two
+   round correctly; the third does not - 0.995 is 199 scenarios out of 200 and rounds to 1.00,
+   not 0.99. A reader who follows the instruction and re-runs the experiment gets a number that
+   disagrees with the printed one in the last digit.
+   **Fix.** Replace the three values by the exact ones: "about $0.215$ for $k=2$, $0.595$ for
+   $k=4$ and $0.995$ for $k=8$ (199 scenarios out of 200)". Keep the following sentence about
+   tie-breaking unchanged.
 
-3. **Two forward references promise material that the target chapters do not contain.**
-   *Category F.*
-   (a) Line 909-911 (§1.6.1, "The Python stack"): "`\Cref{ch:ch02}` describes the small conventions
-   that the book's code shares: how a grid is stored, how a path is represented, **how a scenario is
-   written to a file**." `chapters/ch02-toolbox.tex` has no scenario-file or JSON material (zero hits
-   for "json" and for "scenario").
-   (b) Exercise `exr:ch01-coding` (d), line 1076-1077: "`\cref{ch:ch25}` will read such files when it
-   builds an experiment matrix." `chapters/ch25-experiments.tex` contains zero occurrences of
-   "scenario" and no JSON reader.
-   *Fix:* delete both clauses, or repoint them at material that exists: in (a) end the sentence at
-   "how a path is represented", and add "the JSON layout used by `to_json`/`from_json` in
-   `code/ch01_scenario.py` is the one the later experiment code reuses"; in (d) replace the
-   `\cref{ch:ch25}` promise with "keep the layout of `to_json`, so that the same files can drive a
-   later experiment matrix".
+3. **`chapters/ch01-introduction.tex`, section `sec:ch01-decision`, lines 484-490 (definition of
+   $\ttc$ and the sentence "\Cref{ch:ch12} computes $\ttc$ from relative position and
+   velocity").** *Category F (consistency with the notation and the later chapters).*
+   **Problem.** Chapter 1 uses $\ttc$ (i.e. $\tau$) for the *time to collision* and
+   $\ttc_{\mathrm{safe}}$ for the safety horizon. Chapter 12 does the opposite: `def:ch12-ttc`
+   (line 322) defines the time to collision as $t_c(\vel_{\mathrm{rel}})$ and reserves $\ttc$
+   for the *truncation horizon* of a velocity obstacle, $\VO^{\ttc}_{A|B}$ (line 397); Chapter
+   13 continues with $\ttc$ as the horizon in $\ORCA^{\ttc}_{A|B}$; and
+   `frontmatter/notation.tex` row 129 has to paper over the clash with "horizon of the reactive
+   layer; a time to collision in \cref{ch:ch01}". The consequence is a cross-reference that is
+   simply wrong: Chapter 12 does *not* compute $\ttc$ from relative position and velocity, it
+   computes $t_c$, and a reader who follows the pointer finds the symbol meaning something
+   else.
+   **Fix.** In `sec:ch01-decision` rename the time to collision to $t_c$ in its three
+   occurrences - the defining sentence ("The \textbf{time to collision} $t_c$ of a drone with a
+   predicted object is ..."), the risk condition ("$t_c<\ttc_{\mathrm{safe}}$"), and the last
+   sentence, which should read "\Cref{ch:ch12} computes $t_c$ from relative position and
+   velocity (\cref{def:ch12-ttc}) and uses $\ttc$ for the horizon over which a velocity obstacle
+   is truncated." Keep $\ttc_{\mathrm{safe}}$ for the safety horizon: with $t_c$ freed, $\tau$
+   then means a *horizon* in Chapters 1, 12 and 13 alike, and `exr:ch01-timescales` needs no
+   change. Editor's note (outside this chapter): row 129 of `frontmatter/notation.tex` can then
+   be shortened to "$\ttc$ & horizon of the reactive layer & \cref{ch:ch12}".
 
-4. **§1.6.1 "The Python stack" (line 900-902) understates the dependencies.** *Category F.*
-   "The book's reference implementations use only Python 3.10 or newer and NumPy (SciPy for the QP
-   and MILP solvers of `\cref{ch:ch21,ch:ch22}`)" is contradicted by
-   `code/ch20_prediction_torch.py` and `lst:ch20-torch` (`ch20-trajectory-prediction.tex`
-   lines 1336-1366), which import PyTorch. Objective 6 promises the reader can "set up the Python
-   stack that its code uses", so the omission has a practical cost.
-   *Fix:* add ", plus an optional PyTorch version of the predictor in `\cref{ch:ch20}`, which the
-   self-tests never run".
-
-5. **`figures/ch01/planned-vs-unexpected.tex`, panel (b): the intruder starts inside a blocked
-   cell.** *Category D (figures).*
-   Both panels place `\gridobstacle{4}{4}` (line 7 and line 27 of the figure file), and panel (b)
-   puts the intruder node and the start of its dotted prediction at `(4.4,4.4)`, which is inside
-   cell (4,4). The same figure uses blocked cells as impassable walls for drone A, so a reader
-   reasonably asks why the intruder may sit in one.
-   *Fix:* move the obstacle out of the top-right corner in both panels - replace
-   `\gridobstacle{4}{4}` by `\gridobstacle{0}{4}` in each scope. That cell is on neither A's route
-   (row y=2) nor C's route (column x=2), and the intruder's line (4.4,4.4) -> (2.6,2.6) then passes
-   only through free cells (4,4), (3,3), (2,2), so nothing else in the figure changes.
-
-6. **Figure 1.6 caption (lines 768-771) does not describe the figure it labels.** *Category D.*
-   The caption says "The top row is the reading order of the training plan", but the plan's
-   reading order (`docs/core-idea.txt`, section 4) has twelve items while the top row of
-   `figures/ch01/reading-paths.tex` has thirteen nodes: it appends `24/hybrid`, which the plan does
-   not list, and it silently renders the plan's item 10, "Planning reference" - which line 784 of
-   the chapter correctly says is "not a chapter but a book to keep at hand" - as chapter 2.
-   *Fix:* drop the `24/hybrid/sbboxgray` entry from the first `\foreach` list in
-   `figures/ch01/reading-paths.tex`; or keep it and amend the caption to "the plan's twelve items,
-   with its 'planning reference' shown as the book's own toolbox chapter, followed by the capstone".
-
-7. **`appendices/solutions/ch01-solutions.tex`, solution to `exr:ch01-classify`, item (h):
-   self-reference.** *Category F.*
-   It reads "one of the research directions of `\cref{ch:ch01}`", which renders in Appendix C as
-   "Chapter 1" and points the reader at the whole chapter.
-   *Fix:* replace with `\cref{sec:ch01-research}`.
-
-8. **Length: trim about 1.5 pages of repetition (currently 20 printed pages; guide asks 12-18).**
-   *Category G.* Three passages say twice what the chapter has already said once; no required
-   content is involved.
-   (a) §1.2, Table 1.2 `tab:ch01-contrasts` (lines 265-285) versus the eight `\paragraph`
-   explanations that follow (lines 287-378): the table's two columns and the paragraphs carry the
-   same content (compare the "Global / local" row with the "Global and local planning" paragraph,
-   and the "Deliberative / reactive" row with its paragraph). Keep the table as the scannable
-   summary and cut "Planning and control", "Deliberative and reactive" and "Centralized and
-   decentralized" to two or three sentences each, keeping only what the table does not say (the MPC
-   remark, the R&N citation, the CBS-needs-all-routes remark).
-   (b) Summary box, bullet 4 (lines 929-933) re-lists all eight contrast pairs and all six
-   properties, reproducing objectives bullet 3 (lines 21-25) nearly word for word. Replace with one
-   sentence pointing at Tables 1.2 and 1.3.
-   (c) §1.6, "The fast path" and "The builder's path" (lines 775-795) enumerate in prose exactly the
-   chapter sequences already drawn in the two rows of Figure 1.6. Delete the two enumerations and
-   keep the two remarks that the figure cannot carry: read `\cref{ch:ch07}` before `\cref{ch:ch09}`,
-   and what the plan's "planning reference" means.
+4. **`chapters/ch01-introduction.tex`, section `sec:ch01-conventions`, lines 824-841 (the
+   opening paragraph and the "Conventions" paragraph).** *Category G (padding; the chapter is
+   19 pages, above the 12-18 band).*
+   **Problem.** These two paragraphs repeat the Preface almost item for item.
+   `frontmatter/preface.tex` lines 106-122 already state: every chapter opens with a learning
+   objectives box and closes with a summary box and exercises; the five kinds of coloured box
+   and their colours; that definitions, examples and theorems share one counter per chapter;
+   that exercises are marked with one to three stars and what each star means; that hints and
+   solutions for a selection are in `\cref{ch:appC}`; and that algorithms carry a `\priority`
+   tag. Preface lines 95-105 additionally give the plan's fast reading path, which `sec:ch01-howto`
+   and the top row of `fig:ch01-reading-paths` give again. This is the only clear padding in the
+   chapter and it costs roughly two thirds of a page.
+   **Fix.** Delete the "Conventions" paragraph (lines 832-841) and shorten the opening
+   paragraph (824-830) to the one thing the preface does not say - that every algorithm chapter
+   has the same *fixed sequence of sections* (why it matters, the idea in plain words, problem
+   statement, pseudocode with walkthrough, worked example with figure and trace table,
+   properties with proofs, variants, implementation notes with a listing, the drone box,
+   summary, further reading, exercises), so that the reader can find the optimality proof or the
+   pitfalls of any algorithm without searching - and add one clause "the conventions of the
+   book, including the coloured boxes and the difficulty stars, are described in the preface".
+   Keep the "Code files" and "The Python stack" paragraphs untouched: they are chapter-specific
+   and carry required content.
 
 ## Suggestions
 
-* Objectives bullet 2 (line 18): "Tell a *planned conflict* ... from an *unexpected obstacle*" is
-  grammatical but reads as a garden path. "Distinguish a planned conflict ... from an unexpected
-  obstacle" is plainer and matches the style guide's "short sentences, plain American English".
-* `exr:ch01-properties` (line 991): "which two properties never appear together in your table, and
-  why is that not a coincidence?" has several correct answers (real-time and optimal; real-time and
-  complete; optimal and bounded suboptimal). For a reader working alone, rephrase as "name a pair of
-  properties that never appear together in your table and explain why the conflict is structural".
-* Line 321: the chapter calls the construction the "space-time graph"; `ch02-toolbox.tex` names it
-  the **time-expanded graph** (`def:ch02-space-time-state` and line 216). Use Chapter 2's term, or
-  give both once.
-* `exr:ch01-timescales` (b) (line 1048-1052) needs the 20 ms control cycle from part (a); restate it
-  in (b) so the part is self-contained. (The intended answer works out cleanly: closing speed
-  8 m/s, ten cycles = 0.2 s, so `\ttc_{\mathrm{safe}} \ge 0.2` s and the risk is detected at
-  2 + 8 * 0.2 = 3.6 m.)
-* `frontmatter/notation.tex` is still a placeholder with two rows. Chapter 1 is the first user of
-  `\Cspace`, `\Cfree`, `\Cobs`, `\ttc`, `\pos`, `\vel`, `G=(V,E)`, `\pi`, `k` and `w`; ask the
-  front-matter phase to add them so §1.2 does not introduce notation the table never confirms.
-  Nothing needs to change in the chapter itself.
-* Table 1.3, "Bounded suboptimal" row (line 400): "w=1.5 is often orders of magnitude faster" is an
-  unsourced quantitative claim in an introduction. Point it at the ECBS benchmark of
-  `\cref{ch:ch10}`, where the book measures it.
-* Spelling is mixed British/American (centre, manoeuvre, optimise, discretise, colour, organise,
-  labelled) against the guide's "Plain American English". The whole book is inconsistent this way
-  (ch02 and ch13 are worse), so this belongs to the book-wide copyedit rather than to this chapter
-  alone - but it is worth recording here.
-* The training plan's "Experiments to run" list (metrics: collision rate, minimum separation, path
-  length, travel time, makespan, sum of costs, replanning count, computation time, formation error,
-  communication violations) is the only part of the plan that §1.4-§1.5 do not preview. One sentence
-  in the `dronebox` or at the end of §1.5 naming those metrics and pointing at `\cref{ch:ch25}`
-  would close the loop with objective 5.
-* Only 4 of the 8 exercises have entries in `appendices/solutions/ch01-solutions.tex`. Adding a short
-  answer for `exr:ch01-horizon` would help a lone reader; the numbers are
-  t=14: (3.44, 2.18), 0.68 cells from parked C at (3,1); t=15: (2.90, 1.80), 0.67 cells;
-  t=19: (0.74, 0.28), 0.33 cells from parked A at (0,0) - i.e. the default horizon of makespan+1
-  misses two encounters with drones that are sitting on their goals.
+* **Bridge cells and metres.** `sec:ch01-example` works entirely in grid cells ("0.38 cells")
+  while `sec:ch01-timescales` and `exr:ch01-timescales` work entirely in SI units (5 m/s, 2 m,
+  20 ms), and nothing connects them; a lone reader cannot tell whether 0.38 cells is alarming.
+  One sentence in `ex:ch01-scenario` would fix it: "If a cell is 2 m wide, the intruder passes
+  0.76 m from the centre of $B$'s cell - well inside the 2 m separation used in
+  \cref{sec:ch01-timescales}."
+* **Solutions for the numeric exercise.** `\cref{ch:appC}` covers `exr:ch01-classify`,
+  `exr:ch01-deadlock`, `exr:ch01-trace`, `exr:ch01-horizon` and `exr:ch01-coding` but not
+  `exr:ch01-timescales`, which is the one purely numeric exercise a reader alone cannot check.
+  Adding it costs four lines: (a) 0.1 m, 2.5 m, 15 m; (b) $\ttc_{\mathrm{safe}} = 10\times20$ ms
+  $=0.2$ s, and with a closing speed of $5+3=8$ m/s the risk is detected at
+  $2 + 8\cdot 0.2 = 3.6$ m; (c) at 30 s a constant-velocity prediction is worthless and almost
+  every distant object would trigger avoidance.
+* **Summary bullet, `sec:ch01-summary`.** "twenty-seven algorithms in six groups" counts table
+  *rows*; the row "Push-and-Swap, Push-and-Rotate" names two algorithms. Write "twenty-seven
+  entries" or split the row.
+* **`fig:ch01-reading-paths`.** Both the caption and `sec:ch01-howto` say the first six items of
+  the top row are the highest priority, but nothing in the drawing marks them. A brace or a
+  shaded band over nodes `f0`-`f5` would make the figure carry that statement itself.
+* **`tab:ch01-properties`, "Real-time" row.** "such methods do not search for a route" is a
+  little loose - DWA does search, over a discretised set of velocities (as the same cell then
+  says). Consider "they search over a bounded set of velocities rather than over routes".
+* **`sec:ch01-layers`, layer 1.** CBS is called "optimal" without naming the objective, while
+  `tab:ch01-properties` correctly says "for the sum of costs". Add the three words here too.
+* **Book-level, not this chapter.** `appendices/glossary.tex` is still the Phase-7 placeholder
+  and does not `\input` `appendices/glossary/ch01-terms.tex`, so this chapter's 16 glossary
+  entries are currently orphaned. Worth noting in the book-level task list.
+* **Cosmetic LaTeX.** The 11.10 pt overfull box comes from the long band label "sensing,
+  tracking and prediction update (Kalman filter, LSTM)" in `figures/ch01/timescales.tex`;
+  breaking it over two lines would clear it. Both boxes are under the 15 pt threshold, so this
+  is optional.
 
 ## What must be kept
 
-The worked example is the best-verified piece of writing I have reviewed in this book, and none of
-it should be touched. I recomputed independently, from the two paths and the intruder's linear
-motion, the speed (0.6603 -> 0.66), all 33 distances of Table 1.1 (every entry matches to the
-printed two decimals, including the 0.38 minimum at t=6), the sum of costs 25 and makespan 10, the
-rise to 26 after one wait step, the closest-approach time t\*=6.117 with minimum distance 0.334 in
-`exr:ch01-trace`(c), the wait-step distances 0.717/0.977/1.055 in the solution to (d), and the
-conflict fractions 0.215/0.595/0.995 quoted in the solution to `exr:ch01-coding`(c) - all reproduced
-exactly by `code/ch01_scenario.py`, and `gen_ch01_scenario.py` regenerates `figures/ch01/scenario.tex`
-byte for byte. Keep the scenario, its seed, Table 1.1, the listing (verbatim from the file) and all
-four exercises built on it.
+The numeric spine of this chapter is exemplary and must survive any revision. I re-derived every
+quoted value independently of the chapter's code: the intruder speed
+$\lVert(-0.54,-0.38)\rVert = 0.66030$; the $t=6$ position $(7.76,5.22)$ and separation
+$0.38210$ from the centre of $B$'s cell; the continuous closest approach at
+$t^{*}=15.39/2.5160=6.11685$ with distance $0.33413$; the sums of costs 25 and 26 and both
+makespans (10 when $C$ waits, 11 when $A$ waits); the horizon positions $(3.44,2.18)$,
+$(2.90,1.80)$, $(0.74,0.28)$ at distances 0.6826, 0.6708 and 0.3256; the wait-step minima
+0.7169 ($t=7$), 0.9767 ($t=7$) and 1.0555 ($t=8$), hence three wait steps; and the conflict
+fractions 0.215 / 0.595 / 0.995. Every one matches (only the last is misrounded in the
+solutions, item 2). Table 1.1 was spot-checked cell by cell and is exact to two decimals. The
+listing `lst:ch01-conflicts` is a verbatim `diff`-checked excerpt of `code/ch01_scenario.py`,
+and the default horizon claim in `exr:ch01-horizon` ("makespan plus one, $t=11$") matches the
+code exactly.
 
-Keep the planned-conflict / unexpected-obstacle framing (Definitions 1.1 and 1.2 with the paired
-Figure 1.2): it is the spine of the whole book, it is stated precisely, and the "fact versus
-prediction" paragraph after Table 1.1 plus the "An intruder is not a wall" pitfall are exactly the
-right lesson at exactly the right moment. Keep Table 1.4: all 27 algorithms, their one-line roles,
-their priorities and their chapter assignments agree item by item with the training plan, including
-the two hedged tags ("Awareness--High" for Transformers, and the two "essential for your research"
-notes). Keep the four-layer preview with its interface `dronebox`, the five-step decision logic and
-Figure 1.5 together with the "Numbers on a logarithmic axis are not measurements" pitfall - that
-pitfall is the most honest paragraph in the chapter. Keep §1.5 on established results versus open
-questions, which mirrors the plan's seven research directions faithfully and sets the reader's
-expectations correctly. Finally, keep the mechanical hygiene: a clean build with no overfull boxes,
-53 index entries with proper subentries, six well-styled TikZ figures all referenced with `\cref`
-and all captioned with what to notice, and 17 citations that every resolve to genuine entries in
-`references.bib` (Dijkstra 1959, Kalman 1960, Hart-Nilsson-Raphael 1968, Fox 1997, Hochreiter 1997,
-Fiorini-Shiller 1998, LaValle 1998/2006, Koenig-Likhachev 2002, Thrun 2005, van den Berg 2011,
-Sharon 2015, Vaswani 2017, Stern 2019, Russell-Norvig 2020, Hagberg 2008, Panerati 2021), with the
-history note's dates all correct.
+The citations are clean: all 17 keys resolve in `references.bib`, `bib/ch01-extra.bib` is empty,
+and I checked every entry's authors, venue, volume, pages and year against my own knowledge -
+Dijkstra 1959 (Numer. Math. 1:269-271), Hart-Nilsson-Raphael 1968 (IEEE T-SSC 4(2):100-107),
+Kalman 1960 (J. Basic Eng. 82(1):35-45), Fox-Burgard-Thrun 1997 (IEEE RAM 4(1):23-33),
+Fiorini-Shiller 1998 (IJRR 17(7):760-772), LaValle 1998 (TR 98-11), Koenig-Likhachev 2002 (AAAI
+476-483), van den Berg et al. 2011 (ISRR, STAR 70:3-19), Sharon et al. 2015 (AIJ 219:40-66),
+Stern et al. 2019 (SoCS 151-158), Hochreiter-Schmidhuber 1997, Vaswani et al. 2017,
+Hagberg et al. 2008, Panerati et al. 2021 (IROS 7512-7519), plus the three textbooks. Nothing is
+fabricated, and the history box's dates (1959, 1960, 1968, 1997, 1998, 2002, 2011, 2012/2015,
+1997, 2017) are all right.
 
-## Response to review (round 1)
+Completeness against the training plan is total and should not be trimmed. `tab:ch01-map`
+reproduces groups A-F, all 27 entries and every priority tag exactly as the plan states them
+(including "Awareness--High" for the Transformer); `tab:ch01-weeks` reproduces all twelve weeks
+with the right chapters; `sec:ch01-research` reproduces all seven research directions and the
+ten metrics; the reading order, the capstone's four layers and its five-step decision logic all
+match. All six chapter objectives are met.
 
-All eight required changes are applied, plus six of the nine suggestions. Build status 0,
-no `!` errors, no overfull boxes over 15 pt; `python3 code/ch01_scenario.py` still prints
-`self-test passed` and the same numbers (speed 0.66, closest approach 0.38 at t=6, sum of
-costs 25, makespan 10). The code was not modified, so `figures/ch01/scenario.tex` is
-unchanged and no `.dat` file needed regenerating.
+Pedagogically, the strongest parts are the two-kinds-of-trouble framing (Definitions 1.1 and
+1.2 with `fig:ch01-planned-vs-unexpected` showing them side by side), the key-idea box that
+states the thesis of the book in one sentence, the architecture figure with every interface
+labelled by what it carries, the five-step decision loop with its two "keep going" back-edges,
+and the logarithmic time-scale figure with its "distance flown meanwhile" row - which turns an
+abstract layering argument into a physical one. The two pitfall boxes are both worth their
+space, especially "Numbers on a logarithmic axis are not measurements", which is exactly the
+kind of honesty a lone reader needs. Keep the trace table and the `dronebox` of interfaces
+verbatim; later chapters depend on them.
 
-### Required changes
-
-1. **(A) Completeness overstated for CBS.** `chapters/ch01-introduction.tex`, "Complete"
-   row of Table 1.3, now reads "if a solution exists, the algorithm finds one; in the
-   *strong* form it also reports failure when none exists, which needs a finite search
-   space or a separate feasibility test", with the probabilistic sentence kept. The
-   examples column now reads "Dijkstra and A* in the strong form (Ch. 3, 4); CBS on
-   solvable instances (Ch. 9; see the remark there on unsolvable instances); RRT,
-   probabilistically (Ch. 16); prioritized planning is *not* complete (Ch. 8)". The
-   glossary entry in `appendices/glossary/ch01-terms.tex` was rewritten to match
-   ("...in the strong form the algorithm also reports failure when no solution exists,
-   which needs a finite search space or a separate feasibility test"). The cross-reference
-   to Chapter 9 is phrased in words rather than with `\ref{rem:ch09-unsolvable}`, so the
-   single-chapter build stays clean and no other chapter's label is depended on.
-
-2. **(F) Acronyms not expanded at first use.** Every acronym is now expanded at its first
-   occurrence *in source order*: RRT (rapidly-exploring random tree), RRT*, model
-   predictive control (MPC) and mixed-integer linear programming (MILP) in the
-   "Discrete and continuous planning" paragraph; ORCA (optimal reciprocal collision
-   avoidance) and CBS (in "conflict-based search (CBS)") in the rewritten
-   "Centralized and decentralized" paragraph, which precedes Table 1.3; ECBS
-   ("ECBS, Enhanced CBS"), ARA* ("Anytime Repairing A*"), LPA* ("Lifelong Planning A*")
-   and DWA ("the dynamic window approach (DWA)") inside the rows of Table 1.3, which is
-   where each of them is first used; LSTM ("a long short-term memory (LSTM) network") in
-   the prediction-layer paragraph; M* as "M* (read *M-star*)" in Table 1.4, since M* is a
-   proper name with no expansion; and "quadratic program (QP)" in the Python-stack
-   paragraph. MAPF is now defined in the "Time-indexed paths" paragraph ("in the standard
-   vocabulary of **multi-agent path finding** (MAPF)", with an index entry), well before
-   Figure 1.6 and Table 1.5 use the acronym. VO and RVO were already expanded at first use
-   in Table 1.4; the redundant second expansion of CBS in the global-planner paragraph was
-   dropped.
-
-3. **(F) Two forward references to material that does not exist.** The Python-stack
-   sentence now ends "...how a grid is stored and how a path is represented. The JSON
-   layout written by `to_json` and read by `from_json` in `code/ch01_scenario.py` is the
-   one that the book's later experiment code reuses." Exercise 1.8(d) now reads
-   "...write the scenario to a JSON file, keeping the layout of `to_json`, so that the
-   same files can drive a later experiment matrix." Neither claim depends on Chapter 2 or
-   Chapter 25 containing scenario or JSON material.
-
-4. **(F) PyTorch omitted from the stack.** The sentence now reads "...NumPy (SciPy for the
-   quadratic program (QP) and MILP solvers of Chapters 21 and 22, plus an optional PyTorch
-   version of the predictor in Chapter 20, which the self-tests never run), so that you can
-   read every line."
-
-5. **(D) Intruder starting inside a wall.** `figures/ch01/planned-vs-unexpected.tex`:
-   `\gridobstacle{4}{4}` replaced by `\gridobstacle{0}{4}` in both scopes. Cell (0,4) is on
-   neither A's row (y=2) nor C's column (x=2), and the intruder's line (4.4,4.4) to
-   (2.0,2.0) now crosses only free cells; nothing else in the figure changed.
-
-6. **(D) Reading-path caption versus figure.** The second option of the fix was taken: the
-   figure is unchanged and the caption now reads "The top row is the reading order of the
-   training plan: its twelve items, with the plan's ``planning reference'' shown as the
-   book's own toolbox chapter, followed by the capstone; the first six items are the
-   highest priority." The prose in Section 1.6 says the same thing where it explains what
-   the plan's "planning reference" is.
-
-7. **(F) Wrong cross-reference in the solutions.** `appendices/solutions/ch01-solutions.tex`,
-   solution to `exr:ch01-classify` item (h): `\cref{ch:ch01}` is now `\cref{sec:ch01-research}`.
-
-8. **(G) Length and repetition.** All three cuts were made and nothing else was removed.
-   (a) Table 1.2 is untouched; "Planning and control", "Deliberative and reactive" and
-   "Centralized and decentralized" are now two sentences each, keeping the MPC remark, the
-   Russell-Norvig citation and the CBS-needs-all-routes remark, and the bold terms with
-   their index entries. "Global and local planning", which the review named as the other
-   duplicate of a table row, was tightened to the two sentences the table does not carry
-   ("a global planner knows the goal but not the surprise..." plus the chapter pointers).
-   (b) Summary bullet 4 is now one sentence pointing at Tables 1.2 and 1.3. (c) The two
-   chapter-number enumerations in Section 1.6 are gone; only the read-Chapter-7-before-9
-   remark and the explanation of the plan's "planning reference" remain, both pointing at
-   Figure 1.6. **Result: the chapter now prints 19 pages (PDF pages 12-30 of
-   `build/only-ch01-introduction.pdf`), one page shorter than before.** It is still one page
-   over the guide's 18. Closing that last page would mean cutting required content -- the
-   review's own instruction was "cut nothing else" -- so it was left alone; every page is
-   dense (37-53 lines, no float-induced gaps).
-
-### Suggestions
-
-* Objectives bullet 2 now reads "Distinguish a *planned conflict* ... from an *unexpected
-  obstacle*". Applied.
-* `exr:ch01-properties` now asks the reader to "name a pair of properties that never appear
-  together in your table and explain why that conflict is structural rather than
-  accidental". Applied.
-* The "space-time graph" sentence now reads "turns this into the time-expanded graph, also
-  called the space-time graph", so Chapter 2's term comes first. Applied.
-* `exr:ch01-timescales` (b) now says "at least ten of the 20 ms control cycles of part (a)",
-  making the part self-contained. Applied.
-* Table 1.3, bounded-suboptimal row: the unsourced "w=1.5 is often orders of magnitude
-  faster" is replaced by "a larger w buys speed, a trade-off measured for ECBS in
-  Chapter 10". Applied.
-* The training plan's metrics are now named at the end of Section 1.5 ("collision rate,
-  minimum separation, path length, travel time, makespan, sum of costs, replanning count,
-  computation time, formation error and communication violations---which Chapter 25 defines
-  and measures"), closing the loop with objective 5. Applied.
-* A solution for `exr:ch01-horizon` was added to `appendices/solutions/ch01-solutions.tex`.
-  The three positions and distances were recomputed by hand from pos_0=(11.0,7.5),
-  v=(-0.54,-0.38) and the goal-cell centres (3.5,1.5) and (0.5,0.5): (3.44,2.18) at 0.683
-  cells from parked C at t=14, (2.90,1.80) at 0.671 cells at t=15, and (0.74,0.28) at 0.326
-  cells from parked A at t=19, printed as 0.68, 0.67 and 0.33 -- the reviewer's numbers.
-  Applied.
-* `frontmatter/notation.tex` is outside this chapter's file set; the request for entries for
-  Cspace, Cfree, Cobs, ttc, pos, vel, G=(V,E), pi, k and w is passed to the front-matter
-  phase unchanged. Not applied here.
-* British/American spelling belongs to the book-wide copyedit, as the review says. Not
-  applied here.
-
-### What was kept
-
-The worked example is untouched: the scenario, seed 1462, Table 1.1, the verbatim listing,
-the trace numbers and all four exercises built on them; the planned-conflict versus
-unexpected-obstacle framing with Definitions 1.1 and 1.2, Figure 1.2 and the
-"fact versus prediction" paragraph; Table 1.4 with all 27 algorithms, priorities and chapter
-assignments; the four-layer preview, the interface dronebox, the five-step decision logic,
-Figure 1.5 with its pitfall; Section 1.5 and its seven research directions; and all
-citations, index entries and figures.
+Finally, the mechanics: six figures (style guide asks four), all `\cref`-referenced, all built
+from the shared `sb*` styles with a consistent colour code for the four layers and a legend;
+five tables in `booktabs`; 54 index entries (minimum 15); eight exercises spread
+1/1/2/2/2/2/1/3 with a genuine difficulty-3 coding task whose self-test criteria are spelled
+out; a build with no errors and no undefined chapter-local reference. The week-1 coding
+exercise of the plan ("implement grid A*, add time as a state variable") correctly lives in
+Chapter 4, not here - Chapter 1 is parenthetical in week 1 and its own generator exercise is
+the right assignment for an introduction.
