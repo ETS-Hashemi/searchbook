@@ -98,7 +98,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 - [ ] 4.3 Appendix C: hints and solutions to selected exercises (≥2 per chapter)
 - [ ] 4.4 Glossary (every bold term of the book)
 - [ ] 4.5 Index (≥15 entries per chapter; check for duplicates and synonyms)
-- [~] 4.6 Bibliography audit: every citation resolves; every entry is a real, correctly described publication — Opus agent auditing every entry via web search (docs/bib-audit.md)
+- [x] 4.6 Bibliography audit: every citation resolves; every entry is a real, correctly described publication — audited by web search: 162 entries, 158 verified, 4 corrected (author order, 2 truncated titles, 1 entry type), 17 missing page ranges added; none fabricated (docs/bib-audit.md)
 
 ## Phase 5 — Peer review and revision (per chapter, repeated until Accept)
 
