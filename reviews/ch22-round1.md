@@ -190,3 +190,93 @@ than any amount of advocacy. Keep the MAPF-ILP section and its comparison with C
 exact variable-and-row accounting of \cref{ex:ch22-two} (which lets a reader rebuild the
 model from scratch), the 33 index entries, the 13 glossary terms and the four worked
 solutions.
+
+## Response to review (round 1)
+
+Build after revision: `./build.sh ch22-milp` status 0, no errors, no undefined labels of
+the chapter's own, the only overfull box being the pre-existing one in the front-matter
+list of algorithms. (Two intermediate runs reported a truncated `build/only-ch22-milp.aux`;
+that is a collision with other chapters' builds running concurrently in the same `build/`
+directory, not a fault of this chapter - the retry is clean.) `python3 code/ch22_milp.py`
+passes its self-test (43.7 s, exit 0); the code itself is unchanged, but both data files,
+`figures/data/ch22-scaling.dat` and `ch22-scaling-horizon.dat`, were regenerated on the
+machine whose times the chapter now quotes. Chapter body: 21 pages.
+
+### Required changes
+
+1. **Symmetry-breaking binary value** (`sec:ch22-implementation`, solution of
+   `exr:ch22-coding`(d)). Taken in the second of the two forms offered. The paragraph now
+   reads "forbid one of the four disjuncts for one pair ($c^{12}_{k,1} = 1$ for all $k$
+   switches off the row 'drone 1 at least $d_{\min}$ to the right of drone 2', so the pair
+   must be separated in one of the three other directions at every step)", says that this
+   removes the mirror-image subtree, warns that it is valid only when a plan of the
+   remaining shape exists, and adds the opposite reading explicitly: $c^{12}_{k,1} = 0$
+   *enforces* $x^1_k - x^2_k \ge d_{\min}$. Solution (d) was rewritten to match, citing
+   `eq:ch22-sep` for the convention; `exr:ch22-coding`(d) itself no longer says "fixes on
+   which side drone 1 passes drone 2" but points at the constraint of
+   `sec:ch22-implementation`.
+2. **Sum of costs of the MAPF ILP** (`sec:ch22-mapf-ilp`). The objective is now
+   $\sum_i \sum_{e \neq ((g_i,t)\to(g_i,t+1))} f^i_e$, described as "every edge of agent
+   $i$ counts one, except the wait edges at its own goal", with the proviso kept, and a
+   closing sentence stating that excluding all of $\delta^-(g_i,\cdot)$ would drop the
+   arrival move as well and undercount every agent by one step.
+3. **Interior-point methods** (`sec:ch22-intuition`). Replaced by "converge to a point of
+   the optimal face, from which a *crossover* step recovers a vertex when one is wanted",
+   which now agrees with the correct statement in `sec:ch22-lp`.
+4. **Stale solve times.** `code/ch22_milp.py` and `code/figures/gen_ch22_scaling.py` were
+   both re-run on this machine (one core of an Intel Xeon at 2.8 GHz, Python 3.11,
+   SciPy 1.17.1 with its bundled HiGHS). `tab:ch22-sizes` now reads 1.8 / 0.14 / 0.53 s
+   (node counts 366 / 1 / 1 unchanged), the running text says "about 1.8 s", the
+   $\dt = 0.25$ run "about 21 s and 4100 nodes instead of 1.8 s and 366", and the solution
+   of `exr:ch22-margin` "about 2.6 s and 48 nodes". The caption sentence "Times vary by a
+   few tenths of a second between runs" was replaced by a footnote in `sec:ch22-example`
+   naming the hardware and the SciPy/HiGHS version and stating that times vary between runs
+   and by a factor of two between machines while node counts are reproducible; the caption
+   now refers to that footnote. The regenerated scaling data are within noise of the
+   committed ones (m=2: 1.25 / 3.08 / 12.56 s, limit at N=24 with a 35.6 % gap; m=3, N=12:
+   8.9 % gap), so every statement of `sec:ch22-cost` and of the implementation notes still
+   holds and the figure is unchanged in shape.
+5. **`tab:ch22-binaries` caption** (category D). The promise of a leaves column was
+   deleted; the observation that every binary can double the tree stays in the body
+   paragraph.
+6. **Maximisation in `fig:ch22-relaxation`** (category C). Stated once in the paragraph
+   ("This example *maximises* $x + 2y$ ... so its relaxation value 10 is an upper bound
+   ...; for the minimisation of `def:ch22-lp`, the convention of the rest of this chapter,
+   the relaxation value is a *lower* bound") and once in the caption.
+7. **Boundary degrees on the 32x32 grid** (solution of `exr:ch22-mapfilp`). Now:
+   interior states have five outgoing edges, edge states four and corner states three, so
+   one layer has $\sum_v(\deg v + 1) = 1024 + 2\cdot(2\cdot32\cdot31) = 4992$ edges, giving
+   $20\cdot60\cdot4992 \approx 6.0\cdot10^6$ binaries (the chapter's "about six million"),
+   $6.1\cdot10^4$ capacity rows and $1984\cdot60 \approx 1.2\cdot10^5$ anti-swap rows.
+8. **`exr:ch22-coding`(a)** (category E). The exercise now says to solve with
+   `solve_instance(inst, time_limit=120)` and to report `sol.status` and `sol.gap`, and
+   warns that the solve takes tens of seconds. The solution gained the reference numbers,
+   verified here: status 0, $J_{\mathrm{fuel}} = 21.19$ m/s, 288 binaries in 588 variables
+   and 672 rows, 9755 nodes, about 44 s; minimum-time model 324 binaries, 11 nodes, about
+   2 s, arrivals summing to 13.5 s; and the continuous check of the fuel plan (0.45 m of
+   corner cutting, 0.83 m of separation between samples).
+
+### Suggestions
+
+All eleven were applied. Length: the three padding passages named in the review were
+trimmed (the paragraph after `tab:ch22-verdict`, the "Two lessons" paragraph, the
+per-instance narrative of `sec:ch22-cost`); the optimistic "$10^5$ variables in well under
+a second" was deleted, keeping "hundreds of thousands of variables in seconds"; a per-step
+trace table `tab:ch22-steps` was added to `sec:ch22-example` (all 13 rows checked
+programmatically against the self-test printout, with the active separation at $k = 6$ in
+bold); the right axis of `figures/ch22/scaling.tex` is now "final MIP gap [%]"; the
+anti-swap annotation of `figures/ch22/timeexpanded.tex` sums over $i$; `eq:ch22-sep` uses
+$M_x$ and $M_y$; `alg:ch22-bnb` tests "the relaxation is infeasible";
+`thm:ch22-complexity` was renamed `prop:ch22-complexity`; the caption of `tab:ch22-sizes`
+explains the 9.016 the code prints; the implementation notes name `res.mip_node_count` and
+`res.mip_gap`; and `sec:ch22-example` now quotes the four tight $M$ values (6, 6, 6.5,
+5.5 m) and the separation constants (11 m, 9 m), connecting the worked example to
+`exr:ch22-tightm`.
+
+Everything the review asked to keep is untouched: `prop:ch22-bigm` with its proof and
+`eq:ch22-tightM`, the "hurts twice" argument, `ex:ch22-tiny` with `fig:ch22-bnb` and
+`tab:ch22-trace`, `prop:ch22-intersample` with the 1.25 m / 0 m minimum-time plan, the
+0.146 m corner cut and the 0.06 m of the block-only inflation, `sec:ch22-cost` with its
+generated data and `tab:ch22-verdict`, the MAPF-ILP section and its CBS comparison, the
+three pitfall boxes, the variable-and-row accounting of `ex:ch22-two`, the index and
+glossary entries and the four worked solutions.

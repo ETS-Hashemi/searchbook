@@ -459,8 +459,8 @@ def rrt_star(world, start, goal, eta=1.0, gamma=None, p_goal=0.05,
                 near = tree.near(x_new, radius)
             near_total += len(near)
             dists = np.linalg.norm(tree.V[near] - x_new, axis=1)
-            # --- ChooseParent (c_par is local: c_min is the start-goal
-            #     distance of the informed set) -----------------------------
+            # --- ChooseParent (c_par is local; c_min is the ------------
+            #     start-goal distance of the informed set) ------------------
             i_par, c_par = i_nearest, tree.cost[i_nearest] + d_nearest
             if choose_parent and len(near):
                 cand = tree.cost[near] + dists

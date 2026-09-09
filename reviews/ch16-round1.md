@@ -184,3 +184,109 @@ Keep the honest goal-bias result ($p_{\mathrm{goal}}=0.5$ is worse than no bias 
 its matching pitfall box, \cref{tab:ch16-gridsizes} and \cref{tab:ch16-comparison}, which
 between them answer the Week-8 milestone, the "only the bounds change" 3D section, and the
 `dronebox` on splicing a local \rrt into a global grid plan.
+
+## Response to review (round 1)
+
+All seven required changes are applied; the chapter builds with status 0, no
+errors and no overfull boxes above 15 pt, and `python3 code/ch16_rrt.py`
+passes (4.5 s). Every number quoted below is printed by the self-test.
+
+**Required 1 (wrong count, 33 vs 34).** Fixed. Section 16.5 now reads "shows
+only $17$ vertices after $50$ iterations: $16$ of the $50$ extensions
+succeeded and $34$ were rejected."
+
+**Required 2 (forty angles).** Fixed in the code, option (b) of the review.
+`_self_test()` now sweeps forty *directions* through the point $(4.01,5.0)$
+inside the thin wall (`for th in np.linspace(0.0, np.pi, 40, endpoint=False)`)
+*and* keeps the forty parallel crossings. Section 16.3 now says "at forty
+segment angles through a point inside the wall and at forty parallel
+crossings of it"; the pitfall box says the inflated test "rejects every one
+of the forty directions and forty crossings it tries".
+
+**Required 3 (16.72 not produced by the code; two baselines).** Fixed both
+ways. The self-test now computes the zero-clearance reference itself: it
+solves the visibility graph of a world with a small corner offset, snaps the
+interior waypoints back onto the exact box corners and measures the
+polyline, printing `zero-clearance shortest path length 16.720 via (3,6)
+(5,6) (6,4) (8,4)` next to the clearance-0.075 value 17.198. Section 16.5
+now names both baselines: "$16.72$ in the limit of zero clearance, and
+$17.20$ when the corners are rounded off by the clearance $0.075$ of the
+collision checker; the self-test prints both. The RRT path is $43\,\%$
+longer than the zero-clearance optimum and $39\,\%$ longer than the $17.20$
+reference." Section 16.6.2 likewise names its baseline ($65\,\%$ above
+17.20, $70\,\%$ above 16.72).
+
+**Required 4 (unmeasured timings; "two seconds").** Fixed. The self-test now
+times 200 `nearest()` queries on trees of $10^3$, $10^4$ and $10^5$ random
+3D vertices and prints the means (one run prints `n=1000 0.046 ms, n=10000 0.325 ms,
+n=100000 2.932 ms`; repeated runs vary by up to a factor of two). Section
+16.8.2 quotes "about $0.04$~ms ... $0.3$~ms ... $3$~ms ... means of $200$
+queries, timed and printed by the self-test ... reproducible to within a
+factor of two on any other [machine]". Section 16.8.3 now says the self-test
+"runs in a few seconds (it prints its own runtime, $4.5$~s here)" and the
+eight-item recitation of the checks is compressed to one sentence
+(suggestion (i)).
+
+**Required 5 (kinodynamic pseudocode).** All three defects fixed in
+`alg:ch16-kino`: the `\KwIn` list gains the goal bias $p_{\mathrm{goal}}$ and
+the velocity weight $w_{\mathrm{v}}$; the initialisation line now reads
+"$\mathrm{best}\gets\mathrm{Nil}$; $\acc_{\mathrm{best}}\gets\mathrm{Nil}$"
+with the comment "convention $\rho(\mathrm{Nil},\cdot)=+\infty$"; the winning
+control is stored as $\acc_{\mathrm{best}}$ and the new edge is labelled
+$\acc_{\mathrm{best}}$, not $\acc_j$.
+
+**Required 6 (rectifiability).** Fixed. The hypothesis of
+`thm:ch16-complete` now reads "Suppose there is a path $\tau$ of finite
+length from $x_{\mathrm{init}}$ to $x_{\mathrm{goal}}$ with clearance
+$\delta_c>0$", and the proof adds the note that finite length costs nothing:
+the image of a path with clearance $\delta_c$ is compact, finitely many
+balls of radius $\delta_c/2$ centred on it cover it, and joining the centres
+of consecutive overlapping balls gives a polygonal path of finite length in
+the same tube with clearance at least $\delta_c/2$. Nothing else in the
+proof changed.
+
+**Required 7 (float drift in Section 16.7).** Improved but not perfect. The
+three floats were moved next to the paragraphs that cite them and given
+aggressive placement options (`[!htb]` for `alg:ch16-kino` and
+`alg:ch16-shortcut`, `[!t]` for `fig:ch16-scene3d`). All three now stay
+inside Section 16.7 instead of drifting into Section 16.8: Algorithm 16.3 is
+referenced on the printed page 168 and typeset on 170, Algorithm 16.4
+referenced on 169 and typeset on 171, Figure 16.8 referenced on 171 and
+typeset on 172 (the figure now meets the "page of, or page after" rule; the
+two algorithms are one page short of it). The residual two-page lag is
+physical, not a placement-option problem: Section 16.7 carries eight floats
+(Algorithm 16.2, Figures 16.5-16.6, Table 16.3, Algorithms 16.3-16.4,
+Figures 16.7-16.8) over about four pages of text, and pages 169-170 are
+already full of floats, so with `!` placement LaTeX still cannot fit a
+25-line algorithm earlier. Removing the lag entirely would require merging
+Figures 16.5 and 16.6 into one float, which loses a figure the specification
+asks for; I preferred to keep the content.
+
+### Suggestions
+
+Applied: the grid size in Section 16.1 is now $5\times10^{14}$ (matching
+`tab:ch16-gridsizes`); Section 16.2 and the key-idea box now say a vertex is
+*selected* with probability equal to its Voronoi area and extended only if
+the step is collision-free; `thm:ch16-suboptimal` now names the
+Karaman-Frazzoli assumptions (goal region with non-empty interior, an
+optimal path with weak clearance, fixed $\eta$); `World.point_checks` is
+printed and the text says so ("a counter the self-test prints"); Section
+16.7.3 gains two sentences on corner rounding, re-checking the rounded arc
+and the pointer to `ch:ch21`; `exr:ch16-shortcut` is promoted to difficulty
+3; solutions were added for `exr:ch16-gridsizes` and `exr:ch16-trace` (both
+verified against the code: $1.536\times10^{8}$ cells, $153.6$~MB,
+$5.5\times10^{12}$ velocity-augmented states, $0.56$~MB for a
+20 000-vertex tree; iterations 11 and 12 both select vertex 6 and are
+rejected by the wall, $x_{\mathrm{new}}=(3.335,3.076)$ and $(3.145,3.331)$),
+so 6 of 8 exercises now have solutions. Duplication trims (i)-(iv) were
+applied: the self-test recitation, the opening of Section 16.9, the caption
+of `tab:ch16-trace` and the repeated mean/sd in Section 16.6.2.
+
+Not applied: the notation row for $\eta,\delta,p_{\mathrm{goal}},
+r_{\mathrm{goal}},\rho$ in `frontmatter/notation.tex` - that file belongs to
+the editor and is outside this chapter's file set; the request is passed on
+unchanged. Length: the chapter is now 21 printed pages. The required
+additions (both baselines, the finite-length note, the named regularity
+assumptions, two `\KwIn` entries, the smoothing sentences) add about a page
+and the trims give back about a third of it; nothing required was removed to
+save space.

@@ -328,9 +328,10 @@ does not change when the sampling interval changes, because $\mat{Q}$ carries
 all the dependence on $\dt$; a sensor that suddenly reports at $20$~Hz
 instead of $10$~Hz needs a new $\mat{Q}$ but the same $q$. Second, the
 off-diagonal term couples position and velocity, because an unknown
-acceleration moves both in the same direction; a diagonal $\mat{Q}$ is a
-common shortcut and a mild error, $\mat{Q}=q\,\mat{I}$ regardless of $\dt$ a
-common shortcut and a serious one (\cref{sec:ch18-implementation}). As a
+acceleration moves both in the same direction. Dropping the off-diagonal
+term is a common shortcut and a mild error; using $\mat{Q}=q\,\mat{I}$
+regardless of $\dt$ is just as common and much worse
+(\cref{sec:ch18-implementation}). As a
 starting value, if the intruder's accelerations have magnitude about
 $a_{\max}$ and persist for about $T_a$ seconds, take $q\approx a_{\max}^2T_a$,
 so that the model's velocity uncertainty after $T_a$, $\sqrt{qT_a}$, matches
@@ -602,7 +603,7 @@ kilohertz rates on a flight computer.
     \eIf{$\meas_k$ is missing}{
       $(\hat{\state},\mat{P})\gets(\hat{\state}^-,\mat{P}^-)$; $\mathit{misses}\gets\mathit{misses}+1$\tcp*{predict-only step}\label{alg:ch18-track:miss}
     }{
-      $\vect{y}\gets\meas_k-\mat{H}\hat{\state}^-$; $\mat{S}\gets\mat{H}\mat{P}^-\mat{H}\T+\mat{R}$; $d^2\gets\vect{y}\T\mat{S}\inv\vect{y}$\label{alg:ch18-track:nis}\;
+      $\vect{y}\gets\meas_k-\mat{H}\hat{\state}^-$; $\mat{S}\gets\mat{H}\mat{P}^-\mat{H}\T+\mat{R}$; $d^2\gets\vect{y}\T\mat{S}\inv\vect{y}$\tcp*{reused in \KalmanUpdate}\label{alg:ch18-track:nis}
       \eIf{$d^2>\gamma$}{
         $(\hat{\state},\mat{P})\gets(\hat{\state}^-,\mat{P}^-)$; $\mathit{misses}\gets\mathit{misses}+1$\tcp*{gated out: treat as missing}\label{alg:ch18-track:gate}
       }{
@@ -616,19 +617,11 @@ kilohertz rates on a flight computer.
 \end{algorithm}
 
 \Cref{alg:ch18-track} wraps the two steps in the loop that the prediction
-layer of \cref{ch:ch24} runs. Line~\ref{alg:ch18-track:init} starts the track
-from two measurements, which fix the position and, by differencing, a first
-velocity with the honest covariance \cref{eq:ch18-init2}. The predict step
-(line~\ref{alg:ch18-track:predict}) runs at every sampling instant; a missing
-measurement (line~\ref{alg:ch18-track:miss}) leaves the prediction as the new
-estimate, with its larger covariance. Line~\ref{alg:ch18-track:nis} computes
-the squared Mahalanobis distance of the measurement from its prediction and
-line~\ref{alg:ch18-track:gate} rejects implausible measurements, treating
-them as missing rather than resetting anything. After $M_{\max}$ consecutive
-misses (line~\ref{alg:ch18-track:drop}) the covariance has grown so much that
-any measurement would pass the gate, and the track is dropped and restarted.
-Line~\ref{alg:ch18-track:deliver} hands the estimate, its covariance and the
-$J$-step prediction to the safety layer.
+layer of \cref{ch:ch24} runs; the four subsections below fill in its gating,
+missing-measurement, initialisation and prediction lines. After $M_{\max}$
+consecutive misses (line~\ref{alg:ch18-track:drop}) the covariance has grown
+so much that any measurement would pass the gate, and the track is dropped
+and restarted.
 
 % ---------------------------------------------------------------------
 \section{A worked example}
@@ -736,11 +729,9 @@ $k_p=0.89,0.82,0.76,0.71,0.68$, as the covariance settles: at first the filter
 trusts the sensor because it knows nothing, later the prediction is worth
 weighting; the gain converges to a steady value that depends only on $q$,
 $\mat{R}$ and $\dt$ (\cref{sec:ch18-properties}), not on the measurements.
-The velocity estimate recovers from its wrong start: after five position
-measurements it is $(1.135,0.630)$~m/s against the true $(1,0.5)$, an error
-of $0.18$~m/s inside the reported standard deviation $\sqrt{0.138}=0.37$~m/s,
-and the final position error $(0.32,0.23)$~m is inside $\sqrt{0.171}=0.41$~m
-as well. And the last column lists
+The velocity estimate recovers from its wrong start, and both final errors
+fall inside the standard deviations the filter reports. And the last column
+lists
 $d^2_k=\vect{y}_k\T\mat{S}_k\inv\vect{y}_k$, the squared Mahalanobis distance
 of each measurement from its prediction, which for a correctly tuned filter
 is chi-square with $m=2$ degrees of freedom, mean $2$; the five values average
@@ -823,7 +814,7 @@ is positive semidefinite for every $\Kgain$, and the Kalman gain minimises
 every diagonal entry of the error covariance, in particular its trace, the
 mean-square error. No Gaussian assumption is needed: the recursion is the
 \textbf{best linear unbiased estimator}\index{best linear unbiased estimator}
-for any noise with the given second moments: the statement extends from one
+for any noise with the given second moments. The statement extends from one
 update to the whole recursion by induction over $k$, since the prediction
 $\hat{\state}^-_{k+1}=\mat{F}\hat{\state}_k$ is a linear unbiased function of
 the previous estimate and \cref{eq:ch18-predict} propagates its error
@@ -943,14 +934,10 @@ trade-off between two failure modes, shown in \cref{fig:ch18-tuning} and
   difference. The innovations are small and \emph{negatively} correlated:
   each measurement overcorrects, and the next one corrects back.
 \end{itemize}
-\Cref{fig:ch18-tuning} shows a drone that flies straight at $3$~m/s, turns by
-$90^\circ$ in four seconds and flies straight again, tracked from the same
-measurements ($\sigma_p=1$~m at $10$~Hz) with three values of $q$. The
-intermediate value is best overall and nearly as good as the small one on the
-straight legs; the small value pays for its smoothness in the turn, the large
-value pays everywhere: a factor of $100$ above the best $q$ costs $56\%$ in
-position error and turns the velocity estimate into noise, a factor of $100$
-below doubles the error and misses the turn.
+In \cref{fig:ch18-tuning} the small value pays for its smoothness in the
+turn, the large value pays everywhere: a factor of $100$ above the best $q$
+costs $56\%$ in position error and turns the velocity estimate into noise, a
+factor of $100$ below doubles the error and misses the turn.
 
 \begin{figure}[tb]
   \centering
@@ -1069,11 +1056,7 @@ a measurement outside it is \textbf{gated out} and treated as missing.
   \end{tabular}
 \end{table}
 
-The gate is an ellipse in measurement space centred at the predicted
-measurement with the shape of $\mat{S}$: wide where the prediction is
-uncertain, narrow where it is precise, and growing after missed measurements,
-so that a track that has not seen its target for a while accepts measurements
-from a larger region. The price of a gate is the fraction $1-P_G$ of genuine
+The price of a gate is the fraction $1-P_G$ of genuine
 measurements it rejects, the benefit is immunity to anything beyond
 $\sqrt\gamma$ standard deviations; $P_G=0.99$ is a common compromise. In the
 self-test a $50$-metre outlier is rejected with $d^2\gg9.21$ while the
@@ -1235,8 +1218,8 @@ uses the same propagated Gaussian as its constant-velocity baseline, and
 
 \begin{pitfall}[Confusing the estimation covariance with the prediction covariance]
 $\mat{P}_k$ says how well the tracker knows where the intruder is
-\emph{now}; it converges to a small steady value and never grows, however
-long you track. $\mat{P}_{k+j\mid k}$ says how well anyone can know where the
+\emph{now}; while measurements keep arriving it converges to a small steady
+value and never grows, however long you track. $\mat{P}_{k+j\mid k}$ says how well anyone can know where the
 intruder will be $j$ steps from now; it grows without bound in $j$, because
 it contains the intruder's future decisions. A planner that inflates the
 radius by the current $2\sigma$ of $0.8$~m when the collision is two seconds
@@ -1291,13 +1274,11 @@ point nearest the truth; it is $0.477$~m at $q=0.1$ and $0.503$~m at $q=1$,
 so a factor of two below or five above the optimum costs less than $8\%$,
 while a factor of five below already costs $15\%$ ($0.541$~m at $q=0.032$):
 under-sizing $q$ is punished sooner than over-sizing it on this
-straight-flying target. Far away the price is severe but still below the raw
-$1.126$~m: $0.691$~m at $q=0.01$, where the
-filter is too sluggish to follow the wandering velocity, and $0.773$~m at
-$q=100$, where it copies the sensor noise. The velocity RMSE is asymmetric
---- $1.02$~m/s at the optimum, $1.11$~m/s at $q=0.01$, $3.29$~m/s at
-$q=100$ --- because an over-large $q$ lets the sensor noise straight into the
-velocity, while an under-sized $q$ merely smooths a velocity that changes
+straight-flying target. Far away the price is severe, but the position RMSE
+stays below the raw $1.126$~m over the whole grid. The velocity RMSE is
+asymmetric the other way, and far more sharply, because an over-large $q$
+lets the sensor noise straight into the velocity, while an under-sized $q$
+merely smooths a velocity that changes
 slowly in this scenario (on a turning target, \cref{fig:ch18-tuning}, the
 small-$q$ side pays instead). The mean NIS falls monotonically from $2.74$
 at $q=0.01$ to $1.58$ at $q=100$ and crosses $m=2$ at $q\approx0.3$, next to
@@ -1315,8 +1296,9 @@ constant gain $(k_p,k_v)$ per axis from the start gives the
 \textbf{alpha--beta filter}\index{alpha-beta filter@alpha--beta filter},
 $\hat p\gets\hat p^-+\alpha y$, $\hat v\gets\hat v^-+(\beta/\dt)\,y$ with
 $\alpha=k_p$, $\beta=k_v\dt$: no covariance, no matrix arithmetic, the same
-steady-state accuracy, but no transient and no covariance output for the
-safety layer.
+steady-state accuracy, but no transient phase of large gains, so it
+converges slowly from a poor start, and no covariance output for the safety
+layer.
 
 \paragraph{The information filter.}
 Carrying $\mat{P}\inv$ and $\mat{P}\inv\hat{\state}$ turns the update
