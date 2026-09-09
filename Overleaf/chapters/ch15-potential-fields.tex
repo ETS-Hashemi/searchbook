@@ -41,7 +41,8 @@ mathematical cause, and in this chapter you will produce each of them on
 purpose, in a few lines of \python, and see what the cause is. That is what
 the Week~7 milestone of the study plan (\cref{ch:appA}) asks for: \emph{know
 when local methods work and when they fail}. The week pairs this chapter with
-the dynamic window approach of \cref{ch:ch14}, and its coding exercise
+the dynamic window approach (DWA)\index{dynamic window approach}
+ of \cref{ch:ch14}, and its coding exercise
 (\cref{exr:ch15-coding}) asks you to implement one of the two and to construct
 its failure cases. In the hybrid architecture of \cref{ch:ch24} the safety
 layer is \orca or the dynamic window approach, not a potential field;
@@ -449,6 +450,42 @@ $0.695$: next to the disc the conic pull has the magnitude $k_{\mathrm{att}}
 d^* = 2$ instead of about $5$, so the repulsion wins more ground. The ratio
 of the two forces near an obstacle, not their absolute size, shapes the path.
 
+\Cref{tab:ch15-trace} traces the same run at seven steps. The first rows are
+the straight approach: the force is long, the speed limit binds, and the
+command is the unit vector along $\vect{F}$. At $k = 300$ the drone is $0.529$
+from the disc, the repulsion has turned the force upwards, its magnitude has
+fallen to $2.162$, and the command still has length $1$. By $k = 800$ the drone
+is $1.007$ from the goal, $\norm{\vect{F}}$ has dropped to the speed limit, and
+from there the clip releases: the last stretch is the exponential tail of the
+bowl, $d(t) = d(8)\,e^{-k_{\mathrm{att}}(t - 8)}$, which needs $\ln(1.007/0.05) =
+3.00$ time units to reach the tolerance -- the $299$ steps that the table shows
+between the last two rows.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Trace of \cref{alg:ch15-descend} from $(0, 4.5)$ in the scene of
+  \cref{ex:ch15-disc}, printed by \code{worked\_example()}: step $k$, position,
+  clearance, force, its magnitude, the clipped velocity command $\vect{v}_k$ and
+  the distance to the goal. The speed limit binds in every row but the last, so
+  the command is a unit vector while the force is not; it releases inside the
+  last unit, where the drone crosses the goal tolerance $\eps_{\mathrm{g}} = 0.05$
+  after $1\,099$ steps.}
+  \label{tab:ch15-trace}
+  \begin{tabular}{@{}rccccc r@{}}
+  \toprule
+  $k$ & $\pos_k$ & $\rho$ & $\vect{F}(\pos_k)$ & $\norm{\vect{F}}$ & $\vect{v}_k$ & $\norm{\pos_k - \pos_{\mathrm{g}}}$\\
+  \midrule
+  $0$      & $(0.000, 4.500)$ & $3.031$ & $(8.000, -0.500)$ & $8.016$ & $(0.998, -0.062)$ & $8.016$\\
+  $100$    & $(0.998, 4.438)$ & $2.034$ & $(7.002, -0.438)$ & $7.016$ & $(0.998, -0.062)$ & $7.016$\\
+  $200$    & $(1.996, 4.377)$ & $1.039$ & $(5.583, -0.298)$ & $5.591$ & $(0.999, -0.053)$ & $6.016$\\
+  $300$    & $(2.713, 4.826)$ & $0.529$ & $(1.104, 1.859)$  & $2.162$ & $(0.510, 0.860)$  & $5.351$\\
+  $500$    & $(4.410, 5.688)$ & $0.737$ & $(3.962, -0.156)$ & $3.965$ & $(0.999, -0.039)$ & $3.967$\\
+  $800$    & $(7.140, 4.524)$ & $2.183$ & $(0.860, -0.524)$ & $1.007$ & $(0.854, -0.520)$ & $1.007$\\
+  $1\,099$ & $(7.957, 4.026)$ & $2.957$ & $(0.043, -0.026)$ & $0.050$ & $(0.043, -0.026)$ & $0.050$\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
 % ---------------------------------------------------------------------
 \section{Properties: continuity, descent, safety, and where the minimum is}
 \label{sec:ch15-properties}
@@ -496,7 +533,10 @@ is locally Lipschitz along the trajectory. Then:
   \item $U(\pos(t))$ is non-increasing, with $\frac{d}{dt} U(\pos(t)) = -\norm{\nabla U(\pos(t))}^2$;
   \item the drone never touches an obstacle: $\rho_i(\pos(t)) \ge \rho_{\min} > 0$ for all $t$ and $i$, where
         $\rho_{\min} = \bigl(1/\rho_0 + \sqrt{2U_0/k_{\mathrm{rep}}}\bigr)^{-1}$;
-  \item $\pos(t)$ stays within $\sqrt{2U_0/k_{\mathrm{att}}}$ of the goal and converges to the set of
+  \item $\pos(t)$ stays in a bounded neighbourhood of the goal -- within
+        $\sqrt{2U_0/k_{\mathrm{att}}}$ with the quadratic attraction
+        \cref{eq:ch15-uatt}, within $U_0/(k_{\mathrm{att}} d^*) + d^*/2$ with the
+        hybrid one \cref{eq:ch15-hybrid} -- and converges to the set of
         critical points of $U$; if these are isolated, it converges to one of them.
 \end{enumerate}
 \end{theorem}
@@ -508,8 +548,12 @@ is locally Lipschitz along the trajectory. Then:
 \rho_0$. Along the trajectory $U \le U_0$, hence $1/\rho_i - 1/\rho_0 \le
 \sqrt{2U_0/k_{\mathrm{rep}}}$, which rearranges to $\rho_i \ge \rho_{\min}$;
 the bound is trivially true when $\rho_i > \rho_0$.
-(iii) Likewise $\tfrac12 k_{\mathrm{att}} \norm{\pos - \pos_{\mathrm{g}}}^2 \le
-U \le U_0$ bounds the trajectory. The sublevel set $S = \set{\pos \colon
+(iii) Likewise $U_{\mathrm{att}}(\pos) \le U \le U_0$ bounds the trajectory:
+with the quadratic attraction $\tfrac12 k_{\mathrm{att}} d^2 \le U_0$ gives
+$d \le \sqrt{2U_0/k_{\mathrm{att}}}$, and with the hybrid attraction the branch
+$k_{\mathrm{att}} d^* d - \tfrac12 k_{\mathrm{att}} (d^*)^2 \le U_0$ gives
+$d \le U_0/(k_{\mathrm{att}} d^*) + d^*/2$ for $d > d^*$, while $d \le d^*$ on the
+other branch. The sublevel set $S = \set{\pos \colon
 U(\pos) \le U_0}$ is closed, bounded and, by (ii), at positive distance
 from every obstacle, so it is a compact subset of $\Cfree$ that the
 trajectory never leaves. LaSalle's invariance principle (\cref{ch:appB})
@@ -676,7 +720,11 @@ is a new pull \emph{towards} the goal, present only inside influence
 regions. By \cref{thm:ch15-goal}(c) the goal is now the global minimum, and
 for $n \ge 2$ also a critical point; with $n = 1$ the second term keeps a
 non-zero magnitude at the goal whose direction depends on the side of
-approach, a conic pull that makes the drone chatter (\cref{exr:ch15-gnron}).
+approach, a conic pull that makes the drone chatter with the amplitude $\dt\, v_{\max}$
+of one step. Here that is $0.01$, well below the goal tolerance
+$\eps_{\mathrm{g}} = 0.05$, so the run is declared reached and the chatter
+appears only when the tolerance is tightened below it (\cref{exr:ch15-gnron});
+this is why Ge and Cui recommend $n = 2$, which is the default of the code.
 With $n = 2$ the run of \cref{fig:ch15-gnron} reaches the goal after $425$
 steps. Two warnings: the factor changes the field everywhere ($d^2$ is $100$
 ten units away, so $k_{\mathrm{rep}}$ must be retuned for the size of the
@@ -728,8 +776,10 @@ Let $\pos^*$ be a strict local minimum of a $C^2$ potential $U$, with Hessian
 $\mat{H} = \nabla^2 U(\pos^*)$ and eigenvalues $0 < \lambda_1 \le \dots \le
 \lambda_{\max}$. The update $\pos_{k+1} = \pos_k - \dt\, \nabla U(\pos_k)$
 (line~\ref{alg:ch15-descend:step} of \cref{alg:ch15-descend} while the speed
-limit is inactive) is locally asymptotically stable at $\pos^*$ if and only
-if $\dt\, \lambda_{\max} < 2$. Along the eigenvector of $\lambda_i$ the error
+limit is inactive) is locally asymptotically stable at $\pos^*$ if
+$\dt\, \lambda_{\max} < 2$ and unstable if $\dt\, \lambda_{\max} > 2$; at
+$\dt\, \lambda_{\max} = 2$ the linearisation is marginally stable and decides
+nothing. Along the eigenvector of $\lambda_i$ the error
 is multiplied by $1 - \dt\,\lambda_i$ per step: it shrinks monotonically for
 $\dt\,\lambda_i < 1$, alternates in sign for $1 < \dt\,\lambda_i < 2$, and
 grows for $\dt\,\lambda_i > 2$.
@@ -739,9 +789,11 @@ Write $\vect{e}_k = \pos_k - \pos^*$. Since $\nabla U(\pos^*) = \vect{0}$,
 Taylor's theorem gives $\vect{e}_{k+1} = (\mat{I} - \dt\,\mat{H})\vect{e}_k +
 o(\norm{\vect{e}_k})$. The symmetric matrix $\mat{I} - \dt\,\mat{H}$ has the
 eigenvalues $1 - \dt\,\lambda_i$, and the linear recursion is
-asymptotically stable exactly when all of them have modulus below $1$, that
-is, when $0 < \dt\,\lambda_i < 2$ for all $i$; the nonlinear system inherits
-the stability of its linearisation (\cref{ch:appB}). The statements about
+asymptotically stable when all of them have modulus below $1$, that is, when
+$\dt\,\lambda_i < 2$ for all $i$, and unstable when one of them has modulus
+above $1$; the nonlinear system inherits both properties from its
+linearisation (Lyapunov's indirect method, \cref{ch:appB}), which says nothing
+when a modulus equals $1$. The statements about
 monotone and alternating decay are the sign and size of the factor.
 \end{proof}
 
@@ -802,19 +854,18 @@ of the blocked run with $w = 0.8$). Koren and Borenstein's
 when the drone has inertia: the second-order model $m\ddot{\pos} = \vect{F}
 - b\dot{\pos}$ oscillates unless the damping $b$ is large compared with
 $\sqrt{m\lambda}$, a velocity controller with latency behaves like a lightly
-damped mass, and noisy distances produce a jittering force. In
-the first-order model with exact distances and continuous time there is no
-oscillation at all, because $U$ decreases monotonically
-(\cref{thm:ch15-descent}); everything that oscillates is a consequence of
-discretisation, dynamics or noise.
+damped mass, and noisy distances produce a jittering force.
 
 \subsection{No passage between closely spaced obstacles}
 \label{sec:ch15-nopassage}
 
 Narrow the passage to $w = 0.6$ (discs centred at $(4, 2.7)$ and $(4,
 5.3)$). The axis stays $0.3$ clear of both discs, so the passage is free,
-and by \cref{thm:ch15-descent} a drone inside it would be carried through by
-the attraction. Yet the drone from $(0, 4.3)$ never gets in: it stops at
+and a drone that starts inside it is carried through: on the axis at $x = 4$
+the factor $4 - x$ of \cref{eq:ch15-gapforce} below kills the horizontal
+repulsion, so $F_x(4) = 8 - 4 = 4 > 0$ points at the goal, and the run
+\code{simulate((4,4), (8,4.2), corridor(0.6), ApfParams())} reaches it in $599$
+steps with a minimum clearance of $0.300$. Yet the drone from $(0, 4.3)$ never gets in: it stops at
 $(3.163, 4.005)$, in front of the entrance, after $446$ steps
 (\cref{fig:ch15-nopassage}a). On the axis the vertical components of the two
 repulsions cancel and their horizontal components add. With $r(x) =
@@ -825,9 +876,9 @@ repulsions cancel and their horizontal components add. With $r(x) =
   \label{eq:ch15-gapforce}
 \end{equation}
 plotted in \cref{fig:ch15-nopassage}b. It is positive far away, dips to
-$-6.01$ just before the entrance, has its root at $x = 3.163$, and is
-positive again inside the passage, where $4 - x = 0$ kills the horizontal
-repulsion. The drone stops at the root: two walls that each say ``keep
+$-6.01$ just before the entrance, has its first root at $x = 3.163$ (a second,
+unstable root sits near $x = 3.91$), and is positive again inside the passage.
+The drone stops at the first root: two walls that each say ``keep
 away'' add up to ``go back'' in front of the gap, although neither wall is
 in the way. \Cref{tab:ch15-corridor} shows that $w = 0.8$ is blocked as well.
 Raising $k_{\mathrm{att}}$ or lowering $k_{\mathrm{rep}}$ or $\rho_0$ opens
@@ -855,8 +906,9 @@ Koren and Borenstein~\cite{koren1991potential} tested their own
 implementation, the \emph{virtual force field}, on a mobile robot with sonar
 sensors, the repulsion being summed over the occupied cells of a certainty
 grid. They found the four problems above, concluded that potential fields
-are unsuitable for real-time obstacle avoidance, and replaced them with the vector field histogram, which picks a
-steering direction from a polar histogram instead of adding vectors. Three
+are unsuitable for real-time obstacle avoidance, and replaced them with the \textbf{vector field histogram}\index{vector field
+histogram} (VFH) of Borenstein and Koren~\cite{borenstein1991vfh}, which picks
+a steering direction from a polar histogram instead of adding vectors. Three
 decades later the honest summary is this.\index{Koren--Borenstein critique}
 \begin{itemize}
   \item \emph{Traps and blocked passages are structural.} They follow from
@@ -868,8 +920,8 @@ decades later the honest summary is this.\index{Koren--Borenstein critique}
   first-order controller with exact distances never oscillates in
   continuous time (\cref{thm:ch15-descent}); what oscillated in their
   experiments was discretisation, robot dynamics and sonar noise. But the
-  stiffness of a passage grows like the inverse fourth power of its width,
-  so every discrete controller has a passage too narrow for it.
+  stiffness \cref{eq:ch15-stiffness} leaves every discrete controller a
+  passage too narrow for it.
   \item \emph{The verdict was about a role, not about the idea.} It
   concerned the potential field as the \emph{whole} obstacle-avoidance layer
   of a robot driven by raw sonar readings, not potential terms inside a
@@ -984,17 +1036,24 @@ for starts already inside the influence region.
   goal, orange squares end in the local minimum at $(2.676, 4.1)$ (red
   cross), grey curves are the trajectories from the column $x = 0$; the
   basin is a band around the symmetry axis holding $41\,\%$ of the starts.
-  (b) The trapped start $(0, 4.1)$ with random-walk escapes (green): after
-  $8$ walks and $3\,810$ steps the drone finds the way round the upper lobe.}
+  (b) A single-drone run from the trapped start $(0, 4.1)$ with random-walk
+  escapes (green), drawn from its own random stream: after $8$ walks and
+  $3\,810$ steps the drone finds the way round the upper lobe. In the batch run
+  of (a) the same start is still walking when the horizon expires.}
   \label{fig:ch15-basin}
 \end{figure}
 
 With the random-walk escape switched on, $386$ starts reach the goal
 ($87.5\,\%$), none is left stuck, and $55$ run into the horizon of $4\,000$
 steps while still walking and descending; the drones that do arrive need on
-average $2.48$ escapes and $1\,428$ steps, against $1\,018$ for the plain
-runs. \Cref{fig:ch15-basin}b shows one of them, from $(0, 4.1)$ on the axis:
-eight random walks, $3\,810$ steps, and a final route over the upper lobe.
+average $1.24$ escapes and $1\,428$ steps, against $1\,018$ for the plain runs
+(averaged over all $441$ starts the escape count is $2.48$, because the $55$
+drones that never arrive keep walking). \Cref{fig:ch15-basin}b shows a
+separate single-drone run from the trapped start $(0, 4.1)$ on the axis, with
+its own random stream: eight random walks, $3\,810$ steps, and a final route
+over the upper lobe. In the batch run that start is still walking when the
+horizon expires, because the outcome of a random escape is a random variable
+and not a property of the start.
 The random walk converts a certain failure into a probable, slow success
 with an unpredictable path -- a crutch worth having in a local layer, and no
 substitute for a global plan.
@@ -1066,7 +1125,11 @@ thing more. Separation is \cref{eq:ch15-interagent}. Cohesion is an
 attractive potential whose goal moves, $\tfrac12 k_{\mathrm{c}} \norm{\pos_i
 - \bar{\pos}_i}^2$ with $\bar{\pos}_i$ the centroid of the neighbours.
 Alignment is not the gradient of any potential over positions; it acts on
-velocities,
+velocities. Write $N_i = \set{j \ne i \colon \norm{\pos_i - \pos_j} \le
+\rho_{\mathrm{a}}}$ for the neighbours of drone $i$ within the interaction
+radius $\rho_{\mathrm{a}}$, and let $\alpha > 0$ be the alignment gain, small
+enough that $\alpha \abs{N_i} < 1$ for every drone, so that each update is a
+convex combination of the velocities:
 \begin{equation}
   \vel_i \gets \vel_i + \alpha \sum_{j \in N_i} (\vel_j - \vel_i),
   \label{eq:ch15-alignment}
@@ -1218,7 +1281,7 @@ is \cref{exr:ch15-coding}.
 \begin{itemize}
   \item A potential field adds a bowl at the goal, $U_{\mathrm{att}} = \tfrac12 k_{\mathrm{att}} \norm{\pos - \pos_{\mathrm{g}}}^2$ (conic beyond $d^*$ in the hybrid form), to a wall around every obstacle, $U_{\mathrm{rep}} = \tfrac12 k_{\mathrm{rep}} (1/\rho - 1/\rho_0)^2$ for $\rho \le \rho_0$, and commands the negative gradient of the sum, \cref{eq:ch15-uatt,eq:ch15-frep}.
   \item The controller is explicit Euler with a speed limit and a stuck detector. In continuous time the potential decreases monotonically, the drone never touches an obstacle, and it converges to a critical point of $U$, which is the goal only when nothing cancels the attraction first.
-  \item The four failure modes have formulas: a local minimum where $\vect{F}_{\mathrm{att}} + \vect{F}_{\mathrm{rep}} = \vect{0}$; GNRON, a goal inside $\rho_0$ where $\vect{F}_{\mathrm{rep}} \ne \vect{0}$, cured by the factor $d^{\,n}$; oscillation when $\dt\,\lambda_{\max} \ge 2$, with a stiffness growing like the inverse fourth power of a passage width; and blocked passages, where two repulsions add up in front of a free gap.
+  \item The four failure modes have formulas: a local minimum where $\vect{F}_{\mathrm{att}} + \vect{F}_{\mathrm{rep}} = \vect{0}$; GNRON, a goal inside $\rho_0$ where $\vect{F}_{\mathrm{rep}} \ne \vect{0}$, cured by the factor $d^{\,n}$; oscillation once $\dt\,\lambda_{\max} > 1$ and divergence once $\dt\,\lambda_{\max} \ge 2$, with a stiffness growing like the inverse fourth power of a passage width; and blocked passages, where two repulsions add up in front of a free gap.
   \item Critical points other than the goal cannot be avoided by any potential; navigation functions make them all saddles on sphere worlds, harmonic potentials need a global grid computation, random walks cost time and path quality. The remedy that scales is to use the field as a local layer under a global plan, with a stalled leg triggering replanning.
   \item Inter-agent repulsion is Reynolds's separation rule, cohesion a spring to the neighbours' centroid, alignment a velocity consensus. Potential fields survive in the swarm as soft spacing and formation keeping, while \orca and DWA take the safety layer.
 \end{itemize}
@@ -1228,7 +1291,8 @@ is \cref{exr:ch15-coding}.
 Khatib~\cite{khatib1986realtime} introduced the artificial potential field
 with the FIRAS repulsion; Koren and Borenstein~\cite{koren1991potential} is
 the critique of \cref{sec:ch15-koren}, still worth reading for its
-experiments; Ge and Cui~\cite{ge2000new} named GNRON and proposed the
+experiments, and Borenstein and Koren~\cite{borenstein1991vfh} is the vector
+field histogram they proposed instead; Ge and Cui~\cite{ge2000new} named GNRON and proposed the
 $d^{\,n}$ correction. Koditschek and Rimon~\cite{koditschek1990navigation}
 and Rimon and Koditschek~\cite{rimon1992exact} define navigation functions,
 prove the count of saddles and construct \cref{eq:ch15-navfun}; Connolly,
@@ -1279,8 +1343,12 @@ saddle into a minimum.
 \label{exr:ch15-gnron}
 (a) Show that with the factor $d^{\,n}$ the total potential is
 non-negative with its global minimum at the goal, and that for $n \ge 2$ the
-goal is a critical point. (b) Run \code{gnron\_case()} with $n = 1$, describe
-the motion near the goal and explain it with \cref{exr:ch15-derivation}(c).
+goal is a critical point. (b) Run the corrected field with $n = 1$ and a goal
+tolerance below the chatter amplitude $\dt\, v_{\max}$,
+\code{simulate((8,6), (5.4,4), DISC, replace(prm, n\_gnron=1, goal\_tol=1e-3))},
+describe the motion near the goal and explain it with
+\cref{exr:ch15-derivation}(c); repeat with $n = 2$ and with the chapter's
+tolerance $\eps_{\mathrm{g}} = 0.05$ and say what each run reports.
 (c) Run the local-minimum case of \cref{sec:ch15-localmin} with $n = 2$ to
 show that the correction does not remove local minima elsewhere, and explain
 why the stopping point moves.
@@ -1309,6 +1377,19 @@ $k_{\mathrm{att}}$ and report the minimum clearance from $(0, 4.5)$; what
 does the comparison say about tuning one pair of gains for a whole map?
 (d) Explain why a waypoint inside the passage removes the problem without
 touching the gains.
+\end{exercise}
+
+\begin{exercise}[\difficulty{1}]
+\label{exr:ch15-smoothness}
+(a) Explain why the force $\vect{F}$ is continuous but not continuously
+differentiable across the influence boundary $\rho = \rho_0$
+(\cref{thm:ch15-continuity}), and what that costs a controller that estimates
+the stiffness of \cref{eq:ch15-stiffness} by finite differences of the force.
+(b) The stuck detector of line~\ref{alg:ch15-descend:stuck} fires when the
+drone has moved less than $\delta$ in the last $W$ steps. Explain why it cannot
+distinguish a local minimum from a very flat region of $U$, give one scene of
+each kind, and argue why the caller of \cref{alg:ch15-descend} should treat
+both in the same way.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3} Coding]
