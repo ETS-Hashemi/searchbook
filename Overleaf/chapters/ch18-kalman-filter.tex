@@ -700,7 +700,7 @@ and whose $(2,2)$ entry loses $k_v b^-$.
 
 \paragraph{Step 1 by hand.}
 Predict: $\hat{\state}^-_1=\mat{F}\hat{\state}_0=(0.5,0,0.5,0)$, and from
-$a=b{=}0$, $c=1$, wait --- from $a=c=1$, $b=0$:
+$a=c=1$, $b=0$:
 $a^-=1+0+1+0.0333=2.0333$, $b^-=0+1+0.05=1.05$, $c^-=1.1$. The position
 variance has doubled because the velocity was uncertain. Update:
 $S=2.0333+0.25=2.2833$, $k_p=0.8905$, $k_v=0.4599$. The innovation is
@@ -781,3 +781,531 @@ samples is unremarkable, and \cref{sec:ch18-tuning} makes the test precise.
 The self-test of \code{ch18\_kalman.py} reproduces every number of the
 table to four decimals, and checks the step-1 gain against the hand
 computation above.
+
+% ---------------------------------------------------------------------
+\section{Properties: optimality, consistency, observability}
+\label{sec:ch18-properties}
+
+\begin{theorem}[The Kalman filter is exact and optimal for the linear-Gaussian model]
+\label{thm:ch18-optimal}
+Under \cref{def:ch18-model}, the posterior $p(\state_k\mid\meas_{1:k})$ is
+the Gaussian $\Normal(\hat{\state}_k,\mat{P}_k)$ whose parameters are
+produced by \cref{eq:ch18-predict} and
+\cref{eq:ch18-innovation}--\cref{eq:ch18-update-cov}, started from
+$(\hat{\state}_0,\mat{P}_0)$. Consequently $\hat{\state}_k$ is the
+\textbf{minimum mean-square-error (MMSE) estimator}\index{MMSE estimator}
+of $\state_k$: for every function $g$ of the measurements,
+$\E\bigl[\norm{\state_k-g(\meas_{1:k})}^2\bigr]\ge\E\bigl[\norm{\state_k-\hat{\state}_k}^2\bigr]=\tr\mat{P}_k$,
+and $\mat{P}_k=\E\bigl[(\state_k-\hat{\state}_k)(\state_k-\hat{\state}_k)\T\bigr]$
+is the covariance of the estimation error.
+\end{theorem}
+\begin{proof}
+Induction on $k$. The claim holds for $k=0$ by the choice of the initial
+belief. Assume $\state_{k-1}\mid\meas_{1:k-1}\sim\Normal(\hat{\state}_{k-1},\mat{P}_{k-1})$.
+The noise $\vect{w}_k$ is independent of $\state_{k-1}$ and of
+$\meas_{1:k-1}$, so fact (i) of \cref{thm:ch18-gaussian-facts} gives
+$\state_k\mid\meas_{1:k-1}\sim\Normal(\hat{\state}^-_k,\mat{P}^-_k)$ with
+\cref{eq:ch18-predict}. The noise $\vect{v}_k$ is independent of everything
+before it, so, conditionally on $\meas_{1:k-1}$, the pair
+$(\state_k,\meas_k)$ is jointly Gaussian with the parameters
+\cref{eq:ch18-joint}, and fact (ii) gives
+$\state_k\mid\meas_{1:k}\sim\Normal(\hat{\state}_k,\mat{P}_k)$ with
+\cref{eq:ch18-update-mean}--\cref{eq:ch18-update-cov}; conditioning on
+$\meas_{1:k-1}$ and then on $\meas_k$ is conditioning on $\meas_{1:k}$. This
+proves the first claim, and it identifies $\hat{\state}_k$ with the
+conditional mean $\E[\state_k\mid\meas_{1:k}]$ and $\mat{P}_k$ with the
+conditional covariance, which is the covariance of the error
+$\state_k-\hat{\state}_k$ because the error has conditional mean zero.
+
+For the MMSE property, let $g$ be any estimator and write
+$\state_k-g=(\state_k-\hat{\state}_k)+(\hat{\state}_k-g)$. The second term is a
+function of $\meas_{1:k}$, and the first has conditional mean zero given
+$\meas_{1:k}$, so the conditional expectation of their inner product
+vanishes, and
+$\E\norm{\state_k-g}^2=\E\norm{\state_k-\hat{\state}_k}^2+\E\norm{\hat{\state}_k-g}^2\ge\E\norm{\state_k-\hat{\state}_k}^2$,
+with equality only for $g=\hat{\state}_k$ almost surely.
+\end{proof}
+
+The optimality is over \emph{all} estimators, linear or not, because the
+posterior is exactly Gaussian and the conditional mean is the MMSE estimator
+for any distribution. When the noises are not Gaussian but still have zero
+mean, the stated covariances and the stated independence, the posterior is no
+longer Gaussian and a nonlinear estimator may do better --- but no
+\emph{linear} one can.
+
+\begin{proposition}[The Kalman gain is the best gain]
+\label{thm:ch18-best-gain}
+Let $\hat{\state}^-$ be an unbiased prediction with error covariance
+$\mat{P}^-$, let $\meas=\mat{H}\state+\vect{v}$ with
+$\vect{v}\sim(\vect{0},\mat{R})$ independent of the prediction error, and
+consider the estimators $\hat{\state}(\Kgain)=\hat{\state}^-+\Kgain(\meas-\mat{H}\hat{\state}^-)$
+for an arbitrary $n\times m$ matrix $\Kgain$. Their error covariance is
+\begin{equation}
+  \mat{P}(\Kgain)=\underbrace{\mat{P}^--\mat{P}^-\mat{H}\T\mat{S}\inv\mat{H}\mat{P}^-}_{\mat{P}(\Kgain^*)}
+  +(\Kgain-\Kgain^*)\,\mat{S}\,(\Kgain-\Kgain^*)\T,\qquad
+  \Kgain^*=\mat{P}^-\mat{H}\T\mat{S}\inv,
+  \label{eq:ch18-best-gain}
+\end{equation}
+with $\mat{S}=\mat{H}\mat{P}^-\mat{H}\T+\mat{R}$. Hence $\mat{P}(\Kgain)-\mat{P}(\Kgain^*)$
+is positive semidefinite for every $\Kgain$, and the Kalman gain minimises
+every diagonal entry of the error covariance, in particular its trace, the
+mean-square error. No Gaussian assumption is needed: the recursion is the
+\textbf{best linear unbiased estimator}\index{best linear unbiased estimator}
+for any noise with the given second moments.
+\end{proposition}
+\begin{proof}
+The error is $\state-\hat{\state}(\Kgain)=(\mat{I}-\Kgain\mat{H})(\state-\hat{\state}^-)-\Kgain\vect{v}$,
+a sum of two independent zero-mean terms, so its covariance is the Joseph
+form $\mat{P}(\Kgain)=(\mat{I}-\Kgain\mat{H})\mat{P}^-(\mat{I}-\Kgain\mat{H})\T+\Kgain\mat{R}\Kgain\T$,
+which expands to
+$\mat{P}^--\Kgain\mat{H}\mat{P}^--\mat{P}^-\mat{H}\T\Kgain\T+\Kgain\mat{S}\Kgain\T$.
+Expanding $(\Kgain-\Kgain^*)\mat{S}(\Kgain-\Kgain^*)\T$ with
+$\Kgain^*\mat{S}=\mat{P}^-\mat{H}\T$ gives
+$\Kgain\mat{S}\Kgain\T-\Kgain\mat{H}\mat{P}^--\mat{P}^-\mat{H}\T\Kgain\T+\mat{P}^-\mat{H}\T\mat{S}\inv\mat{H}\mat{P}^-$,
+and subtracting the two expressions leaves exactly
+$\mat{P}^--\mat{P}^-\mat{H}\T\mat{S}\inv\mat{H}\mat{P}^-$, which is
+\cref{eq:ch18-best-gain}. The last term of \cref{eq:ch18-best-gain} is
+positive semidefinite because $\mat{S}$ is, and it vanishes only for
+$\Kgain=\Kgain^*$ since $\mat{S}\succ\mat{0}$ when $\mat{R}\succ\mat{0}$.
+\end{proof}
+
+This is the argument of Kalman's original paper, which never mentions
+Gaussians: the filter is derived as an orthogonal projection onto the space
+of linear functions of the measurements \cite{kalman1960new}. The self-test
+of \code{ch18\_kalman.py} verifies \cref{eq:ch18-best-gain} numerically for a
+gain that is $50\%$ too large.
+
+\begin{proposition}[The covariance does not depend on the data; steady state]
+\label{thm:ch18-steady}
+The sequences $\mat{P}^-_k$, $\mat{S}_k$, $\Kgain_k$ and $\mat{P}_k$ are
+determined by $\mat{F},\mat{H},\mat{Q},\mat{R}$ and $\mat{P}_0$ alone; they
+can be computed before a single measurement has arrived. If the model is
+time-invariant, the pair $(\mat{F},\mat{H})$ is observable and $\mat{Q}$ is
+positive definite, then $\mat{P}^-_k$ converges, for every initial
+$\mat{P}_0\succeq\mat{0}$, to the unique positive definite solution
+$\mat{P}^-_\infty$ of the \textbf{discrete algebraic Riccati
+equation}\index{Riccati equation}
+\begin{equation}
+  \mat{P}^-_\infty=\mat{F}\mat{P}^-_\infty\mat{F}\T+\mat{Q}
+  -\mat{F}\mat{P}^-_\infty\mat{H}\T\bigl(\mat{H}\mat{P}^-_\infty\mat{H}\T+\mat{R}\bigr)\inv\mat{H}\mat{P}^-_\infty\mat{F}\T,
+  \label{eq:ch18-riccati}
+\end{equation}
+the gain converges to $\Kgain_\infty=\mat{P}^-_\infty\mat{H}\T\mat{S}_\infty\inv$,
+and the filter with this constant gain is stable: all eigenvalues of
+$(\mat{I}-\Kgain_\infty\mat{H})\mat{F}$ lie inside the unit circle.
+\end{proposition}
+\begin{proof}[Proof sketch]
+The first claim is read off \cref{eq:ch18-predict} and
+\cref{eq:ch18-S}--\cref{eq:ch18-update-cov}: the measurement enters only the
+mean. Substituting the update into the predict step gives the Riccati
+recursion $\mat{P}^-_{k+1}=\mat{F}\mat{P}^-_k\mat{F}\T+\mat{Q}-\mat{F}\mat{P}^-_k\mat{H}\T\mat{S}_k\inv\mat{H}\mat{P}^-_k\mat{F}\T$,
+whose fixed points are the solutions of \cref{eq:ch18-riccati}.
+Observability bounds $\mat{P}^-_k$ from above (the state can be reconstructed
+from $n$ consecutive measurements, so its error cannot grow without bound),
+$\mat{Q}\succ\mat{0}$ bounds it from below, and a monotonicity argument on the
+recursion gives convergence and uniqueness; the stability of the constant-gain
+filter follows because $\mat{P}^-_\infty$ is then a Lyapunov matrix for it.
+The full proof is classical; see \textcite[ch.~5]{barshalom2001estimation}.
+The conditions can be weakened to detectability of $(\mat{F},\mat{H})$ and
+stabilisability of $(\mat{F},\mat{Q}^{1/2})$.
+\end{proof}
+
+Two consequences matter for a tracker. The uncertainty ellipses that the
+safety layer receives, and the gain that the filter applies, are known
+functions of the sampling rate and the noise levels, so they can be inspected
+--- and tuned --- offline, on no data at all. And the gain settles quickly:
+in the worked example it fell from $0.89$ to $0.68$ in five steps, and in the
+experiment of \cref{sec:ch18-experiment} the position standard deviation is
+within a few percent of its final value $0.39$~m after two seconds. A filter
+that uses the constant gain $\Kgain_\infty$ from the start, the
+\emph{alpha--beta filter} of \cref{sec:ch18-variants}, loses little except
+during initialisation.
+
+\paragraph{Observability.}
+The pair $(\mat{F},\mat{H})$ is \textbf{observable}\index{observability} if
+the observability matrix
+$\mathcal{O}=\bigl(\mat{H}\T,\ (\mat{H}\mat{F})\T,\ \dots,\ (\mat{H}\mat{F}^{n-1})\T\bigr)\T$
+has rank $n$, which means that $n$ consecutive noise-free measurements
+determine the state uniquely. For the CV model along one axis with a position
+sensor, $\mat{H}=(1\;0)$ and $\mat{H}\mat{F}=(1\;\dt)$: rank $2$, observable,
+and the filter can indeed recover the velocity from positions. With a sensor
+that reports only the velocity, $\mat{H}=(0\;1)$ and $\mat{H}\mat{F}=(0\;1)$:
+rank $1$. The velocity is then estimated well, but the position is a
+velocity integrated from an unknown starting point, and its variance grows
+without bound (the self-test of \code{ch18\_kalman.py} runs this case for
+$300$ steps and checks that the position variance keeps growing while the
+velocity variance shrinks). A filter on an unobservable model does not fail
+loudly: it runs, reports a mean, and the only warning is a covariance that
+never stops growing. Check the rank once, when the model is built; the
+function \code{observability\_rank} does it.
+
+\paragraph{Complexity and memory.}
+The filter is recursive: step $k$ needs the belief from step $k-1$ and the
+current measurement, never the history. Memory is $\bigO{n^2}$ for the
+covariance and time per step is $\bigO{n^3}$, independent of $k$. A batch
+least-squares fit to all measurements so far would give the same estimate
+for the linear-Gaussian model, at a cost growing with $k$; the Kalman filter
+is that fit, reorganised so that each measurement is absorbed once and
+forgotten.
+
+% ---------------------------------------------------------------------
+\section{Tuning, diagnostics, gating, and imperfect sensors}
+\label{sec:ch18-tuning}
+
+The theory assumes that $\mat{Q}$ and $\mat{R}$ are the true noise
+covariances. In practice $\mat{R}$ is roughly known and $\mat{Q}$ is a
+modelling choice, the sensor drops reports and occasionally returns garbage,
+and there may be more than one intruder. This section covers each of these
+in turn; \cref{alg:ch18-track} already contains the corresponding logic.
+
+\subsection{What \texorpdfstring{$\mat{Q}$ and $\mat{R}$}{Q and R} do}
+\label{sec:ch18-qr}
+
+$\mat{R}$ is the easier of the two. A datasheet gives the sensor's error
+standard deviation, and a static calibration --- a few hundred reports on a
+target at a known position --- gives the sample covariance directly, along
+with a check that the errors are unbiased and uncorrelated in time. Getting
+$\mat{R}$ wrong by a factor of two is a mild error; the filter's estimate is
+still unbiased, only slightly less accurate, and the diagnostics below reveal
+it.
+
+$\mat{Q}$ is a statement about the intruder, not about the sensor, and the
+intruder does not come with a datasheet. The parameter $q$ of the CV model
+says how quickly the velocity wanders: after a time $T$ without measurements
+the velocity uncertainty grows by $\sqrt{qT}$ (the $(2,2)$ entry of
+$\mat{Q}$). The rule of thumb $q\approx a_{\max}^2T_a$ of
+\cref{sec:ch18-models} follows from matching this to the velocity change of
+a typical manoeuvre. Whatever the starting value, its effect is a trade-off
+between two failure modes, shown in \cref{fig:ch18-tuning} and
+\cref{tab:ch18-tuning}:
+\begin{itemize}
+  \item \textbf{$\mat{Q}$ too small: sluggish.} The filter believes its own
+  model, the gain becomes small, and the estimate follows the true motion
+  with a lag. Straight flight is tracked beautifully, but when the intruder
+  turns the estimate overshoots the corner and takes seconds to catch up. The
+  innovations are large and, tellingly, \emph{correlated in time}: the filter
+  is wrong in the same direction for many consecutive steps.
+  \item \textbf{$\mat{Q}$ too large: noisy.} The filter believes the sensor,
+  the gain stays large, and the estimate copies the measurement noise; the
+  velocity estimate, in particular, becomes almost as bad as a finite
+  difference. The innovations are small and \emph{negatively} correlated:
+  each measurement overcorrects, and the next one corrects back.
+\end{itemize}
+\Cref{fig:ch18-tuning} shows a drone that flies straight at $3$~m/s, turns
+by $90^\circ$ in four seconds and flies straight again, tracked with three
+values of $q$ from the same measurements ($\sigma_p=1$~m at $10$~Hz).
+The intermediate value is best overall and almost as good as the small one on
+the straight legs; the small value pays for its smoothness in the turn, the
+large value pays everywhere. Increasing $q$ by a factor of $100$ from the
+best value costs $56\%$ in position error and turns the velocity estimate
+into noise; decreasing it by the same factor doubles the error and makes the
+filter miss the turn.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch18/tuning}
+  \caption{Three process-noise intensities on the same data. Left: the drone
+  turns by $90^\circ$ between $t=8$ and $12$~s. The filter with $q=0.01$
+  (orange) cuts the corner and needs seconds to rejoin the path; $q=100$
+  (purple) follows every measurement, noise included; $q=1$ (blue) does
+  neither. Right: position error against time. The small-$q$ filter has the
+  smallest error on the straight legs and by far the largest in the turn
+  (shaded); the large-$q$ filter is uniformly mediocre.}
+  \label{fig:ch18-tuning}
+\end{figure}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The three filters of \cref{fig:ch18-tuning}
+  (\code{gen\_ch18\_tracking.py}, experiment C; $N=199$ steps, raw
+  measurement RMSE $1.50$~m). The whiteness bound $1.96/\sqrt{N}$ is
+  $0.14$; the $95\%$ band for the mean NIS is $[1.72,2.28]$.}
+  \label{tab:ch18-tuning}
+  \begin{tabular}{@{}lcccccl@{}}
+  \toprule
+  $q$ [m$^2$/s$^3$] & RMSE [m] & in the turn & straight legs & mean NIS & lag-1 autocorr.\ $(x,y)$ & verdict\\
+  \midrule
+  $0.01$ & $1.24$ & $1.89$ & $0.92$ & $3.60$ & $(0.25,\ 0.26)$ & too small: NIS high, innovations correlated\\
+  $1$    & $0.63$ & $0.70$ & $0.60$ & $2.11$ & $(-0.12,\ -0.04)$ & consistent\\
+  $100$  & $0.98$ & $1.13$ & $0.93$ & $1.85$ & $(-0.24,\ -0.18)$ & too large: innovations anticorrelated\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{The innovation as a diagnostic}
+\label{sec:ch18-diagnostics}
+
+You cannot compare the estimate with the truth, because the truth is what
+you are estimating. You \emph{can} compare the innovations with what the
+filter predicted for them: under \cref{def:ch18-model}, with the correct
+$\mat{Q}$ and $\mat{R}$, the innovation sequence is zero-mean, Gaussian with
+covariance $\mat{S}_k$, and \emph{white} --- $\vect{y}_k$ is uncorrelated
+with $\vect{y}_j$ for $j\ne k$ --- because each innovation is the part of
+the measurement that the past could not predict. A filter whose innovations
+pass these tests is called \textbf{consistent}\index{Kalman filter!consistency};
+the tests are, for a run of $N$ steps:
+\begin{enumerate}
+  \item \textbf{Normalised innovation squared (NIS).}\index{NIS}
+  $d^2_k=\vect{y}_k\T\mat{S}_k\inv\vect{y}_k$ has a chi-square distribution
+  with $m$ degrees of freedom, mean $m$ and variance $2m$. The time average
+  $\bar d^2=\frac1N\sum_k d^2_k$ should therefore lie in
+  \begin{equation}
+    m\pm1.96\sqrt{2m/N}
+    \label{eq:ch18-nis-band}
+  \end{equation}
+  with probability $95\%$ (normal approximation of $\chi^2_{Nm}/N$). A mean
+  NIS above the band says the innovations are larger than the filter expects:
+  $\mat{S}$ is too small, so $\mat{Q}$ or $\mat{R}$ is too small --- usually
+  $\mat{Q}$, since $\mat{R}$ is measured. A mean below the band says the
+  opposite.
+  \item \textbf{Whiteness.} The lag-one autocorrelation of each innovation
+  component, $\rho=\sum_k y_{k}y_{k+1}/\sum_k y_k^2$, should satisfy
+  $\abs{\rho}\le1.96/\sqrt N$. Positive $\rho$ is the signature of a sluggish
+  filter, negative $\rho$ of a nervous one. This test is more sensitive than
+  the NIS test to a wrong $\mat{Q}$: in \cref{tab:ch18-tuning} the $q=100$
+  filter has a mean NIS inside the band but fails whiteness by a wide margin.
+  \item \textbf{Normalised estimation error squared (NEES),}\index{NEES} in
+  simulation only, where the truth is known:
+  $(\state_k-\hat{\state}_k)\T\mat{P}_k\inv(\state_k-\hat{\state}_k)$ has
+  mean $n$ if the reported covariance is honest. The self-test of
+  \code{ch18\_kalman.py} checks it over $300$ Monte-Carlo runs.
+\end{enumerate}
+The procedure for tuning $q$ is then: start from the rule of thumb, run the
+filter on recorded data, compute the mean NIS and the autocorrelation, and
+move $q$ up if the NIS is high or $\rho$ positive, down if $\rho$ is
+negative, by factors of two or three, until both tests pass. A sensor whose
+errors are correlated in time (a slowly drifting camera calibration, say)
+will fail the whiteness test for every $q$; the remedy is a state augmented
+with the drift, one of the variants of \cref{sec:ch18-variants}.
+
+\subsection{Gating with the Mahalanobis distance}
+\label{sec:ch18-gating}
+
+Real sensors occasionally return a measurement that has nothing to do with
+the intruder: a reflection, a bird, a corrupted packet. Fed to
+\cref{alg:ch18-kf}, an outlier $40$~m from the predicted position moves the
+estimate by $\Kgain$ times $40$~m --- metres, in one step --- and the
+velocity estimate with it, and the safety layer reacts to a phantom. The
+defence is the same statistic as the first diagnostic: the squared
+\textbf{Mahalanobis distance}\index{Mahalanobis distance!gating} of the
+measurement from the predicted measurement, $d^2=\vect{y}\T\mat{S}\inv\vect{y}$,
+which under the model is $\chi^2_m$-distributed.
+
+\begin{definition}[Validation gate]
+\label{def:ch18-gate}
+For a gate probability $P_G$ let $\gamma$ be the $P_G$-quantile of the
+$\chi^2_m$ distribution, $\Prob(\chi^2_m\le\gamma)=P_G$. The
+\textbf{validation gate}\index{gating} of a track is the ellipsoid
+$\set{\meas:(\meas-\mat{H}\hat{\state}^-)\T\mat{S}\inv(\meas-\mat{H}\hat{\state}^-)\le\gamma}$;
+a measurement outside it is \textbf{gated out} and treated as missing.
+\end{definition}
+
+\begin{table}[tb]
+  \centering\small
+  \caption{Gate thresholds $\gamma$ for $\Prob(\chi^2_m\le\gamma)=P_G$
+  ($m$ = dimension of the measurement). A gate at $P_G=0.99$ rejects one
+  genuine measurement in a hundred and every measurement whose Mahalanobis
+  distance exceeds $\sqrt\gamma$, about three standard deviations for $m=2$.}
+  \label{tab:ch18-chi2}
+  \begin{tabular}{@{}lccccc@{}}
+  \toprule
+  $P_G$ & $m=1$ & $m=2$ & $m=3$ & $m=4$ & $m=6$\\
+  \midrule
+  $0.95$  & $3.84$ & $5.99$ & $7.81$ & $9.49$ & $12.59$\\
+  $0.99$  & $6.63$ & $9.21$ & $11.34$ & $13.28$ & $16.81$\\
+  $0.999$ & $10.83$ & $13.82$ & $16.27$ & $18.47$ & $22.46$\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+The gate is an ellipse in measurement space centred at the predicted
+measurement, with the shape of $\mat{S}$: wide along directions in which the
+prediction is uncertain, narrow where it is precise, and growing after
+missed measurements, so that a track that has not seen its target for a
+while accepts measurements from a larger region. \Cref{tab:ch18-chi2} lists
+$\gamma$ for the usual choices. The price of a gate is the genuine
+measurements it rejects, $1-P_G$ of them, and the benefit is immunity to
+anything beyond $\sqrt\gamma$ standard deviations; $P_G=0.99$ is a common
+compromise. In the self-test, a $50$-metre outlier is rejected with
+$d^2\gg9.21$ while the ungated filter jumps several metres.
+
+\begin{pitfall}[Resetting the filter on every outlier]
+A tempting reaction to a gated-out measurement is to reinitialise the track
+from it: ``the filter has lost the target, start again''. It has not. A
+single outlier is exactly what the gate is for, and the right response is to
+skip the update and let the covariance grow a little. Resetting throws away
+the velocity estimate and the covariance, both of which took seconds to
+build, and replaces them with a track started on the outlier itself. Drop a
+track only after \emph{several consecutive} rejections, when the gate has
+grown so wide that the track is no longer telling you anything
+(line~\ref{alg:ch18-track:drop} of \cref{alg:ch18-track}); and keep the
+count of rejections as a health signal for the safety layer.
+\end{pitfall}
+
+\paragraph{Several intruders: data association.}
+With two or more tracks and several measurements per scan, the gate also
+answers the question \emph{which measurement belongs to which track}, the
+\textbf{data association}\index{data association} problem of
+\cref{fig:ch18-gating}. The simplest rule, \textbf{nearest-neighbour
+association}\index{data association!nearest neighbour}, computes $d^2$ for
+every (track, measurement) pair, discards the pairs outside the gates, and
+assigns pairs greedily in increasing order of $d^2$, each track and each
+measurement at most once. Measurements left over are outliers or new
+intruders; a new track is started when two consecutive leftovers are
+consistent with a plausible speed. Tracks left over take a predict-only
+step. The rule fails when the gates of two tracks overlap and both
+measurements fall in the overlap --- two intruders crossing --- where a
+wrong assignment can swap the tracks. The probabilistic data association
+filter, which updates each track with a weighted mixture of the measurements
+in its gate, and multiple-hypothesis tracking, which keeps several assignment
+histories alive, are the standard answers; \textcite{barshalom2001estimation}
+develop them at length. \code{nearest\_neighbour\_association} in
+\code{ch18\_kalman.py} implements the greedy rule.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch18/gating}
+  \caption{Gating and data association with two tracked intruders. Each
+  track predicts a position (dot) and a validation gate (ellipse of
+  $\mat{S}$, scaled by $\sqrt\gamma$); the gates are elongated along the
+  directions of motion, where the prediction is least certain. Four
+  measurements arrive: two fall in exactly one gate, one in both, one in
+  none.}
+  \label{fig:ch18-gating}
+\end{figure}
+
+\subsection{Missing measurements}
+\label{sec:ch18-missing}
+
+A sensor that drops reports --- an occluded camera, a lost packet, a radar
+scan that returned nothing --- is handled without any special rule: the
+predict step runs at every sampling instant, and the update step runs only
+when a measurement is available (line~\ref{alg:ch18-track:miss} of
+\cref{alg:ch18-track}). The estimate after a miss is the prediction, and its
+covariance has grown by \cref{eq:ch18-predict}: for the CV model the position
+variance gains $2\dt\,b+\dt^2c+q\dt^3/3$ per missed step. Nothing is lost
+by this bookkeeping. The larger covariance is the honest description of what
+the filter knows, the safety layer receives a larger ellipse to keep clear
+of, the gate widens so that the next genuine measurement is accepted, and
+the next update shrinks the covariance back (the self-test checks all
+three). Only a long run of misses is a problem, and it is the same problem
+as a long run of rejections: at some point the track is a guess, and it is
+better to drop it and wait for two fresh measurements. In the self-test a
+sensor that drops $30\%$ of its reports still yields a filter better than
+the raw measurements.
+
+\subsection{Track initialisation from two measurements}
+\label{sec:ch18-init}
+
+The filter needs a starting belief. A single position measurement fixes the
+position but says nothing about the velocity, and a velocity guess of zero
+with a large variance works but wastes the first second. Two measurements
+$\meas_a,\meas_b$ received $\dt$ apart do better: the position is
+$\meas_b$, the velocity is the difference quotient, and the covariance of
+this linear combination follows from $\Cov(\meas_a)=\Cov(\meas_b)=\mat{R}$
+with independent errors,
+\begin{equation}
+  \hat{\state}_0=\begin{pmatrix}\meas_b\\ (\meas_b-\meas_a)/\dt\end{pmatrix},\qquad
+  \mat{P}_0=\begin{pmatrix}\mat{R} & \mat{R}/\dt\\ \mat{R}/\dt & 2\mat{R}/\dt^2\end{pmatrix}.
+  \label{eq:ch18-init2}
+\end{equation}
+The velocity block is the finite-difference variance of
+\cref{sec:ch18-motivation}, $2\sigma_p^2/\dt^2$ --- $(14~\mathrm{m/s})^2$
+for $\sigma_p=1$~m at $10$~Hz --- and the off-diagonal block records that
+the position and velocity errors are correlated, because both contain the
+error of $\meas_b$. That correlation is not decoration: it is what lets the
+next measurement correct the velocity as well as the position. Two-point
+initialisation\index{track initialisation} is exact for the CV model (it is
+the least-squares fit of a line through two points with the correct error
+covariance), it needs no tuning, and the huge velocity variance it reports is
+honest: the right panel of \cref{fig:ch18-raw} shows the velocity estimate
+starting from a wild value and converging within about two seconds, which is
+the time the filter needs to see a few metres of travel. The function
+\code{init\_two\_point} implements \cref{eq:ch18-init2}.
+
+% ---------------------------------------------------------------------
+\section{Predicting ahead: uncertainty propagation}
+\label{sec:ch18-prediction}
+
+The safety layer of \cref{ch:ch24} does not ask where the intruder
+\emph{is}; it asks where the intruder \emph{will be} during the next few
+seconds, and how sure the tracker is. Both questions have the same answer:
+run the predict step $j$ times without an update. Since the mean and the
+covariance evolve independently of any measurement, the result is closed
+form:
+\begin{equation}
+  \hat{\state}_{k+j\mid k}=\mat{F}^{j}\hat{\state}_k,\qquad
+  \mat{P}_{k+j\mid k}=\mat{F}^{j}\mat{P}_k(\mat{F}^{j})\T+\sum_{i=0}^{j-1}\mat{F}^{i}\mat{Q}(\mat{F}^{i})\T .
+  \label{eq:ch18-ahead}
+\end{equation}
+The notation $\hat{\state}_{k+j\mid k}$ reads ``the estimate of the state
+at step $k+j$ given the measurements up to step $k$''; $\hat{\state}^-_k$ is
+the case $j=1$ of the previous step. For the CV model the sum collapses. The
+matrix $\mat{F}$ built for a step $\dt$, call it $\mat{F}(\dt)$, satisfies
+$\mat{F}(\dt)^j=\mat{F}(j\dt)$, and the accumulated process noise satisfies
+$\sum_{i<j}\mat{F}(\dt)^i\mat{Q}(\dt)\mat{F}(\dt)^{i\mathsf{T}}=\mat{Q}(j\dt)$
+(the self-test checks this identity, which is the reason $q$ is a rate and
+$\mat{Q}$ is not a free matrix). With the horizon $h=j\dt$,
+\begin{equation}
+  \mat{P}_{k+j\mid k}=\mat{F}(h)\mat{P}_k\mat{F}(h)\T+\mat{Q}(h),\qquad
+  \text{position variance per axis: } a(h)=a+2hb+h^2c+\tfrac{q}{3}h^3 ,
+  \label{eq:ch18-ahead-cv}
+\end{equation}
+where $(a,b,c)$ are the entries of $\mat{P}_k$ for that axis. The three
+growing terms have three meanings. $2hb$ is the correlation between the
+current position and velocity errors; $h^2c$ is the velocity uncertainty
+turned into position uncertainty --- the dominant term for horizons of a
+second or two, and the reason a good velocity estimate matters more than a
+good position estimate for avoidance; and $qh^3/3$ is the manoeuvre the
+intruder may make meanwhile, which dominates for long horizons and cannot be
+reduced by any sensor.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch18/prediction}
+  \caption{Predicting ahead from the estimate of the experiment of
+  \cref{sec:ch18-experiment} at $t=10$~s. The $2\sigma$ ellipse of the
+  estimate (green) has semi-axes $0.79\times0.46$~m; the predicted ellipses
+  (blue) at $0.5$, $1$, \dots, $3$~s ahead grow to $4.4\times3.8$~m, roughly
+  linearly in the horizon at first (velocity uncertainty) and faster later
+  (possible manoeuvres). The dashed line is the true path over the next three
+  seconds; it stays inside the ellipses.}
+  \label{fig:ch18-prediction}
+\end{figure}
+
+\Cref{fig:ch18-prediction} shows the ellipses for the experiment of
+\cref{sec:ch18-experiment}, from the estimate at $t=10$~s: the position
+standard deviation grows from $(0.39,0.23)$~m to $(0.84,0.64)$~m one second
+ahead, $(1.46,1.21)$~m at two seconds and $(2.19,1.91)$~m at three. These
+ellipses are what the local layer inflates the intruder's radius with. If the
+intruder has radius $r$ and the ellipse at horizon $h$ has largest standard
+deviation $\sigma_{\max}(h)$ (the square root of the largest eigenvalue of
+the position block of $\mat{P}_{k+j\mid k}$), then keeping a distance
+$r+\kappa\,\sigma_{\max}(h)$ from the predicted position guarantees a
+separation with the probability of the $\kappa$-sigma ellipse. Two remarks
+on $\kappa$. In one dimension $2\sigma$ covers $95\%$, but in two dimensions
+the $2\sigma$ ellipse contains the true position with probability
+$1-e^{-2}=86.5\%$ only; $95\%$ needs $\kappa=\sqrt{5.99}=2.45$, by the same
+chi-square table as the gate. And the inflation grows with the horizon, so a
+safety layer that plans over $3$~s must keep clear of a disc several metres
+larger than the intruder itself: this is the concrete cost of sensor noise
+and unknown intentions, and the reason \cref{ch:ch24} triggers avoidance on
+a short horizon and leaves long horizons to the replanning layer.
+\Cref{ch:ch20} uses the same propagated Gaussian as the constant-velocity
+baseline against which learned predictors are measured, and
+\cref{ch:ch13} describes the radius inflation on the \orca side.
+
+\begin{pitfall}[Confusing the estimation covariance with the prediction covariance]
+$\mat{P}_k$ says how well the tracker knows where the intruder is
+\emph{now}; it converges to a small steady value and never grows, however
+long you track. $\mat{P}_{k+j\mid k}$ says how well anyone can know where the
+intruder will be $j$ steps from now; it grows without bound in $j$, and no
+amount of tracking makes it small, because it contains the intruder's future
+decisions. Planners that use $\mat{P}_k$ where they need
+$\mat{P}_{k+j\mid k}$ --- inflating the radius by the current $2\sigma$ of
+$0.4$~m when the collision is two seconds away and the honest figure is
+$1.5$~m --- are over-confident by a factor that grows with the horizon, and
+the collision rate in the experiments of \cref{ch:ch25} shows it. The
+converse mistake, gating a measurement with $\mat{P}_{k+j\mid k}$ instead of
+$\mat{S}_k$, accepts every outlier.
+\end{pitfall}

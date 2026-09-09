@@ -229,3 +229,120 @@ verbatim by `latex_trace` in `code/ch05_dstar_lite.py`, so they cannot drift fro
 Finally keep the drone box's precise reading of "edge costs change" as the rasterised, inflated
 prediction tube, and `exr:ch05-intruder`, which is the bridge from this chapter to
 `ch:ch20` and `ch:ch24`.
+
+## Response to review (round 1)
+
+All six required changes are applied, together with six of the seven suggestions. The
+chapter builds with status 0, no errors, no undefined references belonging to Chapter 5;
+`python3 code/ch05_dstar_lite.py` reports `self-test passed`; the figure generator was
+re-run and every number quoted in the text still matches the code and the committed
+`.dat` file. Chapter length after the changes: pages 19-42 of the single-chapter PDF,
+i.e. 24 chapter pages (the caption trim below offset most of the added text; the
+one-page growth is inside the 24-page ceiling).
+
+### Required changes
+
+1. **Running-time bound in `sec:ch05-properties`.** *Done, exactly as prescribed.* The
+   sentence now reads: "A call therefore costs $O(|E|(\Delta+\log|V|))$ in the worst
+   case, where $\Delta$ is the maximum degree of the graph; on a 4-connected grid
+   $\Delta=4$ is a constant and this is $O((|V|+|E|)\log|V|)$, the same bound as a search
+   from scratch with A*. Recomputing an rhs-value as a minimum over all successors,
+   rather than relaxing one edge as A* does, is what costs the extra factor $\Delta$."
+   The reviewer's derivation is right: `UpdateVertex` recomputes a minimum over all
+   successors, so the per-call work is $O(|E|(\Delta+\log|V|))$, not
+   $O((|V|+|E|)\log|V|)$.
+
+2. **Definition 5.1 excludes the moving start.** *Done.* `def:ch05-problem` now ends with
+   the labelled second clause: "In the **moving-start** variant, which D* Lite solves,
+   the goal is fixed but before each query the start vertex is replaced by the vertex the
+   agent has moved to, which is required to lie on the path returned by the previous
+   query." (indexed under `incremental search!moving start`). A road-map sentence was
+   added immediately after the definition: "Sections 5.4 and 5.5 treat the fixed-start
+   case (LPA*); Sections 5.6 and 5.7 add the moving start (D* Lite)" — written with
+   `\cref` on the section labels rather than hard-coded numbers.
+
+3. **"will be expanded a second time later" in the LPA* walkthrough.** *Done.* Replaced
+   by: "and may be expanded a second time later, as an ordinary A* expansion, if the loop
+   ever reaches its new, larger key; `thm:ch05-expansions` bounds this at one further
+   expansion. Step 10 of `tab:ch05-dstarlite-repair` shows a vertex that is retracted and
+   never re-expanded, because the search stops first." Verified against the table: step
+   10 pops $(1,3)$ with key $[9;6]$ as underconsistent, sets $g=\infty$ and re-inserts it
+   with $[11;8]$; the loop stops at step 12 with $(2,3)$ at $[9;7]$, so $(1,3)$ is indeed
+   never expanded again.
+
+4. **Drone figure: blue route through the intruder and the tube.** *Done, as prescribed.*
+   In `figures/ch05/drone-replanning.tex` the tube polygon base moved from
+   `(8.6,0.2) -- (9.4,0.2)` to `(8.6,1.2) -- (9.4,1.2)`, the intruder node from `(9,0.5)`
+   to the cell centre `(9.5,1.5)`, and the red velocity arrow now starts at `(9.5,1.5)`.
+   The hatched set is unchanged, so the intruder's own cell `(9,1)` stays hatched; row 0
+   is now free of both the tube and the marker, and the existing blue route at $y=0.5$ is
+   correct without further change. The caption gained: "the drone slips below the
+   predicted region through the one row the tube does not reach."
+
+5. **Invisible fourth orange cell in `fig:ch05-idea`.** *Done.* `code/figures/gen_ch05_examples.py`
+   gained a `frames=` argument to `panel()`, drawn after the obstacle fills and the grid
+   lines, and `idea_figure()` passes
+   `frames=[("sbOrange,line width=1.2pt", [r["obstacle"]])]`; an assertion was added that
+   the blocked cell really is one of the expanded cells (it is). `figures/ch05/idea.tex`
+   was regenerated and now contains
+   `\draw[sbOrange,line width=1.2pt] (6,6) rectangle ++(1,1);` after the obstacle fill.
+   The generator still reports seed 3: initial search 52, repair 6, A* from scratch 26 —
+   all three numbers in the text and caption are unchanged. The caption gained: "The
+   newly blocked cell (orange frame) is itself one of the expanded cells: its stale
+   distance is retracted first."
+
+6. **Missing solution for `exr:ch05-threshold`.** *Done.* A
+   `\begin{solution}{exr:ch05-threshold}` block was added to
+   `appendices/solutions/ch05-solutions.tex`, in exercise order (between `exr:ch05-coding`
+   and `exr:ch05-intruder`), covering: orders-of-magnitude win in expansions for very
+   small $\phi$; the crossover in time arriving much earlier than the crossover in
+   expansions because a D* Lite expansion costs about $28\,\mu$s against $4\,\mu$s for an
+   A* expansion (`sec:ch05-experiment`); at a $\phi$ of a few per cent on a
+   $100\times100$ grid the repair touches a constant fraction of the vertices,
+   `thm:ch05-expansions` then permits up to $2|V|$ expansions plus an `UpdateVertex` on
+   every neighbour of each, and a fresh A* wins; the rule for `ch:ch24` (count changed
+   cells per replanning cycle, fall back to A* above the measured threshold, and always
+   after a full map replacement, a goal change or a re-localisation); and an explicit
+   statement that the numbers are implementation- and machine-dependent and that the
+   student should report their own crossover. The file now has eight solution blocks for
+   eight exercises.
+
+### Suggestions
+
+* **Trim around `tab:ch05-km`.** *Applied.* The caption is cut from nine lines to four
+  ("Why the key modifier is needed. ... The row of $v$ lists both keys it could receive;
+  it is inserted once."); the walk-through paragraph after the table, which explains the
+  same six numbers, is kept unchanged.
+* **Strict key order.** *Applied.* `def:ch05-key` now adds: "and $k<k'$ iff $k_1<k'_1$,
+  or $k_1=k'_1$ and $k_2<k'_2$."
+* **Machine-dependent numbers.** *Applied.* `sec:ch05-experiment` now says, before the
+  first quoted timing: "The expansion counts below are seed-deterministic and reproduce
+  exactly; the wall-clock times were measured on a 2024 laptop and will differ on your
+  machine." No number changed.
+* **"Processing a vertex makes it consistent."** *Applied.* `sec:ch05-intuition` now
+  reads "Processing a vertex either makes it consistent or replaces its stale value by a
+  larger, honest one, and may make its neighbours inconsistent, ...".
+* **Memory.** *Applied.* A short `\paragraph{Memory.}` was added to
+  `sec:ch05-implementation`: two floats per vertex for the lifetime of the mission,
+  $O(|V|)$ storage that a search from scratch releases when it returns, $400\,000$
+  vertices for the $200\times200\times10$ voxel grid of `sec:ch05-motivation`.
+* **Notation table.** *Not applied, deliberately.* The `\key` / `k(s)` mismatch and the
+  missing rows for $s_{\mathrm{start}}$, $s_{\mathrm{goal}}$, $s_{\mathrm{last}}$ live in
+  `frontmatter/notation.tex`, which is outside this chapter's file set; as the review
+  itself notes, that belongs to the consistency pass. Flagged for it.
+* **Exercise spread.** *Not applied.* The proposed difficulty-1 item ("list the queue in
+  pop order from the middle panel of `fig:ch05-lpastar-example`") would need numbers that
+  the existing trace table already prints in pop order, so it would be a lookup rather
+  than an exercise; and the chapter is now at the 24-page ceiling. Left for round 2 if
+  the reviewer still wants a second on-ramp item.
+
+### What must be kept
+
+Nothing on the "must be kept" list was touched: the 13-vs-7 expansion count of the LPA*
+worked example and its explanation, the wall-clock finding that the incremental planner
+has not repaid its first search after 40 events, the dotted third curve of
+`fig:ch05-experiment`, the "Replanning can be slower than A*" pitfall, `tab:ch05-directions`,
+the "Why the two-component key works" argument, the numeric $k_m$ table (only its caption
+was shortened; every number and the companion exercise `exr:ch05-kmproof` are untouched),
+all five pitfalls, all trace tables verbatim from `latex_trace`, the drone box's reading of
+"edge costs change", and `exr:ch05-intruder`.
