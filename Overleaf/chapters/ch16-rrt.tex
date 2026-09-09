@@ -40,7 +40,8 @@ a required accuracy of ten centimetres. The grid has $5\times10^{8}$ cells
 (\cref{tab:ch16-gridsizes}); it needs half a gigabyte to store one byte per
 cell, and \astar has to touch a good fraction of it before it reaches the
 goal. Add the velocity of the drone to the state, because a fast drone
-cannot turn a corner in place, and the grid has $10^{14}$ cells: no computer
+cannot turn a corner in place, and the grid has $5\times10^{14}$ cells: no
+computer
 holds it. This is the \textbf{curse of
 dimensionality}\index{curse of dimensionality}: the number of cells grows as
 $N^{d}$ with the resolution $N$ per axis and the dimension $d$, and so does
@@ -112,9 +113,10 @@ goal? Because of the way the nearest vertex is chosen.
 the \textbf{Voronoi region}\index{Voronoi region} of every vertex, the set of
 points closer to this vertex than to any other. A dart that lands in the
 region of vertex $v$ makes $v$ the parent of the new vertex, so with uniform
-darts the probability that $v$ is extended equals the area of its region
-divided by the area of the map. The tips of branches that point into empty
-space own the largest regions, so they are extended most often, and each
+darts the probability that $v$ is \emph{selected} equals the area of its
+region divided by the area of the map; whether the step is then accepted is
+up to the collision check. The tips of branches that point into empty space
+own the largest regions, so they are selected most often, and every accepted
 extension pushes the tree further into the empty space. In the figure the
 largest region covers $20.6\,\%$ of the square and the three largest
 together $59.3\,\%$, while an even share would be $6.7\,\%$ per vertex; the
@@ -138,8 +140,9 @@ been filled.
 
 \begin{keyidea}
 Throw random darts at the space; each dart pulls the nearest vertex of the
-tree one step of length $\eta$ towards it. A vertex is pulled with
-probability equal to the size of its Voronoi region, so the tree rushes into
+tree one step of length $\eta$ towards it. A vertex is selected with
+probability equal to the size of its Voronoi region, and pulled if the step
+is collision-free, so the tree rushes into
 the largest unexplored regions without any heuristic. Nothing, however,
 makes its paths short: \rrt finds \emph{a} path, not the best one.\index{RRT!key idea}
 \end{keyidea}
@@ -266,7 +269,8 @@ obstacles, which is what makes it safe for a drone. Without the inflation by
 $\delta/2$ a wall thinner than $\delta$ can slip between two test points
 (\cref{sec:ch16-pitfalls}); the self-test of \code{ch16\_rrt.py} checks
 exactly this case, a wall of thickness $0.02$ with $\delta=0.05$, at forty
-segment angles.
+segment angles through a point inside the wall and at forty parallel
+crossings of it.
 
 % ---------------------------------------------------------------------
 \section{The algorithm}
@@ -360,10 +364,8 @@ by the figure script \code{gen\_ch16\_tree.py}.
 \centering\small
 \caption{Trace of the first ten iterations of \cref{alg:ch16-rrt} on
 \cref{ex:ch16-map}. Vertices are numbered in the order of insertion, vertex~0
-being the start. Iteration~4 drew the goal (goal bias). From iteration~7 on,
-the samples on the right of the map select vertices~5 and~6, which sit just
-left of the wall $[3,5]\times[0,6]$, and every step towards them crosses the
-wall and is rejected: the tree does not grow in these iterations.}
+being the start. Iteration~4 drew the goal (goal bias); from iteration~7 on
+every step is rejected by the wall $[3,5]\times[0,6]$, as the text explains.}
 \label{tab:ch16-trace}
 \begin{tabular}{@{}rccccl@{}}
 \toprule
@@ -394,8 +396,8 @@ stuck in an unproductive regime: samples on the right, which are most of
 them, keep selecting the two vertices closest to the wall, and
 \textsc{CollisionFree} keeps rejecting the step; only samples on the left of
 the wall, probability about $0.3$, add vertices. This is why the first panel
-of \cref{fig:ch16-snapshots} shows only $17$ vertices after $50$ iterations:
-$33$ extensions were rejected.
+of \cref{fig:ch16-snapshots} shows only $17$ vertices after $50$
+iterations: $16$ of the $50$ extensions succeeded and $34$ were rejected.
 
 \begin{figure}[tb]
   \centering
@@ -418,12 +420,13 @@ the tree has $245$ vertices, by a vertex at $(9.14,8.60)$ at distance
 $0.42<r_{\mathrm{goal}}$ from the goal. The final segment to
 $x_{\mathrm{goal}}$ is free and is appended, which gives a path of $50$
 vertices and length $23.85$. Of the $402$ iterations, $158$ were rejected by
-the collision check, and the checks tested $3\,965$ points, about ten per
+the collision check, and the checks tested $3\,965$ points (a counter the self-test prints), about ten per
 iteration, as expected for $\eta/\delta=10$. The path is far from optimal:
 the shortest path in $\Xfree$ hugs the corners $(3,6)$, $(5,6)$, $(6,4)$ and
-$(8,4)$ and has length $16.72$ (in the limit of zero clearance; with a
-clearance of $0.075$ it has length $17.20$), so the \rrt path is $43\,\%$
-longer. \Cref{sec:ch16-properties} explains why this is not bad luck, and
+$(8,4)$ and has length $16.72$ in the limit of zero clearance, and $17.20$ when
+the corners are rounded off by the clearance $0.075$ of the collision
+checker; the self-test prints both. The \rrt path is $43\,\%$ longer than
+the zero-clearance optimum and $39\,\%$ longer than the $17.20$ reference. \Cref{sec:ch16-properties} explains why this is not bad luck, and
 \cref{sec:ch16-smoothing} how most of the excess is removed afterwards.
 
 % ---------------------------------------------------------------------
@@ -445,8 +448,8 @@ without knowing whether the query was infeasible or merely hard.
 \begin{theorem}[Probabilistic completeness of \rrt; LaValle and Kuffner 2001]
 \label{thm:ch16-complete}
 Let $\mathcal{X}$ be a bounded box, $\eta>0$, $0\le p_{\mathrm{goal}}<1$ and
-$r_{\mathrm{goal}}>0$. Suppose there is a path $\tau$ from $x_{\mathrm{init}}$
-to $x_{\mathrm{goal}}$ with \textbf{clearance}\index{clearance}
+$r_{\mathrm{goal}}>0$. Suppose there is a path $\tau$ of finite length from
+$x_{\mathrm{init}}$ to $x_{\mathrm{goal}}$ with \textbf{clearance}\index{clearance}
 $\delta_{c}>0$: every segment that lies within distance $\delta_{c}$ of $\tau$
 is accepted by \textup{\textsc{CollisionFree}}. Then the probability that
 \cref{alg:ch16-rrt} has not found a solution after $n$ iterations is at most
@@ -458,7 +461,12 @@ particular it tends to $0$ as $n\to\infty$.
 Let $\nu=\min(\eta/3,\ \delta_{c}/4,\ r_{\mathrm{goal}})$ and choose points
 $x_0=x_{\mathrm{init}},x_1,\dots,x_m=x_{\mathrm{goal}}$ along $\tau$ with
 $\norm{x_{k+1}-x_k}\le\nu$ for all $k$; a path of finite length admits such a
-sequence with $m\le\lceil\mathrm{length}(\tau)/\nu\rceil+1$. Let
+sequence with $m\le\lceil\mathrm{length}(\tau)/\nu\rceil+1$. Finite length
+is no restriction: the image of a path with clearance $\delta_{c}$ is
+compact, so finitely many of the balls of radius $\delta_{c}/2$ centred on
+its points cover it, and joining the centres of consecutive overlapping
+balls gives a polygonal path of finite length inside the same tube, with
+clearance at least $\delta_{c}/2$. Let
 $B_k$ be the open ball of radius $\nu$ around $x_k$; since $B_k$ lies within
 $\delta_{c}$ of $\tau$ it is contained in $\Xfree\subseteq\mathcal{X}$, so a
 uniform sample lands in it with probability
@@ -525,10 +533,10 @@ for \rrtstar.
 \Cref{fig:ch16-snapshots} already showed a path $43\,\%$ longer than
 necessary. \Cref{fig:ch16-jagged} shows the worst of $100$ runs of
 \cref{ex:ch16-map} with different seeds: its path has length $28.35$,
-$65\,\%$ above the optimum of $17.20$ (for the clearance $0.075$ of the
-reference computation). Over the $100$ runs the length averages $23.87$ with
-standard deviation $1.84$, minimum $20.55$ and maximum $28.35$; not one run
-comes within $15\,\%$ of the optimum. Two features of \cref{alg:ch16-rrt}
+$65\,\%$ above the $17.20$ reference and $70\,\%$ above the zero-clearance
+optimum $16.72$. Over the $100$ runs the lengths range from $20.55$ to
+$28.35$, with the mean and spread of \cref{tab:ch16-connect}; not one run
+comes within $15\,\%$ of the reference. Two features of \cref{alg:ch16-rrt}
 are responsible. The parent of a vertex is fixed forever at insertion, so a
 vertex reached early by a detour keeps its detour, and every later vertex
 behind it inherits it. And the path zigzags at the scale of $\eta$, because
@@ -556,8 +564,11 @@ happens.
 Let $c^{*}$ be the length of a shortest solution and let $Y_n$ be the length
 of the shortest path from $x_{\mathrm{init}}$ into $X_{\mathrm{goal}}$
 contained in the tree after $n$ iterations of \cref{alg:ch16-rrt}
-(continued past the first solution). Under mild regularity assumptions on
-$\Xfree$ and $X_{\mathrm{goal}}$, and for $d\ge2$,
+(continued past the first solution). Assume, with
+\textcite{karaman2011sampling}, that $X_{\mathrm{goal}}$ has non-empty
+interior, that some optimal path has \emph{weak clearance} (it is the limit
+of paths of positive clearance) and that $\eta$ is held fixed. Then, for
+$d\ge2$,
 \[
 \Prob\Bigl(\lim_{n\to\infty}Y_n=c^{*}\Bigr)=0 .
 \]
@@ -709,14 +720,14 @@ iterations; plain \rrt with the default goal bias has solved $73\,\%$ by then
 and needs a median of $425$ iterations against $178$. The self-test of
 \code{ch16\_rrt.py} asserts this ordering of medians and means over $40$
 seeds. The table also isolates the goal bias: a small bias helps
-($518\to425$ median iterations), a large one hurts badly ($745$), because
-half of the samples then select the vertex nearest to the goal, which for
-most of the run sits against a wall, and the extension is rejected. The tree
+($518\to425$ median iterations), a large one hurts badly ($745$), for the
+reason given in \cref{sec:ch16-pitfalls}. The tree
 with $p_{\mathrm{goal}}=0.5$ has \emph{fewer} vertices after \emph{more}
 iterations, the signature of wasted, trapped extensions.
 
 \subsection{Kinodynamic \rrt}
 \label{sec:ch16-kinodynamic}
+
 
 The paths of \cref{alg:ch16-rrt} are polygons, and a drone cannot fly a
 polygon at speed: it has bounded acceleration, so its velocity is part of its
@@ -748,10 +759,10 @@ update of \cref{ch:ch02}. The arc flown during one step is a parabola, and
 the collision check samples it at spacing $\delta$, using the fact that the
 speed along a constant-acceleration arc is largest at one of its ends.
 
-\begin{algorithm}[htb]
+\begin{algorithm}[!htb]
 \caption{Kinodynamic \rrt for the double integrator \cite{lavalle2001randomized}}
 \label{alg:ch16-kino}
-\KwIn{$\state_{\mathrm{init}}=(\pos_{\mathrm{init}},\vect{0})$, $\pos_{\mathrm{goal}}$, $r_{\mathrm{goal}}$, $v_{\max}$, $a_{\max}$, $\dt$, controls per extension $m$, budget $N$}
+\KwIn{$\state_{\mathrm{init}}=(\pos_{\mathrm{init}},\vect{0})$, $\pos_{\mathrm{goal}}$, $r_{\mathrm{goal}}$, $v_{\max}$, $a_{\max}$, $\dt$, controls per extension $m$, goal bias $p_{\mathrm{goal}}$, velocity weight $w_{\mathrm{v}}$, budget $N$}
 \KwOut{a sequence of states and constant accelerations that obeys the dynamics, or \emph{failure}}
 \Fn{\RrtKinoGrow{$\state_{\mathrm{init}}$, $\pos_{\mathrm{goal}}$, $N$}}{
   $V\gets\set{\state_{\mathrm{init}}}$\;
@@ -759,22 +770,23 @@ speed along a constant-acceleration arc is largest at one of its ends.
     \lIf{$\mathrm{rand}()<p_{\mathrm{goal}}$}{$\state_{\mathrm{rand}}\gets(\pos_{\mathrm{goal}},\vect{0})$}
     \lElse{$\state_{\mathrm{rand}}\gets(\pos,\vel)$ with $\pos$ uniform in $\mathcal{X}$ and $\vel$ uniform in the ball $\norm{\vel}\le v_{\max}$}
     $\state_{\mathrm{near}}\gets\argmin_{\state\in V}\rho(\state,\state_{\mathrm{rand}})$\label{alg:ch16-kino:nearest}\tcp*{weighted metric \cref{eq:ch16-metric}}
-    $\mathrm{best}\gets\KwNil$\;
+    $\mathrm{best}\gets\KwNil$; $\acc_{\mathrm{best}}\gets\KwNil$\tcp*{convention $\rho(\KwNil,\cdot)=+\infty$}
     \For{$j\gets1$ \KwTo $m$}{
       $\acc_j\gets$ uniform in the ball $\norm{\acc}\le a_{\max}$\;
       $\state_j\gets$ \RrtIntegrate{$\state_{\mathrm{near}}$, $\acc_j$, $\dt$}\label{alg:ch16-kino:integrate}\tcp*{$\pos+\dt\,\vel+\tfrac12\dt^{2}\acc_j$, $\vel+\dt\,\acc_j$}
       \If{$\norm{\vel_j}\le v_{\max}$ \KwAnd the arc from $\state_{\mathrm{near}}$ to $\state_j$ is collision-free \KwAnd $\rho(\state_j,\state_{\mathrm{rand}})<\rho(\mathrm{best},\state_{\mathrm{rand}})$}{
-        $\mathrm{best}\gets\state_j$ with control $\acc_j$\;
+        $\mathrm{best}\gets\state_j$; $\acc_{\mathrm{best}}\gets\acc_j$\;
       }
     }
     \If{$\mathrm{best}\neq\KwNil$}{
-      add $\mathrm{best}$ to $V$ with parent $\state_{\mathrm{near}}$ and edge label $\acc_j$\;
+      add $\mathrm{best}$ to $V$ with parent $\state_{\mathrm{near}}$ and edge label $\acc_{\mathrm{best}}$\;
       \lIf{$\norm{\pos_{\mathrm{best}}-\pos_{\mathrm{goal}}}\le r_{\mathrm{goal}}$}{\KwRet{states and controls from the root to $\mathrm{best}$}}
     }
   }
   \KwRet{failure}\;
 }
 \end{algorithm}
+
 
 The implementation \code{kinodynamic\_rrt} in \code{ch16\_rrt.py} solves
 \cref{ex:ch16-map} for a drone with $v_{\max}=2$, $a_{\max}=2$, $\dt=0.5$,
@@ -795,6 +807,7 @@ the geometric \rrt with post-processing, followed by the controller of
 \subsection{Post-processing: shortcutting and smoothing}
 \label{sec:ch16-smoothing}
 
+
 A raw \rrt path is safe but ugly. \textbf{Shortcutting}\index{shortcutting}\index{path smoothing}
 repairs most of the damage with the same collision checker: pick two points
 on the path, and if the straight segment between them is free, replace the
@@ -802,7 +815,7 @@ part of the path in between by the segment. By the triangle inequality the
 length can only decrease. \Cref{alg:ch16-shortcut} gives the randomised
 version of \textcite{geraerts2007creating} and a greedy variant.
 
-\begin{algorithm}[htb]
+\begin{algorithm}[!htb]
 \caption{Path post-processing: random shortcutting and greedy pruning}
 \label{alg:ch16-shortcut}
 \KwIn{a collision-free polygonal path $\tau=(x_0,\dots,x_k)$, number of attempts $K$}
@@ -825,6 +838,7 @@ version of \textcite{geraerts2007creating} and a greedy variant.
   \KwRet{$\tau'$}\;
 }
 \end{algorithm}
+
 
 \begin{figure}[tb]
   \centering
@@ -852,10 +866,30 @@ keeps taking it (\cref{exr:ch16-shortcut}), and only a new search, or
 \rrtstar (\cref{ch:ch17}), finds the better route. The polygonal result is
 turned into a flyable trajectory by the controller of \cref{ch:ch21}, or by
 fitting a smooth curve with bounded velocity and acceleration through the
-waypoints, which must then be collision-checked again.
+waypoints, which must then be collision-checked again. In practice the
+corners are rounded first, each waypoint being replaced by a short arc whose
+radius respects the speed and acceleration limits of \cref{ch:ch02}; the arc
+is then sampled at the resolution $\delta$ and checked again, because
+cutting a corner moves the path towards the inside of the turn, which is
+exactly where the obstacle that caused the corner sits. \Cref{ch:ch21} takes
+the better route of optimising the trajectory subject to the dynamics and
+the obstacles instead of repairing it afterwards.
 
 \subsection{Planning in 3D}
 \label{sec:ch16-3d}
+
+\begin{figure}[!t]
+  \centering
+  \inputfigure{ch16/scene3d}
+  \caption{\rrt in the 3D box field \code{scene\_3d()}, drawn in an oblique
+  projection ($y$ recedes into the page). The light tree has $158$ vertices;
+  the blue path (length $24.48$) flies over the wall on the left and around
+  the pillar, and the dashed orange path is its shortcut ($20.40$). The code
+  is the same as in 2D; only the bounds of $\mathcal{X}$ have three
+  components.}
+  \label{fig:ch16-scene3d}
+\end{figure}
+
 
 Nothing in \cref{alg:ch16-rrt} refers to the dimension. The code of
 \cref{sec:ch16-implementation} takes the bounds of $\mathcal{X}$ as two
@@ -871,18 +905,6 @@ shortcutting brings it to $20.40$, against a straight-line distance of
 $15.59$. \rrt-Connect solves the same query at iteration~$117$ with $59$
 vertices. A $0.1$~m grid of this $10\times10\times10$ scene has a million
 cells; \rrt has looked at a few hundred points.
-
-\begin{figure}[tb]
-  \centering
-  \inputfigure{ch16/scene3d}
-  \caption{\rrt in the 3D box field \code{scene\_3d()}, drawn in an oblique
-  projection ($y$ recedes into the page). The light tree has $158$ vertices;
-  the blue path (length $24.48$) flies over the wall on the left and around
-  the pillar, and the dashed orange path is its shortcut ($20.40$). The code
-  is the same as in 2D; only the bounds of $\mathcal{X}$ have three
-  components.}
-  \label{fig:ch16-scene3d}
-\end{figure}
 
 \subsection{Relatives}
 \label{sec:ch16-relatives}
@@ -966,9 +988,10 @@ and have closed-form distance functions.\index{collision checking!sphere versus 
 The tree of \code{ch16\_rrt.py} keeps its vertices in one NumPy array and
 answers \textsc{Nearest} by a vectorised linear scan: one subtraction, one
 squared norm per row and an \code{argmin}. That is $\bigO{n}$ per query with
-a small constant, about $0.02$~ms for $n=10^{3}$ vertices, $0.2$~ms for
-$10^{4}$ and $2.3$~ms for $10^{5}$ in two or three dimensions on an ordinary
-laptop. For the trees of this chapter the scan is not the bottleneck, and it
+a small constant, about $0.05$~ms for $n=10^{3}$ vertices, $0.3$~ms for
+$10^{4}$ and $2.9$~ms for $10^{5}$ in three dimensions, means of $200$
+queries timed and printed by the self-test of \code{ch16\_rrt.py} on the
+machine that produced this book. For the trees of this chapter the scan is not the bottleneck, and it
 needs no rebuilding when a vertex is added. Beyond $10^{4}$ vertices use a
 \textbf{kd-tree}\index{kd-tree}\index{nearest-neighbour search} \cite{bentley1975kdtree}: a
 binary tree that splits the points along one coordinate axis at each level,
@@ -1015,15 +1038,12 @@ you can afford and treat failure as ``no path found within the budget''.
 \Cref{lst:ch16-rrt} is the main loop of the implementation; it matches
 \cref{alg:ch16-rrt} line by line and adds the bookkeeping for the figures.
 \code{extend}, \code{connect} and \code{rrt\_connect} implement
-\cref{alg:ch16-connect} in the same file. The self-test runs in about two
-seconds and checks the collision tests on thin walls, spheres and inflated
-boxes; that every returned path is collision-free at ten times finer
-resolution, joins start and goal and has edges no longer than $\eta$; that
-the worked example is reproducible; that
-shortcutting and pruning never increase the length; that \rrt-Connect needs
-fewer iterations than \rrt in median and mean over $40$ seeds; that the 3D
-scene is solved by both planners; and that the kinodynamic trajectory obeys
-the double integrator and its limits.
+\cref{alg:ch16-connect} in the same file. The self-test runs in a few
+seconds (it prints its own runtime, $4.5$~s here) and re-checks in one place
+every claim of this chapter that a program can check: the collision tests,
+the worked example and its two reference lengths, the smoothing bounds, the
+\rrt-Connect ordering over $40$ seeds, the 3D scene, the kinodynamic limits
+and the nearest-neighbour timings quoted above.
 
 \begin{lstlisting}[caption={The loop of \code{rrt(world, start, goal, eta, p\_goal, r\_goal, max\_iters, seed, ...)} (from \code{code/ch16\_rrt.py}). \code{Tree} stores the vertices in a growing array with parent indices; \code{steer} is \cref{eq:ch16-steer}; the goal itself is appended to the path when the last segment is free.},label={lst:ch16-rrt}]
     rng = np.random.default_rng(seed)
@@ -1071,8 +1091,8 @@ simply rejected more often. The same holds for the resolution: test points
 spaced $\delta$ apart \emph{without} the inflation by $\delta/2$ miss any
 wall thinner than $\delta$, at a rate that depends on the angle of the
 segment. The self-test of \code{ch16\_rrt.py} contains exactly this trap, a
-wall of thickness $0.02$ with $\delta=0.05$, and the inflated test catches it
-at every angle.
+wall of thickness $0.02$ with $\delta=0.05$, and the inflated test rejects
+every one of the forty directions and forty crossings it tries.
 \end{pitfall}
 
 \begin{pitfall}[A goal bias that is too high]
@@ -1102,16 +1122,12 @@ the goal state should also allow a range of arrival velocities.
 \label{sec:ch16-choice}
 
 The Week~8 milestone of the study plan is to choose between graph search and
-sampling-based planning; \cref{tab:ch16-comparison} collects the criteria.
-Use a grid and \astar when the space is two-dimensional or a coarse 3D
-lattice is accurate enough, when many agents must share one discretisation
-(the multi-agent planners of \cref{ch:ch07,ch:ch08,ch:ch09,ch:ch10,ch:ch11}
-all need a graph), or when an exact optimal answer on the graph matters. Use
-\rrt when the space is large or high-dimensional, when a feasible path is
-needed quickly and its quality can be repaired afterwards, or when the
-dynamics must be respected during planning. Use \rrtstar when path quality
-matters and the time is available. \Cref{exr:ch16-coding} asks you to
-measure these trade-offs yourself.
+sampling-based planning; \cref{tab:ch16-comparison} collects the criteria
+and its last row answers in one line. Two entries deserve a comment: only a
+grid lets many agents share one discretisation, which the multi-agent
+planners of \cref{ch:ch07,ch:ch08,ch:ch09,ch:ch10,ch:ch11} all need, and
+only sampling in the state space respects the dynamics during planning.
+\Cref{exr:ch16-coding} asks you to measure the trade-off yourself.
 
 \begin{table}[tb]
 \centering\small
@@ -1306,7 +1322,7 @@ line from the start is blocked by the first wall only, and repeat: does the
 best bias change?
 \end{exercise}
 
-\begin{exercise}[\difficulty{2}]
+\begin{exercise}[\difficulty{3}]
 \label{exr:ch16-shortcut}
 (a)~Prove that line~\ref{alg:ch16-shortcut:replace} of
 \cref{alg:ch16-shortcut} never increases the length of the path and that

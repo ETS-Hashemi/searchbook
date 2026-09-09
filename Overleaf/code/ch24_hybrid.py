@@ -327,9 +327,12 @@ def cbs(grid: Grid, starts: Sequence[Cell], goals: Sequence[Cell], t0: int = 0,
 
 class IntruderTracker:
     """Kalman filter with the constant-velocity model x = (px, py, vx, vy),
-    white-noise-acceleration process noise of intensity q and position
-    measurements of noise sigma_z; ``predict_horizon`` propagates the mean
-    and the covariance over a horizon without measurements."""
+    process noise from the DISCRETE white-noise-acceleration model with
+    acceleration variance q per axis (its equivalent continuous intensity is
+    q*dt, the value the sigma^2 = ... + q s^3 / 3 growth law of ch24 uses),
+    and position measurements of noise sigma_z; ``predict_horizon``
+    propagates the mean and the covariance over a horizon without
+    measurements."""
 
     def __init__(self, dt: float, q: float, sigma_z: float):
         self.dt, self.q, self.sigma_z = dt, q, sigma_z
@@ -945,7 +948,7 @@ class HybridSimulation:
         waypoint and, for a delayed reconnection, the shifted plan and the
         conflict re-check.  Returns "ok" or the reason of the failure."""
         k, delay, reason, tried = self.reconnect(d, pred)
-        self.reconnect_log.append(dict(t=self.t, drone=d.name, k=k, delay=delay,
+        self.reconnect_log.append(dict(t=self.t, drone=d.name, j=k, delay=delay,
                                        reason=reason, pos=d.pos.copy(), tried=tried))
         if k is None:
             return reason
@@ -1095,7 +1098,7 @@ def worked_example(verbose: bool = True) -> HybridSimulation:
             print("  t=%5.1f  %s: %-12s -> %-12s (%s)" % (t, n, a, b, r))
         print("Reconnection attempts:")
         for e in sim.reconnect_log:
-            print("  t=%5.1f  %s at (%.2f, %.2f): k=%s delay=%s (%s)" % (e["t"], e["drone"], e["pos"][0], e["pos"][1], e["k"], e["delay"], e["reason"]))
+            print("  t=%5.1f  %s at (%.2f, %.2f): j=%s delay=%s (%s)" % (e["t"], e["drone"], e["pos"][0], e["pos"][1], e["j"], e["delay"], e["reason"]))
         print("Re-checks:")
         for e in sim.recheck_log:
             print("  t=%5.1f  %s: conflict=%s repaired=%s" % (e["t"], e["drone"], e["conflict"], e["repaired"]))
@@ -1138,8 +1141,8 @@ def _self_test() -> None:
     # 4b. the re-check inside the scenario found and repaired a conflict
     assert any(e["repaired"] for e in sim.recheck_log)
     # 4c. one reconnection succeeded and one failed before a replan
-    assert any(e["k"] is not None for e in sim.reconnect_log)
-    assert any(e["k"] is None for e in sim.reconnect_log)
+    assert any(e["j"] is not None for e in sim.reconnect_log)
+    assert any(e["j"] is None for e in sim.reconnect_log)
     # 5. the re-check repairs a pair of simultaneous replans
     ex = simultaneous_replan_example()
     assert ex["conflict"] is not None and ex["repaired"] is not None and ex["after"] is None

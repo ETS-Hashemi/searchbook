@@ -237,3 +237,90 @@ comparison table `tab:ch17-comparison`, the anytime/seeding/re-check structure o
 and above all the discipline that every number in the text, the tables and the generated figures
 is produced by `code/ch17_rrt_star.py` and `code/figures/gen_ch17_convergence.py` - I re-ran both
 and, apart from item 1, they agree to the last digit.
+
+---
+
+## Response to review (round 1)
+
+All nine required changes are applied; the chapter builds with status 0, no errors and no
+overfull boxes above 15 pt, the self-test of `Overleaf/code/ch17_rrt_star.py` passes, and
+`figures/data/ch17-convergence.dat` is byte-identical after re-running
+`code/figures/gen_ch17_convergence.py` (the code edits are a rename and a hoisted
+computation, so no number moved).
+
+**Required change 1 (A) — the "2 500 iterations" claim, `sec:ch17-example`.** Replaced with
+the measured numbers: "\rrtstar is still at $17.40$ after $2\,500$ iterations and at $17.32$
+after $3\,000$; with the same seed it matches the string-pulled grid path ($17.23$) at
+iteration $4\,301$ and keeps improving ($17.05$ at $12\,000$), which no grid refinement can
+do." Verified with `rrt_star(worked_example_world(), (1,1), (9,9), eta=1.0, gamma=13.3,
+seed=1, max_iters=12000)`: 17.401 at 2 500, 17.324 at 3 000, first $c_{\text{best}}\le17.234$
+at iteration 4 301 (17.210), 17.048 at 12 000.
+
+**Required change 2 (A) — the informed set does not contain the whole map at the optimum.**
+Rewritten as suggested: the ellipse (area 292) contains the map, keeps containing it until
+$c_{\text{best}}=18.11$ (cross-referenced to `exr:ch17-fraction`), then loses two thin
+corners; 99.5 % of the map is inside at 17.32 (8 of 2 657 informed draws rejected) and 98.7 %
+at the optimum, where the area is 167. Monte Carlo with $4\times10^6$ points confirms
+100 % / 100 % / 99.47 % / 98.73 % at $c_{\text{best}}=21.003$, 18.11, 17.324, 16.909.
+
+**Required change 3 (A) — misattribution in `rem:ch17-fineprint`.** Rewritten:
+`eq:ch17-radius` is the constant Karaman and Frazzoli prove, for RRG and for \rrtstar alike;
+the smaller $(2(1+1/d)\mu(\Xfree)/\zeta_d)^{1/d}$ is what Gammell et al. and OMPL use
+($1.73\sqrt{\mu/\pi}$ against the proved $2.45\sqrt{\mu/\pi}$ in 2D, about 30 % below), works
+in practice but is not covered by the theorem. The Solovey et al. sentence is unchanged.
+
+**Required change 4 (C) — the extent of the wide field.** The field is now named as
+$[-10,20]^2$ in `sec:ch17-informed-set` (with `wide_example_world()`), in the caption of
+`fig:ch17-ellipses`, in the caption of `fig:ch17-convergence`(b) and in `exr:ch17-fraction`(a)
+("$\mathcal{X}=[-10,20]^2$"), so the 46 %/26 %/10 % numbers are now reproducible.
+
+**Required change 5 (C) — the two meanings of $c_{\min}$.** The \textsc{ChooseParent} locals
+are now $x_{\mathrm{par}}$, $c_{\mathrm{par}}$ in `alg:ch17-helpers`, in the walkthrough
+sentence, and as `i_par`, `c_par` in `code/ch17_rrt_star.py` (both `rrt_star` and
+`tiny_example`) and hence in `lst:ch17-core`, which is still a verbatim copy of the file. A
+comment in the code says why. $c_{\min}$ now only ever means the start–goal distance.
+
+**Required change 6 (F) — $n$ versus the iteration count.** `def:ch17-tree` now says that $n$
+is reserved for $\abs{V}$ and iterations are counted by $i$ (with $n<i$); the best cost is
+"after $i$ iterations". `def:ch17-ao` and `thm:ch17-ao` use $Y_i$ and
+$\Prob(\lim_{i\to\infty}Y_i=c^*)=1$.
+
+**Required change 7 (F) — three optima for one map.** `ex:ch17-map` now states the clearance
+("the wall corners pushed out by the checker's inflation ($\delta/2=0.025$ for a point robot)
+plus a margin of $0.005$") and reconciles the values: ch16 quotes 16.72 at zero clearance and
+17.20 at clearance 0.075. Line 33 now reads "length about $16.9$ (\cref{ch:ch16})".
+
+**Required change 8 (F) — acronyms.** First use in the chapter is now "conflict-based search
+(\cbs) or its bounded-suboptimal variant \ecbs"; the drone box says "\orca or the dynamic
+window approach, DWA". (ORCA was left as the reviewer wrote it.)
+
+**Required change 9 (G) — length.** All three prescribed cuts are made: (a) the two
+`sec:ch17-intuition` bullets are one sentence each; (b) the first `penrose2003random` remark
+is gone (the one in "Why the radius must shrink" is kept); (c) the middle re-derivation of
+$\zeta_d\gamma^d\log n/\mu(\Xfree)$ is reduced to its conclusion ("the count of the third
+bullet above would lose its $\log n$"), with the bullet and the `sec:ch17-cost`
+back-reference kept. Four further trims: the duplicated "corner cuts need a sample in a small
+region", the repeated "nine times larger" in `sec:ch17-informed-results`, the repeated
+safe-upper-bound argument in "Choosing $\gamma$", and a tightened motivation paragraph and
+roadmap. Nothing on the keep list was touched. The chapter is nevertheless 21 pages
+(24–44 of the single-chapter build) rather than 19: required changes 1, 2, 3 and 7 and the
+accepted suggestions add roughly as much text as the cuts remove. No required content was
+removed to save space.
+
+**Suggestions adopted.** Informed \rrtstar also shrinks the radius with the informed set
+(one sentence, with why $\mu(\Xfree)$ is admissible and what the extra checks buy); the
+`dists` NameError with `choose_parent=False, rewire=True` (the array is now computed right
+after `near`, in the file and in `lst:ch17-core`); the pseudocode/code mismatch about
+$x_{\mathrm{nearest}}\in X_{\mathrm{near}}$ (stated in the walkthrough); the kd-tree range
+query $\bigO{\log n+\abs{X_{\mathrm{near}}}}$; 13.65 → 13.66 in `ex:ch17-gamma`; the 3D
+percentages in the solution to `exr:ch17-fraction`(b) are now labelled as ellipsoid volumes,
+with the clipped 38.7 % (2.6 draws) at $c_{\text{best}}=17.0$; a solution for
+`exr:ch17-radius` (1 264 vertices; 67 neighbours at $n=10^4$; 12.22 and 13.66; 9 119);
+the caption of `fig:ch17-radius` now names the $\gamma=20$ curve; the last row of
+`tab:ch17-convergence` uses `\multicolumn`; `thm:ch17-ao` states the two implicit assumptions
+($\mathcal{X}$ bounded with $\mu(\Xfree)>0$, goal enters through the bias).
+
+**Suggestion not adopted.** The row for this chapter's symbols in `frontmatter/notation.tex`:
+that file is outside this chapter's scope (the finisher brief forbids editing shared front
+matter). It is left for the book-level pass, with the symbols to add being $r_n$,
+$\gamma_{\rrtstar}$, $c_{\mathrm{best}}$, $c_{\min}$, $\zeta_d$ and \textsc{Near}.

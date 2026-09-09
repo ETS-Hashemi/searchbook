@@ -348,6 +348,7 @@ protects the drone when a teammate has deviated.
   $K$; $\Delta_{\max}$ & $6$; $1$ & waypoints searched forward; largest admissible delay in grid steps\\
   $d_{\max}$; $t_{\mathrm{avoid}}$ & $3.5$; $8$ & drift and time bounds of Avoiding; the escalation to Replanning\\
   $T_{\mathrm{replan}}$ & $1$ & shortest interval between two replans of one drone\\
+  \code{period\_prediction} & $0.1$ & period of the prediction layer in the rate schedule of \cref{lst:ch24-rates}; equal to $\dt$ here, which is why \cref{tab:ch24-layers} reads ``every control cycle''\\
   $R_{\mathrm{comm}}$; $\ell_{\mathrm{act}}$ & $8.5$; $7.5$ & communication range; link length at which the range term acts\\
   $k_F$ & $0.5$ & formation correction gain of \cref{eq:ch24-formation}\\
   $k_C$ & $1$ & gain of the soft range term of \cref{eq:ch24-comm}\\
@@ -399,6 +400,13 @@ collision}\index{time to collision!predicted} is the first such look-ahead,
 In practice $s$ runs over the multiples of $\dt$ up to $\tau_h$. Note that
 $t_c$ is a time to loss of \emph{margin}: it is strictly earlier than any
 impact, because the margin includes the inflation and $R_{\mathrm{safe}}$.
+The definition admits $t_c = 0$, the case of a drone already inside the
+inflated margin: the executive then enters Avoiding with $t_c = 0$ and
+builds the \orca half-plane at $h_c = 0$, that is from the current relative
+position, which is the most aggressive manoeuvre the local layer can
+produce; it is a recovery, not a prevention, and the drone stays in
+Avoiding until the margin is positive again for $n_{\mathrm{clear}}$
+cycles.
 \end{definition}
 
 Subtracting the inflation from the separation is the same as adding it to
@@ -466,8 +474,12 @@ Third, the prediction: $\tau_h \le T_{\mathrm{pred}}$, and
 $\kappa_p\sigma(\tau_h)$ must stay well below the spacing of the lanes,
 otherwise the trigger fires for intruders in the next lane. In the scenario
 $v_{\max}/a_{\max} = 1.5$\,s, $\ttc = 3$\,s and $\kappa_p\sigma(3\,\mathrm{s})
-= 0.86$\,m, so $\tau_h = 3$\,s satisfies the first two conditions and the
-inflation is still below the lane spacing of $2$\,m. A last condition ties
+= 0.86$\,m, so $\tau_h = 3$\,s clears the hand-over condition and the stop form of
+\cref{eq:ch24-tauh} ($1.6$\,s) with room to spare, and falls $0.1$\,s short
+of the reversal form ($3.1$\,s); the single-integrator drones of the
+scenario are never asked to reverse, but a double-integrator drone would
+need $\tau_h \ge 3.1$\,s (\cref{exr:ch24-dwa}). The inflation is still
+below the lane spacing of $2$\,m. A last condition ties
 the horizon to the sensor: the intruder must be detected and tracked before
 it enters the horizon, which needs a detection range of at least
 $(v_{\mathrm{cruise}} + v_B)(\tau_h + n_{\mathrm{warm}}\dt) + R_{\mathrm{safe}} + \kappa_p\sigma(\tau_h)$,
@@ -520,7 +532,7 @@ $\makespan$ by at most that.
 \KwIn{drone $a_i$ at $\pos_i(t)$ with path $\pi_i$, start time $t_0^i$ and last index $T_i$; prediction; look-ahead $K$; largest delay $\Delta_{\max}$}
 \KwOut{$(j, \Delta)$ or \emph{failure}}
 \Fn{\HybridReconnect{$a_i$, $t$, prediction}}{
-  $j_0 \gets \max(0, \lceil t/\Delta T - t_0^i \rceil)$\label{alg:ch24-reconnect:k0}\;
+  $j_0 \gets \max(0, \lceil t/\Delta T - t_0^i \rceil)$\label{alg:ch24-reconnect:j0}\;
   \For{$\Delta \gets 0$ \KwTo $\Delta_{\max}$}{
     \For{$j \gets j_0$ \KwTo $\min(j_0 + K, T_i)$}{
       $t_j \gets (t_0^i + j + \Delta)\,\Delta T$; $\vect{w} \gets \vect{c}(\pi_i[j])$\;
@@ -534,8 +546,8 @@ $\makespan$ by at most that.
   \ForEach{sample time $t' = t_a + (t_b - t_a)\,u/n$, $u = 0, \dots, n$, with $n = \lceil (t_b - t_a)/\dt \rceil$}{
     $\vect{q} \gets \pos + (\vect{w} - \pos)(t' - t_a)/(t_b - t_a)$\;
     \lIf{clearance of $\vect{q}$ to the obstacles $< r_A$}{\KwRet \KwFalse}
-    \lIf{$\norm{\vect{q} - \hat{\pos}_{T+h}} - \kappa_p\sigma(h) < R_{\mathrm{safe}}$ for $h = (t' - t)/\dt$}{\KwRet \KwFalse\label{alg:ch24-reconnect:pred}}
-    \lIf{$\norm{\vect{q} - \tilde{\pos}_m(t' - t)} < R_{\mathrm{mate}}$ for some teammate $a_m$}{\KwRet \KwFalse\label{alg:ch24-reconnect:mate}}
+    \lIf{$\norm{\vect{q} - \hat{\pos}_{T+h}} - \kappa_p\sigma(h) < R_{\mathrm{safe}}$ for $h = (t' - t_a)/\dt$}{\KwRet \KwFalse\label{alg:ch24-reconnect:pred}}
+    \lIf{$\norm{\vect{q} - \tilde{\pos}_m(t' - t_a)} < R_{\mathrm{mate}}$ for some teammate $a_m$}{\KwRet \KwFalse\label{alg:ch24-reconnect:mate}}
   }
   \KwRet \KwTrue\;
 }
@@ -833,7 +845,8 @@ without one ellipse over the whole block, at a cost linear in $N$
 For the constant-velocity Kalman model with white-noise acceleration of
 intensity $q$ (\cref{ch:ch18}) the extrapolated position variance is
 $\sigma_p^2 + 2s\,\sigma_{pv} + s^2\sigma_v^2 + \tfrac13 q s^3$ in the
-filter's position, cross and velocity variances. The velocity term
+filter's position, cross and velocity variances, with
+$q = 0.005$\,m$^2$/s$^3$ for the tracker of \cref{ex:ch24-scenario}. The velocity term
 $s^2\sigma_v^2$ dominates at the look-aheads that matter here, so the
 inflation grows almost linearly; the cubic term takes over only once the
 velocity is well estimated and the horizon is long. At the trigger
@@ -866,8 +879,11 @@ displacement $\vect{d}_{AC} = (0, -2)$. An intruder of radius $0.3$\,m starts
 at $(12.5, 4.3)$ and flies west at $0.6$\,m/s along A's lane; it is unknown
 to the swarm until it comes within $6$\,m of a drone, after which it is
 observed at $10$\,Hz with a position noise of $\sigma_z = 0.15$\,m and tracked
-by the constant-velocity Kalman filter of \cref{ch:ch18} with process-noise
-intensity $q = 0.05$. The drones are single integrators with
+by the constant-velocity Kalman filter of \cref{ch:ch18}, in its discrete
+white-noise-acceleration form with acceleration variance
+$\sigma_a^2 = 0.05$\,m$^2$/s$^4$ per axis, equivalent to a continuous
+intensity $q = \sigma_a^2\,\dt = 0.005$\,m$^2$/s$^3$ at the $10$\,Hz
+observation rate. The drones are single integrators with
 $v_{\mathrm{cruise}} = 1$\,m/s, $v_{\max} = 1.5$\,m/s and $a_{\max} = 1$\,m/s$^2$; the other
 parameters are those of \cref{tab:ch24-parameters}.
 \end{example}
@@ -1410,7 +1426,8 @@ smallest safety horizon that satisfies both conditions of
 \cref{eq:ch24-tauh} in the stop form and in the reversal form, and the
 constraint from $\ttc$. (b) The intruder flies at up to $3$\,m/s and the
 tracker needs $n_{\mathrm{warm}} = 20$ updates; what detection range does the
-sensor need for $\tau_h = 2$\,s if $R_{\mathrm{safe}} = 1$\,m and
+sensor need for $\tau_h = 2$\,s if the drone cruises at
+$v_{\mathrm{cruise}} = 1.5$\,m/s, $R_{\mathrm{safe}} = 1$\,m and
 $\kappa_p\sigma(\tau_h) = 0.5$\,m? (c) Explain what goes wrong when
 $\tau_h < \ttc$, and what goes wrong when $\tau_h$ is much larger than the
 look-ahead at which $\kappa_p\sigma$ reaches the lane spacing.

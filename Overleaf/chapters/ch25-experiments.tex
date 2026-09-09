@@ -289,7 +289,7 @@ segment-based minimum, not the sampled one.
 \end{pitfall}
 
 \begin{pitfall}[Comparing computation times across machines]
-A decision that takes $0.17$~ms in the toy simulator of this chapter takes a
+A decision that takes $0.16$~ms in the toy simulator of this chapter takes a
 different time on a flight computer, under a different \python version,
 with a different NumPy, or with the logger switched on. Computation times
 are only comparable \emph{within} one study on one machine, and even then
@@ -812,7 +812,7 @@ constant over the horizon), the replanner a detour planner with waits, the
 hybrid the state machine of \cref{ch:ch24} with a deviation threshold of
 $3$~m, at most $4$~s in Avoiding and a reconnection lead of $2$~s; all are
 stand-ins for the modules of the earlier chapters, documented as such in
-\code{ch25\_evaluation.py}. The $320$ runs take about $20$~s on the author's
+\code{ch25\_evaluation.py}. The $320$ runs take about $25$~s on the author's
 machine and produce \cref{tab:ch25-results,tab:ch25-paired} and
 \cref{fig:ch25-boxplot,fig:ch25-cactus,fig:ch25-pareto}. Every number below
 is produced by the code: the summary rows and the paired comparisons by
@@ -824,36 +824,41 @@ discussion by the raw rows in \code{ch25-study-runs.dat}.
 \end{example}
 
 \begin{table}[tb]
-  \centering\scriptsize\setlength{\tabcolsep}{3pt}
+  \centering\scriptsize\setlength{\tabcolsep}{2pt}
   \caption{Results of \cref{ex:ch25-study}, $N = 20$ runs per row. Collision
   rate with its Wilson interval; median (IQR) of the drone--intruder minimum
   separation; mean path-length ratio with its $t$ interval; mean makespan
   and sum of costs (s); mean replans per run; mean computation time per
-  decision (ms, one machine); mean formation error against the nominal
+  decision and mean of the per-run 99th percentile (ms, one machine); mean
+  formation error against the nominal
   geometry (m); mean number of steps with a communication violation;
   success rate (all drones at their goals, no collision). Without an
   intruder the four strategies produce identical runs, so one row serves.
-  The $\bar c$ column is wall-clock time on one machine; it is the only
-  column that will differ when you re-run the study, and only its ordering is
-  meaningful.}
+  Means are over all $20$ runs of a row, collisions included: in the toy a
+  collision does not stop a run and every drone reaches its goal, so there is
+  nothing to censor; the rule of \cref{sec:ch25-statistics} to average over
+  successful runs only applies as soon as a run can fail to finish.
+  The $\bar c$ and $c_{99}$ columns are wall-clock times on one machine;
+  they are the only columns that will differ when you re-run the study, and
+  only their ordering is meaningful.}
   \label{tab:ch25-results}
   \begin{tabular}{@{}llccccccccccc@{}}
   \toprule
-  Cell & Strategy & Coll.\ rate [CI] & $d_{\min}^{\mathrm{di}}$ (IQR) & $\rho_L$ [CI] & $\makespan$ & $\sumcost$ & $n_{\mathrm{rp}}$ & $\bar c$ & $\bar e_F$ & $n_{\mathrm{cv}}$ & Succ.\\
+  Cell & Strategy & Coll.\ rate [CI] & $d_{\min}^{\mathrm{di}}$ (IQR) & $\rho_L$ [CI] & $\makespan$ & $\sumcost$ & $n_{\mathrm{rp}}$ & $\bar c$ & $c_{99}$ & $\bar e_F$ & $n_{\mathrm{cv}}$ & Succ.\\
   \midrule
-  $k{=}2$, $m{=}0$ & all four & 0.00 [0.00, 0.16] & -- & 0.999 & 13.4 & 25.2 & 0.00 & 0.077 & 0.03 & 0.0 & 1.00\\
+  $k{=}2$, $m{=}0$ & all four & 0.00 [0.00, 0.16] & -- & 0.999 & 13.4 & 25.2 & 0.00 & 0.075 & 0.16 & 0.03 & 0.0 & 1.00\\
   \midrule
-  $k{=}2$, $m{=}1$ & none   & 0.85 [0.64, 0.95] & 0.00 (0.00--0.07) & 0.999 & 13.4 & 25.2 & 0.00 & 0.079 & 0.03 & 0.0 & 0.15\\
-                   & local  & 0.00 [0.00, 0.16] & 1.10 (0.93--1.21) & 1.034 [1.022, 1.047] & 14.4 & 27.4 & 0.00 & 0.166 & 0.67 & 0.0 & 1.00\\
-                   & replan & 0.00 [0.00, 0.16] & 1.65 (1.32--2.01) & 1.071 [1.042, 1.100] & 14.8 & 27.9 & 4.15 & 0.095 & 1.41 & 3.5 & 1.00\\
-                   & hybrid & 0.00 [0.00, 0.16] & 1.12 (0.94--1.36) & 1.059 [1.033, 1.085] & 14.4 & 26.8 & 0.85 & 0.156 & 1.03 & 1.6 & 1.00\\
+  $k{=}2$, $m{=}1$ & none   & 0.85 [0.64, 0.95] & 0.00 (0.00--0.07) & 0.999 & 13.4 & 25.2 & 0.00 & 0.082 & 0.15 & 0.03 & 0.0 & 0.15\\
+                   & local  & 0.00 [0.00, 0.16] & 1.10 (0.93--1.21) & 1.034 [1.022, 1.047] & 14.4 & 27.4 & 0.00 & 0.163 & 0.48 & 0.67 & 0.0 & 1.00\\
+                   & replan & 0.00 [0.00, 0.16] & 1.65 (1.32--2.01) & 1.071 [1.042, 1.100] & 14.8 & 27.9 & 4.15 & 0.096 & 0.81 & 1.41 & 3.5 & 1.00\\
+                   & hybrid & 0.00 [0.00, 0.16] & 1.12 (0.94--1.36) & 1.059 [1.033, 1.085] & 14.4 & 26.8 & 0.85 & 0.160 & 0.54 & 1.03 & 1.6 & 1.00\\
   \midrule
-  $k{=}4$, $m{=}0$ & all four & 0.00 [0.00, 0.16] & -- & 0.999 & 13.2 & 48.1 & 0.00 & 0.077 & 0.03 & 0.0 & 1.00\\
+  $k{=}4$, $m{=}0$ & all four & 0.00 [0.00, 0.16] & -- & 0.999 & 13.2 & 48.1 & 0.00 & 0.082 & 0.16 & 0.03 & 0.0 & 1.00\\
   \midrule
-  $k{=}4$, $m{=}1$ & none   & 0.75 [0.53, 0.89] & 0.00 (0.00--0.50) & 0.999 & 13.2 & 48.1 & 0.00 & 0.082 & 0.03 & 0.0 & 0.25\\
-                   & local  & 0.05 [0.01, 0.24] & 1.02 (0.97--1.12) & 1.030 [1.016, 1.044] & 13.4 & 48.4 & 0.00 & 0.167 & 0.31 & 0.0 & 0.95\\
-                   & replan & 0.00 [0.00, 0.16] & 1.73 (1.31--2.31) & 1.081 [1.047, 1.115] & 14.7 & 52.8 & 7.45 & 0.094 & 1.48 & 0.0 & 1.00\\
-                   & hybrid & 0.05 [0.01, 0.24] & 1.04 (0.97--1.21) & 1.051 [1.025, 1.078] & 14.2 & 50.0 & 1.50 & 0.168 & 0.74 & 0.0 & 0.95\\
+  $k{=}4$, $m{=}1$ & none   & 0.75 [0.53, 0.89] & 0.00 (0.00--0.50) & 0.999 & 13.2 & 48.1 & 0.00 & 0.084 & 0.17 & 0.03 & 0.0 & 0.25\\
+                   & local  & 0.05 [0.01, 0.24] & 1.02 (0.97--1.12) & 1.030 [1.016, 1.044] & 13.4 & 48.4 & 0.00 & 0.211 & 0.97 & 0.31 & 0.0 & 0.95\\
+                   & replan & 0.00 [0.00, 0.16] & 1.73 (1.31--2.31) & 1.081 [1.047, 1.115] & 14.7 & 52.8 & 7.45 & 0.097 & 0.62 & 1.48 & 0.0 & 1.00\\
+                   & hybrid & 0.05 [0.01, 0.24] & 1.04 (0.97--1.21) & 1.051 [1.025, 1.078] & 14.2 & 50.0 & 1.50 & 0.211 & 1.02 & 0.74 & 0.0 & 0.95\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -931,8 +936,10 @@ Local-only flies the shortest paths ($3.0$--$3.4\,\%$ above the nominal
 plan), the hybrid $5.1$--$5.9\,\%$, replan-only $7.1$--$8.1\,\%$. The paired
 differences of two to three percentage points have intervals that exclude
 zero in three of the four rows, so they are real; whether they matter is a
-question for the application. Makespans differ by less than a second on
-average. The two-drone local-only row shows why the median belongs in the
+question for the application. The mean makespans of the three avoidance
+strategies lie within $1.3$~s of each other (local-only $13.4$~s against
+replan-only $14.7$~s with four drones), and the hybrid is within $0.8$~s of
+either baseline in every cell. The two-drone local-only row shows why the median belongs in the
 table: its mean makespan, $14.4$~s, equals the hybrid's, but its interval
 $[12.3, 16.6]$~s is four times wider, because seed~$13$ (a turning intruder)
 pushed one drone off its route for $465$ Avoiding steps, drove the
@@ -948,9 +955,15 @@ second later, and each replan re-times the mission. The ordering of the
 computation times is the part that transfers to another machine: a step with
 a reactive layer costs about twice a replanning step and about twice a pure
 prediction-and-tracking step, because the velocity sampling runs at every
-Avoiding step (\cref{fig:ch25-cactus}). On the author's machine those steps
-are $0.16$--$0.17$~ms, $0.09$~ms and $0.08$~ms; on yours all three will move
-together. Detours
+Avoiding step (\cref{fig:ch25-cactus}). On the machine that produced the
+table those steps are $0.16$~ms with two drones and $0.21$~ms with four,
+against $0.10$~ms for a replanning step and $0.08$~ms for prediction and
+tracking alone; on yours all three will move together. The two timing
+columns tell different stories: replan-only is the cheapest on average but
+its $c_{99}$, $0.81$ and $0.62$~ms, is as large as the reactive strategies'
+$0.48$--$1.02$~ms, because a replan is rare and expensive while a velocity
+sample is frequent and cheap. A deadline is missed by the tail, not by the
+mean. Detours
 distort the swarm geometry more than dodges: the mean formation error against
 the nominal plan is $0.3$--$0.7$~m for local-only, $0.7$--$1.0$~m for the
 hybrid and $1.4$--$1.5$~m for replan-only. Communication violations occur in
@@ -1249,6 +1262,10 @@ per seed, every strategy on it, the signature stored in every row so that
 the self-test can assert that the rows of a seed share it. The paired
 comparison works on the per-scenario differences and returns the raw
 difference with its interval, $d_z$, the counts and the two rank tests;
+pairs whose metric is undefined --- $d_{\min}^{\mathrm{di}}$ in a cell without
+an intruder --- are dropped before the tests, so a comparison with no data
+reports $n = 0$ and $p = 1$ instead of a $p$-value computed from a sample of
+zeros;
 \code{summarise()} produces the per-cell statistics of
 \cref{tab:ch25-results}, and \code{write\_dat()} the plain-text tables the
 figures read.
@@ -1273,8 +1290,20 @@ def run_study(cells, strategies, seeds, prediction="noisy", family="mixed", **kw
 
 def paired_compare(a, b):
     """Paired comparison of metric a against metric b (same scenarios):
-    mean difference with its t interval, Cohen's d_z, Wilcoxon and sign tests."""
+    mean difference with its t interval, Cohen's d_z, Wilcoxon and sign tests.
+
+    Pairs whose metric is undefined (nan, for example the drone-intruder
+    separation of a cell without an intruder) carry no evidence and are
+    dropped; with nothing left the comparison reports n = 0 and p = 1
+    instead of a spurious p computed from a sample of zeros.
+    """
     d = np.asarray(a, float) - np.asarray(b, float)
+    d = d[np.isfinite(d)]            # an undefined metric is not evidence
+    if d.size == 0:
+        nan = float("nan")
+        return {"mean_diff": nan, "lo": nan, "hi": nan, "d_z": nan, "n": 0,
+                "better": 0, "worse": 0, "tie": 0,
+                "p_wilcoxon": 1.0, "p_exact": True, "p_sign": 1.0}
     ci = mean_ci(d)
     dz = ci["mean"] / ci["sd"] if ci["sd"] > 0 else float("inf") if ci["mean"] != 0 else 0.0
     out = {"mean_diff": ci["mean"], "lo": ci["lo"], "hi": ci["hi"], "d_z": dz,
@@ -1292,15 +1321,16 @@ The simulator uses no global random state: every random quantity is drawn in
 stored in the scenario. The self-test runs a cell twice and compares every
 column except the wall-clock ones, checks that all strategies of a seed
 share the signature, runs the whole mini-study ($320$ runs in about
-$21$~s) and asserts its sanity relations: no collisions without intruders,
+$25$~s on that machine) and asserts its sanity relations: no collisions without intruders,
 at least half of the no-avoidance runs colliding with one, and no avoidance
 strategy worse than no avoidance. Computation times come from
 \code{time.perf\_counter()} around the decision of one drone, which resolves
 fractions of a microsecond but is disturbed by whatever else the machine
 does; the 99th percentile and the maximum are the columns that show it. The
-six pitfalls of this chapter --- unpaired comparisons, tuning on the test
-scenarios, means without spread, hidden failures, runtimes across machines
-and collision rates without $d_{\min}$ --- are the ones most often committed
+six pitfalls collected in the five boxes above --- unpaired comparisons,
+tuning on the test scenarios, means without spread, hidden failures,
+runtimes across machines and collision rates without $d_{\min}$ --- are the
+ones most often committed
 in student evaluations; the classic essays of Hooker~\cite{hooker1995testing}
 and Barr et al.~\cite{barr1995designing} list many more.
 
@@ -1509,7 +1539,12 @@ build the capstone and run controlled experiments. (a) With
 base cell of \cref{tab:ch25-matrix} as far as your machine allows: $k \in
 \set{2, 4, 8}$, $m \in \set{0, 1, 2}$, prediction in
 \{\code{perfect}, \code{cv}, \code{noisy}\}, all four strategies, $20$
-seeds, with the crossing angle as a knob. (b) Add the constraint factor: a
+seeds, with the crossing angle as a knob. Budget the run first: the full
+grid of those levels is $3 \times 3 \times 3 = 27$ cells, so
+$27 \times 4 \times 20 = 2160$ runs, and because the eight-drone cells cost
+more per run than the two-drone ones this is roughly ten times the
+mini-study, a few minutes; the one-factor-at-a-time design around the base
+cell is a quarter of it. (b) Add the constraint factor: a
 kept edge set $E_{\mathrm{keep}}$ with a bounded $R_{\mathrm{comm}}$, and a
 formation term in the preferred velocity. (c) Produce the box, cactus and
 Pareto figures and a results table with Wilson and $t$ intervals from the

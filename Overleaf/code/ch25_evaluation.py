@@ -618,9 +618,16 @@ def run_study(cells, strategies, seeds, prediction="noisy", family="mixed", **kw
     return rows
 
 
-def write_dat(path, rows, columns):
-    """Whitespace-separated table with a header row (ASCII only)."""
+def write_dat(path, rows, columns, note=None):
+    """Whitespace-separated table with a header row (ASCII only).
+
+    An optional note is written as a leading '#' comment line that records
+    where the file comes from; pass it only for files that are read by a
+    script, not by pgfplots.
+    """
     with open(path, "w") as f:
+        if note:
+            f.write("# " + note + "\n")
         f.write(" ".join(columns) + "\n")
         for r in rows:
             f.write(" ".join(_fmt(r[c]) for c in columns) + "\n")
@@ -773,16 +780,27 @@ def sign_test(d):
 
 def paired_compare(a, b):
     """Paired comparison of metric a against metric b (same scenarios):
-    mean difference with its t interval, Cohen's d_z, Wilcoxon and sign tests."""
+    mean difference with its t interval, Cohen's d_z, Wilcoxon and sign tests.
+
+    Pairs whose metric is undefined (nan, for example the drone-intruder
+    separation of a cell without an intruder) carry no evidence and are
+    dropped; with nothing left the comparison reports n = 0 and p = 1
+    instead of a spurious p computed from a sample of zeros.
+    """
     d = np.asarray(a, float) - np.asarray(b, float)
+    d = d[np.isfinite(d)]            # an undefined metric is not evidence
+    if d.size == 0:
+        nan = float("nan")
+        return {"mean_diff": nan, "lo": nan, "hi": nan, "d_z": nan, "n": 0,
+                "better": 0, "worse": 0, "tie": 0,
+                "p_wilcoxon": 1.0, "p_exact": True, "p_sign": 1.0}
     ci = mean_ci(d)
     dz = ci["mean"] / ci["sd"] if ci["sd"] > 0 else float("inf") if ci["mean"] != 0 else 0.0
     out = {"mean_diff": ci["mean"], "lo": ci["lo"], "hi": ci["hi"], "d_z": dz,
            "n": d.size, "better": int(np.sum(d < 0)), "worse": int(np.sum(d > 0)),
            "tie": int(np.sum(d == 0))}
-    w = wilcoxon_signed_rank(d)
-    out["p_wilcoxon"] = w["p"]
-    out["p_exact"] = w["exact"]
+    w = wilcoxon_signed_rank(d)      # exact null distribution for n <= 20
+    out["p_wilcoxon"], out["p_exact"] = w["p"], w["exact"]
     out["p_sign"] = sign_test(d)["p"]
     return out
 
@@ -990,6 +1008,8 @@ if __name__ == "__main__":
     for metric in ("path_ratio", "dmin_di", "makespan", "replans", "ef_mean"):
         for other in ("local", "replan"):
             for cell, c in paired_table(rows, metric, "hybrid", other).items():
+                if c["n"] == 0:      # metric undefined in this cell (no intruder)
+                    continue
                 print("paired %-10s hybrid-%-6s cell %s: diff %+.3f [%+.3f, %+.3f] d_z %+.2f "
                       "better/worse/tie %d/%d/%d p_wilcoxon %.4f p_sign %.4f" % (
                           metric, other, cell, c["mean_diff"], c["lo"], c["hi"], c["d_z"],

@@ -209,8 +209,13 @@ out.append("\\end{tikzpicture}")
 write_tex("scenario.tex", out)
 print("frames at t = 0, %.1f, %.1f, %.1f, %d, %.1f" % (t_trig, t3, rc["t"], rp["t_start"], hist[i6]["t"]))
 print("A's candidates at t=%.1f: %s" % (rc["t"], rc["tried"]))
-print("A's replan: t_start=%d, from %s, %d blocked cells, %d in layer %d, path %s"
-      % (rp["t_start"], rp["c0"], rp["blocked"], len(rp["layers"].get(rp["t_start"], [])), rp["t_start"], rp["path"]))
+_lay = sorted(rp["layers"])
+_pred = sum(len(rp["layers"][l]) for l in _lay) - 2   # minus the 2 teammate cells
+print("A's replan: t_start=%d, from %s, %d blocked cells = %d predicted (%s in layers %d-%d)"
+      " + 2 teammate cells, path %s"
+      % (rp["t_start"], rp["c0"], rp["blocked"], _pred,
+         ", ".join(str(len(rp["layers"][l]) - (2 if l == _lay[0] else 0)) for l in _lay),
+         _lay[0], _lay[-1], rp["path"]))
 for e in sim.replan_log:
     print("replan log: %s at t=%.1f from %s t_start=%d path %s" % (e["drone"], e["t"], e["c0"], e["t_start"], e["path"]))
 

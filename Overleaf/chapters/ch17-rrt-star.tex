@@ -40,13 +40,13 @@ every mission, and a swarm of them spends it thirty times over.
 
 \rrtstar, introduced by Karaman and Frazzoli in 2011
 \cite{karaman2011sampling}, repairs this with two extra steps per
-iteration. Instead of attaching the new vertex to the nearest vertex, it
-attaches it to the neighbour that gives the cheapest route from the start
-(\textsc{ChooseParent}), and it then lets the new vertex become the parent
-of any neighbour whose route it shortens (\textsc{Rewire}). The tree keeps
-re-optimising itself, and its best path converges to the optimum as the
-number of samples grows: \rrtstar is \emph{asymptotically optimal}. The price
-is a logarithmic number of extra collision checks per iteration. \irrtstar
+iteration: the new vertex takes as its parent the neighbour that gives it
+the cheapest route from the start (\textsc{ChooseParent}), and it then
+becomes the parent of any neighbour whose route it shortens
+(\textsc{Rewire}). The tree keeps re-optimising itself, its best path
+converges to the optimum as samples accumulate---\rrtstar is
+\emph{asymptotically optimal}---and the price is a logarithmic number of
+extra collision checks per iteration. \irrtstar
 \cite{gammell2014informed} then adds the observation that, once a path of
 cost $c_{\mathrm{best}}$ is known, every point that could improve it lies
 inside an ellipsoid with the start and the goal as foci, and that sampling
@@ -66,17 +66,16 @@ iteration. This is the Week~8 topic of the study plan (\cref{ch:appA}):
 its milestone is that you can choose between graph search and
 sampling-based planning, and its coding exercise is \cref{exr:ch17-coding}.
 
-The chapter proceeds as follows. \Cref{sec:ch17-intuition} gives the idea
-and \cref{sec:ch17-problem} the definitions. \Cref{sec:ch17-algorithm}
-presents the three new primitives, the pseudocode, the connection radius and
-its $k$-nearest alternative, and traces one iteration by hand.
-\Cref{sec:ch17-example} runs \rrtstar on the map of \cref{ch:ch16} and
-compares it with \rrt and with grid \astar. \Cref{sec:ch17-properties} states
-and sketches the asymptotic-optimality theorem and analyses the cost per
-iteration. \Cref{sec:ch17-informed} derives \irrtstar,
-\cref{sec:ch17-variants} surveys the family up to BIT\textsuperscript{*},
-\cref{sec:ch17-implementation} covers the implementation and its pitfalls,
-and \cref{sec:ch17-drone} places the planners in the drone system.
+The chapter proceeds as follows. \Cref{sec:ch17-intuition,sec:ch17-problem}
+give the idea and the definitions; \cref{sec:ch17-algorithm} the three new
+primitives, the pseudocode, the connection radius, its $k$-nearest
+alternative and one iteration by hand; \cref{sec:ch17-example} the worked
+example against \rrt and grid \astar; \cref{sec:ch17-properties} the
+asymptotic-optimality theorem and the cost per iteration;
+\cref{sec:ch17-informed} \irrtstar and \cref{sec:ch17-variants} the family
+up to BIT\textsuperscript{*}; and
+\cref{sec:ch17-implementation,sec:ch17-drone} the implementation, its
+pitfalls and the place of both planners in the drone system.
 
 % ---------------------------------------------------------------------
 \section{The idea in plain words}
@@ -203,8 +202,9 @@ x_{\mathrm{init}}$. The \textbf{cost-to-come}\index{cost-to-come}
 $\mathrm{Cost}(v)$ is the length of the tree path from $x_{\mathrm{init}}$ to
 $v$, so $\mathrm{Cost}(v)=\mathrm{Cost}(\mathrm{parent}(v))+\norm{v-\mathrm{parent}(v)}$
 and $\mathrm{Cost}(x_{\mathrm{init}})=0$. The symbol $n$ is reserved for
-$\abs{V}$; iterations are counted by $i$, and $n<i$ because blocked samples
-add no vertex. The \textbf{best cost} after $i$
+$\abs{V}$ and iterations are counted by $i$; the two are different, since a
+blocked sample adds no vertex ($103$ vertices after $200$ iterations in
+\cref{tab:ch17-convergence}). The \textbf{best cost} after $i$
 iterations is $c_{\mathrm{best}}=\mathrm{Cost}(x_{\mathrm{goal}})$ if
 $x_{\mathrm{goal}}\in V$ and $c_{\mathrm{best}}=\infty$ otherwise.
 \end{definition}
@@ -357,12 +357,10 @@ off because the goal needs no second copy.
 are \rrt. Line~\ref{alg:ch17-rrtstar:radius} computes the radius from the
 \emph{current} number of vertices, which is why the radius is recomputed in
 every iteration, and line~\ref{alg:ch17-rrtstar:near} collects the
-candidates; $x_{\mathrm{nearest}}$ is added to that set so that
-\textsc{ChooseParent} always has a candidate with a segment already known
-to be free, and an implementation that adds it for \textsc{ChooseParent}
-only, as \cref{lst:ch17-core} does, gives up nothing but the rare rewire of
-$x_{\mathrm{nearest}}$ itself when $r_n<\norm{x_{\mathrm{new}}-x_{\mathrm{nearest}}}$.
-In \cref{alg:ch17-helpers}, \textsc{ChooseParent} starts from
+candidates; $x_{\mathrm{nearest}}$ is added so that \textsc{ChooseParent}
+always has one whose segment is known to be free, and adding it for
+\textsc{ChooseParent} only, as \cref{lst:ch17-core} does, costs at most the
+rare rewire of $x_{\mathrm{nearest}}$ itself. In \cref{alg:ch17-helpers}, \textsc{ChooseParent} starts from
 the nearest vertex as the default ($x_{\mathrm{par}}$, $c_{\mathrm{par}}$ in
 line~\ref{alg:ch17-helpers:default}),
 whose segment is already known to be free, and improves on it only with a
@@ -604,9 +602,8 @@ at the same iteration, because both planners insert the same vertices, but
 its path costs $25.721$ and never changes. From then on \rrtstar improves at
 every rewiring that touches the goal's branch: $19.73$ at $500$ iterations,
 $18.21$ at $1\,000$, $17.32$ at $3\,000$, that is $2.5\%$ above the optimum.
-The improvement slows down as the tree densifies, as the theory predicts:
-the remaining gap is made of many small corner-cutting steps, each of which
-needs a sample in a small region. Over twenty seeds the final cost of
+The improvement slows down as the tree densifies, for the reason
+\cref{sec:ch17-ao} gives. Over twenty seeds the final cost of
 \rrtstar is $17.33\pm0.08$ (range $17.18$ to $17.49$) while that of \rrt is
 $23.51\pm1.67$ (range $20.75$ to $26.74$): the random tree of \rrt makes the
 path quality a lottery, \rrtstar makes it a matter of budget.
@@ -1001,9 +998,7 @@ On the small map (a) the three planners find their first solution at the
 same iteration, median $252$, because they insert the same vertices
 (\cref{prop:ch17-invariant}); \rrt then stays at $23.51\pm1.67$ for ever,
 while \rrtstar and \irrtstar descend together to $17.33\pm0.08$ after
-$3\,000$ iterations, $2.5\,\%$ above the optimum. On the wide field (b) the
-free space is nine times larger, the ellipse of the first solution covers
-less than half of it, and the difference appears: after $1\,000$ iterations
+$3\,000$ iterations, $2.5\,\%$ above the optimum. On the wide field (b) the difference appears: after $1\,000$ iterations
 \rrtstar stands at a mean of $21.57$ and \irrtstar at $18.10$; after $3\,000$
 they stand at $16.71\pm1.23$ and $14.09\pm0.12$ against the optimum
 $13.88$. \rrtstar is still converging, just slowly, because most of its
@@ -1145,14 +1140,14 @@ same maps. \Cref{lst:ch17-core} is the body of one iteration.
                 goal_index, solution_iter = i_new, it
 \end{lstlisting}
 
-\paragraph{Choosing $\gamma_{\rrtstar}$.} $\mu(\Xfree)$ is rarely known;
-the code estimates it by Monte Carlo for the text, but plans with
-$\gamma=1.1\,\gamma^*(\mu(\mathcal{X}))$ by default, because
-$\mu(\mathcal{X})\ge\mu(\Xfree)$ keeps the condition safe. On the 3D scene
-of \cref{ch:ch16} this gives $\gamma=15.0$ against a threshold of $12.2$
-for the true free volume of about $716$. A larger $\gamma$ is never wrong for optimality; it buys more rewiring per
-iteration at a higher price (\cref{fig:ch17-radius}): doubling it multiplies
-the expected \textsc{Near} set by $2^d$.
+\paragraph{Choosing $\gamma_{\rrtstar}$.} $\mu(\Xfree)$ is rarely known; the
+code estimates it by Monte Carlo for the text but plans with
+$\gamma=1.1\,\gamma^*(\mu(\mathcal{X}))$, the safe upper bound of
+\cref{sec:ch17-radius}: on the 3D scene of \cref{ch:ch16} that is
+$\gamma=15.0$ against a threshold of $12.2$ for the true free volume of
+about $716$. Overshooting costs work, not optimality
+(\cref{fig:ch17-radius}): doubling $\gamma$ multiplies the expected
+\textsc{Near} set by $2^d$.
 
 \paragraph{The cost of rewiring.} Collision checks dominate. Three habits
 keep them rare: sort the candidates of \textsc{ChooseParent} by cost and
