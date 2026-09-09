@@ -20,13 +20,11 @@
 \section{Why this matters for a drone swarm}
 \label{sec:ch02-motivation}
 
-Picture eight quadrotors inspecting the racks of a warehouse. A global planner has given each of them a route. Halfway through the mission a forklift-mounted drone that nobody planned for crosses the main aisle. To handle this scene the four layers of \cref{ch:ch24} need a shared vocabulary. The global planner needs a \emph{map} it can search: a graph, usually a grid. It also needs to know how \emph{big} a drone is, so that a route through a narrow gap is not a route into a shelf.
-
-It needs \emph{time}, because two drones may use the same aisle if they do so at different moments, and \emph{cost measures} to compare routes and whole multi-agent plans.
+Picture eight quadrotors inspecting the racks of a warehouse. A global planner has given each of them a route. Halfway through the mission a forklift-mounted drone that nobody planned for crosses the main aisle. To handle this scene the four layers of \cref{ch:ch24} need a shared vocabulary. The global planner needs a \emph{map} it can search: a graph, usually a grid. It also needs to know how \emph{big} a drone is, so that a route through a narrow gap is not a route into a shelf. It needs \emph{time}, because two drones may use the same aisle if they do so at different moments, and \emph{cost measures} to compare routes and whole multi-agent plans.
 
 The local avoidance layer needs the drone's \emph{motion limits} (how fast, how hard it can brake) and a small kit of \emph{geometry}: when do two moving discs touch, and which velocities steer clear of an obstacle? The prediction layer describes the intruder with a mean and a covariance, so the planner must understand \emph{uncertainty}. Finally, everything has to run in a few milliseconds, which is a question of \emph{computation}: complexity, priority queues and hashing.
 
-This chapter collects these tools in one place. It is the only chapter of the book that does not present an algorithm; instead it fixes the definitions and conventions that every later chapter cites by number. Read it once from beginning to end, then come back to it as a reference; the drone box of \cref{sec:ch02-drone} says which layer uses what. Every formal object is introduced in a numbered definition, and every number quoted in the text is produced by the companion file \code{code/ch02\_toolbox.py}.
+This chapter collects these tools in one place. It is the only chapter of the book that does not present an algorithm; instead it fixes the definitions and conventions that every later chapter cites by number. Read it once from beginning to end, then come back to it as a reference; the drone box of \cref{sec:ch02-drone} says which layer uses what. Every formal object is introduced in a numbered definition, and every number quoted in the text is produced by one of the companion files \code{code/ch02\_toolbox.py}, \code{code/figures/gen\_ch02\_gaussian.py} and \code{code/figures/gen\_ch02\_double\_integrator.py}.
 
 
 % ---------------------------------------------------------------------
@@ -42,7 +40,7 @@ Every planner in this book searches a graph. The graph may be explicit (a road m
 
 \begin{definition}[Graph, weighted graph]
 \label{def:ch02-graph}
-A \textbf{directed graph}\index{graph!directed} $G=(V,E)$ consists of a finite set $V$ of \textbf{vertices} (also called \emph{nodes}) and a set $E\subseteq V\times V$ of \textbf{edges}; the edge $(u,v)$ leads from $u$ to $v$. The graph is \textbf{undirected}\index{graph!undirected} if $(u,v)\in E$ implies $(v,u)\in E$; we then write $\set{u,v}$ for the pair of opposite edges and count it once. A \textbf{weighted graph}\index{graph!weighted} carries a cost function $c\colon E\to[0,\infty)$; $c(u,v)$ is the \textbf{edge cost}. The \textbf{successors} of $u$ are $\Succ(u)=\set{v : (u,v)\in E}$ and its \textbf{predecessors} are $\Pred(u)=\set{v : (v,u)\in E}$; $\abs{\Succ(u)}$ is the out-degree of $u$, and the largest out-degree in the graph is the \textbf{branching factor} $b$.
+A \textbf{directed graph}\index{graph!directed} $G=(V,E)$ consists of a finite set $V$ of \textbf{vertices} (also called \emph{nodes}) and a set $E\subseteq V\times V$ of \textbf{edges}; the edge $(u,v)$ leads from $u$ to $v$. The graph is \textbf{undirected}\index{graph!undirected} if $(u,v)\in E$ implies $(v,u)\in E$; we then write $\set{u,v}$ for the pair of opposite edges and count it once. A \textbf{weighted graph}\index{graph!weighted} carries a cost function $c\colon E\to[0,\infty)$; $c(u,v)$ is the \textbf{edge cost}. In an undirected weighted graph we also require $c(u,v)=c(v,u)$, so that the pair $\set{u,v}$ carries a single cost. The \textbf{successors} of $u$ are $\Succ(u)=\set{v : (u,v)\in E}$ and its \textbf{predecessors} are $\Pred(u)=\set{v : (v,u)\in E}$; $\abs{\Succ(u)}$ is the out-degree of $u$, and the largest out-degree in the graph is the \textbf{branching factor} $b$.
 \end{definition}
 
 Edge costs in this book are non-negative, and almost always positive: a move on a grid costs its length, a wait costs one time step. Dijkstra's algorithm (\cref{ch:ch03}) needs exactly this non-negativity.
@@ -163,7 +161,7 @@ The disc $\disc{\pos}{r}$ meets $\mathcal{O}$ if and only if there is an obstacl
 \begin{figure}[tb]
   \centering
   \inputfigure{ch02/minkowski-inflation}
-  \caption{Obstacle inflation. (a)~In the workspace the disc robot of radius $r$ can at best touch the obstacle. (b)~In the configuration space the obstacle grows by $r$ (note the rounded corners) and the robot shrinks to a point; the path that touches the inflated boundary corresponds to the touching disc in~(a). (c)~On a grid, every cell whose centre lies within $r=1.5$ cells of an obstacle square is blocked.}
+  \caption{Obstacle inflation. (a)~In the workspace the disc robot of radius $r$ can at best touch the obstacle. (b)~In the configuration space the obstacle grows by $r$ (note the rounded corners) and the robot shrinks to a point; the path that touches the inflated boundary corresponds to the touching disc in~(a). (c)~On a grid, every cell whose centre lies within $r=1.5$ cells of an obstacle square is blocked: the two-cell obstacle drawn here blocks $16$ further cells. The single-cell counts $5$, $9$ and $21$ worked out in the text belong to $r=0.6$, $1.0$ and $1.6$.}
   \label{fig:ch02-minkowski}
 \end{figure}
 
@@ -173,7 +171,7 @@ The disc $\disc{\pos}{r}$ meets $\mathcal{O}$ if and only if there is an obstacl
 A quadrotor with its rotor guards is not a disc, and it rotates about its vertical axis while flying. Modelling it exactly would add the yaw angle to the configuration, giving $\Cspace=\R^3\times S^1$ and an obstacle region that depends on the heading; for a car-like ground robot this is unavoidable \cite{lavalle2006planning}. For a drone it is unnecessary: the body fits into a \textbf{bounding sphere}\index{bounding sphere} of radius $r$ that is the same in every heading, so the configuration is the position alone, $\Cspace=\R^3$ (or $\R^2$ at constant altitude), and \cref{thm:ch02-inflation} applies with the sphere radius. In this book every drone is such a sphere. Its radius includes a safety margin, as the following pitfall explains.
 
 \paragraph{Inflation on a grid.}
-On a grid the inflation is approximated cell by cell: a cell is added to $O$ if its centre lies within $r$ of some obstacle square, which is what \code{Grid.inflate} does. Blocking a single cell and inflating by $r=0.6$, $1.0$ and $1.6$ cell widths blocks $5$, $9$ and $21$ cells respectively: a plus shape, a $3\times3$ block, and the block with a ring of $12$ further cells. The grid version is only a sampled Minkowski sum; a free cell may still contain points that are closer than $r$ to an obstacle. This is harmless for straight moves between cell centres, because for grid-aligned squares the distance to the obstacle along such a move is smallest at one of its endpoints, and the corner-cutting rule guards the diagonal moves.
+On a grid the inflation is approximated cell by cell: a cell is added to $O$ if its centre lies within $r$ of some obstacle square, which is what \code{Grid.inflate} does. Blocking a single cell and inflating by $r=0.6$, $1.0$ and $1.6$ cell widths blocks $5$, $9$ and $21$ cells respectively: a plus shape, a $3\times3$ block, and the block with a ring of $12$ further cells. The grid version is only a sampled Minkowski sum; a free cell may still contain points that are closer than $r$ to an obstacle. This is harmless for straight moves between cell centres, because obstacle centres and move endpoints both lie on the integer lattice, so for grid-aligned squares the distance to the obstacle along such a move is smallest at one of its endpoints, and the corner-cutting rule guards the diagonal moves.
 
 \begin{pitfall}[Inflating by the body radius alone]
 The radius you inflate by is a promise that the drone's centre will never leave the inflated free space. Three things break that promise: the drone is larger than its nominal radius when propellers and guards are counted, the position estimate is off by the localisation error, and the controller does not track the plan exactly. Use $r = r_{\text{body}} + \text{margin}$, where the margin covers the localisation and tracking errors you expect, and on a grid round the result \emph{up} to the next cell width. A margin that is too small shows up as scraped walls; one that is too large closes narrow passages and makes the planner report that no path exists. \Cref{ch:ch25} measures the resulting minimum separation.
@@ -190,14 +188,14 @@ A path says \emph{where} to go; a multi-agent plan must also say \emph{when}. Th
 
 \begin{definition}[Space-time state, move and wait actions]
 \label{def:ch02-space-time-state}
-Fix a graph $G=(V,E)$ and a time step $\dt>0$. A \textbf{space-time state}\index{space-time state} is a pair $(v,t)$ with $v\in V$ and $t\in\N=\set{0,1,2,\dots}$; it means ``the agent is at vertex $v$ at time $t\,\dt$''. Two kinds of \textbf{actions} lead from $(v,t)$ to time $t+1$: a \textbf{move}\index{move action} along an edge $(v,v')\in E$ leads to $(v',t+1)$, and the \textbf{wait action}\index{wait action} leads to $(v,t+1)$. The move costs $c(v,v')$ and the wait costs $c_{\text{wait}}>0$; in the unit-cost problems of \cref{ch:ch07}, every action costs $1$. The wait cost must be positive: a free wait lets a search postpone progress forever on an unbounded horizon.
+Fix a graph $G=(V,E)$ and a time step $\dt>0$. A \textbf{space-time state}\index{space-time state} is a pair $(v,t)$ with $v\in V$ and $t\in\N=\set{0,1,2,\dots}$; it means ``the agent is at vertex $v$ at time $t\,\dt$''. Two kinds of \textbf{actions} lead from $(v,t)$ to time $t+1$: a \textbf{move}\index{move action} along an edge $(v,v')\in E$ leads to $(v',t+1)$, and the \textbf{wait action}\index{wait action} leads to $(v,t+1)$. The move costs $c(v,v')$ and the wait costs $c_{\text{wait}}>0$ for every wait made before the agent's final arrival at its goal; by the stay-at-goal convention of \cref{def:ch02-time-indexed-path} the waits at the goal after arrival are free. In the unit-cost problems of \cref{ch:ch07}, every action costs $1$. The wait cost must be positive: a free wait lets a search postpone progress forever on an unbounded horizon.
 \end{definition}
 
 Space-time states are the reason why a planner can let two agents share a corridor: the states $(v,3)$ and $(v,7)$ are different vertices of the graph below, so occupying one does not block the other.
 
 \begin{definition}[Time-expanded graph]
 \label{def:ch02-time-expanded-graph}
-The \textbf{time-expanded graph}\index{time-expanded graph} of $G$ with horizon $T$ is the directed graph with vertex set $V\times\set{0,\dots,T}$ and, for every $t<T$, the \textbf{wait edges} $\bigl((v,t),(v,t+1)\bigr)$ for all $v\in V$ and the \textbf{move edges} $\bigl((u,t),(v,t+1)\bigr)$ for all $(u,v)\in E$, weighted as in \cref{def:ch02-space-time-state}.
+The \textbf{time-expanded graph}\index{time-expanded graph} of $G$ with horizon $H$ is the directed graph with vertex set $V\times\set{0,\dots,H}$ and, for every $t<H$, the \textbf{wait edges} $\bigl((v,t),(v,t+1)\bigr)$ for all $v\in V$ and the \textbf{move edges} $\bigl((u,t),(v,t+1)\bigr)$ for all $(u,v)\in E$, weighted as in \cref{def:ch02-space-time-state}.
 \end{definition}
 
 \begin{figure}[tb]
@@ -207,11 +205,11 @@ The \textbf{time-expanded graph}\index{time-expanded graph} of $G$ with horizon 
   \label{fig:ch02-time-expanded}
 \end{figure}
 
-\Cref{fig:ch02-time-expanded} shows a base graph with three vertices and its time-expanded graph with three layers. Note what the construction costs: $\abs{V}\,(T+1)$ vertices and $T\,(\abs{V}+2\abs{E})$ edges for an undirected $G$ (\cref{exr:ch02-time-expanded}). Nobody stores this graph. The planner keeps $G$ and generates the successors of $(v,t)$ on demand with a function like \code{space\_time\_successors} in the toolbox, which returns the wait successor and one move successor per free neighbour, all at time $t+1$. Since all edges point forward in time, the time-expanded graph is acyclic; a search in it terminates even without a closed set, though a closed set still saves work.
+\Cref{fig:ch02-time-expanded} shows a base graph with three vertices and its time-expanded graph with three layers. Note what the construction costs: $\abs{V}\,(H+1)$ vertices and $H\,(\abs{V}+2\abs{E})$ edges for an undirected $G$ (\cref{exr:ch02-time-expanded}). Nobody stores this graph. The planner keeps $G$ and generates the successors of $(v,t)$ on demand with a function like \code{space\_time\_successors} in the toolbox, which returns the wait successor and one move successor per free neighbour, all at time $t+1$. Since all edges point forward in time, the time-expanded graph is acyclic; a search in it terminates even without a closed set, though a closed set still saves work.
 
 \begin{definition}[Time-indexed path, arrival time, stay-at-goal convention]
 \label{def:ch02-time-indexed-path}
-A \textbf{time-indexed path}\index{time-indexed path} for an agent with start $s$ and goal $g$ is a sequence $\pi=(v_0,v_1,\dots,v_T)$ with $v_0=s$, $v_T=g$ and, for every $t<T$, either $v_{t+1}=v_t$ (a wait) or $(v_t,v_{t+1})\in E$ (a move). The agent occupies $v_t$ at time $t$, and by the \textbf{stay-at-goal convention}\index{stay-at-goal convention} it occupies $g$ at every time $t>T$. The \textbf{arrival time}\index{arrival time} $T(\pi)$ is the smallest $t$ such that $v_{t'}=g$ for all $t'\ge t$; an agent that passes through $g$ and leaves again has not arrived.
+A \textbf{time-indexed path}\index{time-indexed path} for an agent with start $s$ and goal $g$ is a sequence $\pi=(v_0,v_1,\dots,v_H)$ with $v_0=s$, $v_H=g$ and, for every $t<H$, either $v_{t+1}=v_t$ (a wait) or $(v_t,v_{t+1})\in E$ (a move); the last index $H$ is the \textbf{horizon}\index{horizon} of the stored list. The agent occupies $v_t$ at time $t$, and by the \textbf{stay-at-goal convention}\index{stay-at-goal convention} it occupies $g$ at every time $t>H$. The \textbf{arrival time}\index{arrival time} $T(\pi)$ is the smallest $t$ such that $v_{t'}=g$ for all $t'\ge t$; an agent that passes through $g$ and leaves again has not arrived. The two indices are different quantities: the arrival time satisfies $T(\pi)\le H$, with equality exactly when the path ends without a trailing wait at the goal. \Cref{ch:ch07} uses the same two letters, writing the horizon of agent $i$'s stored path as $T_i$.
 \end{definition}
 
 The stay-at-goal convention matters for multi-agent planning: an agent that has landed still occupies its cell, and a later agent must route around it (\cref{ch:ch07,ch:ch08}). The arrival time is the individual cost that the multi-agent objectives of \cref{sec:ch02-costs} add up. It is computed by \code{path\_time} in the toolbox, which walks backwards from the end of the sequence while the vertex equals the goal.
@@ -221,7 +219,7 @@ The stay-at-goal convention matters for multi-agent planning: an agent that has 
 
 \begin{definition}[Plan]
 \label{def:ch02-plan}
-A \textbf{plan}\index{plan} for $k$ agents is a tuple $\Pi=(\pi_1,\dots,\pi_k)$ of time-indexed paths, one per agent, all with the same time step. The position of agent $i$ at time $t$ is $v^i_t$, extended by the stay-at-goal convention when $t$ exceeds the length of $\pi_i$. Which pairs of positions count as a \emph{conflict} is a modelling choice fixed in \cref{ch:ch07}; this chapter only measures how close the agents come.
+A \textbf{plan}\index{plan} for $k$ agents is a tuple $\Pi=(\pi_1,\dots,\pi_k)$ of time-indexed paths, one per agent, all with the same time step. The position of agent $i$ at time $t$ is $v^i_t$ (\cref{ch:ch07} writes the same position as $\pi_i[t]$), extended by the stay-at-goal convention when $t$ exceeds the length of $\pi_i$. Which pairs of positions count as a \emph{conflict} is a modelling choice fixed in \cref{ch:ch07}; this chapter only measures how close the agents come.
 \end{definition}
 
 \begin{definition}[Trajectory]
@@ -271,6 +269,8 @@ Waiting adds nothing to the length. On a grid with the costs of \cref{def:ch02-g
 The \textbf{travel time}\index{travel time} of a time-indexed path $\pi$ is its arrival time $T(\pi)$ of \cref{def:ch02-time-indexed-path}, measured in steps; in seconds it is $T(\pi)\,\dt$. It counts moves and waits alike.
 \end{definition}
 
+With unit move costs, and with the waits at the goal free as in \cref{def:ch02-space-time-state}, this makes $\cost(\pi)=T(\pi)$: a search that accumulates action costs in $\gcost$ returns exactly the travel time defined here. This is the convention of \textcite{stern2019mapf}; it is what \cref{ch:ch07} writes as $\cost(\pi_i)$ and what the notation table lists under $\sumcost$.
+
 \begin{definition}[Makespan]
 \label{def:ch02-makespan}
 The \textbf{makespan}\index{makespan} of a plan $\Pi=(\pi_1,\dots,\pi_k)$ is the arrival time of the last agent,
@@ -293,7 +293,7 @@ Later chapters write these two objectives with the macros $\makespan$ and $\sumc
 
 \begin{definition}[Separation, minimum separation, collision distance]
 \label{def:ch02-min-separation}
-For two agents with positions $\pos_i(t)$ and $\pos_j(t)$, the \textbf{separation}\index{separation} at time $t$ is $d_{ij}(t)=\norm{\pos_i(t)-\pos_j(t)}$. The \textbf{minimum separation}\index{separation!minimum} of a plan or of a set of trajectories is $d_{\min}=\min_{t}\min_{i<j} d_{ij}(t)$ over the whole execution. Two disc (or sphere) agents of radii $r_i$ and $r_j$ \textbf{collide} at time $t$ if $d_{ij}(t)<r_i+r_j$; the sum $R_{ij}=r_i+r_j$ is their \textbf{collision distance}\index{collision distance}.
+For two agents with positions $\pos_i(t)$ and $\pos_j(t)$, the \textbf{separation}\index{separation} at time $t$ is $d_{ij}(t)=\norm{\pos_i(t)-\pos_j(t)}$. The \textbf{minimum separation}\index{separation!minimum} of a plan or of a set of trajectories is $d_{\min}=\min_{t}\min_{i<j} d_{ij}(t)$ over the whole execution. Two disc (or sphere) agents of radii $r_i$ and $r_j$ \textbf{collide} at time $t$ if $d_{ij}(t)<r_i+r_j$; the sum $R_{ij}=r_i+r_j$ is their \textbf{collision distance}\index{collision distance}. The touching case $d_{ij}(t)=R_{ij}$ counts as safe here and in \cref{ch:ch12,ch:ch13}, which test the strict inequality; \cref{thm:ch02-disc-minkowski} calls the same configuration an overlap only because two closed discs that touch do share a boundary point.
 \end{definition}
 
 For a plan on a graph the separation can be evaluated at the integer times only (the toolbox function \code{min\_separation}) or along the straight-line motion of \cref{eq:ch02-path-to-trajectory} between consecutive steps (\code{min\_separation\_continuous}, which uses the closest-approach formula of \cref{sec:ch02-geometry} on every interval). The two answers differ, as the worked example shows.
@@ -363,7 +363,7 @@ A robot is \textbf{holonomic}\index{holonomic} if every constraint on its motion
 A car is the textbook non-holonomic system: it cannot slide sideways, yet it can reach any parking spot by manoeuvring. Planning for such systems needs the tools of \textcite{lavalle2006planning}, which this book does not cover. A quadrotor, at the level of position, is holonomic: it can accelerate in any direction by tilting, and it can hover. That is why a drone can be abstracted as a point mass at all, while a fixed-wing aircraft, which must keep flying forward, cannot.
 
 \paragraph{Why a quadrotor is a double integrator, and when it is not.}
-A quadrotor produces one thrust force along its body axis and controls its direction by tilting. Its centre of mass therefore obeys $m\ddot{\pos}=\vect{f}_{\text{thrust}}-m g\,\vect{e}_z$: given a desired acceleration $\acc$, the flight controller solves for the thrust magnitude and the attitude that produce it. Because the attitude loop of a small quadrotor settles in a fraction of a second, the position dynamics seen by a planner that replans every $\dt=0.1$~s or slower are very nearly the double integrator, with $a_{\max}$ set by the thrust-to-weight ratio and the maximum tilt. The theory of differential flatness makes this precise: any sufficiently smooth position trajectory can be tracked by a quadrotor \cite{mellinger2011minimum}. The caveats are that the acceleration cannot jump (the attitude must first rotate), that the limits are not symmetric (gravity helps descending and hinders climbing), that aerodynamic drag grows with speed, and that a heavy payload slows the attitude loop. Choose $a_{\max}$ and $v_{\max}$ with a margin below the physical limits, and the abstraction holds.
+A quadrotor produces one thrust force along its body axis and controls its direction by tilting. Its centre of mass therefore obeys $m\ddot{\pos}=\vect{f}_{\text{thrust}}-m g\,\vect{e}_z$: given a desired acceleration $\acc$, the flight controller solves for the thrust magnitude and the attitude that produce it. Because the attitude loop of a small quadrotor settles in a fraction of a second, the position dynamics seen by a planner that replans every $\dt=0.1$~s or slower are very nearly the double integrator, with $a_{\max}$ set by the thrust-to-weight ratio and the maximum tilt. The theory of differential flatness makes this precise: any sufficiently smooth position trajectory can be tracked by a quadrotor \cite{mellinger2011minimum}. The caveats are that the acceleration cannot jump (the attitude must first rotate), and that the limits are not symmetric (gravity helps descending and hinders climbing). Choose $a_{\max}$ and $v_{\max}$ with a margin below the physical limits, and the abstraction holds.
 
 \begin{proposition}[Stopping distance]
 \label[proposition]{thm:ch02-stopping-distance}
@@ -375,7 +375,7 @@ d_{\text{stop}}(v)=\frac{v^2}{2\,a_{\max}} .
 Consequently a drone that must be able to stop before an obstacle at distance $d$ straight ahead may not move faster than $\sqrt{2\,a_{\max}\,d}$.
 \end{proposition}
 \begin{proof}
-Along the direction of motion the speed is $v(t)=v-a_{\max}t$, which reaches zero at $t_s=v/a_{\max}$. The distance covered is $\int_0^{t_s} v(t)\,dt = v\,t_s-\tfrac12 a_{\max}t_s^2 = v^2/a_{\max}-v^2/(2a_{\max})$. Solving $d_{\text{stop}}(v)\le d$ for $v$ gives the bound. \qedhere
+Along the direction of motion the speed is $v(t)=v-a_{\max}t$, which reaches zero at $t_s=v/a_{\max}$. The distance covered is $\int_0^{t_s} v(t)\,dt = v\,t_s-\tfrac12 a_{\max}t_s^2 = v^2/a_{\max}-v^2/(2a_{\max}) = v^2/(2a_{\max})$, which is \cref{eq:ch02-stopping-distance}. Solving $d_{\text{stop}}(v)\le d$ for $v$ gives the bound. \qedhere
 \end{proof}
 
 \begin{figure}[tb]
@@ -452,7 +452,7 @@ Substitute $\vect{x}=\vect{o}+t\vect{d}$ into $\norm{\vect{x}-\vect{c}}^2=r^2$ a
 \begin{figure}[tb]
   \centering
   \inputfigure{ch02/segment-circle}
-  \caption{(a)~The segment $\overline{\vect{a}\vect{b}}$ meets the disc around $\vect{c}$ because the closest point $\vect{q}$ is at distance $d\le r$; the ray $\vect{a}+t(\vect{b}-\vect{a})$ crosses the circle at $t_1$ and $t_2$. The disc around $\vect{c}'$ is missed because $d>r$. (b)~The two tangents from $\vect{p}$ to a circle touch it at $\vect{t}_{\pm}$; the radius is perpendicular to the tangent, so $\cos\alpha=r/d$ and $\sin\theta=r/d$. Every ray from $\vect{p}$ inside the shaded cone hits the disc; this cone is the velocity obstacle of \cref{ch:ch12}.}
+  \caption{(a)~The segment $\overline{\vect{a}\vect{b}}$ meets the disc around $\vect{c}$ because the closest point $\vect{q}$ is at the point-to-segment distance $d_1=\dist(\vect{c},\overline{\vect{a}\vect{b}})\le r$; the ray $\vect{a}+t(\vect{b}-\vect{a})$ crosses the circle at $t_1$ and $t_2$. The disc around $\vect{c}'$ is missed because its point-to-segment distance $d_2$ exceeds $r$. (b)~Here $d=\norm{\vect{p}-\vect{c}}$ is the distance from $\vect{p}$ to the \emph{centre}, the quantity of \cref{thm:ch02-tangents}. The two tangents from $\vect{p}$ to a circle touch it at $\vect{t}_{\pm}$; the radius is perpendicular to the tangent, so $\cos\alpha=r/d$ and $\sin\theta=r/d$. Every ray from $\vect{p}$ inside the shaded cone hits the disc; this cone is the velocity obstacle of \cref{ch:ch12}.}
   \label{fig:ch02-segment-circle}
 \end{figure}
 
@@ -484,7 +484,7 @@ A radius is perpendicular to the tangent at its endpoint, so $\vect{p}$, $\vect{
 
 \begin{definition}[Closest approach and time to collision]
 \label{def:ch02-closest-approach}
-Let two objects move with constant velocities, $\pos_A(t)=\pos_A+t\,\vel_A$ and $\pos_B(t)=\pos_B+t\,\vel_B$, and write $\pos=\pos_B-\pos_A$ and $\vel=\vel_B-\vel_A$ for the \textbf{relative position and velocity}\index{relative velocity}. Their distance is $D(t)=\norm{\pos+t\,\vel}$. The \textbf{time of closest approach}\index{closest approach!time of} is $t^*=\argmin_{t\ge0}D(t)$, the \textbf{minimum distance} is $d_{\min}=D(t^*)$, and, for a collision distance $R$, the \textbf{time to collision}\index{time to collision} is $t_c=\min\set{t\ge0 : D(t)\le R}$, or $\infty$ if no such time exists. With a horizon $\ttc$ the minimisation is restricted to $t\in[0,\ttc]$.
+Let two objects move with constant velocities, $\pos_A(t)=\pos_A+t\,\vel_A$ and $\pos_B(t)=\pos_B+t\,\vel_B$, and write $\pos=\pos_B-\pos_A$ and $\vel=\vel_B-\vel_A$ for the \textbf{relative position and velocity}\index{relative velocity}. Their distance is $D(t)=\norm{\pos+t\,\vel}$. The \textbf{time of closest approach}\index{closest approach!time of} is $t^*=\argmin_{t\ge0}D(t)$, the \textbf{minimum distance} is $d_{\min}=D(t^*)$, and, for a collision distance $R$, the \textbf{time to collision}\index{time to collision} is $t_c=\min\set{t\ge0 : D(t)\le R}$, or $\infty$ if no such time exists (the toolbox function \code{time\_to\_collision} returns \code{None} in that case). With a horizon $\ttc$ the minimisation is restricted to $t\in[0,\ttc]$.
 \end{definition}
 
 \begin{proposition}[Closest approach of two constant-velocity objects]
@@ -637,7 +637,7 @@ A \textbf{priority queue}\index{priority queue} stores items with numeric keys a
 \end{definition}
 
 \paragraph{The lazy-deletion idiom.}
-Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a vertex whenever they find a cheaper path to it, and \lpastar and \dstarlite (\cref{ch:ch05}) must also remove vertices from the queue. \code{heapq} offers neither operation, and searching the list for the entry would cost $\bigO{n}$. The idiom used throughout this book, called \textbf{lazy deletion}\index{lazy deletion}\index{priority queue!lazy deletion}, avoids both: never touch an entry that is already in the heap; when a key improves, push a \emph{second} entry with the better key; when popping, skip any entry whose key is no longer the item's best known key. \Cref{alg:ch02-lazypq} states the two operations; the class \code{LazyPQ} of \code{code/ch02\_toolbox.py} implements them.
+Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a vertex whenever they find a cheaper path to it, and Lifelong Planning \astar (\lpastar) and \dstarlite (\cref{ch:ch05}) must also remove vertices from the queue. \code{heapq} offers neither operation, and searching the list for the entry would cost $\bigO{n}$. The idiom used throughout this book, called \textbf{lazy deletion}\index{lazy deletion}\index{priority queue!lazy deletion}, avoids both: never touch an entry that is already in the heap; when a key improves, push a \emph{second} entry with the better key; when popping, skip any entry whose key is no longer the item's best known key. \Cref{alg:ch02-lazypq} states the two operations; the class \code{LazyPQ} of \code{code/ch02\_toolbox.py} implements them.
 
 \begin{algorithm}[htb]
 \caption{Priority queue with lazy deletion}
@@ -660,7 +660,7 @@ Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a
 }
 \end{algorithm}
 
-Line~\ref{alg:ch02-lazypq:best} of \cref{alg:ch02-lazypq} records the best key of each item, which is what makes a stale entry recognisable at line~\ref{alg:ch02-lazypq:pop}: an entry is stale exactly when its key differs from the recorded best key. Each push costs $\bigO{\log n}$, each pop costs $\bigO{\log n}$ plus one extra pop per stale entry it skips; since every entry is popped at most once, the total cost of a search with $P$ pushes is $\bigO{P\log P}$. A search that relaxes every edge once pushes at most $\abs{E}$ entries, so the heap can hold $\abs{E}$ rather than $\abs{V}$ entries; because $\log\abs{E}\le2\log\abs{V}$, the asymptotic bound of the search is unchanged. Two variants appear in the literature: some codes compare the popped key with the vertex's current $\gcost$ instead of a separate dictionary, and some skip a popped vertex if it is already in the closed set. The first of these is equivalent to the version above. The closed-set variant differs: because a popped item is removed from $\mathit{best}$, the guard of \ToolboxLazyPush{} rejects only items that are still queued, so \cref{alg:ch02-lazypq} re-opens a node when a later push arrives for it, while a closed set never does. The two agree whenever the heuristic is consistent (\cref{ch:ch04}); with an inconsistent heuristic the closed-set variant must reopen nodes explicitly to stay optimal. The toolbox version also counts pushes and stale pops so that you can watch the overhead in the exercises.
+Line~\ref{alg:ch02-lazypq:best} of \cref{alg:ch02-lazypq} records the best key of each item, which is what makes a stale entry recognisable at line~\ref{alg:ch02-lazypq:pop}: an entry is stale exactly when its key differs from the recorded best key. Each push costs $\bigO{\log n}$, each pop costs $\bigO{\log n}$ plus one extra pop per stale entry it skips; since every entry is popped at most once, the total cost of a search with $P$ pushes is $\bigO{P\log P}$. A search that relaxes every edge once pushes at most $\abs{E}$ entries, so the heap can hold $\abs{E}$ rather than $\abs{V}$ entries; because $\log\abs{E}\le2\log\abs{V}$, the asymptotic bound of the search is unchanged. Two variants appear in the literature: comparing the popped key with the vertex's current $\gcost$ instead of keeping a separate dictionary, which is equivalent to the version above, and skipping a popped vertex that is already in a closed set, which never re-opens a node while \cref{alg:ch02-lazypq} does. The two coincide whenever the heuristic is consistent, and \cref{ch:ch04} is where reopening is analysed. Where \cref{alg:ch02-lazypq} returns ``empty'', \code{LazyPQ.pop} raises \code{IndexError}, so a search loop tests \code{len(pq)} before popping. The toolbox version also counts pushes and stale pops so that you can watch the overhead in the exercises.
 
 \paragraph{Hashing states.}
 The dictionaries of a search ($\gcost$-values, parents, the closed set, the best keys of the queue) need hashable keys. In this book a state is always a tuple of integers, such as \code{(x, y)} for a grid cell, \code{((x, y), t)} for a space-time state, or \code{(x, y, z)} for a lattice cell. Tuples of integers hash in constant time, compare quickly and cost about a hundred bytes each. Continuous states, as in \cref{ch:ch16,ch:ch17}, are \emph{not} hashed; they live in arrays and are searched with a KD-tree. If you must key a dictionary by a continuous quantity, round it to a resolution first.
@@ -670,7 +670,7 @@ The dictionaries of a search ($\gcost$-values, parents, the closed set, the best
 \end{pitfall}
 
 \paragraph{Why dictionaries are enough.}
-The largest instances in this book are grids of about $100\times100$ cells with horizons of about $100$ steps, i.e.\ $10^6$ space-time states, and a \python dictionary holding $10^6$ tuple keys occupies about $150$~MB and is filled in a few seconds. A search touches far fewer states than that, which is why no chapter uses a specialised data structure for its closed set, why the code prefers clarity over speed, and why \cref{ch:ch25} is the place where faster encodings are discussed.
+The largest instances in this book are grids of about $100\times100$ cells with horizons of about $100$ steps, i.e.\ $10^6$ space-time states, and a \python dictionary holding $10^6$ tuple keys occupies about $150$~MB and is filled in a few seconds. A search touches far fewer states than that, so no chapter uses a specialised data structure for its closed set; \cref{ch:ch25} is where faster encodings are discussed.
 
 % ---------------------------------------------------------------------
 \section{The Python stack and the code of the book}
@@ -696,7 +696,7 @@ PyBullet, gym-pybullet-drones \cite{panerati2021learning} & optional & physics s
 
 The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, listed in \cref{tab:ch02-stack}. The code is one file per chapter, \code{Overleaf/code/chNN\_slug.py} (\code{ch02\_toolbox.py} here, \code{ch04\_astar.py} for \astar), self-contained apart from NumPy and the occasional import from an earlier chapter, and ending in an \code{if \_\_name\_\_ == "\_\_main\_\_":} block that runs a self-test of \code{assert} statements in a few seconds; every number quoted in a worked example comes from running it. Figures whose content is computed---a trajectory, a set of samples, a benchmark---are produced by scripts \code{Overleaf/code/figures/gen\_chNN\_slug.py} with fixed random seeds, which write whitespace-separated data files into \code{Overleaf/figures/data/} for the TikZ figure to read.
 
-\Cref{lst:ch02-grid-neighbors} shows the successor function of the toolbox grid, the one function that the searches of \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06} call most often; note the corner-cutting test and the two edge costs of \cref{def:ch02-grid}. \Cref{lst:ch02-geometry} shows the tangent construction of \cref{thm:ch02-tangents}; beside it in the same file, \code{time\_of\_closest\_approach} transcribes \cref{eq:ch02-tca} and \code{time\_to\_collision} is a one-line call to \code{ray\_circle\_intersection} in the relative frame. The class \code{LazyPQ} in \code{code/ch02\_toolbox.py} implements \cref{alg:ch02-lazypq} line for line, and counts its pushes and stale pops.
+\Cref{lst:ch02-grid-neighbors} shows the successor function of the toolbox grid, the one function that the searches of \cref{ch:ch03,ch:ch04,ch:ch05,ch:ch06} call most often; note the corner-cutting test and the two edge costs of \cref{def:ch02-grid}. In the same file \code{tangent\_points} transcribes \cref{eq:ch02-tangent-points} of \cref{thm:ch02-tangents} line for line, \code{time\_of\_closest\_approach} transcribes \cref{eq:ch02-tca} and \code{time\_to\_collision} is a one-line call to \code{ray\_circle\_intersection} in the relative frame. The class \code{LazyPQ} in \code{code/ch02\_toolbox.py} implements \cref{alg:ch02-lazypq} line for line, and counts its pushes and stale pops.
 
 \begin{lstlisting}[caption={The successor function of the grid (from \code{code/ch02\_toolbox.py}).},label={lst:ch02-grid-neighbors}]
     def neighbors(self, cell):
@@ -716,23 +716,6 @@ The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, lis
             else:
                 result.append((nxt, 1.0))
         return result
-\end{lstlisting}
-
-\begin{lstlisting}[caption={The tangent points of \cref{thm:ch02-tangents} (from \code{code/ch02\_toolbox.py}).},label={lst:ch02-geometry}]
-def tangent_points(p, c, r):
-    """The two points where the tangent lines from p touch the circle
-    (c, r), or None if p lies on or inside the circle."""
-    u = sub(p, c)
-    d = norm(u)
-    if d <= r:
-        return None
-    u = scale(u, 1.0 / d)                 # unit vector from c towards p
-    perp = (-u[1], u[0])                  # u rotated by +90 degrees
-    cos_a = r / d                         # angle at the centre
-    sin_a = math.sqrt(1.0 - cos_a * cos_a)
-    t_plus = add(c, scale(add(scale(u, cos_a), scale(perp, sin_a)), r))
-    t_minus = add(c, scale(add(scale(u, cos_a), scale(perp, -sin_a)), r))
-    return t_plus, t_minus
 \end{lstlisting}
 
 % ---------------------------------------------------------------------
@@ -782,7 +765,7 @@ A single cell of a large grid is blocked. Using the cell-centre rule of \code{Gr
 
 \begin{exercise}[\difficulty{3}]
 \label{exr:ch02-time-expanded}
-Let $G=(V,E)$ be undirected. Show that its time-expanded graph with horizon $T$ has $\abs{V}(T+1)$ vertices and $T(\abs{V}+2\abs{E})$ edges, that it is acyclic, and that its paths from $(s,0)$ to $(g,T)$ correspond one-to-one to the time-indexed paths of \cref{def:ch02-time-indexed-path} of length $T$.
+Let $G=(V,E)$ be undirected. Show that its time-expanded graph with horizon $H$ has $\abs{V}(H+1)$ vertices and $H(\abs{V}+2\abs{E})$ edges, that it is acyclic, and that its paths from $(s,0)$ to $(g,H)$ correspond one-to-one to the time-indexed paths of \cref{def:ch02-time-indexed-path} with horizon $H$.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3}]

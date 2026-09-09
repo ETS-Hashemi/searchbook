@@ -201,3 +201,106 @@ out; a build with no errors and no undefined chapter-local reference. The week-1
 exercise of the plan ("implement grid A*, add time as a state variable") correctly lives in
 Chapter 4, not here - Chapter 1 is parenthetical in week 1 and its own generator exercise is
 the right assignment for an introduction.
+
+## Response to review (round 1)
+
+All four required changes are applied, together with six of the eight suggestions. Nothing
+listed under "What must be kept" was touched: the numeric spine, the trace table, the map and
+week tables, the research directions, the `dronebox`, the citations and the figure set are
+unchanged except where a required change or an accepted suggestion demanded it. The chapter
+still builds with status 0 and no errors, `python3 code/ch01_scenario.py` still prints
+`self-test passed`, and the chapter still occupies 19 printed pages.
+
+### Required changes
+
+1. **Over-strong safety claim (`sec:ch01-two-kinds`).** Applied. The sentence now reads
+   "...and no algorithm can guarantee safety against an object whose motion is *completely
+   unknown*; one can only do so by bounding its speed and planning against everywhere it could
+   reach, which at a horizon of a few seconds blocks so much of the airspace that the swarm
+   cannot fly (`\cref{ch:ch12}` truncates the velocity obstacle for exactly this reason)."
+   The reachability escape hatch and the reason nobody uses it are both named, and the
+   forward pointer to the truncated velocity obstacle is in place.
+
+2. **Misrounded conflict fractions (`appendices/solutions/ch01-solutions.tex`,
+   `exr:ch01-coding`(c)).** Applied. I re-ran the experiment before editing
+   (`generate(12, 8, k, 0.15, seed)` for `seed in range(200)`, then `plan_independently` and
+   `find_conflicts`) and reproduced the reviewer's counts exactly: 43/200, 119/200, 199/200.
+   The text now reads "about $0.215$ for $k=2$, $0.595$ for $k=4$ and $0.995$ for $k=8$
+   ($199$ scenarios out of $200$)". The following sentence about tie-breaking is untouched.
+
+3. **Notation clash with Chapter 12 (`sec:ch01-decision`).** Applied exactly as specified. The
+   time to collision is now $t_c$ in all three places - the defining sentence, the risk
+   condition $t_c<\ttc_{\mathrm{safe}}$, and the cross-reference, which now reads
+   "\Cref{ch:ch12} computes $t_c$ from relative position and velocity (\cref{def:ch12-ttc}) and
+   uses $\ttc$ for the horizon over which a velocity obstacle is truncated."
+   $\ttc_{\mathrm{safe}}$ is kept for the safety horizon, so $\tau$ now means a horizon in
+   Chapters 1, 12 and 13 alike and `exr:ch01-timescales` needed no change. `\ttc` survives in
+   this chapter only in $\ttc_{\mathrm{safe}}$ (lines in `sec:ch01-decision` and
+   `exr:ch01-timescales`) and in the new clause naming the truncation horizon. The editor's
+   note about row 129 of `frontmatter/notation.tex` is **not** acted on here: front matter is
+   outside this chapter's file set, so it is left for the book-level pass.
+   `\cref{def:ch12-ttc}` prints `??` in a single-chapter build like every other cross-chapter
+   reference; it resolves in the full book (the label is at `ch12-velocity-obstacles.tex:321`).
+
+4. **Padding that repeats the preface (`sec:ch01-conventions`).** Applied. The
+   `\paragraph{Conventions.}` paragraph is deleted in full. The opening paragraph is rewritten
+   around the one thing the preface does not say - the *fixed sequence of sections* of every
+   algorithm chapter - and ends with the clause "The conventions of the book, including the
+   coloured boxes and the difficulty stars of the exercises, are described in the preface."
+   The "Code files" and "The Python stack" paragraphs are untouched.
+   Note on length: the chapter is still 19 printed pages. The deletion frees about two thirds
+   of a page, but required change 1 and the accepted suggestions add back a comparable amount,
+   and the last chapter page is full, so no page is saved. No required or kept content was
+   trimmed to chase the 12-18 band.
+
+### Suggestions
+
+* **Bridge cells and metres.** Applied. `ex:ch01-scenario` now adds: "If a cell is $2$~m wide,
+  the intruder passes $0.76$~m from the centre of $B$'s cell---well inside the $2$~m separation
+  used in \cref{sec:ch01-timescales}."
+* **Solution for `exr:ch01-timescales`.** Applied. A new `solution` block gives (a) 0.1 m,
+  2.5 m, 15 m; (b) $\ttc_{\mathrm{safe}}=10\times20\ \mathrm{ms}=0.2$ s, closing speed
+  $5+3=8$ m/s, risk declared at $2+8\times0.2=3.6$ m; (c) why a 30 s horizon is useless with a
+  constant-velocity prediction. It is inserted in exercise order, before `exr:ch01-coding`.
+* **Summary bullet.** Applied: "twenty-seven **entries** in six groups".
+* **`fig:ch01-reading-paths`.** Applied. A dashed purple band is drawn behind nodes `f0`-`f5`
+  and the row label now reads "Fast path: the training plan's reading order (shaded: the six
+  highest-priority chapters)", so the drawing carries the statement itself. Checked in the
+  rendered PDF (page 33 of the single-chapter build): the band clears node `f6` and the row
+  below it.
+* **`tab:ch01-properties`, "Real-time" row.** Applied: "such methods search over a bounded set
+  of velocities rather than over routes, which is why they can run at tens of hertz".
+* **`sec:ch01-layers`, layer 1.** Applied: conflict-based search "is optimal **for the sum of
+  costs**".
+* **Cosmetic LaTeX (`figures/ch01/timescales.tex`).** Applied. The long green-band label is
+  broken over two lines, which clears the 11.10 pt overfull box; the two remaining overfull
+  boxes in the chapter are 2.64 pt and 2.26 pt. While checking the rendered figure I also found
+  that the blue band's label "global swarm planning (CBS, ECBS): seconds" was anchored *inside*
+  its own rectangle, so the box border cut through the word "planning"; the label is now
+  anchored above the band, matching the other three.
+* **Book-level: `appendices/glossary.tex` placeholder.** Not acted on. It is outside this
+  chapter's file set (the brief forbids editing files other than the chapter's own), so the
+  orphaned `ch01-terms.tex` remains a book-level task.
+
+### Verification after revision
+
+* `cd Overleaf && ./build.sh ch01-introduction` - status 0, no `!` errors, no undefined
+  citation, no multiply-defined label; every undefined reference is a cross-chapter
+  `ch:chNN`/`ch:appX`/`def:ch12-ttc`. No overfull box above 15 pt.
+* `python3 code/ch01_scenario.py` - `self-test passed`; the printed scenario still matches the
+  chapter (speed 0.66 cells/step, $t=6$ encounter at 0.38 cells, vertex conflict $A$/$C$ at
+  $(3,3)$, $t=4$).
+* No Python file was changed, so no `.dat` file and no generated figure needed regenerating
+  (`code/figures/gen_ch01_scenario.py` writes `figures/ch01/scenario.tex`, which is unchanged
+  and still consistent with the code).
+* Every number quoted in the chapter, the trace table, the exercises and the solutions was
+  re-checked against the code; the only number that changed is the one required change 2 asked
+  for, and it is now the exact value the generator produces.
+* Build note (pre-existing, book-level, not a chapter defect): a *second* `./build.sh
+  ch01-introduction` run over an existing `build/only-ch01-introduction.aux` intermittently
+  reports status 12 with "File ended while scanning use of `\@newl@b`" at a varying line of that
+  `.aux`, while still writing a correct PDF. Deleting `build/only-ch01-introduction.aux` before
+  the run always gives status 0. The same message appears in the stored build logs of
+  ch02, ch04, ch08, ch10, ch11, ch15, ch18 and ch21, so it is a property of the build
+  directory, not of this chapter. The final build for this revision was made from a clean
+  `.aux` and is status 0 with no errors.

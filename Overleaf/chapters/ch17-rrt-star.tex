@@ -261,8 +261,8 @@ For a current best cost $c_{\mathrm{best}}\ge c_{\min}$, the
 \label{sec:ch17-primitives}
 
 An \rrtstar iteration begins exactly like an \rrt iteration: draw
-$x_{\mathrm{rand}}$, find $x_{\mathrm{nearest}}=\Nearest(V,x_{\mathrm{rand}})$,
-steer to $x_{\mathrm{new}}$, and give up on the sample if the segment from
+$x_{\mathrm{rand}}$, find the nearest vertex
+$x_{\mathrm{nearest}}$, steer to $x_{\mathrm{new}}$, and give up on the sample if the segment from
 $x_{\mathrm{nearest}}$ to $x_{\mathrm{new}}$ is blocked. If it is free,
 \rrt would insert the edge $(x_{\mathrm{nearest}},x_{\mathrm{new}})$ and
 stop. \rrtstar instead runs three steps, illustrated in
@@ -684,12 +684,10 @@ says.
   \item It promises convergence of the \emph{cost}, with probability one,
   as $n\to\infty$. It gives no rate: after any fixed budget $N$ the gap
   $Y_N-c^*$ can be large, and it typically shrinks slowly, because the last
-  few percent are made of corner cuts that each need a sample in a small
-  region (\cref{tab:ch17-convergence}).
+  few percent are corner cuts that each need a sample in a small region
+  (\cref{tab:ch17-convergence}).
   \item It does not promise convergence of the \emph{path}: the tree path
-  may keep switching between routes of almost equal cost (in
-  \cref{ex:ch17-map} there is only one homotopy class, so this does not
-  show).
+  may keep switching between routes of almost equal cost.
   \item It needs a robustly optimal solution. An optimum that squeezes
   through a gap of zero width has no clearance and is never found; the same
   holds for any planner that checks collisions at points.
@@ -1007,9 +1005,8 @@ less than half of it, and the difference appears: after $1\,000$ iterations
 they stand at $16.71\pm1.23$ and $14.09\pm0.12$ against the optimum
 $13.88$. \rrtstar is still converging, just slowly, because most of its
 samples land far from the corridor; \irrtstar has put every sample after the
-first solution to use. Its price is small, $8\,486$ segment checks per run
-against $7\,399$, because the samples inside the ellipsoid land in a denser
-part of the tree and see more neighbours.
+first solution to use, at the price of $8\,486$ segment checks per run
+against $7\,399$, because samples inside the ellipsoid see more neighbours.
 
 \begin{figure}[tb]
   \centering
@@ -1035,9 +1032,8 @@ is the probabilistic roadmap of \cref{ch:ch16} built with the same radius
 on a batch of $n$ samples. Both are asymptotically optimal with the same
 constant. Fast marching trees (FMT\textsuperscript{*})\index{FMT*}
 \cite{janson2015fmt} process one batch of samples in a single Dijkstra-like
-sweep with lazy collision checks, and are often faster than \rrtstar for a
-fixed budget, but they are not anytime: the batch size is chosen before the
-run.
+sweep with lazy collision checks, often faster than \rrtstar for a fixed
+budget, but not anytime: the batch size is chosen before the run.
 
 \paragraph{Anytime \rrtstar.}\index{anytime planning!RRT*}
 \textcite{karaman2011anytime} run \rrtstar on a moving robot: the tree keeps
@@ -1058,12 +1054,12 @@ graph is searched with an edge queue ordered by
 $\hat f=\hat g+\hat h$, exactly as \astar orders its nodes; collision
 checks are made only when an edge is popped, and the search is reused across
 batches in the manner of \lpastar (\cref{ch:ch05}). Each batch shrinks the
-ellipsoid, and the planner is anytime and asymptotically optimal. It is the
+ellipsoid, and the planner is anytime and asymptotically optimal: it is the
 point where sampling-based planning and heuristic graph search, the two
 halves of this book, meet. Later refinements by the same group
 (ABIT\textsuperscript{*}, AIT\textsuperscript{*}) improve the ordering and
-the heuristic; \textcite{gammell2018informed} generalise informed sets to
-other cost functions and prove when direct sampling is necessary.
+the heuristic, and \textcite{gammell2018informed} generalise informed sets
+to other cost functions.
 
 \begin{table}[tb]
   \centering\small
@@ -1192,41 +1188,10 @@ about a second. Beyond $10^4$ vertices use a kd-tree
 (\cref{ch:ch16}): \textsc{Near} becomes a range query, the $k$-nearest
 variant a $k$-nearest query, and since points only ever get inserted, a
 tree rebuilt whenever the vertex count doubles keeps the amortised cost
-logarithmic. \Cref{lst:ch17-informed} is the informed sampler; the rotation
-is computed once per problem.
+logarithmic. The class \code{InformedSampler} of the file implements
+\cref{alg:ch17-informed} line by line, with the rotation computed once per
+problem from the SVD of \cref{eq:ch17-rotation}.
 
-\begin{lstlisting}[caption={Informed sampling (from \code{code/ch17\_rrt\_star.py}): the rotation of \cref{eq:ch17-rotation} and the sampler of \cref{alg:ch17-informed}, which samples whichever of the hyperspheroid and the box is smaller and rejects by the other. \code{random\_in\_ball} draws $w^{1/d}\vect{u}/\norm{\vect{u}}$.},label={lst:ch17-informed}]
-def rotation_to_world_frame(a1):
-    """Rotation matrix C with C e_1 = a1 (Gammell et al. 2014): from the
-    SVD U S V^T of a1 e_1^T take C = U diag(1, ..., 1, det U det V) V^T."""
-    d = len(a1)
-    M = np.outer(a1, np.eye(d)[0])
-    U, _, Vt = np.linalg.svd(M)
-    D = np.ones(d)
-    D[-1] = np.linalg.det(U) * np.linalg.det(Vt)
-    return U @ np.diag(D) @ Vt
-
-
-    def sample(self, rng, c_best, world):
-        """One sample uniform on (hyperspheroid intersect X)."""
-        if not np.isfinite(c_best):
-            return world.sample(rng)
-        if self.measure(c_best) > world.volume():
-            while True:                       # the box is the smaller set
-                self.draws += 1
-                x = world.sample(rng)
-                if self.contains(x, c_best):
-                    return x
-                self.rejections += 1
-        L = np.diag(self.semi_axes(c_best))
-        while True:                           # the spheroid is smaller
-            self.draws += 1
-            x_ball = random_in_ball(rng, self.d)
-            x = self.C @ (L @ x_ball) + self.centre
-            if world.inside(x):
-                return x
-            self.rejections += 1
-\end{lstlisting}
 
 \paragraph{Anytime use.}\index{anytime planning!while flying} A drone
 does not wait for $N$ iterations. The pattern of
@@ -1360,11 +1325,12 @@ grid search to call.
 The original paper is \textcite{karaman2011sampling}, which introduces
 RRG, \rrtstar and PRM\textsuperscript{*}, proves that \rrt is not
 asymptotically optimal and contains the full ball-covering proof; its
-anytime use is in \textcite{karaman2011anytime}, and
-\textcite{solovey2020revisiting} revisit the proof. \irrtstar is
-\textcite{gammell2014informed}, generalised in \textcite{gammell2018informed};
-BIT\textsuperscript{*} is \textcite{gammell2015bit} and
-FMT\textsuperscript{*} \textcite{janson2015fmt}. The textbook treatment of
+anytime use is described by \textcite{karaman2011anytime}, and the proof is
+revisited by \textcite{solovey2020revisiting}. \irrtstar is due to
+\textcite{gammell2014informed} and was generalised by
+\textcite{gammell2018informed}; BIT\textsuperscript{*} is due to
+\textcite{gammell2015bit} and FMT\textsuperscript{*} to
+\textcite{janson2015fmt}. The textbook treatment of
 sampling-based planning is \textcite{lavalle2006planning}, and the tree
 itself goes back to \textcite{lavalle1998rrt}. The connectivity threshold
 of random geometric graphs, the reason the radius has the form it has, is

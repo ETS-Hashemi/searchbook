@@ -373,3 +373,488 @@ deviated.
   \bottomrule
   \end{tabularx}
 \end{table}
+
+% ---------------------------------------------------------------------
+\section{The safety horizon and the time-to-collision trigger}
+\label{sec:ch24-horizon}
+
+The first decision is whether an intruder is a problem \emph{now}. It is
+answered by comparing where the drone intends to be with where the intruder
+is predicted to be, over a short window, with the prediction uncertainty
+taken into account.
+
+\paragraph{The intended motion.}
+Let $\tilde{\pos}_i(s)$ be the \textbf{intended position}\index{intended
+position} of drone $a_i$ a look-ahead $s \ge 0$ from now: the point reached
+by flying at cruise speed along the polyline that starts at $\pos_i(t)$,
+passes through the reconnection target if there is one, and then follows the
+remaining waypoints $\vect{c}(\pi_i[k_0]), \vect{c}(\pi_i[k_0+1]), \dots$ of
+the plan, where $k_0 = \lceil t/\Delta T - t_0^i \rceil$ is the first waypoint
+not yet passed. For a drone on its reference this is the reference itself;
+for a drone that has deviated it is the path it would take home. The
+prediction layer supplies $\hat{\pos}_{T+h}$ and $\mat{\Sigma}_h$ at the
+same look-aheads $s = h\,\dt$ (\cref{ch:ch20}), and we write
+$\sigma(h) = \sqrt{\lambda_{\max}(\mat{\Sigma}_h)}$ for the largest
+standard deviation of the predicted position.
+
+\begin{definition}[Predicted conflict inside the safety horizon]
+\label{def:ch24-inside}
+Let $R_{\mathrm{safe}} = r_A + r_B + \Delta r$ be the required separation
+between a drone of radius $r_A$ and an intruder of radius $r_B$, with a
+margin $\Delta r \ge 0$, and let $\kappa_p$ be the confidence factor of
+\cref{sec:ch24-uncertainty}. The \textbf{margin}\index{margin function}
+at look-ahead $s = h\,\dt$ is
+\begin{equation}
+  m_i(s) = \norm{\tilde{\pos}_i(s) - \hat{\pos}_{T+h}} - \kappa_p\,\sigma(h) - R_{\mathrm{safe}}.
+  \label{eq:ch24-margin}
+\end{equation}
+A predicted conflict is \textbf{inside the safety horizon}\index{safety
+horizon}\index{hybrid architecture!safety horizon} $\tau_h$ if
+$m_i(s) < 0$ for some $s \in [0, \tau_h]$, and the \textbf{predicted time to
+collision}\index{time to collision!predicted} is the first such look-ahead,
+\begin{equation}
+  t_c = \min\set{s \in [0, \tau_h] : m_i(s) < 0}.
+  \label{eq:ch24-tc}
+\end{equation}
+In practice $s$ runs over the multiples of $\dt$ up to $\tau_h$.
+\end{definition}
+
+The definition subtracts the inflation from the separation rather than
+adding it to the radius; the two are the same thing, and
+\cref{sec:ch24-uncertainty} explains why $\kappa_p\,\sigma(h)$ is the right
+amount. \Cref{alg:ch24-trigger} is the test, and \cref{fig:ch24-horizon}
+shows it at the moment it fires in the worked scenario: the predicted
+separation of drone~A falls to $1.53$\,m at $s = 3.0$\,s while the threshold
+$R_{\mathrm{safe}} + \kappa_p\sigma$ has grown to $0.70 + 0.86 = 1.56$\,m; one
+cycle earlier the margin at the same look-ahead was still $+0.01$\,m.
+
+\begin{algorithm}[htb]
+\caption{The safety-horizon trigger}
+\label{alg:ch24-trigger}
+\KwIn{drone $a_i$, time $t$, prediction $(\hat{\pos}_{T+h}, \mat{\Sigma}_h)$ for $h = 0, \dots, \lfloor T_{\mathrm{pred}}/\dt \rfloor$ or \KwNil}
+\KwOut{$(\mathit{inside}, t_c)$}
+\Fn{\HybridTrigger{$a_i$, $t$, prediction}}{
+  \lIf{prediction $=$ \KwNil}{\KwRet $(\KwFalse, \KwNil)$\tcp*[f]{no intruder, or the filter is still warming up}}
+  $H \gets \min(\lfloor \tau_h/\dt \rfloor,\ \lfloor T_{\mathrm{pred}}/\dt \rfloor)$\;
+  $(\tilde{\pos}_i(0), \dots, \tilde{\pos}_i(H\dt)) \gets$ \HybridIntended{$a_i$, $t$}\label{alg:ch24-trigger:intended}\;
+  \For{$h \gets 0$ \KwTo $H$}{
+    $m \gets \norm{\tilde{\pos}_i(h\dt) - \hat{\pos}_{T+h}} - \kappa_p \sqrt{\lambda_{\max}(\mat{\Sigma}_h)} - R_{\mathrm{safe}}$\label{alg:ch24-trigger:margin}\;
+    \lIf{$m < 0$}{\KwRet $(\KwTrue, h\dt)$\label{alg:ch24-trigger:fire}}
+  }
+  \KwRet $(\KwFalse, \KwNil)$\;
+}
+\end{algorithm}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch24/horizon}
+  \caption{The trigger of drone~A in the worked scenario at $t = 3.5$\,s.
+  The predicted separation between A's intended positions and the intruder's
+  predicted mean (solid blue) decreases with the look-ahead; the threshold
+  $R_{\mathrm{safe}} + \kappa_p\sigma(s)$ (orange) grows with it because the
+  prediction becomes less certain. What to notice: the two curves meet
+  exactly at the horizon $s = \tau_h = 3$\,s, where the margin is
+  $-0.03$\,m; one control cycle earlier (dashed) the separation was $0.05$\,m
+  larger and the trigger stayed silent. The trigger fires at the horizon,
+  not at the collision: three seconds remain to act.}
+  \label{fig:ch24-horizon}
+\end{figure}
+
+\paragraph{Choosing the horizon.}
+Three quantities constrain $\tau_h$. First, the horizon $\ttc$ of the local
+layer: \orca's half-plane of \cref{ch:ch13} forbids the relative velocities
+that collide within $\ttc$, so the local layer only starts to steer when
+$t_c \le \ttc$. With $\tau_h \ge \ttc$ control is handed over before the
+local layer has to act, and its first correction is small; with
+$\tau_h < \ttc$ the hand-over comes late and the first correction is a jump.
+The code uses $\tau_h = \ttc$. Second, the dynamics: a drone with
+acceleration limit $a_{\max}$ needs $v/a_{\max}$ seconds to stop from speed
+$v$ and covers the stopping distance $d_{\mathrm{stop}}(v) = v^2/(2a_{\max})$
+of \cref{ch:ch02} while doing so; changing from one velocity of the disc
+$\norm{\vel} \le v_{\max}$ to any other takes at most $2v_{\max}/a_{\max}$.
+The horizon must leave time for the local layer's command to be executed,
+\begin{equation}
+  \tau_h \;\ge\; \dt + \frac{v_{\max}}{a_{\max}}
+  \quad\text{(a stop suffices)},\qquad
+  \tau_h \;\ge\; \dt + \frac{2v_{\max}}{a_{\max}}
+  \quad\text{(a reversal may be needed)}.
+  \label{eq:ch24-tauh}
+\end{equation}
+Third, the prediction: $\tau_h \le T_{\mathrm{pred}}$, and
+$\kappa_p\sigma(\tau_h)$ must stay well below the spacing of the lanes,
+otherwise the trigger fires for intruders in the next lane. In the scenario
+$v_{\max}/a_{\max} = 1.5$\,s, $\ttc = 3$\,s and $\kappa_p\sigma(3\,\mathrm{s})
+= 0.86$\,m, so $\tau_h = 3$\,s satisfies the first two conditions and the
+inflation is still below the lane spacing of $2$\,m. A last condition ties
+the horizon to the sensor: the intruder must be detected and tracked before
+it enters the horizon, which needs a detection range of at least
+$(v_{\max} + v_B)(\tau_h + n_{\mathrm{warm}}\dt) + R_{\mathrm{safe}} + \kappa_p\sigma(\tau_h)$,
+about $7.5$\,m in the scenario, where the intruder is first seen at $6$\,m by
+drone~B and enters A's horizon $2.2$\,s later.
+
+\begin{pitfall}[A trigger without hysteresis chatters]
+The margin at the horizon changes by a few centimetres per cycle, and noise
+in the estimate moves it back and forth across zero. If the executive left
+Avoiding in the first cycle without a predicted conflict, it would re-enter
+it in the next one, and the drone would alternate between the \orca velocity
+and the pursuit of its plan ten times a second. The counter
+$n_{\mathrm{clear}}$ in \cref{alg:ch24-loop} is the remedy: the drone leaves
+Avoiding only after $n_{\mathrm{clear}}$ consecutive clear cycles. A second
+hysteresis is built into the trigger itself, because entering uses the
+inflated radius at $t_c$ while the local layer keeps the intruder's
+half-plane for the whole of $\ttc$.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{Reconnecting to the nominal path}
+\label{sec:ch24-reconnect}
+
+When the conflict has cleared, the cheapest repair is no repair at all: fly
+back to the plan and resume it. The question is \emph{where} to rejoin, and
+the answer is a search along the plan.
+
+\begin{definition}[Admissible reconnection]
+\label{def:ch24-reconnection}
+A \textbf{reconnection}\index{reconnection}\index{hybrid
+architecture!reconnection} of drone $a_i$ at time $t$ is a pair $(k, \Delta)$
+with $k \ge k_0$ a waypoint index and $\Delta \in \set{0, \dots, \Delta_{\max}}$
+a delay in grid steps such that the straight flight from $\pos_i(t)$ to
+$\vect{c}(\pi_i[k])$, arriving at $t_k = (t_0^i + k + \Delta)\Delta T$,
+(i) needs a speed $\norm{\vect{c}(\pi_i[k]) - \pos_i(t)}/(t_k - t) \le v_{\max}$,
+(ii) keeps a clearance of at least $r_A$ from the static obstacles,
+(iii) keeps the margin of \cref{eq:ch24-margin} non-negative against the
+prediction at every sampled time, and (iv) stays at least
+$R_{\mathrm{mate}} = 2r_A + \Delta r$ from the intended positions of every
+teammate at the same times. Its \textbf{extra cost} is $\Delta$: the
+arrival time of $a_i$ increases by $\Delta$ grid steps, and $\sumcost$ and
+$\makespan$ by at most that.
+\end{definition}
+
+\begin{algorithm}[htb]
+\caption{Reconnection search along the nominal path}
+\label{alg:ch24-reconnect}
+\KwIn{drone $a_i$ at $\pos_i(t)$ with path $\pi_i$, start time $t_0^i$ and last index $T_i$; prediction; look-ahead $K$; largest delay $\Delta_{\max}$}
+\KwOut{$(k, \Delta)$ or \emph{failure}}
+\Fn{\HybridReconnect{$a_i$, $t$, prediction}}{
+  $k_0 \gets \max(0, \lceil t/\Delta T - t_0^i \rceil)$\label{alg:ch24-reconnect:k0}\;
+  \For{$\Delta \gets 0$ \KwTo $\Delta_{\max}$\tcp*[f]{prefer no delay}}{
+    \For{$k \gets k_0$ \KwTo $\min(k_0 + K, T_i)$\tcp*[f]{prefer the earliest waypoint}}{
+      $t_k \gets (t_0^i + k + \Delta)\,\Delta T$; $\vect{w} \gets \vect{c}(\pi_i[k])$\;
+      \lIf{$t_k - t < \dt$ \KwOr $\norm{\vect{w} - \pos_i(t)}/(t_k - t) > v_{\max}$}{\KwContinue\tcp*[f]{too fast}\label{alg:ch24-reconnect:fast}}
+      \lIf{\HybridSegment{$\pos_i(t)$, $t$, $\vect{w}$, $t_k$, prediction, teammates}}{\KwRet $(k, \Delta)$\label{alg:ch24-reconnect:ok}}
+    }
+  }
+  \KwRet \emph{failure}\label{alg:ch24-reconnect:fail}\;
+}
+\Fn{\HybridSegment{$\pos$, $t_a$, $\vect{w}$, $t_b$, prediction, teammates}}{
+  \ForEach{sample time $t' = t_a + (t_b - t_a)\,j/n$, $j = 0, \dots, n$, with $n = \lceil (t_b - t_a)/\dt \rceil$}{
+    $\vect{q} \gets \pos + (\vect{w} - \pos)(t' - t_a)/(t_b - t_a)$\;
+    \lIf{clearance of $\vect{q}$ to the obstacles $< r_A$}{\KwRet \KwFalse}
+    \lIf{$\norm{\vect{q} - \hat{\pos}_{T+h}} - \kappa_p\sigma(h) < R_{\mathrm{safe}}$ for $h = (t' - t)/\dt$}{\KwRet \KwFalse\label{alg:ch24-reconnect:pred}}
+    \lIf{$\norm{\vect{q} - \tilde{\pos}_j(t' - t)} < R_{\mathrm{mate}}$ for some teammate $a_j$}{\KwRet \KwFalse\label{alg:ch24-reconnect:mate}}
+  }
+  \KwRet \KwTrue\;
+}
+\end{algorithm}
+
+The search order of \cref{alg:ch24-reconnect} encodes the preferences:
+delay zero first, because a reconnection with $\Delta = 0$ returns the drone
+to its own reservation and nothing else in the world model changes; among
+equal delays the earliest waypoint first, because it minimises the time
+spent off the plan. The look-ahead $K$ bounds the work to
+$(\Delta_{\max} + 1)(K + 1)$ segment tests, each of $\bigO{n\,k}$ distance
+computations, and it also bounds the detour: a reconnection never aims more
+than $K$ steps ahead, so the segment is at most $(K + \Delta_{\max})\ell$ long.
+
+Two consequences matter for the rest of the design. A reconnection with
+$\Delta = 0$ needs no conflict re-check: the plan in force is unchanged,
+and condition (iv) has verified the segment against the teammates. A
+reconnection with $\Delta > 0$ shifts the tail of $\pi_i$ by $\Delta$ steps
+(line~\ref{alg:ch24-loop:shift} of \cref{alg:ch24-loop}), and the shifted
+reservation may now collide with a teammate that was timed to cross behind
+the drone; the executive must therefore run the re-check of
+\cref{sec:ch24-replan} after every delayed reconnection. In the worked
+scenario this is exactly what happens to drone~C at $t = 4.9$\,s: its
+reconnection with $\Delta = 1$ succeeds, and the re-check finds the conflict
+$\langle B, C, (6,2), 7 \rangle$ that the shift created.
+
+When is a reconnection ``too costly'' or ``impossible''? Impossible when
+every candidate fails line~\ref{alg:ch24-reconnect:fast} or the segment
+test, as for drone~A at $t = 9.1$\,s in the scenario, where the intruder
+flies along A's own lane and every segment back to it crosses the predicted
+tube. Too costly when only delays beyond $\Delta_{\max}$ would work, or, in a
+design that keeps a formation, when the segment would stretch a link beyond
+$R_{\mathrm{comm}}$ or leave the formation slot for longer than the mission
+tolerates (\cref{sec:ch24-constraints}). All of these end on
+line~\ref{alg:ch24-reconnect:fail}, and \cref{alg:ch24-loop} escalates to
+Replanning.
+
+% ---------------------------------------------------------------------
+\section{Replanning and the conflict re-check}
+\label{sec:ch24-replan}
+
+\paragraph{The replanning trigger.}
+The executive replans in four situations, all visible in
+\cref{tab:ch24-transitions}: the reconnection search failed; the drift
+exceeded $d_{\max}$ while Avoiding, so that the plan has lost contact with
+the drone; the drone has been Avoiding for longer than $t_{\mathrm{avoid}}$,
+which is how a deadlock of the local layer (\cref{ch:ch13}) is detected; or
+the local program was infeasible, meaning the half-planes left no velocity
+in the disc and the dense fallback of \cref{ch:ch13} is choosing the least
+bad one. A fifth trigger comes from the constraints of
+\cref{sec:ch24-constraints}. None of these fires because the plan is
+\emph{suboptimal}; a drone that is safe and connected keeps its plan even
+if a shorter one has become available, because every replan costs a re-check
+and risks a cascade (second pitfall of \cref{sec:ch24-implementation}).
+
+\paragraph{What the replanner searches.}
+The replanning layer searches the time-expanded grid of \cref{ch:ch04} from
+the space-time start $(c_0, t_{\mathrm{start}})$ of \cref{sec:ch24-world}
+to the drone's goal, with three kinds of obstacles:
+\begin{enumerate}
+  \item the \textbf{reservation table} $R$ of the teammates' \emph{current}
+  paths, in absolute grid time: every (cell, time) pair, every reversed move
+  (against swaps) and every parked goal from its arrival time on, exactly as
+  in the low level of \cbs and in prioritized planning (\cref{ch:ch09,ch:ch08});
+  \item the teammates' current cells, blocked at $t_{\mathrm{start}}$,
+  because a teammate that is itself Avoiding is not where its plan says;
+  \item the \textbf{blocked layers}\index{blocked layer} $\mathcal{B}_{t'}$
+  of the predicted intruder for $t_{\mathrm{start}} \le t' \le t + T_{\mathrm{pred}}$,
+  the cells within $R_{\mathrm{safe}} + \kappa_p\sigma(h) + \ell/2$ of the
+  predicted mean at the matching step $h$; beyond the prediction horizon the
+  intruder is unknown and nothing is blocked.
+\end{enumerate}
+A layer may be \emph{blocked} or merely \emph{expensive}. Blocking gives the
+strongest statement (the path is clear of the $p$-disc at every step) but
+can make the problem infeasible in a corridor; a high traversal cost keeps
+the search complete and lets the drone cross the tube when there is no
+alternative. The code of this chapter blocks; \cref{exr:ch24-states} asks
+for the soft version. The search itself is \dstarlite (\cref{ch:ch05}) or
+space-time \astar (\cref{ch:ch04}). \dstarlite is the natural choice when the
+layers change every cycle and the drone keeps moving: the changed cells are
+edge-cost changes, the moving start is what the key modifier $k_m$ absorbs,
+and the previous search tree is reused. The simulation of this chapter
+calls a fresh space-time \astar for every replan, because its instances have
+a few hundred states and a fresh search costs a millisecond; the interface
+(current cell, start time, reservation, blocked layers) is the same, so the
+two are interchangeable.
+
+\paragraph{Why a re-check is needed.}
+The replanned path respects the reservation table, so why check it again?
+Because the table is not the world. First, it holds \emph{plans}, and a
+teammate that is Avoiding is off its plan; its reservation protects the
+cells it will occupy once it is back, not the ones it flies through now.
+Second, two drones may replan in the same cycle, each against the other's
+\emph{old} path, and the two new paths can collide although each respected
+what it saw. Third, a delayed reconnection shifts a path without any search
+at all. The re-check therefore runs after every change of a path in force:
+the conflict detector of \cref{ch:ch07} over the padded paths of all drones
+from the current grid time on. If it finds a conflict, the executive does
+not restart the global planner. It runs a \textbf{local
+\cbs}\index{partial replanning}\index{CBS!local (partial replanning)}, also
+called partial replanning, on the two agents in conflict, from
+$t_{\mathrm{start}}$, with the paths of all other drones reserved; a
+conflict between the pair and a third drone is impossible by construction,
+and the pair's own conflicts are resolved by the constraint tree of
+\cref{ch:ch09}. \Cref{alg:ch24-replan} states the whole procedure.
+
+\begin{algorithm}[htb]
+\caption{Replanning from the current state and the conflict re-check}
+\label{alg:ch24-replan}
+\KwIn{drone $a_i$ at $\pos_i(t)$, goal $\gamma_i$, time $t$, prediction, the paths $(\pi_j, t_0^j)$ of all drones}
+\KwOut{success (paths updated) or \emph{failure}}
+\Fn{\HybridReplan{$a_i$, $t$, prediction}}{
+  $c_0 \gets$ the cell containing $\pos_i(t)$, or its nearest free neighbour; $t_{\mathrm{start}} \gets \lceil t/\Delta T + \tfrac12 \rceil$\label{alg:ch24-replan:start}\;
+  $R \gets$ reservation of $(\pi_j, t_0^j)$ for all $j \ne i$, plus the cell of every $\pos_j(t)$ at $t_{\mathrm{start}}$\label{alg:ch24-replan:res}\;
+  \ForEach{grid time $t' \ge t_{\mathrm{start}}$ with $t' \Delta T - t \le T_{\mathrm{pred}}$, step $h = (t'\Delta T - t)/\dt$}{
+    add to $R$ the layer $\mathcal{B}_{t'} = \set{v \in V : \norm{\vect{c}(v) - \hat{\pos}_{T+h}} < R_{\mathrm{safe}} + \kappa_p\sigma(h) + \ell/2}$\label{alg:ch24-replan:layers}\;
+  }
+  $\pi' \gets$ \HybridSearch{$G$, $c_0$, $\gamma_i$, $t_{\mathrm{start}}$, $R$}\tcp*{\dstarlite or space-time \astar with the goal-stay test}\label{alg:ch24-replan:search}
+  \lIf{$\pi' =$ failure}{\KwRet \emph{failure}}
+  $\pi_i \gets (c_0, \pi'[0], \pi'[1], \dots)$; $t_0^i \gets t_{\mathrm{start}} - 1$\label{alg:ch24-replan:install}\;
+  $\mathit{conflict} \gets$ \HybridDetect{$(\pi_j, t_0^j)_{j}$, from $\lfloor t/\Delta T \rfloor$}\tcp*{detector of \cref{ch:ch07}}\label{alg:ch24-replan:detect}
+  \If{$\mathit{conflict} = \langle a_i, a_j, \dots \rangle$}{
+    $R' \gets$ reservation of every drone except $a_i, a_j$\;
+    $(\pi_i, \pi_j) \gets$ \HybridCbs{starts: cells of $a_i, a_j$ at $t_{\mathrm{start}}$; goals $\gamma_i, \gamma_j$; $t_{\mathrm{start}}$; $R'$}\label{alg:ch24-replan:cbs}\;
+    \lIf{failure}{escalate: \cbs on a larger subset, or on all drones from their current cells\label{alg:ch24-replan:escalate}}
+    $t_0^i \gets t_0^j \gets t_{\mathrm{start}}$; $a_j \gets$ Reconnecting towards $\vect{c}(\pi_j[0])$ at $t_{\mathrm{start}}$\;
+  }
+  \KwRet success\;
+}
+\end{algorithm}
+
+\begin{pitfall}[Reservations without their time offsets]
+A path that starts at $t_0 = 10$ occupies its first cell at grid time $10$,
+not at time $0$. An executive that stores paths without their start times,
+or that pads a replanned path backwards to time zero when it checks for
+conflicts, sees conflicts that never happen (a drone that ``occupies''
+its current cell during the whole past) and misses those that do (a
+reservation shifted by the age of the plan). The same error appears when
+grid time and clock time drift apart, for instance after a delayed
+reconnection. Keep one clock, store $(\pi_i, t_0^i)$ together, convert
+with \cref{eq:ch24-reference} only, and run the detector from the current
+grid time, never from zero.
+\end{pitfall}
+
+% ---------------------------------------------------------------------
+\section{Formation and communication constraints during avoidance and replanning}
+\label{sec:ch24-constraints}
+
+A swarm that must keep a formation or a radio link has two more
+constraints, and the architecture handles them in three places.
+
+\paragraph{In the preferred velocity.}
+In the Nominal and Reconnecting states the executive adds to
+\cref{eq:ch24-vpref} the displacement-based formation correction of
+\cref{ch:ch23}: for a follower $a_i$ with leader $a_\ell$ and desired
+displacement $\vect{d}_{\ell i}$,
+\begin{equation}
+  \vel^{\mathrm{pref}}_i \;\gets\; \vel^{\mathrm{pref}}_i + k_F\bigl(\pos_\ell + \vect{d}_{\ell i} - \pos_i\bigr),
+  \label{eq:ch24-formation}
+\end{equation}
+which is one term of the consensus protocol on the shifted positions
+$\pos_i - \vect{o}_i$; the general form sums over the formation
+neighbours. The communication range enters as a soft barrier that acts
+before the link breaks: if the nearest teammate $a_j$ is farther than an
+activation length $\ell_{\mathrm{act}} < R_{\mathrm{comm}}$,
+\begin{equation}
+  \vel^{\mathrm{pref}}_i \;\gets\; \vel^{\mathrm{pref}}_i + \frac{\pos_j - \pos_i}{\norm{\pos_j - \pos_i}}\bigl(\norm{\pos_j - \pos_i} - \ell_{\mathrm{act}}\bigr),
+  \label{eq:ch24-comm}
+\end{equation}
+and the result is clipped to $v_{\max}$. Both terms are inputs to the local
+layer, not overrides of it: \orca may still change the velocity, and when it
+does, safety wins.
+
+\paragraph{What is relaxed while Avoiding, and restored while Reconnecting.}
+Separation from the intruder has priority over the shape of the swarm. In
+the Avoiding state the executive drops the formation term
+\cref{eq:ch24-formation}: keeping the slot would pull the drone back into the
+conflict it is leaving, and it would also drag the whole formation after a
+single avoiding drone through the followers' corrections. The range term
+\cref{eq:ch24-comm} stays, because a broken link is a mission failure rather
+than a shape error, and it is soft enough not to fight the half-planes. The
+teammates that are not avoiding keep their formation terms and therefore
+move to accommodate the one that is, as \cref{ch:ch23} describes. When the
+drone enters Reconnecting the formation gain returns, in the code at once,
+in a smoother design ramped over a second, and the formation error $e_F$ of
+\cref{ch:ch23} decays with the consensus rate. With the MPC tracker of
+\cref{ch:ch21} the same policy is expressed in the constraint rows: the
+formation slot and the range are soft constraints with slacks, the slack
+weight of the formation is set to zero while Avoiding and restored while
+Reconnecting, and the range constraint is kept hard whenever the program
+stays feasible. The recovery time of $e_F$ after the intruder has passed is
+one of the metrics of \cref{ch:ch25}.
+
+\paragraph{In the replanning trigger and the re-check.}
+A reconnection or a replanned path is a single-drone decision, and it can
+be admissible in every geometric sense and still break the swarm: the
+straight segment of \cref{alg:ch24-reconnect} may take the drone beyond
+$R_{\mathrm{comm}}$ of every teammate, and a replanned path may keep it
+there for ten steps. The executive therefore adds a constraint test to both:
+over the horizon of the prediction, for every grid time $t'$, the padded
+paths must keep at least one link of every drone shorter than
+$R_{\mathrm{comm}}$ (or, for a formation, keep the formation graph
+connected), and the formation error of the planned positions must return
+below its tolerance $e_{\max}$ within the recovery time. A candidate that
+fails the test counts as ``violates the constraints'' in the training
+plan's rule (iv): the reconnection is rejected and the drone replans; a
+replanned path that fails it is rejected and the executive escalates to
+line~\ref{alg:ch24-replan:escalate} of \cref{alg:ch24-replan} with the
+formation planned as a group, for instance as the virtual leader of
+\cref{ch:ch23} whose footprint is the formation's. In the worked scenario
+the range is monitored only: the longest link between a drone and its
+nearest teammate over the run is $7.33$\,m, below $\ell_{\mathrm{act}} = 7.5$\,m,
+so \cref{eq:ch24-comm} never acts and the communication graph stays
+connected throughout.
+
+% ---------------------------------------------------------------------
+\section{Prediction-aware constraints with uncertainty}
+\label{sec:ch24-uncertainty}
+
+Every decision above uses the prediction through one number, the inflation
+$\kappa_p\,\sigma(h)$. This section says where it comes from and what it
+guarantees.
+
+\paragraph{From a covariance to a radius.}
+The prediction layer delivers, at step $h$, a Gaussian
+$\Normal(\hat{\pos}_{T+h}, \mat{\Sigma}_h)$ for the intruder's position
+(\cref{ch:ch18,ch:ch20}). The set of positions within Mahalanobis distance
+$\kappa$ of the mean is the ellipse $\mathcal{E}_h(\kappa)$ of \cref{ch:ch02},
+and in two dimensions the probability mass inside it is
+$1 - e^{-\kappa^2/2}$, because the squared Mahalanobis distance of a
+two-dimensional Gaussian is exponentially distributed with mean $2$. Hence
+the ellipse of confidence $p$ has
+\begin{equation}
+  \kappa_p = \sqrt{-2\ln(1 - p)},\qquad \kappa_{0.95} = 2.45,\quad \kappa_{0.99} = 3.03.
+  \label{eq:ch24-kappa}
+\end{equation}
+The disc of radius $\kappa_p\sigma(h)$, with $\sigma(h) = \sqrt{\lambda_{\max}(\mat{\Sigma}_h)}$,
+contains this ellipse (\cref{ch:ch02}: the semi-axes are
+$\kappa_p\sqrt{\lambda_i}$), so the intruder's centre lies inside it with
+probability at least $p$, and the \textbf{inflated safety
+radius}\index{inflated radius}\index{prediction!uncertainty inflation}
+\begin{equation}
+  d^{\mathrm{safe}}_h = R_{\mathrm{safe}} + \kappa_p\,\sigma(h) = r_A + r_B + \Delta r + \kappa_p\sqrt{\lambda_{\max}(\mat{\Sigma}_h)}
+  \label{eq:ch24-inflated}
+\end{equation}
+is the distance from the predicted mean at which the drone's disc is clear
+of the intruder's disc with probability at least $p$. This is the formula
+of \cref{ch:ch20}, where the factor is written $k_p$. The chapter's code
+uses $p = 0.95$.
+
+\paragraph{The chance-constraint reading.}
+Requiring $\norm{\pos_A - \hat{\pos}_{T+h}} \ge d^{\mathrm{safe}}_h$ is a
+conservative version of the \textbf{chance constraint}\index{chance
+constraint} $\Prob(\norm{\pos_A - \pos_B} \ge R_{\mathrm{safe}}) \ge p$ of
+\textcite{zhu2019chance}, which \cref{ch:ch21} imposes in its linear form
+with the standard deviation taken along the normal of the half-plane and the
+one-dimensional factor $\kappa_\delta = 1.64$ for $\delta = 0.05$. The disc
+form is what the trigger and the replanner need, because neither has a
+normal direction to project on; it costs a factor $2.45/1.64$ in radius and
+guarantees the same probability. In both forms the guarantee is per step
+and per obstacle: over $H$ steps and $n$ intruders the risk adds up to at
+most $H n (1 - p)$, which is why $p$ is chosen close to one and why the
+safety horizon is short.
+
+\paragraph{Three consumers.}
+The same sequence of discs is read three ways. The trigger and the local
+layer use one disc: \cref{alg:ch24-trigger} inflates at every look-ahead,
+and once the trigger has fired the \orca half-plane of the intruder is built
+with the radius $r_B + \Delta r + \kappa_p\sigma(h_c)$ at the step $h_c$ of
+the predicted collision, with full responsibility because the intruder does
+not reciprocate (\cref{ch:ch13}). The replanner uses one layer of cells per
+grid time, \cref{alg:ch24-replan} line~\ref{alg:ch24-replan:layers}; in the
+worked scenario the replan of drone~A at $t = 9.1$\,s blocks $72$ cells over
+five layers, nine of them in the first. The MPC tracker of \cref{ch:ch21}
+uses one half-plane per step with the inflated radius. A predictor that
+reports a wrong covariance corrupts all three: the LSTM of \cref{ch:ch20}
+covered $54\,\%$ instead of $95\,\%$ at $2.4$\,s before calibration, and an
+over-confident predictor makes the trigger fire late, the layers too thin
+and the MPC margin too small. Calibrate the ellipses per horizon on
+validation data before they enter this chapter.
+
+\paragraph{Particles instead of ellipses.}
+When the prediction is a set of $N$ weighted trajectories, from the
+particle filter of \cref{ch:ch19} or from a multimodal predictor of
+\cref{ch:ch20}, the disc is replaced by a count. The trigger fires at
+look-ahead $s$ when the total weight of the particles $\pos^{(n)}_h$ with
+$\norm{\tilde{\pos}_i(s) - \pos^{(n)}_h} < R_{\mathrm{safe}}$ exceeds
+$1 - p$; a cell enters the layer $\mathcal{B}_{t'}$ when the weight of the
+particles within $R_{\mathrm{safe}} + \ell/2$ of its centre exceeds the same
+threshold; and the \orca disc is built around the mode that threatens the
+drone, with a radius that covers its particles. This handles an intruder
+that may pass on either side of a building without inflating one ellipse
+over the whole block, at a cost linear in $N$ per test.
+\Cref{exr:ch24-particles} works this out.
+
+\paragraph{How fast the inflation grows.}
+For the constant-velocity Kalman model with white-noise acceleration
+(\cref{ch:ch18}), the position variance of an extrapolation grows with the
+cube of the look-ahead, so $\sigma(h)$ grows like $s^{3/2}$. In the
+scenario the tracker reports $\sigma = 0.06, 0.14, 0.24, 0.35$\,m at
+$s = 0, 1, 2, 3$\,s, hence an inflation of $0.86$\,m at the horizon, larger
+than $R_{\mathrm{safe}}$ itself. The uncertainty, not the geometry, decides
+the trigger at the horizon, and a longer horizon with a constant-velocity
+prediction would mostly add false alarms; a learned predictor with a
+calibrated, slower-growing covariance is what a longer horizon buys, which
+is one of the research directions of \cref{sec:ch24-research}.

@@ -488,6 +488,11 @@ def worked_example(verbose=True):
     sigma = np.array([[2.0, 1.2], [1.2, 1.0]])
     a, b, angle, _ = covariance_ellipse(sigma)
     out["ellipse"] = (a, b, math.degrees(angle))
+    # worst-case lattice stretch factors quoted in Table 2.1
+    out["stretch2"] = lattice_stretch(2)
+    out["stretch3"] = lattice_stretch(3)
+    out["stretch2_straight"] = lattice_stretch(2, diagonals=False)
+    out["stretch3_straight"] = lattice_stretch(3, diagonals=False)
     if verbose:
         print("Worked example of Chapter 2")
         for key, val in out.items():
@@ -531,6 +536,8 @@ def _self_test():
     assert len(g.inflate(1.0).obstacles) == 9      # 3 x 3 block
     assert len(g.inflate(1.6).obstacles) == 21     # block plus a ring of 12
     assert (0, 3) not in g.inflate(1.6).obstacles and (1, 3) in g.inflate(1.6).obstacles
+    two = Grid(6, 5, obstacles=[(2, 2), (3, 2)])   # the obstacle of Figure 2.2(c)
+    assert len(two.inflate(1.5).obstacles) == 18   # the 2 cells plus 16 more
     assert g.inflate(1.0).connectivity == 4 and len(g.obstacles) == 1  # original untouched
 
     # --- edge counts and stretch factors ------------------------------
