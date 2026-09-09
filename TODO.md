@@ -86,10 +86,10 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 ## Phase 3 — Reference code and figure generators
 
-- [ ] 3.1 Python reference implementations for every algorithm family (`Overleaf/code/`), each with a passing self-test
-- [ ] 3.2 Figure/data generators (`Overleaf/code/figures/`) reproducible from fixed seeds; outputs committed
-- [ ] 3.3 A single script `Overleaf/code/run_all.py` that runs all self-tests
-- [ ] 3.4 Every listing in the book is an excerpt of a file that runs
+- [x] 3.1 Python reference implementations for every algorithm family (`Overleaf/code/`), each with a passing self-test — 25 chapter files + optional PyTorch model; all self-tests pass (code/run_all.py)
+- [x] 3.2 Figure/data generators (`Overleaf/code/figures/`) reproducible from fixed seeds; outputs committed — 30+ generator scripts in code/figures/, outputs committed
+- [x] 3.3 A single script `Overleaf/code/run_all.py` that runs all self-tests — code/run_all.py (25 pass, 1 optional skip)
+- [~] 3.4 Every listing in the book is an excerpt of a file that runs — reviewers checked listings against the code per chapter; final spot-check in 6.4
 
 ## Phase 4 — Back matter
 
@@ -143,7 +143,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 ## Phase 7 — Copyediting and typesetting
 
 - [ ] 7.1 Spelling and grammar pass (American English), consistent hyphenation and capitalisation of algorithm names
-- [ ] 7.2 Typesetting: overfull/underfull boxes, widows/orphans, float placement, figure sizes, table widths, listing lengths
+- [~] 7.2 Typesetting: overfull/underfull boxes, widows/orphans, float placement, figure sizes, table widths, listing lengths — full build has only 7 overfull boxes > 15 pt (docs/overfull.md); fix in the copyedit pass
 - [ ] 7.3 Captions, labels and cross-references: no `??`, every float referenced
 - [x] 7.4 Hyperlinks, bookmarks and PDF metadata (title, author, subject) — pdfusetitle + subject/keywords set in main.tex; bookmarks on
 - [ ] 7.5 Front matter finalised (TOC depth, list of algorithms, preface date)
