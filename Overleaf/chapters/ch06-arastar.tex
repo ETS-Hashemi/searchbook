@@ -1,4 +1,563 @@
-\chapter{Anytime Search: AR\astar}
+\chapter{Anytime Search: \arastar}
 \label{ch:ch06}
-% Placeholder: this chapter is written in Phase 2 of TODO.md.
-\emph{This chapter is not written yet.}
+% Function names for pseudocode are prefixed with "Ara" to stay unique
+% across the book.
+\SetKwFunction{AraImprovePath}{ImprovePath}
+\SetKwFunction{AraMain}{ARAStar}
+\SetKwFunction{AraKey}{fvalue}
+\SetKwFunction{AraPublish}{Publish}
+\SetKwFunction{AraPath}{PointerPath}
+
+\begin{objectives}
+\begin{itemize}
+  \item Explain what an \emph{anytime} planner delivers, and why a drone that must replan within a deadline needs one rather than an optimal planner that may finish late.
+  \item Trace \arastar by hand: the inflated key $\gcost + \eps\,\hcost$, the lists \Open, \Closed and \textsc{Incons}, the termination test of \AraImprovePath and the bookkeeping between two iterations.
+  \item State the $\eps$-suboptimality theorem, follow its proof sketch, and compute the sharper certificate $\eps'$ from the search lists.
+  \item Choose an $\eps$ schedule and predict its effect on the time to the first path, the number of published improvements and the total work, using the experiment of this chapter.
+  \item Implement \arastar in \python as a generator that publishes every improved path together with its bound, and plot cost against computation time.
+  \item Recognise the three classic mistakes: treating the inflated key as consistent, forgetting \textsc{Incons}, and decreasing $\eps$ too fast.
+\end{itemize}
+\end{objectives}
+
+% ---------------------------------------------------------------------
+\section{Why this matters for a drone swarm}
+\label{sec:ch06-motivation}
+
+A drone of the swarm in \cref{ch:ch24} is flying the path that the global
+planner (\cbs or \ecbs, \cref{ch:ch09,ch:ch10}) assigned to it when an
+unknown quadrotor crosses its route. The local layer (\orca or DWA,
+\cref{ch:ch13,ch:ch14}) swerves, and after two seconds the drone is three
+cells off its nominal path with the intruder still between it and the next
+waypoint. The replanning layer must now produce a new global path from the
+current cell, and it has one control cycle to do it, say $50$~ms on a flight
+computer that is also running the tracker of \cref{ch:ch18} and the attitude
+controller. \dstarlite (\cref{ch:ch05}) repairs the previous search quickly
+when the map changed a little and the drone moved a little; after an evasive
+manoeuvre both changes are large, and a repair can cost as much as a fresh
+search. Plain \astar (\cref{ch:ch04}) returns an optimal path, but it returns
+nothing at all until it has finished, and on a $60 \times 60$ grid with a third
+of the cells blocked it expands about $1\,180$ cells before it does
+(\cref{sec:ch06-experiment}). If the cycle ends first, the drone has no path.
+
+What the drone needs is a \emph{safe path now and a better one when time
+permits}. Weighted \astar with $w = 3$ delivers a path after about $215$
+expansions on the same grids, on average $8\,\%$ longer than optimal, which is
+a perfectly good path to start flying. The question this chapter answers is
+how to keep improving that path in the remaining time \emph{without throwing
+the first search away}, and how to know, at every moment, how far from optimal
+the current path can be. \arastar\index{ARA*} (Anytime Repairing \astar,
+Likhachev, Gordon and Thrun~\cite{likhachev2003ara}) does both: it runs
+weighted \astar once with a large weight, then lowers the weight step by step
+and repairs the search instead of restarting it, and after every step it
+publishes the current path together with a certificate $\eps'$ such that the
+path costs at most $\eps'$ times the optimum. In the study plan
+(\cref{ch:appA}) it is the optional second half of Week~2, next to \dstarlite:
+one planner repairs the search when the \emph{map} changes, the other when the
+\emph{time budget} changes.
+
+The chapter proceeds as follows. \Cref{sec:ch06-intuition} explains the anytime
+idea and why restarting weighted \astar wastes work, \cref{sec:ch06-problem}
+fixes the notation, and \cref{sec:ch06-algorithm} gives the pseudocode with a
+line-by-line walkthrough. \Cref{sec:ch06-example} runs three iterations by hand
+on an $8 \times 6$ grid, \cref{sec:ch06-properties} proves the suboptimality
+guarantee and the sharper bound $\eps'$, and \cref{sec:ch06-schedule} studies
+the choice of the $\eps$ schedule with an experiment on random grids.
+\Cref{sec:ch06-variants} introduces Anytime \dstar, the combination of \arastar
+with \dstarlite, \cref{sec:ch06-implementation} discusses the implementation
+and its pitfalls, and \cref{sec:ch06-drone} places the algorithm in the drone
+system.
+
+% ---------------------------------------------------------------------
+\section{The idea in plain words}
+\label{sec:ch06-intuition}
+
+\subsection{A path now, a better path later}
+
+An \textbf{anytime algorithm}\index{anytime algorithm} is one that can be
+interrupted at any moment and still returns a useful answer: a first, possibly
+poor, solution appears quickly, the solution improves while the algorithm keeps
+running, and when it is stopped the best solution found so far is handed back.
+For a planner two more things are wanted. The improvements should not be
+random luck but should come with a \emph{quality certificate}, a number
+$\eps'$ with the meaning ``this path costs at most $\eps'$ times the optimal
+cost''; and the improvements should be cheap, so that the sequence of paths
+costs little more in total than a single optimal search would have. The left
+panel of \cref{fig:ch06-idea} shows the resulting picture: the cost of the best
+available path decreases in steps, one step per published solution, and a
+deadline that falls anywhere on the time axis finds a path ready.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch06/idea}
+  \caption{Left: an anytime planner publishes a first path early and better
+  paths later; a deadline that arrives between two publications finds the last
+  published path ready, together with its certificate $\eps'$. Right: the three
+  lists of \arastar. States wait in \Open, are expanded once per iteration into
+  \Closed, and go to \textsc{Incons} if a cheaper way to them turns up after
+  they were expanded; when $\eps$ decreases, \textsc{Incons} and \Open are
+  merged, their keys are recomputed and \Closed is emptied.}
+  \label{fig:ch06-idea}
+\end{figure}
+
+\subsection{Weighted \astar, and why restarting it wastes work}
+\label{sec:ch06-restart}
+
+Recall from \cref{ch:ch04} that weighted \astar\index{weighted A*} is \astar
+with the key $\gcost(n) + w\,\hcost(n)$ for a weight $w \ge 1$
+\cite{pohl1970heuristic}. The weight makes the search greedy: cells that look
+close to the goal are expanded first, the frontier stops sweeping the whole
+band $\fcost \le C^*$ and dives towards the goal instead, and the search ends
+after far fewer expansions. The price is bounded: with an admissible heuristic
+the returned path costs at most $w \cdot C^*$, and in practice much less. On
+the random grids of \cref{ch:ch04}, $w = 2$ cut the effort by a factor of
+about ten while lengthening the paths by $6$--$12\,\%$.
+
+The obvious anytime planner is therefore: run weighted \astar with $w = 3$,
+publish the path, run it again with $w = 2$, publish, run it again with
+$w = 1$, publish the optimal path. \Cref{sec:ch06-experiment} measures this
+\textbf{restarted weighted \astar}\index{weighted A*!restarted} on random
+$60 \times 60$ grids with the schedule $w = 3, 2.5, 2, 1.75, 1.5, 1.25, 1.1,
+1$: it expands $3\,963$ cells in total, $3.4$ times as many as a single optimal
+\astar, because every run starts from nothing and expands again most of the
+cells that the previous run had already settled. Two kinds of work are
+repeated. First, the $\gcost$-values are thrown away, although every one of
+them is the cost of a real path and remains a valid upper bound. Second, most
+of the states that the previous run expanded were expanded with a $\gcost$
+that later runs never improve, so expanding them again produces nothing new.
+
+\subsection{What can be reused}
+
+\arastar keeps three things between runs: the $\gcost$-values with their
+parent pointers, the frontier \Open, and a third list \textsc{Incons}
+(\cref{fig:ch06-idea}, right). The key observation is that after a search only
+the \emph{inconsistent} states matter: a state whose $\gcost$-value has been
+lowered since it was last expanded, or that has never been expanded at all.
+Expanding a consistent state again would relax the same edges with the same
+value and change nothing. The inconsistent states are exactly the states in
+\Open plus those that were improved \emph{after} they were expanded; weighted
+\astar with re-opening would put the latter back into \Open at once, \arastar
+records them in \textsc{Incons} and postpones their re-expansion to the next
+iteration. So the next iteration starts from $\Open \cup \textsc{Incons}$ with
+keys recomputed for the smaller $\eps$, and everything else, every consistent
+state, keeps its value and costs nothing.
+
+\begin{keyidea}
+\arastar is weighted \astar with a decreasing weight $\eps$ that never
+restarts. Each state is expanded at most once per iteration; a state improved
+after its expansion goes to \textsc{Incons} instead of being re-expanded. When
+$\eps$ decreases, \Open and \textsc{Incons} are merged and re-keyed, \Closed is
+emptied, and the search continues from where it stopped. Every published path
+costs at most $\eps' C^*$ with $\eps' = \min\bigl(\eps,\ \gcost(\gamma) /
+\min_{n \in \Open \cup \textsc{Incons}} (\gcost(n) + \hcost(n))\bigr)$.
+\end{keyidea}
+
+% ---------------------------------------------------------------------
+\section{Problem statement and notation}
+\label{sec:ch06-problem}
+
+We use the notation of \cref{ch:ch04}: a finite directed graph $G = (V, E)$
+with edge costs $c(n, n') \ge 0$, a start $s$, a goal $\gamma$, the successor
+function $\Succ(n)$, the cost $\gcost^*(n)$ of a cheapest path from $s$ to $n$,
+the cost $\hcost^*(n)$ of a cheapest path from $n$ to $\gamma$, the optimal
+solution cost $C^* = \gcost^*(\gamma) = \hcost^*(s)$, and a heuristic
+$\hcost \colon V \to \R_{\ge 0}$ that is \textbf{consistent}: $\hcost(\gamma) =
+0$ and $\hcost(n) \le c(n, n') + \hcost(n')$ on every edge. Consistency is
+assumed throughout the chapter; \cref{sec:ch06-properties} shows where it is
+used and \cref{exr:ch06-proof} what breaks without it. During the search,
+$\gcost(n)$ is the cost of the best path from $s$ to $n$ found so far
+($\infty$ if none), with a parent pointer $\mathrm{parent}(n)$ that records
+the predecessor on that path. On grids the nodes are cells $(x, y)$, and the
+worked example uses an 8-connected grid with move costs $1$ and $\sqrt{2}$, the
+corner-cutting rule of \cref{ch:ch02} and the octile distance of
+\cref{ch:ch04} as $\hcost$.
+
+\begin{definition}[Anytime search with certificates]
+\label{def:ch06-anytime}
+Given a heuristic search problem and a \textbf{schedule}\index{ARA*!epsilon schedule@$\eps$ schedule} of inflation factors
+$\eps_1 > \eps_2 > \dots > \eps_K = 1$, an anytime planner with certificates
+outputs a sequence of solution paths $P_1, P_2, \dots, P_K$ together with
+numbers $\eps'_1, \eps'_2, \dots, \eps'_K$ such that $\cost(P_k) \le \eps'_k
+\cdot C^*$ for every $k$ and $\eps'_K = 1$. The planner may be interrupted
+after any $P_k$; the last published pair $(P_k, \eps'_k)$ is its answer.
+\end{definition}
+
+\begin{definition}[Inflated key]
+\label{def:ch06-key}
+For an inflation factor $\eps \ge 1$ the \textbf{inflated
+key}\index{ARA*!inflated key} of a state is
+\begin{equation}
+  \fcost_\eps(n) = \gcost(n) + \eps\,\hcost(n).
+  \label{eq:ch06-key}
+\end{equation}
+For $\eps = 1$ it is the $\fcost$ of \astar; for $\eps > 1$ it is the key of
+weighted \astar with $w = \eps$. In \arastar the value of $\eps$ changes between
+iterations, so $\fcost_\eps$ of a state in \Open must be recomputed whenever
+$\eps$ does.
+\end{definition}
+
+\begin{definition}[Consistent and inconsistent states]
+\label{def:ch06-inconsistent}
+Let $v(n)$ denote the value that $\gcost(n)$ had when $n$ was expanded for the
+last time, and $v(n) = \infty$ if $n$ has never been expanded. A state $n$ with
+$\gcost(n) < \infty$ is \textbf{consistent} if $v(n) = \gcost(n)$ and
+\textbf{inconsistent}\index{inconsistent state} if $v(n) > \gcost(n)$, that is,
+if a cheaper path to $n$ has been found since its last expansion, or it has
+never been expanded. (Since $\gcost$ only decreases, $v(n) < \gcost(n)$ never
+happens.) \arastar keeps the inconsistent states in two lists:
+\Open\index{open set} holds those that may still be expanded in the current
+iteration, and \textsc{Incons}\index{ARA*!INCONS list} holds those that were
+already expanded in the current iteration. Together, $\Open \cup
+\textsc{Incons}$ is exactly the set of inconsistent states.
+\end{definition}
+
+The word \emph{inconsistent} is used here in the sense of \lpastar and
+\dstarlite (\cref{ch:ch05}), where a vertex is inconsistent when its stored
+$\gcost$ disagrees with the value its predecessors would give it. It is a
+different notion from a consistent \emph{heuristic}; the two meet in
+\cref{sec:ch06-implementation}, where inflating a consistent heuristic is what
+makes states inconsistent.
+
+\begin{definition}[Lower bound and certificate]
+\label{def:ch06-certificate}
+When an iteration of \arastar ends, let
+\begin{equation}
+  L = \min_{n \in \Open \cup \textsc{Incons}} \bigl(\gcost(n) + \hcost(n)\bigr)
+  \label{eq:ch06-lower}
+\end{equation}
+($L = \infty$ if both lists are empty) and define the
+\textbf{certificate}\index{ARA*!suboptimality certificate}
+\begin{equation}
+  \eps' = \min\Bigl(\eps,\ \frac{\gcost(\gamma)}{L}\Bigr).
+  \label{eq:ch06-certificate}
+\end{equation}
+\end{definition}
+
+\Cref{sec:ch06-properties} shows that $L \le C^*$ unless the current path is
+already optimal, so $\eps'$ is a valid bound: the published path costs at most
+$\eps' C^*$. In the worked example $\eps'$ is $1.65$ after the first iteration
+although $\eps = 3$, and on the random grids of \cref{sec:ch06-experiment} it
+is $1.41$ for $\eps = 3$. The certificate is what the drone's executive reads;
+the inflation factor is only what the search was asked for.
+
+% ---------------------------------------------------------------------
+\section{The algorithm}
+\label{sec:ch06-algorithm}
+
+\arastar consists of an inner loop \AraImprovePath, which is weighted \astar
+without re-expansions (\cref{alg:ch06-improvepath}), and an outer loop
+\AraMain, which runs through the schedule, does the bookkeeping between two
+values of $\eps$ and publishes the paths (\cref{alg:ch06-main}). The
+pseudocode follows Likhachev, Gordon and Thrun~\cite{likhachev2003ara}, with
+parent pointers added so that the path can be read off.
+
+\begin{algorithm}[htb]
+\caption{\arastar, inner loop: weighted \astar without re-expansions}
+\label{alg:ch06-improvepath}
+\KwIn{graph $G$, goal $\gamma$, consistent heuristic $\hcost$, current $\eps$; the global tables $\gcost$, parent and the lists \Open, \Closed, \textsc{Incons}}
+\KwOut{on return, $\gcost(\gamma) \le \eps\,C^*$ and the parent pointers from $\gamma$ give an $\eps$-suboptimal path}
+\Fn{\AraKey{$n$}}{\KwRet $\gcost(n) + \eps\,\hcost(n)$\;}
+\Fn{\AraImprovePath{}}{
+  \While{$\AraKey{$\gamma$} > \min_{n \in \text{\Open}} \AraKey{$n$}$}{\label{alg:ch06-improvepath:while}
+    $n \gets$ remove the state with the smallest \AraKey from \Open\label{alg:ch06-improvepath:pop}\;
+    add $n$ to \Closed\label{alg:ch06-improvepath:close}\;
+    \ForEach{$(n', c(n, n')) \in \Succ(n)$}{
+      \If{$\gcost(n) + c(n, n') < \gcost(n')$}{\label{alg:ch06-improvepath:relax}
+        $\gcost(n') \gets \gcost(n) + c(n, n')$; $\mathrm{parent}(n') \gets n$\;
+        \If{$n' \notin$ \Closed}{insert $n'$ into \Open with key \AraKey{$n'$}, or update its key\label{alg:ch06-improvepath:open}}
+        \Else{insert $n'$ into \textsc{Incons}\tcp*{improved after its expansion: no re-expansion now}\label{alg:ch06-improvepath:incons}}
+      }
+    }
+  }
+}
+\end{algorithm}
+
+\begin{algorithm}[htb]
+\caption{\arastar, outer loop: the schedule, the bookkeeping and the certificates}
+\label{alg:ch06-main}
+\KwIn{graph $G$, start $s$, goal $\gamma$, consistent heuristic $\hcost$, schedule $\eps_1 > \dots > \eps_K = 1$}
+\KwOut{one path with certificate per iteration; the last one is optimal}
+\Fn{\AraMain{$G$, $s$, $\gamma$, $\hcost$, $(\eps_1, \dots, \eps_K)$}}{
+  $\gcost(n) \gets \infty$ for all $n$; $\gcost(s) \gets 0$; parent$(s) \gets$ \KwNil\label{alg:ch06-main:init}\;
+  \Open $\gets \emptyset$; \Closed $\gets \emptyset$; \textsc{Incons} $\gets \emptyset$; $\eps \gets \eps_1$\;
+  insert $s$ into \Open with key \AraKey{$s$}\;
+  \For{$k \gets 1$ \KwTo $K$}{
+    \If{$k > 1$}{
+      $\eps \gets \eps_k$\label{alg:ch06-main:decrease}\;
+      move all states of \textsc{Incons} into \Open\label{alg:ch06-main:merge}\;
+      recompute the key \AraKey{$n$} of every $n \in$ \Open\label{alg:ch06-main:rekey}\;
+      \Closed $\gets \emptyset$\label{alg:ch06-main:clear}\;
+    }
+    \AraImprovePath{}\label{alg:ch06-main:improve}\;
+    \If{$\gcost(\gamma) = \infty$}{\KwRet \emph{failure}\tcp*{no path exists; \Open ran empty}\label{alg:ch06-main:fail}}
+    $L \gets \min_{n \in \text{\Open} \cup \textsc{Incons}} \bigl(\gcost(n) + \hcost(n)\bigr)$;\quad $\eps' \gets \min\bigl(\eps,\ \gcost(\gamma) / L\bigr)$\label{alg:ch06-main:bound}\;
+    \AraPublish{\AraPath{parent, $\gamma$}, $\eps'$}\label{alg:ch06-main:publish}\;
+    \If{$\eps' \le 1$}{\KwRet\tcp*{the published path is optimal; the rest of the schedule is unnecessary}\label{alg:ch06-main:stop}}
+  }
+}
+\end{algorithm}
+
+\paragraph{Walkthrough of \AraImprovePath.}
+The loop condition on line~\ref{alg:ch06-improvepath:while} replaces the goal
+test of \astar. \astar stops when it \emph{pops} the goal; \AraImprovePath
+stops as soon as the goal's key is no larger than the smallest key in \Open,
+which is the moment at which \astar would pop it. The difference is that the
+goal is never removed from \Open: it stays there with its key, so that the next
+iteration, with a smaller $\eps$, can test it again. A consequence worth
+remembering is that $\gamma$ is never expanded, and once it has a finite
+$\gcost$ it is always in \Open. Line~\ref{alg:ch06-improvepath:pop} pops the
+best state and line~\ref{alg:ch06-improvepath:close} closes it; a closed state
+is not popped again in this iteration. The relaxation on
+line~\ref{alg:ch06-improvepath:relax} is that of Dijkstra's algorithm and
+\astar: a strictly cheaper path to $n'$ updates $\gcost(n')$ and the parent
+pointer, \emph{whatever list $n'$ is in}. The improvement is always recorded;
+what depends on the list is what happens next. If $n'$ is not closed it goes
+into \Open (line~\ref{alg:ch06-improvepath:open}) with a fresh key, or its key
+is updated if it is there already. If $n'$ is closed
+(line~\ref{alg:ch06-improvepath:incons}), \astar with re-opening would put it
+back into \Open and expand it a second time; \arastar puts it into
+\textsc{Incons} instead. Its successors keep their old, larger $\gcost$-values
+for the rest of this iteration, which is exactly what makes the guarantee of
+this iteration $\eps$-suboptimal rather than optimal, and what makes each
+iteration cheap. \Cref{fig:ch06-incons} shows the situation in which
+line~\ref{alg:ch06-improvepath:incons} fires in the worked example.
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch06/incons}
+  \caption{How inflation creates an inconsistent state (cells of
+  \cref{ex:ch06-grid}, first iteration, $\eps = 3$). The cell $(3,3)$ can be
+  reached from $(1,3)$ by two diagonal moves through $(2,2)$ (blue, cost
+  $1 + 2\sqrt{2} = 3.83$) or by two straight moves through $(2,3)$ (orange,
+  cost $3$). With $\eps = 3$ the diagonal neighbour has the smaller key
+  ($17.41 < 18.24$), because it is closer to the goal in $\hcost$, so
+  $(2,2)$ is expanded in step~3 and $(3,3)$ receives $\gcost = 3.83$ and is
+  expanded in step~9. Only in step~12 is $(2,3)$ expanded and the cheaper way
+  found: $(3,3)$ is closed, so its value is corrected to $3.00$ and it is moved
+  to \textsc{Incons} (hatched) rather than expanded again. With $\eps = 1$ both
+  neighbours would have the key $7.41$ and the cheap way would be found in
+  time.}
+  \label{fig:ch06-incons}
+\end{figure}
+
+\paragraph{Walkthrough of \AraMain.}
+Lines~\ref{alg:ch06-main:init}--\ref{alg:ch06-main:improve} of the first pass
+are weighted \astar with $w = \eps_1$ without re-opening, so the first
+published path is exactly the path that weighted \astar would return, after
+the same number of expansions. Between iterations four things happen
+(lines~\ref{alg:ch06-main:decrease}--\ref{alg:ch06-main:clear}): $\eps$ is
+decreased; the states of \textsc{Incons}, whose improvements have not yet been
+propagated, are merged into \Open; the keys of all states in \Open are
+recomputed for the new $\eps$, since a smaller $\eps$ changes the order of the
+queue; and \Closed is emptied, so that every state may be expanded once more.
+Nothing else is touched: the $\gcost$-values and parent pointers of all
+states, including the goal, survive. The certificate on
+line~\ref{alg:ch06-main:bound} is computed from the lists at the end of the
+iteration and published with the path on line~\ref{alg:ch06-main:publish}.
+Line~\ref{alg:ch06-main:stop} is an early exit: if the certificate already
+says $1$, the rest of the schedule cannot improve anything, which happens
+regularly in practice (\cref{sec:ch06-schedule}). If no path exists, the
+first call of \AraImprovePath empties \Open, the loop condition
+$\infty > \infty$ is false, and line~\ref{alg:ch06-main:fail} reports the
+failure.
+
+\paragraph{The published path.}
+\AraPath follows the parent pointers back from $\gamma$ to $s$. This path may
+be \emph{cheaper} than $\gcost(\gamma)$ says: when a state on it was improved
+and sent to \textsc{Incons}, its parent pointer changed but the
+$\gcost$-values of its descendants, including $\gcost(\gamma)$, were not
+updated. The pointer path is always a valid path of cost at most
+$\gcost(\gamma)$ (\cref{thm:ch06-pointer}), so publishing it can only help;
+the certificate is still computed from $\gcost(\gamma)$, which is the quantity
+the theorem bounds. \Cref{tab:ch06-differences} summarises how one call of
+\AraImprovePath differs from the \astar of \cref{ch:ch04}.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{One call of \AraImprovePath compared with the graph-search \astar
+  of \cref{ch:ch04}. The middle row is the defining difference; the others
+  follow from it.}
+  \label{tab:ch06-differences}
+  \begin{tabular}{@{}lL{5.2cm}L{5.4cm}@{}}
+  \toprule
+  & \astar (\cref{ch:ch04}) & \AraImprovePath (\cref{alg:ch06-improvepath})\\
+  \midrule
+  Key of \Open & $\gcost + \hcost$ & $\gcost + \eps\,\hcost$, recomputed when $\eps$ changes\\
+  Cheaper path to a closed state & re-open it and expand it again & record it, put the state into \textsc{Incons}, expand it in the next iteration\\
+  Expansions per state & at most once (consistent $\hcost$) & at most once per iteration\\
+  Termination & the goal is popped & $\fcost_\eps(\gamma) \le \min_{\text{\Open}} \fcost_\eps$; the goal stays in \Open\\
+  Guarantee on return & optimal & $\gcost(\gamma) \le \eps\,C^*$, and $\le \eps' C^*$ with $\eps' \le \eps$\\
+  State kept for the next call & nothing & $\gcost$, parents, \Open, \textsc{Incons}\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\section{A worked example}
+\label{sec:ch06-example}
+
+\begin{example}[\arastar on an $8 \times 6$ grid]
+\label{ex:ch06-grid}
+\Cref{fig:ch06-example} shows an 8-connected $8 \times 6$ grid with ten blocked
+cells, $(0,2)$, $(0,4)$, $(2,0)$, $(2,5)$, $(3,4)$, $(4,1)$, $(5,2)$, $(6,0)$,
+$(6,3)$ and $(6,4)$. The start is $s = (0,3)$, the goal $\gamma = (7,2)$;
+straight moves cost $1$, diagonal moves $\sqrt{2} \approx 1.41$ and are
+allowed only when neither cell they cut across is blocked. The heuristic is
+the octile distance, so $\hcost(s) = 7 + (\sqrt{2} - 1) \cdot 1 = 7.41$, and the
+schedule is $\eps = 3, 2, 1$. Ties in the key are broken towards the smaller
+$\hcost$, and among equal keys the state pushed first is popped first. The
+instance is \code{example\_grid()} in \code{ch06\_arastar.py}, and every number
+below is produced by its self-test. The optimal cost is $C^* = 6 + 3\sqrt{2}
+= 10.24$.
+\end{example}
+
+\begin{figure}[tb]
+  \centering
+  \inputfigure{ch06/example}
+  \caption{The three iterations of \arastar on \cref{ex:ch06-grid}. Each
+  panel shows the cells expanded in that iteration (grey), the cells in \Open
+  when the iteration stopped (blue), the cell moved to \textsc{Incons}
+  (hatched), the published path (solid) and the previously published path
+  (dashed). With $\eps = 3$ the search dives greedily along the row of the
+  goal, is stopped by the wall at $x = 6$, climbs over it and publishes a path
+  of cost $12.24$ after 17 expansions. With $\eps = 2$ four expansions
+  propagate the correction stored in \textsc{Incons} and shorten the path to
+  $11.41$. With $\eps = 1$ eleven expansions of the cheap cells that the
+  greedy search had skipped find the optimal route below the wall, cost
+  $10.24$.}
+  \label{fig:ch06-example}
+\end{figure}
+
+\paragraph{First iteration, $\eps = 3$.}
+\Cref{tab:ch06-trace} lists every expansion. The start has key $0 + 3 \cdot
+7.41 = 22.24$. Its only free neighbour is $(1,3)$, whose expansion in step~2
+generates five cells; the two diagonal ones, $(2,4)$ and $(2,2)$, have the
+larger $\gcost$ but the smaller keys, because they are closer to the goal and
+$\hcost$ counts three times. The search takes $(2,2)$, then $(3,2)$, $(4,2)$,
+and the keys fall from $22.24$ to $13.41$ in five steps: this is greedy
+best-first behaviour, every step reduces $\hcost$. At $(4,2)$ the wall at
+$(5,2)$ blocks the way, and the key of the next expansion jumps to $15.07$
+for $(4,3)$; the search climbs to $(5,4)$ in step~8, is stopped by the wall
+segment $(6,3)$--$(6,4)$, and now has to fall back on cells with keys around
+$17$: $(3,3)$ and $(3,1)$ in steps~9 and~10, $(4,4)$, and in step~12 the cell
+$(2,3)$, which has been in \Open since step~2 with key $18.24$. Its expansion
+finds the cheaper way to $(3,3)$, $\gcost = 3.00$ instead of $3.83$
+(\cref{fig:ch06-incons}); $(3,3)$ is closed, so it is moved to
+\textsc{Incons} and its successors, in particular $(4,3)$ with $\gcost =
+4.83$, keep their values. Steps~13--17 climb over the wall along the top row
+and descend the column $x = 7$ to the goal, which is generated in step~17 with
+$\gcost(\gamma) = 12.24$. Its key is $12.24 + 3 \cdot 0 = 12.24$, the smallest
+in \Open, and the loop stops: 17 expansions, the path of the left panel of
+\cref{fig:ch06-example}, cost $8 + 3\sqrt{2} = 12.24$. The certificate: the
+inconsistent states are the eight cells in \Open and $(3,3)$ in
+\textsc{Incons}, and the minimum of $\gcost + \hcost$ over them is $L = 3.00 +
+4.41 = 7.41$, attained by $(3,3)$; hence $\eps' = \min(3,\ 12.24 / 7.41) =
+1.65$. The true ratio is $12.24 / 10.24 = 1.20$.
+
+\begin{table}[p]
+  \centering\footnotesize
+  \caption{Complete trace of \cref{alg:ch06-improvepath} on
+  \cref{ex:ch06-grid}, one row per expansion. Columns: the expanded cell $n$
+  with its $\gcost$, $\hcost$ and key $\fcost_\eps = \gcost + \eps\,\hcost$; the
+  successors whose $\gcost$ is lowered by the expansion (with the new value; a
+  cell marked \textsc{I} was closed and is moved to \textsc{Incons}); and the
+  smallest key in \Open after the step. An iteration stops as soon as that key
+  is at least the key of the goal.}
+  \label{tab:ch06-trace}
+  \begin{tabular}{@{}rlrrrL{6.0cm}r@{}}
+  \toprule
+  Step & $n$ & $\gcost$ & $\hcost$ & $\fcost_\eps$ & Successors improved (cell$:\gcost$) & $\min_{\text{\Open}} \fcost_\eps$\\
+  \midrule
+  \multicolumn{7}{@{}l}{\emph{Iteration 1, $\eps = 3$; \Open holds the start only}}\\
+   1 & $(0,3)$ &  0.00 & 7.41 & 22.24 & $(1,3){:}1.00$ & 20.24\\
+   2 & $(1,3)$ &  1.00 & 6.41 & 20.24 & $(2,3){:}2.00$, $(1,4){:}2.00$, $(1,2){:}2.00$, $(2,4){:}2.41$, $(2,2){:}2.41$ & 17.41\\
+   3 & $(2,2)$ &  2.41 & 5.00 & 17.41 & $(3,2){:}3.41$, $(2,1){:}3.41$, $(3,3){:}3.83$, $(3,1){:}3.83$, $(1,1){:}3.83$ & 15.41\\
+   4 & $(3,2)$ &  3.41 & 4.00 & 15.41 & $(4,2){:}4.41$, $(4,3){:}4.83$ & 13.41\\
+   5 & $(4,2)$ &  4.41 & 3.00 & 13.41 & --- & 15.07\\
+   6 & $(4,3)$ &  4.83 & 3.41 & 15.07 & $(5,3){:}5.83$, $(4,4){:}5.83$, $(5,4){:}6.24$ & 13.07\\
+   7 & $(5,3)$ &  5.83 & 2.41 & 13.07 & --- & 14.73\\
+   8 & $(5,4)$ &  6.24 & 2.83 & 14.73 & $(5,5){:}7.24$, $(4,5){:}7.66$ & 17.07\\
+   9 & $(3,3)$ &  3.83 & 4.41 & 17.07 & --- & 17.07\\
+  10 & $(3,1)$ &  3.83 & 4.41 & 17.07 & $(3,0){:}4.83$ & 17.31\\
+  11 & $(4,4)$ &  5.83 & 3.83 & 17.31 & $(4,5){:}6.83$ & 18.24\\
+  12 & $(2,3)$ &  2.00 & 5.41 & 18.24 & $(3,3){:}3.00$ \textsc{I} & 18.73\\
+  13 & $(5,5)$ &  7.24 & 3.83 & 18.73 & $(6,5){:}8.24$ & 18.49\\
+  14 & $(6,5)$ &  8.24 & 3.41 & 18.49 & $(7,5){:}9.24$ & 18.24\\
+  15 & $(7,5)$ &  9.24 & 3.00 & 18.24 & $(7,4){:}10.24$ & 16.24\\
+  16 & $(7,4)$ & 10.24 & 2.00 & 16.24 & $(7,3){:}11.24$ & 14.24\\
+  17 & $(7,3)$ & 11.24 & 1.00 & 14.24 & $(7,2){:}12.24$ & 12.24\\
+  \multicolumn{7}{@{}l}{\quad stop: $\fcost_3(\gamma) = 12.24 \le 12.24$; $L = 7.41$ from $(3,3)$, $\eps' = 1.65$}\\
+  \midrule
+  \multicolumn{7}{@{}l}{\emph{Iteration 2, $\eps = 2$; \Open holds the eight open cells and $(3,3)$ from \textsc{Incons}, re-keyed}}\\
+   1 & $(3,3)$ &  3.00 & 4.41 & 11.83 & $(4,3){:}4.00$ & 10.83\\
+   2 & $(4,3)$ &  4.00 & 3.41 & 10.83 & $(5,3){:}5.00$, $(4,4){:}5.00$, $(5,4){:}5.41$ & 9.83\\
+   3 & $(5,3)$ &  5.00 & 2.41 &  9.83 & --- & 11.07\\
+   4 & $(5,4)$ &  5.41 & 2.83 & 11.07 & $(5,5){:}6.41$ & 12.24\\
+  \multicolumn{7}{@{}l}{\quad stop: $\fcost_2(\gamma) = 12.24 \le 12.24$; $L = 8.00$ from $(1,2)$, $\eps' = 1.53$; pointer path costs $11.41$}\\
+  \midrule
+  \multicolumn{7}{@{}l}{\emph{Iteration 3, $\eps = 1$; \Open holds ten cells, re-keyed}}\\
+   1 & $(1,2)$ &  2.00 & 6.00 &  8.00 & $(1,1){:}3.00$ & 8.24\\
+   2 & $(2,4)$ &  2.41 & 5.83 &  8.24 & --- & 8.83\\
+   3 & $(4,4)$ &  5.00 & 3.83 &  8.83 & $(4,5){:}6.00$ & 8.83\\
+   4 & $(2,1)$ &  3.41 & 5.41 &  8.83 & --- & 8.83\\
+   5 & $(1,4)$ &  2.00 & 6.83 &  8.83 & $(1,5){:}3.00$ & 9.41\\
+   6 & $(1,1)$ &  3.00 & 6.41 &  9.41 & $(0,1){:}4.00$, $(1,0){:}4.00$, $(0,0){:}4.41$ & 9.66\\
+   7 & $(3,0)$ &  4.83 & 4.83 &  9.66 & $(4,0){:}5.83$ & 9.66\\
+   8 & $(4,0)$ &  5.83 & 3.83 &  9.66 & $(5,0){:}6.83$ & 9.66\\
+   9 & $(5,0)$ &  6.83 & 2.83 &  9.66 & $(5,1){:}7.83$ & 10.24\\
+  10 & $(5,1)$ &  7.83 & 2.41 & 10.24 & $(6,1){:}8.83$ & 10.24\\
+  11 & $(6,1)$ &  8.83 & 1.41 & 10.24 & $(7,1){:}9.83$, $(6,2){:}9.83$, $(7,2){:}10.24$ & 10.24\\
+  \multicolumn{7}{@{}l}{\quad stop: $\fcost_1(\gamma) = 10.24 \le 10.24$; $L = 10.24$, $\eps' = 1$: optimal}\\
+  \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Second iteration, $\eps = 2$.}
+The nine inconsistent states are re-keyed with $\eps = 2$. The key of the goal
+is still $12.24$; the smallest key belongs to $(3,3)$ from \textsc{Incons},
+$3.00 + 2 \cdot 4.41 = 11.83$, and it is expanded first. This is the postponed
+re-expansion: it lowers $(4,3)$ from $4.83$ to $4.00$, and the next three
+expansions carry the correction on to $(5,3)$, $(4,4)$, $(5,4)$ and $(5,5)$,
+each of which is in \Open again because \Closed was emptied. After step~4 the
+smallest key in \Open is $12.24$, the goal's own key: the cells at the top of
+the wall, $(5,5)$ and $(6,5)$ onwards, are not re-expanded because their keys
+$6.41 + 2 \cdot 3.83 = 14.07$ and higher exceed it. So $\gcost(\gamma)$ stays
+at $12.24$, but the parent pointers now run $\gamma \to (7,3) \to \dots \to
+(5,5) \to (5,4) \to (4,3) \to (3,3) \to (2,3) \to (1,3) \to s$, and the pointer
+path costs $10 + \sqrt{2} = 11.41$: the published path is cheaper than its own
+$\gcost$-value, the effect described in \cref{sec:ch06-algorithm}. Four
+expansions, against 20 for weighted \astar with $w = 2$ started from scratch,
+and the certificate improves to $\eps' = \min(2,\ 12.24 / 8.00) = 1.53$, with
+$L = 8.00$ now attained by $(1,2)$.
+
+\paragraph{Third iteration, $\eps = 1$.}
+With $\eps = 1$ the keys are the plain $\fcost$-values of \astar, and the cells
+that the greedy first iteration skipped, $(1,2)$, $(2,4)$, $(2,1)$, $(1,4)$
+and $(1,1)$ with $\fcost$ between $8$ and $9.41$, are expanded first, most of
+them without improving anything: this is the price of the guarantee, \astar
+must rule them out. From step~7 on the search follows the bottom corridor
+$(3,0), (4,0), (5,0), (5,1), (6,1)$, whose cells had been generated in the
+first iteration with their optimal $\gcost$-values but never expanded, and
+step~11 generates the goal with $\gcost(\gamma) = 10.24$. The smallest key in
+\Open is now $10.24$, the loop stops, and $L = 10.24$ gives $\eps' = 1$: the
+path is optimal. Eleven expansions, 32 in total for the three iterations.
+Plain \astar with the same tie-breaking needs 22 expansions for this instance,
+and restarting weighted \astar for each $\eps$ would need $17 + 20 + 22 = 59$.
+\Cref{tab:ch06-iterations} collects the numbers.
+
+\begin{table}[tb]
+  \centering\small
+  \caption{The three iterations of \cref{ex:ch06-grid}: expansions, the
+  sizes of the lists when the iteration stops, the value $\gcost(\gamma)$ and
+  the cost of the pointer path, the lower bound $L$, the certificate $\eps'$
+  and the true ratio to $C^* = 10.24$. In iteration~2 the pointer path is
+  cheaper than $\gcost(\gamma)$.}
+  \label{tab:ch06-iterations}
+  \begin{tabular}{@{}ccrrccrrrrr@{}}
+  \toprule
+  $k$ & $\eps_k$ & Exp. & Total & $\abs{\text{\Open}}$ & \textsc{Incons} & $\gcost(\gamma)$ & Path cost & $L$ & $\eps'_k$ & Cost$/C^*$\\
+  \midrule
+  1 & 3 & 17 & 17 &  8 & $\{(3,3)\}$ & 12.24 & 12.24 &  7.41 & 1.65 & 1.20\\
+  2 & 2 &  4 & 21 & 10 & $\emptyset$ & 12.24 & 11.41 &  8.00 & 1.53 & 1.11\\
+  3 & 1 & 11 & 32 &  9 & $\emptyset$ & 10.24 & 10.24 & 10.24 & 1.00 & 1.00\\
+  \bottomrule
+  \end{tabular}
