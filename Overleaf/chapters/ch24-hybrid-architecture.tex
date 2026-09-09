@@ -275,13 +275,13 @@ local layer and retries. \Cref{tab:ch24-transitions} lists the transitions.
   \end{tabularx}
 \end{table}
 
-\Cref{alg:ch24-loop} is the control loop that implements the table; it is
-called once per cycle for every drone with the freshest prediction. The
-functions it calls are the subject of the next three sections:
-\HybridTrigger is \cref{alg:ch24-trigger}, \HybridReconnect is
-\cref{alg:ch24-reconnect}, \HybridReplan is \cref{alg:ch24-replan}, and
-\HybridLocal is the \orca program of \cref{ch:ch13} (or the DWA search of
-\cref{ch:ch14}) with the half-planes chosen by the argument list.
+\Cref{alg:ch24-loop} implements the table; it is called once per cycle for
+every drone with the freshest prediction. Its three decisions
+\HybridTrigger, \HybridReconnect and \HybridReplan are
+\cref{alg:ch24-trigger,alg:ch24-reconnect,alg:ch24-replan}, the subject of
+the next three sections, and \HybridLocal is the \orca program of
+\cref{ch:ch13} (or the DWA search of \cref{ch:ch14}) with the half-planes
+chosen by the argument list.
 
 \begin{algorithm}[htb]
 \caption{The per-drone control cycle of the executive}
@@ -359,10 +359,9 @@ protects the drone when a teammate has deviated.
 \section[The safety horizon]{The safety horizon and the time-to-collision trigger}
 \label{sec:ch24-horizon}
 
-The first decision is whether an intruder is a problem \emph{now}. It is
-answered by comparing where the drone intends to be with where the intruder
-is predicted to be, over a short window, with the prediction uncertainty
-taken into account.
+The first decision is whether an intruder is a problem \emph{now}: compare
+where the drone intends to be with where the intruder is predicted to be,
+over a short window, with the prediction uncertainty taken into account.
 
 \paragraph{The intended motion.}
 Let $\tilde{\pos}_i(s)$ be the \textbf{intended position}\index{intended
@@ -398,9 +397,8 @@ collision}\index{time to collision!predicted} is the first such look-ahead,
   \label{eq:ch24-tc}
 \end{equation}
 In practice $s$ runs over the multiples of $\dt$ up to $\tau_h$. Note that
-$t_c$ is a time to loss of \emph{margin}, not a time to impact: it is the
-first look-ahead at which the inflated margin goes negative, strictly
-earlier than any collision.
+$t_c$ is a time to loss of \emph{margin}: it is strictly earlier than any
+impact, because the margin includes the inflation and $R_{\mathrm{safe}}$.
 \end{definition}
 
 Subtracting the inflation from the separation is the same as adding it to
@@ -834,17 +832,16 @@ without one ellipse over the whole block, at a cost linear in $N$
 \paragraph{How fast the inflation grows.}
 For the constant-velocity Kalman model with white-noise acceleration of
 intensity $q$ (\cref{ch:ch18}) the extrapolated position variance is
-$\sigma_p^2 + 2s\,\sigma_{pv} + s^2\sigma_v^2 + \tfrac13 q s^3$, built from
-the filter's position, cross and velocity variances at the moment of the
-prediction. The velocity term $s^2\sigma_v^2$ dominates at the look-aheads
-that matter here, so the inflation grows almost linearly; the cubic
-process-noise term takes over only once the velocity is well estimated and
-the horizon is long. At the trigger the filter reports
-$\sigma_p^2 = 0.0041$, $\sigma_{pv} = 0.0035$ and $\sigma_v^2 = 0.0060$ in
-SI units, hence a variance of $0.004, 0.019, 0.056, 0.124$\,m$^2$ at
-$s = 0, 1, 2, 3$\,s, of which the velocity term contributes $0.054$ of the
-$0.124$ at $s = 3$\,s and the cubic term $0.045$: the tracker of the
-scenario reports $\sigma = 0.06, 0.14, 0.24, 0.35$\,m,
+$\sigma_p^2 + 2s\,\sigma_{pv} + s^2\sigma_v^2 + \tfrac13 q s^3$ in the
+filter's position, cross and velocity variances. The velocity term
+$s^2\sigma_v^2$ dominates at the look-aheads that matter here, so the
+inflation grows almost linearly; the cubic term takes over only once the
+velocity is well estimated and the horizon is long. At the trigger
+$\sigma_p^2 = 0.0041$, $\sigma_{pv} = 0.0035$ and $\sigma_v^2 = 0.0060$ (SI
+units) give a variance of $0.004, 0.019, 0.056, 0.124$\,m$^2$ at
+$s = 0, 1, 2, 3$\,s, of which $0.054$ of the $0.124$ at $s = 3$\,s is the
+velocity term and $0.045$ the cubic one; the tracker of the scenario
+reports $\sigma = 0.06, 0.14, 0.24, 0.35$\,m,
 an inflation of $0.86$\,m at the horizon, larger than $R_{\mathrm{safe}}$
 itself. The uncertainty, not the geometry, decides the trigger at the
 horizon; a longer horizon with a constant-velocity prediction would mostly
@@ -855,11 +852,10 @@ covariance is what a longer horizon buys (\cref{sec:ch24-research}).
 \section{A worked scenario}
 \label{sec:ch24-scenario}
 
-Everything above is now run on one instance by the book's own code,
-\code{code/ch24\_hybrid.py}, which combines condensed copies of the modules of
-\cref{ch:ch04,ch:ch07,ch:ch09,ch:ch13,ch:ch18} with the executive of
-\cref{alg:ch24-loop}. Every number in this section is printed by that file
-or by \code{code/figures/gen\_ch24\_scenario.py}.
+The book's own code, \code{code/ch24\_hybrid.py}, combines condensed copies
+of the modules of \cref{ch:ch04,ch:ch07,ch:ch09,ch:ch13,ch:ch18} with the
+executive of \cref{alg:ch24-loop}; every number below is printed by it or by
+\code{code/figures/gen\_ch24\_scenario.py}.
 
 \begin{example}[Three drones, one intruder]
 \label{ex:ch24-scenario}
@@ -969,9 +965,8 @@ collision, one re-check that mattered, and nothing global recomputed.
 \label{sec:ch24-guarantees}
 
 The composed system inherits guarantees from its parts, but only where the
-parts' assumptions still hold. This section states what survives, proves
-the one result that belongs to the integration itself, and lists what is
-lost.
+parts' assumptions still hold: what survives, the one result that belongs to
+the integration itself, and what is lost.
 
 \begin{proposition}[The nominal plan]
 \label{thm:ch24-nominal}

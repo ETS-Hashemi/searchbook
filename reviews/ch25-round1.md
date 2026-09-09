@@ -176,3 +176,88 @@ and the results-table template, the checklist-restated-as-questions table, the s
 interface sketch with the "three things change" paragraph, and the exercise set, in
 particular the hand-computable log of Exercise 25.2 (which the self-test asserts) and the
 flawed-table critique of Exercise 25.3.
+
+## Response to review (round 1)
+
+All six required changes are applied, plus six of the seven suggestions. The chapter
+builds with status 0, no errors, no undefined in-chapter references and no overfull box
+over 15 pt; `python3 code/ch25_evaluation.py` passes its self-test (320-run mini-study,
+21.7 s here) and `code/figures/gen_ch25_study.py` still reproduces every `.dat` column
+except the wall-clock ones. Nothing from the "what must be kept" list was removed.
+
+**Required 1 - approximate Wilcoxon p-values.** `wilcoxon_signed_rank()` in
+`code/ch25_evaluation.py` now enumerates the exact null distribution for
+`n <= EXACT_MAX_N = 20`: the ranks are doubled so that average ranks stay integral, and
+the coefficients of `prod_i (1 + x^{r_i})` are accumulated by the ten-line DP the review
+describes; the two-sided p is `2 min(P(W+ <= w), P(W+ >= w))`. Above n = 20 the normal
+approximation takes over, now *with* a continuity correction and with sigma corrected for
+ties. The docstring says all of this, the returned dict carries an `exact` flag, and
+`_selftest_statistics()` asserts three new cases (six positive differences give exactly
+2/2^6 = 0.03125; a tied sample gives W+ = 7.0 through half-integer ranks; n = 25 falls
+through to the approximation). The `p` column of Table 25.4 was replaced with the exact
+values, which reproduce the reviewer's list exactly: hybrid minus local-only 0.042/0.009,
+0.016/0.078, 0.0001/0.0001, 0.025/0.0001; hybrid minus replan-only 0.452/0.006,
+0.0003/0.0001, <0.0001/<0.0001, 0.114/0.0001. Section 25.6 item 3 now tells the reader to
+compute both p-values from the exact distribution, states that the normal approximation
+needs N of about 25 and is wrong by a factor of several in the tail below that, and names
+the generating polynomial and the function. The caption of Table 25.4 says both p-values
+are exact and why that matters (7 non-zero differences in the d_min rows against
+local-only). The prose at line 896 was checked and still holds.
+
+**Required 2 - "printed by the self-test".** Both halves of the fix were done. The
+`__main__` block of `ch25_evaluation.py` now includes `ef_mean` in the paired loop (so the
+four e_F rows of Table 25.4 are printed by the self-test), prints the p-values with four
+decimals, and prints the intruder-family breakdown (14/14, 14/14, 4/12). The sentence in
+`ex:ch25-study` was replaced by one naming all three sources: the summary rows and paired
+comparisons (as LaTeX) from `gen_ch25_study.py`, the metric definitions and the
+determinism of the runner from the self-test of `ch25_evaluation.py` (which also prints
+the per-cell summary, the paired rows and the family breakdown), and the per-seed facts
+from `ch25-study-runs.dat`.
+
+**Required 3 - machine-dependent numbers.** The caption of Table 25.3 now ends: "The
+`bar c` column is wall-clock time on one machine; it is the only column that will differ
+when you re-run the study, and only its ordering is meaningful." Line 797 reads "about
+20 s on the author's machine". The "Effort and constraints" paragraph now gives the
+ordering and the ratio first (a reactive step costs about twice a replanning step and
+about twice a pure prediction-and-tracking step, because the velocity sampling runs at
+every Avoiding step), then the absolute 0.16-0.17 / 0.09 / 0.08 ms with "on yours all
+three will move together". The `.dat` files were regenerated to confirm that only the
+timing columns move, and then restored to the author's machine's version so that the
+printed table, the prose and the cactus figure stay consistent with each other.
+
+**Required 4 - rule of three vs Wilson.** The pitfall now reads "below about 14 %
+(\cref{thm:ch25-three}; the Wilson interval of \cref{eq:ch25-wilson} gives 16 %)".
+
+**Required 5 - two different runs.** Now "should be reported as '1 of 20 runs, for 69
+steps' for replan-only and '1 of 20 runs, for 32 steps' for the hybrid instead".
+
+**Required 6 - Exercise 25.4(c).** The first (better) option was taken: Table 25.4 has a
+new `p_sign` column, filled from `paired_compare`'s exact sign test (0.424, 0.180, 0.016,
+0.453, 0.0001, 0.0001, 0.057, 0.0001; 0.115, 0.012, 0.003, 0.003, <0.0001, <0.0001, 0.263,
+0.003), and the caption announces both tests. Part (c) now asks the reader to compute the
+exact sign-test p, find the row of the table it belongs to, and explain why that row's
+Wilcoxon p is smaller. The solution names the 0.012 in the `p_sign` column of the
+rho_L / hybrid-minus-replan / k = 4 row (16 / 4 / 0), contrasts it with the Wilcoxon 0.006,
+and explains that the sign test discards the sizes: the four scenarios the hybrid lost it
+lost by 0.022 on average against the 0.042 of the sixteen it won. The table survives the
+extra column with no overfull box.
+
+**Suggestions.** Adopted: (i) `\cref{fig:ch25-plots}` is now used at the end of the Pareto
+paragraph; (ii) `figures/ch25/cactus.tex` drops `xmin/xmax` for `enlargelimits=0.05`, and
+the N = 80 line is drawn relative to the axis (with `\addlegendimage`) so it follows the
+data on any machine - the current data span 20-209 ms and still fill the axis; (iii) "97
+sampled velocities plus the preferred one"; (iv) the degenerate case w = 0 of the
+closest-approach formula is stated in half a sentence, with a pointer to
+\cref{exr:ch25-metrics-log}, which hits it; (v) solutions were added for
+`exr:ch25-matrix` (design, plus 576 x 3 = 1728 full-factorial cells and 14 + 3 - 1 = 16
+one-factor-at-a-time cells) and `exr:ch25-cactus` (10/10 and 8/10, 30.8 ms and 9.0 ms,
+PAR-2 30.8 and 47.2 ms, and 87.2 ms for B under a 200 ms cap), so six of the eight
+exercises now have solutions; (vi) the caption of Table 25.2 explains that the count
+3 x 4 x 4 x 3 x 4 = 576 reads the two binary constraint choices as one four-level factor
+and keeps "no avoidance" outside the design. Not adopted: trimming `tab:ch25-template`,
+since the chapter is inside its page budget and the review asks for the template to be
+kept.
+
+**Side effect.** The listing `lst:ch25-paired` was updated in the two lines where
+`paired_compare()` changed, so the printed code still matches the file. The chapter body
+grew from 23 to 24 PDF pages, which is the budget.

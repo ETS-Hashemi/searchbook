@@ -866,7 +866,8 @@ discussion by the raw rows in \code{ch25-study-runs.dat}.
   value was smaller / larger / equal, and the two-sided $p$-values of the
   Wilcoxon signed-rank test and of the sign test. Both are \emph{exact}
   (the null distribution is enumerated, not approximated by a normal), which
-  matters here: the $d_{\min}$ rows have only $7$ non-zero differences. For
+  matters here: the $d_{\min}$ rows against local-only have only $7$ non-zero
+  differences, far too few for a normal approximation. For
   $d_{\min}$ larger is better; for the other three smaller is better.}
   \label{tab:ch25-paired}
   \begin{tabular}{@{}llrcccc@{}}
@@ -1279,7 +1280,8 @@ def paired_compare(a, b):
     out = {"mean_diff": ci["mean"], "lo": ci["lo"], "hi": ci["hi"], "d_z": dz,
            "n": d.size, "better": int(np.sum(d < 0)), "worse": int(np.sum(d > 0)),
            "tie": int(np.sum(d == 0))}
-    out["p_wilcoxon"] = wilcoxon_signed_rank(d)["p"]
+    w = wilcoxon_signed_rank(d)      # exact null distribution for n <= 20
+    out["p_wilcoxon"], out["p_exact"] = w["p"], w["exact"]
     out["p_sign"] = sign_test(d)["p"]
     return out
 \end{lstlisting}

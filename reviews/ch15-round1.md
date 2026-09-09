@@ -212,3 +212,79 @@ code as it is: vectorised over drones, self-testing in 4.5 s, with the analytic 
 checked against central differences, and reproducing the chapter's numbers to the last
 digit. Keep all nine figures and their captions, which consistently tell the reader what
 to notice rather than what is drawn.
+
+## Response to review (round 1)
+
+All ten required changes are applied. Every number below is printed by
+`Overleaf/code/ch15_potential_fields.py` (self-test passes in 5.0 s) and the chapter was
+rebuilt; the `.dat` files are unchanged (the code changes add a trace and prints only, no
+simulation behaviour changed).
+
+1. **§7.8.1, "2.48 escapes".** Fixed as required. The sentence now reads "need on average
+   $1.24$ escapes and $1\,428$ steps, against $1\,018$ for the plain runs (averaged over
+   all $441$ starts the escape count is $2.48$, because the $55$ drones that never arrive
+   keep walking)". The self-test now prints both means (`escapes: 1.236 per drone that
+   arrives, 2.478 averaged over all 441 starts; steps 1428.3 with escapes against 1018.4
+   plain`), so the two numbers are code-backed.
+2. **Summary bullet 3, oscillation vs divergence.** Replaced by "oscillation once
+   $\dt\lambda_{\max} > 1$ and divergence once $\dt\lambda_{\max} \ge 2$, with a stiffness
+   growing like the inverse fourth power of a passage width", as required.
+3. **Theorem 7.3(iii).** Both bounds are now stated: within $\sqrt{2U_0/k_{\mathrm{att}}}$
+   for the quadratic attraction (eq:ch15-uatt) and within $U_0/(k_{\mathrm{att}}d^*) +
+   d^*/2$ for the hybrid one (eq:ch15-hybrid). The proof step was rewritten accordingly
+   ($U_{\mathrm{att}} \le U \le U_0$, then the two branches). Parts (i) and (ii) untouched.
+4. **§7.7.4, "carried through by the attraction".** The appeal to Theorem 7.3 is gone. The
+   text now gives the algebra: on the axis at $x = 4$ the factor $4 - x$ of
+   eq:ch15-gapforce kills the horizontal repulsion, so $F_x(4) = 8 - 4 = 4 > 0$, and the
+   verified run `simulate((4,4), (8,4.2), corridor(0.6), ApfParams())` reaches the goal in
+   599 steps with a minimum clearance of 0.300 (now asserted and printed by the self-test).
+   Following the suggestion, "its root at $x = 3.163$" became "its first root at $x =
+   3.163$ (a second, unstable root sits near $x = 3.91$)".
+5. **§7.7.2 / Exercise 7.4(b).** §7.7.2 now says the chatter has the amplitude
+   $\dt\,v_{\max} = 0.01$, which the tolerance $\eps_{\mathrm{g}} = 0.05$ hides, and adds
+   (suggestion 7) that this is why Ge and Cui recommend $n = 2$, the chapter's default.
+   Exercise 7.4(b) now instructs `simulate((8,6), (5.4,4), DISC, replace(prm, n_gnron=1,
+   goal_tol=1e-3))` and asks for the comparison with $n = 2$ and with the default
+   tolerance. The self-test runs both (n = 1: stuck after 695 steps, chatter below
+   $2\dt v_{\max}$; n = 2: reached in 509 steps).
+6. **§7.8.1 / fig:ch15-basin(b).** The text now says the figure shows "a separate
+   single-drone run from the trapped start $(0, 4.1)$ ... with its own random stream" and
+   adds that in the batch run the same start is still walking at the horizon, because the
+   outcome of a random escape is a random variable. The caption says the same.
+7. **Trace table (objectives bullet 2, STYLE_GUIDE §2.7).** Added tab:ch15-trace to §7.5
+   (caption above, booktabs, `\small`, referenced with `\cref`) with the seven rows
+   $k = 0, 100, 200, 300, 500, 800, 1099$ of the run from $(0, 4.5)$: $k$, $\pos_k$,
+   $\rho$, $\vect{F}$, $\norm{\vect{F}}$, the clipped $\vect{v}_k$ and the distance to the
+   goal, plus a paragraph reading the table (clip binding, release at $\norm{\vect{F}} \le
+   v_{\max}$, exponential tail $\ln(1.007/0.05) = 3.00$ time units against the 299 steps
+   observed). The rows are printed by `worked_example()` via the new `trace_rows()`, and
+   the self-test asserts that the clip binds in the first row and is inactive in the last.
+8. **eq:ch15-alignment.** $N_i = \{j \ne i : \norm{\pos_i - \pos_j} \le \rho_a\}$ and the
+   alignment gain $\alpha > 0$ with $\alpha|N_i| < 1$ are defined immediately before the
+   equation.
+9. **VFH citation.** `borenstein1991vfh` (Borenstein & Koren, IEEE T-RA 7(3):278-288,
+   1991) added to `Overleaf/bib/ch15-extra.bib`, cited at the first mention of the vector
+   field histogram in §7.7.5 (now bold, indexed, acronym expanded) and in further reading.
+10. **DWA.** Expanded at its first occurrence in §7.1: "the dynamic window approach (DWA)
+    of \cref{ch:ch14}", with an index entry.
+
+Suggestions adopted: Proposition 7.7 now reads "asymptotically stable if $\dt\lambda_{\max}
+< 2$ and unstable if $> 2$", with the marginal case named in the statement and the proof;
+"its first root" in §7.7.4; "Morse" added to the hypothesis of Remark 7.6; a new
+one-star conceptual exercise (exr:ch15-smoothness) on the non-$C^1$ force across $\rho =
+\rho_0$ and on what the stuck detector can and cannot distinguish; solution sketches added
+for Exercise 7.2 (conic/hybrid) and Exercise 7.6 (threshold $k_{\mathrm{att}}$ between 2.0
+and 2.5; at 2.0 the drone stops at $x = 3.464$, at 2.5 it crosses in 871 steps and the
+worked-example clearance drops from 0.519 to 0.396 in 929 steps); Ge and Cui's $n = 2$
+recommendation named in §7.7.2. On length, the two duplicated claims were trimmed (the
+"no oscillation in continuous time" sentence at the end of §7.7.3, which §7.7.5 states with
+attribution, and the repeated inverse-fourth-power sentence in the §7.7.5 bullet, now a
+back-reference to eq:ch15-stiffness); the $w = 1.6$ rows of tab:ch15-corridor and the
+hybrid-run sentences of §7.5 were kept, since the "what must be kept" paragraph names the
+ten rows of that table and the hybrid comparison is what motivates the two bounds now in
+Theorem 7.3(iii).
+
+Nothing on the "must keep" list was removed: the four failure modes, their formulas, runs,
+figures and tables, Theorem 7.3 with $\rho_{\min}$, Remark 7.6, the Koren-Borenstein
+subsection, the basin experiment, the waypoint/local-layer framing, the drone box, all nine
+figures and the code (still vectorised and self-testing) are intact.

@@ -201,7 +201,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 
 | Chapter | Round | Verdict | Required changes (summary) | Status |
 |---|---|---|---|---|
-| Ch 1 | 1-2 | Minor revision (8) -> Accept (1 cosmetic) | see reviews/ch01-round1.md, ch01-round2.md | ACCEPT |
+| Ch 1 | 1-4 | Minor (8) -> Accept -> Minor (4) -> Minor (2), all applied | see reviews/ch01-round*.md | loop complete |
 | Ch 2 | 1-2 | Minor revision (10) -> Minor revision (3), applied | see reviews/ch02-round1.md, ch02-round2.md | minor items applied, unreviewed |
 | Ch 3 | 1-2 | Minor revision (4) -> Minor revision (2), applied | see reviews/ch03-round1.md, ch03-round2.md | minor items applied, unreviewed |
 | Ch 4 | 1-4 | Major (13) -> Minor (7) -> Minor (3) -> Minor (3), all applied | see reviews/ch04-round*.md | loop complete |

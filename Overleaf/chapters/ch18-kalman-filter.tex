@@ -28,9 +28,9 @@ foreign drone that crosses the swarm's airspace is seen only through a sensor
 --- a radar, a camera with a depth estimate, a receiver of broadcast position
 messages --- that delivers a noisy position a few times per second. Suppose
 the sensor reports the intruder's position every $\dt=0.1$~s with an error of
-about $1$~m in each coordinate. The local avoidance layer of \cref{ch:ch13}
-needs the intruder's \emph{velocity} to build a velocity obstacle, and the
-obvious way to obtain it is to difference two consecutive reports. That
+about $1$~m in each coordinate. The velocity obstacle of \cref{ch:ch12},
+used by the local avoidance layer of \cref{ch:ch13}, needs the intruder's
+\emph{velocity}, and the obvious way to obtain it is to difference two consecutive reports. That
 divides the difference of two $1$-metre errors by $0.1$~s: the velocity
 estimate carries a noise of about $\sqrt2\cdot1/0.1\approx14$~m/s, several
 times the speed of the intruder itself. \Cref{fig:ch18-raw} shows what this
@@ -46,13 +46,14 @@ carrying a model of how the intruder moves, predicting where it will be at the
 next report, and correcting the prediction by the new measurement, weighting
 the two by their uncertainties. In the experiment of \cref{fig:ch18-raw},
 produced by the code of this chapter, the filter reduces the position error
-from $1.18$~m to $0.52$~m (root mean square) and the velocity error from
-$16.8$~m/s to $0.79$~m/s, at the cost of a few small matrix products per
+from $1.18$~m to $0.52$~m (root-mean-square error, RMSE)\index{RMSE} and
+the velocity error from $16.8$~m/s to $0.79$~m/s, at the cost of a few small matrix products per
 report.
 
 In the hybrid architecture of \cref{ch:ch24} the filter is the core of the
 \emph{prediction layer}: it tracks the intruder, hands its state and
-covariance to the local safety layer (\orca or DWA, \cref{ch:ch13,ch:ch14})
+covariance to the local safety layer (\orca or the dynamic window approach,
+DWA, \cref{ch:ch13,ch:ch14})
 and to the trajectory predictors of \cref{ch:ch20}, and its covariance,
 propagated a few seconds ahead, gives the growing uncertainty ellipses with
 which the safety layer inflates the intruder's radius. It is the Week~9 topic
@@ -185,7 +186,10 @@ $\mat{B}$; \textcite{thrun2005probabilistic} use $\mat{A}$, $\mat{B}$,
 $\mat{C}$, and \textcite{welch1995introduction} use $\mat{A}$ and $\mat{H}$.
 Beware also that $\mat{Q}$ and $\mat{R}$ are noise covariances here but cost
 weights in \cref{ch:ch21}; the notation table in the front matter lists both
-meanings.
+meanings. One collision is internal to this chapter: $\vect{v}_k$, with a
+time index, is the measurement noise of \cref{eq:ch18-measurement}, while
+$\vel$ without one is the velocity block of the state
+(\cref{def:ch18-cv}).
 \end{notebox}
 
 \subsection{What the filter computes}
@@ -222,7 +226,8 @@ to matrix arithmetic, because of two facts about Gaussians.
 Let $\state\sim\Normal(\vect{\mu},\mat{\Sigma})$ in $\R^n$.
 \begin{enumerate}[label=(\roman*)]
   \item If $\vect{y}=\mat{A}\state+\vect{b}+\vect{w}$ with
-  $\vect{w}\sim\Normal(\vect{0},\mat{Q})$ independent of $\state$, then
+  $\vect{w}\sim\Normal(\vect{0},\mat{Q})$ independent of $\state$ ($\mat{Q}$
+  may be singular, and $\mat{A}$ need not have full rank), then
   $\vect{y}\sim\Normal(\mat{A}\vect{\mu}+\vect{b},\;\mat{A}\mat{\Sigma}\mat{A}\T+\mat{Q})$.
   \item If $\vect{a}$ and $\vect{b}$ are jointly Gaussian,
   \[
@@ -575,10 +580,13 @@ with the symmetric positive definite $\mat{S}$: cheaper and better
 conditioned than an explicit inverse, a habit that pays off in the larger
 filters of \cref{ch:ch19}. Line~\ref{alg:ch18-kf:cov} is the Joseph form and
 line~\ref{alg:ch18-kf:sym} keeps $\mat{P}$ exactly symmetric over millions of
-steps (\cref{sec:ch18-implementation}). A predict step costs $\bigO{n^3}$ and
-an update $\bigO{n^2m+m^3}$; for the CV model in 3D, $n=6$ and $m=3$, a few
-hundred floating-point operations, so a filter runs at kilohertz rates on a
-flight computer.
+steps (\cref{sec:ch18-implementation}). A predict step costs $\bigO{n^3}$; an
+update costs $\bigO{n^2m+m^3}$ in the short form of \cref{eq:ch18-update-cov}
+and $\bigO{n^3}$ in the Joseph form of line~\ref{alg:ch18-kf:cov}, which
+multiplies the $n\times n$ matrix $\mat{I}-\Kgain\mat{H}$ by $\mat{P}^-$ and
+again by its transpose. For the CV model in 3D, $n=6$ and $m=3$, that is
+about two thousand floating-point operations per cycle, so a filter runs at
+kilohertz rates on a flight computer.
 
 \begin{algorithm}[htb]
 \caption{Tracking an intruder from a stream of position measurements}
@@ -736,8 +744,13 @@ as well. And the last column lists
 $d^2_k=\vect{y}_k\T\mat{S}_k\inv\vect{y}_k$, the squared Mahalanobis distance
 of each measurement from its prediction, which for a correctly tuned filter
 is chi-square with $m=2$ degrees of freedom, mean $2$; the five values average
-$0.43$, unremarkable for five samples, and \cref{sec:ch18-tuning} makes the
-test precise. The self-test of \code{ch18\_kalman.py} reproduces every number
+$0.43$, far below the expected $m=2$ --- for a correctly initialised filter a
+sum this small would have probability $\Prob(\chi^2_{10}\le2.15)\approx0.005$.
+The cause is the deliberately pessimistic $\mat{P}_0=\mat{I}_4$: while the
+filter is still shedding that excess covariance, $\mat{S}_k$ is larger than
+the innovations warrant. This is why the NIS test of
+\cref{sec:ch18-diagnostics} is run over a long record and after the
+transient, not over five steps. The self-test of \code{ch18\_kalman.py} reproduces every number
 of the table to four decimals and checks the step-1 gain against the hand
 computation.
 
@@ -810,7 +823,11 @@ is positive semidefinite for every $\Kgain$, and the Kalman gain minimises
 every diagonal entry of the error covariance, in particular its trace, the
 mean-square error. No Gaussian assumption is needed: the recursion is the
 \textbf{best linear unbiased estimator}\index{best linear unbiased estimator}
-for any noise with the given second moments.
+for any noise with the given second moments: the statement extends from one
+update to the whole recursion by induction over $k$, since the prediction
+$\hat{\state}^-_{k+1}=\mat{F}\hat{\state}_k$ is a linear unbiased function of
+the previous estimate and \cref{eq:ch18-predict} propagates its error
+covariance exactly.
 \end{proposition}
 \begin{proof}
 The error is $\state-\hat{\state}(\Kgain)=(\mat{I}-\Kgain\mat{H})(\state-\hat{\state}^-)-\Kgain\vect{v}$,
@@ -882,9 +899,12 @@ growing. Check the rank once, when the model is built;
 
 \paragraph{Complexity and memory.}
 The filter is recursive: memory $\bigO{n^2}$ and time $\bigO{n^3}$ per step,
-independent of $k$ (\cref{sec:ch18-pseudocode}); it is the batch
+independent of $k$ (\cref{sec:ch18-pseudocode}); it is nevertheless the batch
 least-squares fit to all measurements so far, reorganised so that each
-measurement is absorbed once and forgotten.
+measurement is absorbed once and forgotten. The equivalence is easiest to see
+in the information form of \cref{sec:ch18-variants}, where each measurement
+adds $\mat{H}\T\mat{R}\inv\mat{H}$ to the accumulated normal equations; see
+\textcite[ch.~4]{sarkka2013bayesian} for the proof.
 
 % ---------------------------------------------------------------------
 \section{Tuning, diagnostics, gating, and imperfect sensors}
@@ -1014,8 +1034,8 @@ with the drift (\cref{sec:ch18-variants}).
 
 Real sensors occasionally return a measurement that has nothing to do with
 the intruder: a reflection, a bird, a corrupted packet. Fed to
-\cref{alg:ch18-kf}, an outlier $40$~m from the predicted position moves the
-estimate by $\Kgain$ times $40$~m in one step, the velocity estimate with it,
+\cref{alg:ch18-kf}, an outlier $50$~m from the predicted position moves the
+estimate by $\Kgain$ times $50$~m in one step, the velocity estimate with it,
 and the safety layer reacts to a phantom. The defence is the same statistic
 as the first diagnostic, the squared \textbf{Mahalanobis
 distance}\index{Mahalanobis distance!gating} $d^2=\vect{y}\T\mat{S}\inv\vect{y}$
@@ -1195,9 +1215,9 @@ by any sensor.
 
 \Cref{fig:ch18-prediction} shows the ellipses for the experiment of
 \cref{sec:ch18-experiment}, from the estimate at $t=10$~s: the position
-standard deviation grows from $(0.39,0.23)$~m to $(0.84,0.64)$~m one second
-ahead, $(1.46,1.21)$~m at two seconds and $(2.19,1.91)$~m at three. These
-ellipses are what the local layer inflates the intruder's radius with: if the
+standard deviation grows from $(0.39,0.23)$~m now to $(0.84,0.64)$~m one
+second ahead and $(1.46,1.21)$~m at two, half the semi-axes drawn in the
+figure. These ellipses are what the local layer inflates the intruder's radius with: if the
 intruder has radius $r$ and the ellipse at horizon $h$ has largest standard
 deviation $\sigma_{\max}(h)$ (square root of the largest eigenvalue of the
 position block of $\mat{P}_{k+j\mid k}$), keeping the distance
@@ -1219,8 +1239,8 @@ $\mat{P}_k$ says how well the tracker knows where the intruder is
 long you track. $\mat{P}_{k+j\mid k}$ says how well anyone can know where the
 intruder will be $j$ steps from now; it grows without bound in $j$, because
 it contains the intruder's future decisions. A planner that inflates the
-radius by the current $2\sigma$ of $0.4$~m when the collision is two seconds
-away and the honest figure is $1.5$~m is over-confident by a factor that
+radius by the current $2\sigma$ of $0.8$~m when the collision is two seconds
+away and the honest figure is $2.9$~m is over-confident by a factor that
 grows with the horizon, and the collision rate in the experiments of
 \cref{ch:ch25} shows it. The converse mistake, gating a measurement with
 $\mat{P}_{k+j\mid k}$ instead of $\mat{S}_k$, accepts every outlier.
@@ -1249,16 +1269,15 @@ along $y$. The filter is initialised from the first two reports by
   (green), wider along $x$, the noisier axis. Right, experiment B: position
   (blue) and velocity (orange) RMSE against the $q$ used by the filter, over
   $20$ Monte-Carlo runs; dashed grey is the raw-measurement RMSE. The minimum
-  lies at the true $q$, the curve is flat within a factor of three of it, and
-  the velocity suffers far more from a $q$ that is too large than from one
-  that is too small.}
+  lies at the true $q$, the curve is flat within a factor of two below and
+  five above it, and the velocity suffers far more from a $q$ that is too
+  large than from one that is too small.}
   \label{fig:ch18-experiment}
 \end{figure}
 
-The results are those of \cref{sec:ch18-motivation}: the position RMSE
-drops from $1.175$~m for the raw measurements to $0.524$~m, the velocity RMSE
-from $16.8$~m/s for finite differences to $0.79$~m/s. The error bars are
-honest: the final standard deviations are $0.39$~m along $x$, $0.23$~m along
+The results are the ones quoted in \cref{sec:ch18-motivation}: the position
+RMSE drops by more than half and the velocity RMSE by a factor of twenty. The
+error bars are honest: the final standard deviations are $0.39$~m along $x$, $0.23$~m along
 $y$ and $0.48$~m/s in $v_x$, and the mean NIS over the run is $2.21$, inside
 the $95\%$ band $[1.72,2.28]$ of \cref{eq:ch18-nis-band}. The ellipses in
 the left panel are elongated along $x$, the axis measured twice as noisily,
@@ -1269,8 +1288,11 @@ scenario is simulated $20$ times with fresh noise and each data set is
 filtered with $17$ values of $q$ from $0.01$ to $100$, the true value being
 $0.2$. The position RMSE has its minimum, $0.469$~m, at $q=0.178$, the grid
 point nearest the truth; it is $0.477$~m at $q=0.1$ and $0.503$~m at $q=1$,
-so a factor of five either way costs less than $8\%$; far away the price is
-severe but still below the raw $1.126$~m: $0.691$~m at $q=0.01$, where the
+so a factor of two below or five above the optimum costs less than $8\%$,
+while a factor of five below already costs $15\%$ ($0.541$~m at $q=0.032$):
+under-sizing $q$ is punished sooner than over-sizing it on this
+straight-flying target. Far away the price is severe but still below the raw
+$1.126$~m: $0.691$~m at $q=0.01$, where the
 filter is too sluggish to follow the wandering velocity, and $0.773$~m at
 $q=100$, where it copies the sensor noise. The velocity RMSE is asymmetric
 --- $1.02$~m/s at the optimum, $1.11$~m/s at $q=0.01$, $3.29$~m/s at

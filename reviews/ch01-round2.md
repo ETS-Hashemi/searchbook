@@ -202,3 +202,95 @@ whose acceptance tests are spelled out; six of the eight with solutions in \cref
 banned word ("obviously", "clearly", "trivially", "it is easy to see") anywhere in the chapter or
 its solutions; ASCII-only, standard-library-only Python that runs in 0.14 s; and a build with no
 errors, no chapter-local undefined reference and no overfull box above 3 pt.
+
+## Response to review (round 2)
+
+### Required change 1 (F) --- the false claim about priority tags (sec:ch01-map, line 613)
+
+Applied, with the reviewer's first option. The sentence now reads:
+
+> \Cref{tab:ch01-map} lists every algorithm of the plan with its role in one line, its
+> priority and the chapter that teaches it. The priority tags of the plan are collected
+> here, in \cref{tab:ch01-map}, and the twelve-week schedule of \cref{sec:ch01-howto}
+> tells you when to read each chapter.
+
+The chapter no longer promises a per-chapter tag that 21 of the algorithm chapters do
+not carry. The four `\priority{...}` tags in the paragraph above stay: they define the
+four levels of the plan, which is what the table's Priority column uses. The editor's
+alternative (adding `\priority{...}` to the 21 silent chapters) is a book-level task and
+is outside this chapter's file set.
+
+### Required change 2 (F) --- two symbols for the safety horizon
+
+Applied, four occurrences renamed to $\tau_h$, plus the half clause the reviewer asked
+for:
+
+* `chapters/ch01-introduction.tex:494` --- definition: "The **safety horizon** $\tau_h$
+  is a look-ahead time chosen by the designer...".
+* `chapters/ch01-introduction.tex:496` --- risk condition "$t_c<\tau_h$".
+* `chapters/ch01-introduction.tex:498-500` --- added: "\Cref{ch:ch24} writes this horizon
+  $\tau_h$ as well, and takes it equal to the \orca horizon $\ttc$ of \cref{ch:ch13}."
+* `chapters/ch01-introduction.tex:1048` --- exr:ch01-timescales(b).
+* `appendices/solutions/ch01-solutions.tex:106` --- solution to exr:ch01-timescales(b),
+  now "$\tau_h = 10\times20$ ms $= 0.2$ s".
+
+`\ttc_{\mathrm{safe}}` no longer occurs anywhere in the chapter's files; the book now
+uses one symbol, $\tau_h$, for the term, matching def:ch24-inside and the parameter table
+of \cref{ch:ch24}. The two notation-table rows the reviewer asks for
+(`$\tau_h$` added, row 129 shortened) are in `frontmatter/notation.tex`, which this
+chapter's author may not edit; **left for the editor**, exactly as the review's editor's
+note describes.
+
+### Suggestions
+
+* **Roadmap sentence (sec:ch01-two-kinds).** Rewritten. Chapter 5 is no longer in two
+  families and Chapter 6 is named: "The global planner is built by \cref{ch:ch03,ch:ch04}
+  and \crefrange{ch:ch06}{ch:ch11}, ... \Crefrange{ch:ch12}{ch:ch15} build the local
+  layer. \Crefrange{ch:ch18}{ch:ch20} build the tracking and prediction ...
+  \Cref{ch:ch05,ch:ch16,ch:ch17} and \crefrange{ch:ch21}{ch:ch23} provide the
+  replanning...". The bare `\ref` + hand-typed "Chapters" is gone, so the whole sentence
+  is now `\cref`/`\crefrange` as the style guide asks (cosmetic point applied at the same
+  time).
+* **lst:ch01-conflicts caption.** Extended: the caption now says the two functions are not
+  adjacent in the file, that the `Conflict` record type and the helper `cell_centre` sit
+  between them and are omitted, that `Cell` is a type alias defined earlier, and that the
+  reader should copy from the file rather than from the page. (The reviewer's list is
+  corrected on one point: `Cell` is defined at line 31 of `code/ch01_scenario.py`, well
+  before `position_on_path`, not between the two functions.)
+* **exr:ch01-properties solution.** Added to `appendices/solutions/ch01-solutions.tex`,
+  in exercise order (after exr:ch01-classify). It gives all ten rows, including the hard
+  cells the reviewer named (weighted \astar bounded suboptimal and complete, \dstarlite
+  incremental *and* optimal, \orca the only real-time entry, prioritized planning with
+  none of the six), and answers the second half of the exercise: optimal and real-time
+  never co-occur, structurally, because bounding the work per cycle bounds what can be
+  examined. Appendix C now carries seven of the eight exercises.
+* **fig:ch01-scenario caption.** The caption no longer labels the encounter "(dashed
+  circle)" next to the $0.38$ figure; it now says that the red dashed circle marks the
+  cell $B$ occupies at $t=6$, where the encounter happens, and that its radius is not the
+  $0.38$-cell gap. The figure itself is unchanged (the circle is centred on $(7.5,5.5)$,
+  the centre of $B$'s cell at $t=6$).
+* **Objectives box / Python stack.** One line added to the "The Python stack" paragraph:
+  "One line installs everything the exercises need: `python3 -m pip install numpy networkx
+  matplotlib`."
+* The round-1 book-level note (glossary merge, Appendix C input) needed no action; noted
+  as resolved.
+
+### Verification
+
+* Nothing in the "must keep" list was touched: the scenario code, all figures, the five
+  tables (27 map entries, twelve weeks, the trace table), the research directions and
+  metrics, the citations, the boxes, the exercises and their grades are unchanged. No
+  content was removed; the chapter grew by six lines.
+* `python3 code/ch01_scenario.py` --- self-test passes in 0.15 s; the printed numbers
+  (10/9/6 steps, vertex conflict A/C at $(3,3)$ at $t=4$, speed 0.66, $0.38$ at $t=6$) are
+  unchanged, so every number quoted in the text still matches the code. The code was not
+  edited, so no `.dat` file needed regeneration.
+* Build: status **0**, no errors, no overfull boxes above 15 pt, chapter 19 pages. The
+  build had to be run with a private `-outdir` because several other chapters were being
+  rebuilt into the shared `Overleaf/build/` directory at the same time; that concurrency
+  truncates `build/chapters/chNN.aux` for ch05, ch15, ch18 and ch24 and makes
+  `./build.sh ch01-introduction` report "File ended while scanning use of \@newl@b" for
+  *those* files. Those errors are not in ch01; with an isolated output directory and the
+  same sources the build is clean (only `def:ch12-ttc` and the `ch:chNN` labels are
+  undefined, as expected in a single-chapter build). `appendices/solutions/ch01-solutions.tex`
+  was compiled inside Appendix C as well and produced no errors.

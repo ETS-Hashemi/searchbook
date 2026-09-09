@@ -219,3 +219,111 @@ the `exr:ch05-threshold` solution's insistence that the crossover in time comes 
 crossover in expansions. Finally keep the drone box's precise reading of "edge costs change" as
 the rasterised, inflated prediction tube, and `exr:ch05-intruder`, which is the bridge from this
 chapter to `ch:ch20` and `ch:ch24`.
+
+## Response to review (round 2)
+
+Both required changes are applied, together with all nine suggestions. Nothing the
+"What must be kept" list names was removed: the 13-against-7 expansion count and its
+two-retraction/band explanation, the 65~ms-against-61~ms honesty of
+`sec:ch05-experiment` with its 7-of-40 slower repairs, the dotted third curve of
+`fig:ch05-experiment`, all five pitfalls, `tab:ch05-directions`, the two-component-key
+argument, the numeric $k_m$ table, the code-generated trace tables, the self-test and the
+solutions file are all untouched except where a change below says otherwise.
+
+### Required change 1 - float placement (category G)
+
+Applied exactly as specified, plus the three trims of Suggestions 4-6 in the same pass.
+
+* `\begin{algorithm}[htb]` (Algorithm 5.1) and `\begin{algorithm}[!htbp]` (Algorithm 5.2)
+  are now `\begin{algorithm}[!t]`.
+* `\FloatBarrier` inserted immediately before `\section{A worked example: \lpastar repairs
+  a path}`, before `\section{The algorithm: \dstarlite}` and before the sectioning command
+  of `sec:ch05-dstarlite-example`. (`placeins` is loaded by `searchbook.sty`, line 70.)
+
+New page map of `build/only-ch05-lpastar-dstarlite.pdf` (PDF page numbers; the chapter
+still occupies pages 21-44, i.e. **24 pages**, exactly as before):
+
+| Float | was on | is now on | its section |
+|---|---|---|---|
+| Algorithm 5.1 | 31 | **26** | 5.4 (pp. 25-26) |
+| Table 5.1, Table 5.2 | 31, 32 | **28** | 5.5 (pp. 27-28) |
+| Table 5.3 (`tab:ch05-directions`) | 32 | **29** | 5.6.1 |
+| Table 5.4 (`tab:ch05-km`) | 32 | **30** | 5.6.2 (discussed on the same page) |
+| Algorithm 5.2 | 33 | **32** | 5.6.3 (walkthrough on p. 31) |
+| Tables 5.5, 5.6 | 34, 34 | **33, 34** | 5.7 |
+
+Every float now prints inside the section that discusses it, and the block of four
+consecutive float-only pages (old 31-34) is gone. The line-by-line walkthrough of
+Algorithm 5.1 and the listing itself are on facing pages, as are the D* Lite walkthrough
+(p. 31) and Algorithm 5.2 (p. 32). Because the barriers were paid for by the three trims,
+`tab:ch05-directions` did not have to be moved and Listing 5.1 did not have to be cut
+further than Suggestion 4 asks.
+
+### Required change 2 - which version of D* Lite is printed (category H)
+
+`sec:ch05-dstarlite-pseudocode` now opens with "\Cref{alg:ch05-dstarlite} is the final
+version of \dstarlite (the one with the key modifier) as published by Koenig and
+Likhachev", and the paragraph ends with a new sentence that describes the optimised
+variant precisely as the review does: same values and same expansions, but $\rhs$
+maintained incrementally ($\rhs(s)\gets\min(\rhs(s),c(s,u)+\gcost(u))$ per predecessor in
+the overconsistent branch), the full minimum recomputed in the underconsistent branch only
+for predecessors whose $\rhs$ came from the retracted $\gcost$-value, and queue entries
+updated in place instead of Remove+Insert; it notes that this removes the factor $\Delta$
+of `sec:ch05-properties` in the overconsistent case and is what a production implementation
+should use, and says why the plain version is the one printed. The optional one-clause
+remark was added to the complexity paragraph of `sec:ch05-properties` as well, so the
+$\Delta$ discussion no longer reads as a property of the published algorithm.
+
+### Suggestions
+
+1. **`fig:ch05-dstarlite-example` shows only g-values.** `dsl_labels` in
+   `code/figures/gen_ch05_examples.py` now follows the same rule as `lpa_labels`: a cell
+   is labelled `g` when it is locally consistent and `g/rhs` when it is not, and is left
+   blank only when both values are $\infty$. The middle panel now shows $4/\infty$ at
+   $(3,3)$ and $\infty/8$ at $(2,3)$ (the retracted cell and the cell that lost its
+   successor), so the orange colouring has a visible reason. Figure regenerated; the
+   caption now says "written $\gcost/\rhs$ for the cells where the two disagree, as in
+   \cref{fig:ch05-lpastar-example}".
+2. **Heap complexity.** The priority-queue paragraph of `sec:ch05-implementation` now says
+   that stale entries are only discarded when they surface, that the heap therefore grows
+   with the number of insertions rather than with $|U|$, that every operation costs
+   $\bigO{\log m}$ with $m$ the current heap size, and that the heap should be rebuilt from
+   `key_of` when $m$ grows past a few times $|U|$. The Memory paragraph gained a clause
+   saying the queue, unlike the two arrays, is not $\bigO{|V|}$.
+3. **`\key` in the notation table.** `def:ch05-key` now reads "The **key** (written
+   $\key(s)$ in the notation table) of a vertex $s$". `s_start`, `s_goal`, `s_last` remain
+   flagged for the front-matter consistency pass; the front matter was not edited.
+4. **Trim Listing 5.1.** The six-line docstring and `__len__` are gone (the class in
+   `code/ch05_dstar_lite.py` keeps both; the listing is an excerpt). `__contains__` was
+   kept, with a one-line comment, because the pseudocode tests $u \in U$ explicitly and
+   dropping it would leave that line of Algorithm 5.1 unimplemented in print.
+5. **Trim the duplicated ratio.** The first mention is now totals only ("the same repairs
+   took 60 ms and 33 ms of wall-clock time, a much smaller gap"); the per-event sentence
+   with 0.8 ms against 1.5 ms is unchanged.
+6. **Trim the last paragraph of `sec:ch05-lpastar-example`.** Reduced to two sentences that
+   point at `thm:ch05-consistent-correct` instead of restating the extraction rule.
+7. **A second difficulty-1 exercise.** Added as `exr:ch05-nomove`, with the review's
+   wording, immediately after `exr:ch05-states`, plus a worked solution in
+   `appendices/solutions/ch05-solutions.tex` (keys are only compared inside
+   `ComputeShortestPath`, which is not called while nothing changes; `s_last` records the
+   position at which the stored keys were computed, so the increment is one lump).
+8. **Pitfall "Wrong heuristic direction".** Now states that the returned path may be
+   *longer than the shortest one*, and why: the loop test compares `TopKey` with
+   $k(s_{\mathrm{start}})$, and that comparison only proves nothing cheaper is left while
+   $k_1$ is a lower bound.
+9. **`sec:ch05-km` wording.** Now "adding the same constant to every key computed from now
+   on leaves every comparison among current keys unchanged".
+
+### Verification
+
+* `python3 code/ch05_dstar_lite.py` -> "self-test passed" (D* Lite against A* after every
+  change, including the equal-expansion assertion for the first search).
+* `python3 code/figures/gen_ch05_examples.py` regenerates all three example figures;
+  `figures/data/ch05-replanning.dat` is unchanged because `gen_ch05_replanning.py` was not
+  touched, so every number quoted in `sec:ch05-experiment` still matches the code.
+* `./build.sh ch05-lpastar-dstarlite`: no LaTeX errors, no new overfull boxes; the only
+  remaining warnings are the expected undefined references to other chapters in a
+  single-chapter build. Note that latexmk can exit non-zero on this machine when another
+  session rebuilds a different chapter at the same time: `\includeonly` re-reads the other
+  chapters' `.aux` files, their part-page numbers then change between passes, and latexmk
+  reports "needed too many passes". The chapter's own aux entries are stable across passes.
