@@ -133,11 +133,11 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 
 ## Phase 6 — Book-level review (whole manuscript)
 
-- [ ] 6.1 Structural review: order of chapters, prerequisites satisfied, redundancy removed, forward/backward references correct
+- [x] 6.1 Structural review: order of chapters, prerequisites satisfied, redundancy removed, forward/backward references correct — docs/book-review.md: verdict Minor revision; 15 required book-level changes queued
 - [~] 6.2 Consistency review: notation, terminology, algorithm names, agent colours in figures, box usage — part 1 applied on Ch 1, 2, 3, 7, 19, 20, 21 (docs/consistency-issues.md); part 2 after the confirming round
 - [x] 6.3 Coverage audit against the training plan: every algorithm, every weekly "Learn" item, every capstone element, every checklist item is taught somewhere (traceability table in Appendix A) — docs/coverage-audit.md: 25/27 algorithms full, 2 partial (Push-and-Rotate pseudocode, Transformer predictor); 8 gaps + 7 App. A inconsistencies queued for the book-level fix pass
 - [ ] 6.4 Accuracy spot-check of all theorems, formulas and complexity tables by a second reviewer
-- [ ] 6.5 Readability pass: sentence length, jargon defined, transitions, chapter openings/closings
+- [~] 6.5 Readability pass: sentence length, jargon defined, transitions, chapter openings/closings — readability table in docs/book-review.md (mean 27.7 words/sentence; ch24 hardest); addressed in the fix pass
 - [ ] 6.6 Apply book-level revisions and re-review until Accept
 
 ## Phase 7 — Copyediting and typesetting
@@ -179,6 +179,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 24 | 13:00-17:40 | first wave: authors finished Ch 7, 9, 11, 13, 19, 20, 21 (20-24 pp each, all compile); then the session limit hit again (reset 17:40 UTC) before any review completed | 17 drafted files |
 | 26 | 09-08 | review loops finished for Ch 1-5, 7, 9-11, 13, 14, 19-21 and App. A (Ch 1 Accept; 14 others: two Opus rounds, minor items applied). All 12 remaining authors (Ch 6, 8, 12, 15-18, 22-25, App. B) stopped by the WEEKLY Fable limit | 15 reviewed |
 | 29 | 09-09 09:00-13:50 | authors finished Ch 6, 8, 12, 15, 16, 22, 23 (19-23 pp each); fresh Opus reviews of Ch 1, 2, 4, 5, 10 found 3-6 minor items each (not yet applied); then the session limit hit again | 23 chapters drafted |
+| 37 | 09-10 01:00 | coverage audit (8 gaps, 7 App. A inconsistencies) and book-level review (Minor revision, 15 items) delivered; fix pass planned in 3 stages: content agents on disjoint chapter sets -> one mechanical book-wide pass (spelling to American, layer names, index line breaks, App. B pointers) -> copyedit + final build | planning |
 | 36 | 09-10 00:05 | confirming-round workflow finished, 0 errors. PHASE 5 COMPLETE: every chapter/appendix has >= 2 Opus rounds applied (Ch 1, 10 formally accepted). Part 2 of the consistency pass launched | Phase 5 done |
 | 35 | 09-09 22:56 | the 21:13 cron launch did not happen (session idle); confirming-round workflow launched manually (Ch 6, 8, 15-17, 22, 23, App. B round 2; Ch 12 round-2 items). Phase 3 ticked: all 25 code files pass code/run_all.py | running |
 | 34 | 09-09 20:05 | remaining workflows ended on the session limit (reset 21:10). All chapters have >= 1 full Opus round applied. Confirming rounds for Ch 6, 8, 15-17, 22, 23, App. B and the Ch 12 round-2 items scheduled for 21:12 UTC (docs/workflows/batches/w5-confirming.json) | scheduled |
