@@ -138,15 +138,15 @@ its quadratic form is non-negative.
 
 \begin{definition}[Adjacency, degree and Laplacian matrices]
 \label{def:ch23-laplacian}
-The \textbf{adjacency matrix}\index{adjacency matrix} $\mat{A} \in \R^{n
-\times n}$ has $a_{ij} = 1$ if $\set{i, j} \in E$ and $a_{ij} = 0$ otherwise
-(in particular $a_{ii} = 0$); weighted graphs use $a_{ij} > 0$ for the strength
+The \textbf{adjacency matrix}\index{adjacency matrix} $\mat{W} \in \R^{n
+\times n}$ has $w_{ij} = 1$ if $\set{i, j} \in E$ and $w_{ij} = 0$ otherwise
+(in particular $w_{ii} = 0$); weighted graphs use $w_{ij} > 0$ for the strength
 of the link. The \textbf{degree matrix}\index{degree matrix} is
-$\mat{D} = \diag(d_1, \dots, d_n)$ with $d_i = \sum_j a_{ij}$, and the
+$\mat{D} = \diag(d_1, \dots, d_n)$ with $d_i = \sum_j w_{ij}$, and the
 \textbf{graph Laplacian}\index{graph Laplacian}\index{Laplacian|see{graph Laplacian}} is
 \begin{equation}
-  \mat{L} = \mat{D} - \mat{A}, \qquad
-  \ell_{ij} = \begin{cases} d_i & i = j,\\ -a_{ij} & i \ne j. \end{cases}
+  \mat{L} = \mat{D} - \mat{W}, \qquad
+  \ell_{ij} = \begin{cases} d_i & i = j,\\ -w_{ij} & i \ne j. \end{cases}
   \label{eq:ch23-laplacian}
 \end{equation}
 Its eigenvalues are written in increasing order,
@@ -164,7 +164,7 @@ largest and smallest degree. Then
   \item every row of $\mat{L}$ sums to zero: $\mat{L}\vect{1} = \vect{0}$ and
     $\vect{1}\T \mat{L} = \vect{0}\T$;
   \item $\mat{L}$ is symmetric and
-    $\vect{x}\T \mat{L} \vect{x} = \sum_{\set{i,j} \in E} a_{ij} (x_i - x_j)^2 \ge 0$
+    $\vect{x}\T \mat{L} \vect{x} = \sum_{\set{i,j} \in E} w_{ij} (x_i - x_j)^2 \ge 0$
     for every $\vect{x} \in \R^n$, so $\mat{L}$ is positive semidefinite and
     $0 = \lambda_1 \le \lambda_2 \le \dots \le \lambda_n$;
   \item the multiplicity of the eigenvalue $0$ equals the number of connected
@@ -176,11 +176,11 @@ largest and smallest degree. Then
 \end{enumerate}
 \end{proposition}
 \begin{proof}
-(i) The diagonal entry $d_i$ of row $i$ equals the sum of the $a_{ij}$ that are
-subtracted in the same row. (ii) Symmetry is inherited from $\mat{A}$. Expand
-$\vect{x}\T \mat{L} \vect{x} = \sum_i d_i x_i^2 - \sum_{i \ne j} a_{ij} x_i x_j$
-and group the terms of each edge: $a_{ij}(x_i^2 + x_j^2 - 2 x_i x_j) =
-a_{ij}(x_i - x_j)^2$. A symmetric matrix with a non-negative quadratic form
+(i) The diagonal entry $d_i$ of row $i$ equals the sum of the $w_{ij}$ that are
+subtracted in the same row. (ii) Symmetry is inherited from $\mat{W}$. Expand
+$\vect{x}\T \mat{L} \vect{x} = \sum_i d_i x_i^2 - \sum_{i \ne j} w_{ij} x_i x_j$
+and group the terms of each edge: $w_{ij}(x_i^2 + x_j^2 - 2 x_i x_j) =
+w_{ij}(x_i - x_j)^2$. A symmetric matrix with a non-negative quadratic form
 has non-negative eigenvalues, and $\lambda_1 = 0$ by (i). (iii) By (ii),
 $\mat{L}\vect{x} = \vect{0}$ holds if and only if $\vect{x}\T \mat{L} \vect{x} =
 0$, that is, $x_i = x_j$ on every edge, that is, $\vect{x}$ is constant on
@@ -293,10 +293,10 @@ The \textbf{consensus protocol}\index{consensus!protocol} of
 written as a differential equation. Drone $i$ moves its state with the velocity
 \begin{equation}
   \dot{\vect{x}}_i = \sum_{j \in N_i} (\vect{x}_j - \vect{x}_i)
-  = \sum_{j=1}^{n} a_{ij} (\vect{x}_j - \vect{x}_i), \qquad i = 1, \dots, n.
+  = \sum_{j=1}^{n} w_{ij} (\vect{x}_j - \vect{x}_i), \qquad i = 1, \dots, n.
   \label{eq:ch23-protocol}
 \end{equation}
-The right-hand side is $-d_i \vect{x}_i + \sum_j a_{ij} \vect{x}_j$, which is
+The right-hand side is $-d_i \vect{x}_i + \sum_j w_{ij} \vect{x}_j$, which is
 row $i$ of $-\mat{L}\vect{x}$, so the whole swarm obeys the linear system
 \begin{equation}
   \dot{\vect{x}} = -\mat{L}\vect{x}.
@@ -320,26 +320,26 @@ for the time step and the mode index.
 
 A drone updates its command at a control period $\dt$, so what it really runs
 is the Euler step of \cref{eq:ch23-matrix} with the step size
-$\eps = k_c\,\dt$:
+$h = k_c\,\dt$:
 \begin{equation}
-  \vect{x}_{k+1} = (\mat{I} - \eps\mat{L})\,\vect{x}_k, \qquad\text{that is}\qquad
-  \vect{x}_{i,k+1} = \vect{x}_{i,k} + \eps \sum_{j \in N_i} (\vect{x}_{j,k} - \vect{x}_{i,k}).
+  \vect{x}_{k+1} = (\mat{I} - h\mat{L})\,\vect{x}_k, \qquad\text{that is}\qquad
+  \vect{x}_{i,k+1} = \vect{x}_{i,k} + h \sum_{j \in N_i} (\vect{x}_{j,k} - \vect{x}_{i,k}).
   \label{eq:ch23-discrete}
 \end{equation}
-The matrix $\mat{P} = \mat{I} - \eps\mat{L}$ is called the Perron matrix of
+The matrix $\mat{P} = \mat{I} - h\mat{L}$ is called the Perron matrix of
 the graph \cite{olfatisaber2007consensus}. Its rows sum to one, and its entries
-$1 - \eps d_i$ on the diagonal and $\eps a_{ij}$ off it are all non-negative if
-and only if $\eps \le 1/d_{\max}$. In that case every drone's new state is a
+$1 - h d_i$ on the diagonal and $h w_{ij}$ off it are all non-negative if
+and only if $h \le 1/d_{\max}$. In that case every drone's new state is a
 weighted average of its own and its neighbours' states, in which it keeps the
-weight $1 - \eps d_i$ on itself, and the maximum can never grow nor the minimum
+weight $1 - h d_i$ on itself, and the maximum can never grow nor the minimum
 shrink. The \textbf{step-size condition}\index{consensus!step-size condition}
 \begin{equation}
-  0 < \eps < \frac{1}{d_{\max}}
+  0 < h < \frac{1}{d_{\max}}
   \label{eq:ch23-stepsize}
 \end{equation}
 is the sufficient condition every drone can check from local information (it
 knows its own degree, and a bound on the largest degree is a design parameter
-of the swarm). The exact condition is $\eps < 2/\lambda_n$, which by
+of the swarm). The exact condition is $h < 2/\lambda_n$, which by
 \cref{prop:ch23-laplacian}(iv) is implied by \cref{eq:ch23-stepsize}; both are
 proved in \cref{thm:ch23-discrete}. Above the exact bound the iteration
 diverges, with the fastest mode of the graph flipping sign at every step; the
@@ -457,7 +457,7 @@ $\vect{o}_j$ is looked up). Line~\ref{alg:ch23-formation:sum} is
 \cref{eq:ch23-formation} with the gain $k_c$; with all offsets zero it is the
 consensus protocol \cref{eq:ch23-protocol}, and over the whole swarm
 lines~\ref{alg:ch23-formation:sum} and~\ref{alg:ch23-formation:step} are the
-discrete-time protocol \cref{eq:ch23-discrete} with $\eps = k_c\dt$, so the
+discrete-time protocol \cref{eq:ch23-discrete} with $h = k_c\dt$, so the
 gain and the period must satisfy $k_c\dt < 1/d_{\max}$.
 Line~\ref{alg:ch23-formation:pin} is the pinning term of
 \cref{eq:ch23-pinned} applied to the template origin: the leader is pulled to
@@ -546,8 +546,8 @@ $\ell_{34} = 2.92$, $\ell_{24} = 3.35$ and $\ell_{14} = 4.61$, so the radius
 graph has the four edges $\set{1,2}, \set{1,3}, \set{2,3}, \set{3,4}$
 (\cref{fig:ch23-square}a, grey), the degrees $(2, 2, 3, 1)$ and
 \[
-  \mat{A} = \begin{pmatrix} 0&1&1&0\\ 1&0&1&0\\ 1&1&0&1\\ 0&0&1&0 \end{pmatrix}, \qquad
-  \mat{L} = \mat{D} - \mat{A} = \begin{pmatrix} 2&-1&-1&0\\ -1&2&-1&0\\ -1&-1&3&-1\\ 0&0&-1&1 \end{pmatrix}.
+  \mat{W} = \begin{pmatrix} 0&1&1&0\\ 1&0&1&0\\ 1&1&0&1\\ 0&0&1&0 \end{pmatrix}, \qquad
+  \mat{L} = \mat{D} - \mat{W} = \begin{pmatrix} 2&-1&-1&0\\ -1&2&-1&0\\ -1&-1&3&-1\\ 0&0&-1&1 \end{pmatrix}.
 \]
 Every row sums to zero. The eigenvalues are $\lambda_1 = 0$, $\lambda_2 = 1$,
 $\lambda_3 = 3$ and $\lambda_4 = 4$ (their sum, $8$, is the trace of
@@ -570,8 +570,8 @@ $0.7\%$, and the actual disagreement is smaller still because its components
 along the faster modes $\lambda_3$ and $\lambda_4$ have long vanished.
 
 \emph{Discrete time.} \Cref{tab:ch23-discrete} iterates
-\cref{eq:ch23-discrete} from the same altitudes with $\eps = 0.25 < 1/3$ and
-with $\eps = 0.6 > 1/2$. The first run is a slowed-down copy of the continuous
+\cref{eq:ch23-discrete} from the same altitudes with $h = 0.25 < 1/3$ and
+with $h = 0.6 > 1/2$. The first run is a slowed-down copy of the continuous
 one (after the first step drone~3 lands exactly on the average of its three
 neighbours, $(7.75 + 6.25 + 2.5)/3 = 5.5$, so its update term is zero and it
 never moves again, while the others keep converging towards it); the second run
@@ -620,15 +620,15 @@ All numbers in this example are produced by \code{worked\_example()} in
 
 \begin{table}[tb]
   \centering\small
-  \caption{Discrete-time consensus $\vect{z}_{k+1} = (\mat{I} - \eps\mat{L})\vect{z}_k$
-  on \cref{ex:ch23-square}. Left: $\eps = 0.25$ satisfies
-  $\eps < 1/d_{\max} = 1/3$ and converges. Right: $\eps = 0.6$ exceeds the
+  \caption{Discrete-time consensus $\vect{z}_{k+1} = (\mat{I} - h\mat{L})\vect{z}_k$
+  on \cref{ex:ch23-square}. Left: $h = 0.25$ satisfies
+  $h < 1/d_{\max} = 1/3$ and converges. Right: $h = 0.6$ exceeds the
   exact bound $2/\lambda_4 = 0.5$ and diverges; the sign of the pattern
   $(1, 1, -3, 1)$ flips at every step.}
   \label{tab:ch23-discrete}
   \begin{tabular}{@{}r cccc c cccc@{}}
   \toprule
-  & \multicolumn{4}{c}{$\eps = 0.25$} & & \multicolumn{4}{c}{$\eps = 0.6$}\\
+  & \multicolumn{4}{c}{$h = 0.25$} & & \multicolumn{4}{c}{$h = 0.6$}\\
   \cmidrule{2-5}\cmidrule{7-10}
   $k$ & $z_1$ & $z_2$ & $z_3$ & $z_4$ & & $z_1$ & $z_2$ & $z_3$ & $z_4$\\
   \midrule
@@ -771,37 +771,37 @@ rather than hope that it is.
 
 \begin{theorem}[Discrete-time consensus]
 \label{thm:ch23-discrete}
-Let the graph be undirected and connected and let $0 < \eps < 2/\lambda_n$.
-Then the iteration $\vect{x}_{m+1} = (\mat{I} - \eps\mat{L})\vect{x}_m$ of
+Let the graph be undirected and connected and let $0 < h < 2/\lambda_n$.
+Then the iteration $\vect{x}_{m+1} = (\mat{I} - h\mat{L})\vect{x}_m$ of
 \cref{eq:ch23-discrete}, whose time step is written $m$ here because $k$
 indexes the modes in the proof, conserves the average and converges to it geometrically,
 \begin{equation}
   \norm{\vect{\delta}_m} \le \rho^m \norm{\vect{\delta}_0}, \qquad
-  \rho = \max\bigl(\abs{1 - \eps\lambda_2}, \abs{1 - \eps\lambda_n}\bigr) < 1 .
+  \rho = \max\bigl(\abs{1 - h\lambda_2}, \abs{1 - h\lambda_n}\bigr) < 1 .
   \label{eq:ch23-discreterate}
 \end{equation}
-In particular the local condition $\eps < 1/d_{\max}$ of
+In particular the local condition $h < 1/d_{\max}$ of
 \cref{eq:ch23-stepsize} suffices, because $\lambda_n \le 2 d_{\max}$.
 \end{theorem}
 \begin{proof}[Proof sketch]
-$\mat{P} = \mat{I} - \eps\mat{L}$ has the eigenvectors of $\mat{L}$ with the
-eigenvalues $\mu_k = 1 - \eps\lambda_k$; $\mu_1 = 1$ keeps the average, and
+$\mat{P} = \mat{I} - h\mat{L}$ has the eigenvectors of $\mat{L}$ with the
+eigenvalues $\mu_k = 1 - h\lambda_k$; $\mu_1 = 1$ keeps the average, and
 expanding the initial disagreement in the modes, $\vect{\delta}_0 =
 \sum_{k \ge 2} c_k \vect{v}_k$, gives $\vect{\delta}_m = \mat{P}^m
 \vect{\delta}_0 = \sum_{k \ge 2} c_k \mu_k^m \vect{v}_k$ after $m$ steps: mode
 $k$ is damped by the factor $\mu_k^m$. All the $\mu_k$ with $k \ge 2$ lie
 strictly inside $(-1, 1)$ exactly when
-$0 < \eps\lambda_k < 2$ for $k \ge 2$, that is, when $\eps < 2/\lambda_n$
+$0 < h\lambda_k < 2$ for $k \ge 2$, that is, when $h < 2/\lambda_n$
 (the lower end is $\lambda_2 > 0$). The details, including the Gershgorin
 step that gives $\lambda_n \le 2d_{\max}$, are \cref{exr:ch23-proof}.
 \end{proof}
 
 \begin{remark}[The best step size]
 \label{rem:ch23-beststep}
-$\rho$ is smallest when $1 - \eps\lambda_2 = -(1 - \eps\lambda_n)$, that is,
-for $\eps^* = 2/(\lambda_2 + \lambda_n)$ \cite{xiao2004fast}. For the graph of
-\cref{ex:ch23-square} this is $\eps^* = 0.4$ with $\rho = 0.6$ per step, while
-the local bound $\eps = 1/3$ gives $\rho = 2/3$. The optimum needs the spectrum
+$\rho$ is smallest when $1 - h\lambda_2 = -(1 - h\lambda_n)$, that is,
+for $h^* = 2/(\lambda_2 + \lambda_n)$ \cite{xiao2004fast}. For the graph of
+\cref{ex:ch23-square} this is $h^* = 0.4$ with $\rho = 0.6$ per step, while
+the local bound $h = 1/3$ gives $\rho = 2/3$. The optimum needs the spectrum
 of the whole graph, so in a swarm one settles for a safe margin below
 $1/d_{\max}$, or for the weighted averages of \textcite{xiao2004fast}.
 \end{remark}
@@ -810,7 +810,7 @@ $1/d_{\max}$, or for the weighted averages of \textcite{xiao2004fast}.
 \label{sec:ch23-directed}
 
 On a directed graph, drone $i$ still runs \cref{eq:ch23-protocol} over the
-drones it hears, and $\mat{L} = \mat{D} - \mat{A}$ with $d_i = \sum_j a_{ij}$
+drones it hears, and $\mat{L} = \mat{D} - \mat{W}$ with $d_i = \sum_j w_{ij}$
 still satisfies $\mat{L}\vect{1} = \vect{0}$, but $\mat{L}$ is no longer
 symmetric and the sum of the states is no longer conserved.
 \textcite{ren2005consensus} proved the decisive result: the protocol reaches
@@ -1033,7 +1033,7 @@ controller with a proof. Each double-integrator drone applies the acceleration
 \begin{equation}
   \ctrl_i = \underbrace{\sum_{j \in N_i} \phi\bigl(\norm{\pos_j - \pos_i}\bigr)\,
   \frac{\pos_j - \pos_i}{\norm{\pos_j - \pos_i}}}_{\text{gradient: separation and cohesion}}
-  + \underbrace{\sum_{j \in N_i} a_{ij}(\pos)\,(\vel_j - \vel_i)}_{\text{velocity alignment}}
+  + \underbrace{\sum_{j \in N_i} w_{ij}(\pos)\,(\vel_j - \vel_i)}_{\text{velocity alignment}}
   + \underbrace{\bigl(-c_1(\pos_i - \pos_\gamma) - c_2(\vel_i - \vel_\gamma)\bigr)}_{\text{navigation feedback}},
   \label{eq:ch23-flock}
 \end{equation}
@@ -1046,10 +1046,9 @@ bump function so that neighbours can enter and leave the range without a jump
 in the force; Olfati-Saber evaluates the distances through a smoothed norm
 $\norm{\vect{z}}_\sigma = (\sqrt{1 + \sigma\norm{\vect{z}}^2} - 1)/\sigma$ with a
 small $\sigma > 0$, so that the potential is differentiable everywhere; he calls
-this parameter $\epsilon$, which in this chapter is the step size of
-\cref{eq:ch23-discrete}. The \emph{alignment term} is
+this parameter $\eps$, which this chapter writes $\sigma$. The \emph{alignment term} is
 consensus on the velocities with the same distance-dependent weights
-$a_{ij}(\pos) \in [0, 1]$, so \cref{thm:ch23-consensus} explains why the
+$w_{ij}(\pos) \in [0, 1]$, so \cref{thm:ch23-consensus} explains why the
 velocities become equal. The \emph{navigation feedback} is a PD term towards a
 virtual leader (the $\gamma$-agent) at $\pos_\gamma$ with velocity
 $\vel_\gamma$, for us the \cbs reference of the group. It is not an
@@ -1167,8 +1166,8 @@ of a swarm: zero means split, small means one edge away from splitting, and it
 is also the convergence rate the formation controller currently enjoys. A
 ground station with all positions computes it with an eigensolver in
 $\bigO{n^3}$. On board, a drone can estimate it by power iteration on the
-matrix $\mat{W} = s\mat{I} - \mat{L} - \frac{s}{n}\vect{1}\vect{1}\T$ with
-$s = 2d_{\max}$ (a different matrix from the pinning matrix $\mat{B}$ of
+matrix $s\mat{I} - \mat{L} - \frac{s}{n}\vect{1}\vect{1}\T$ with
+$s = 2d_{\max}$ (not the pinning matrix $\mat{B}$ of
 \cref{eq:ch23-pinned}), whose largest eigenvalue is $s - \lambda_2$; each iteration
 needs only products with $\mat{L}$ (one message exchange) and the average of
 the iterate (a consensus), which is the basis of the distributed estimators of
@@ -1184,23 +1183,23 @@ reports.
 \label{sec:ch23-implementation}
 
 \paragraph{Step size.}
-The gain and the control period enter only as the product $\eps = k_c\dt$, and
-\cref{thm:ch23-discrete} needs $\eps < 1/d_{\max}$ with margin. At $20$~Hz
+The gain and the control period enter only as the product $h = k_c\dt$, and
+\cref{thm:ch23-discrete} needs $h < 1/d_{\max}$ with margin. At $20$~Hz
 ($\dt = 0.05$~s) with $k_c = 1$~s$^{-1}$ and at most five neighbours,
-$\eps = 0.05$ is far below $0.2$; the bound bites when the gain is raised for
+$h = 0.05$ is far below $0.2$; the bound bites when the gain is raised for
 a faster response, or when a slow link forces a long period. The range barrier
 and the safety repulsion are stiffer than the consensus term near their
 poles, so the velocity limit $v_{\max}$ on line~\ref{alg:ch23-formation:sat}
 is what keeps the Euler step from jumping over a barrier.
 
 \begin{pitfall}[An unstable step size looks like a bug in the messages]
-With $\eps$ above $2/\lambda_n$ the swarm does not merely converge slowly: it
+With $h$ above $2/\lambda_n$ the swarm does not merely converge slowly: it
 diverges, and it does so in the highest-frequency pattern of the graph, so
 the symptom is neighbouring drones lurching in opposite directions at every
 period (right half of \cref{tab:ch23-discrete}). Because $\lambda_n$ depends on
 the graph, a gain that was fine in a sparse test can fail when the drones
 cluster and the degrees grow. Also beware of the boundary: a $4$-cycle has
-$\lambda_4 = 4 = 2d_{\max}$, so $\eps = 1/d_{\max} = 0.5$ exactly gives the
+$\lambda_4 = 4 = 2d_{\max}$, so $h = 1/d_{\max} = 0.5$ exactly gives the
 eigenvalue $-1$ and the pattern $(+,-,+,-)$ flips for ever without decaying.
 Use a strict margin, and log $\max_i d_i$ together with the control period.
 \end{pitfall}
@@ -1395,15 +1394,15 @@ shape.
 \begin{summary}
 \begin{itemize}
   \item The communication graph of a swarm is the radius graph of the drone
-    positions; its Laplacian $\mat{L} = \mat{D} - \mat{A}$ is symmetric,
+    positions; its Laplacian $\mat{L} = \mat{D} - \mat{W}$ is symmetric,
     positive semidefinite, has $\mat{L}\vect{1} = \vect{0}$, and its second
     eigenvalue $\lambda_2$ is positive exactly when the graph is connected.
   \item The consensus protocol $\dot{\vect{x}} = -\mat{L}\vect{x}$ is local,
     leaderless and conserves the sum. On a connected undirected graph it
     converges to the average of the initial states, and the disagreement decays
     like $e^{-\lambda_2 t}$ (\cref{thm:ch23-consensus}).
-  \item In discrete time, $\vect{x}_{k+1} = (\mat{I} - \eps\mat{L})\vect{x}_k$
-    converges for $\eps < 2/\lambda_n$, and $\eps < 1/d_{\max}$ is the
+  \item In discrete time, $\vect{x}_{k+1} = (\mat{I} - h\mat{L})\vect{x}_k$
+    converges for $h < 2/\lambda_n$, and $h < 1/d_{\max}$ is the
     sufficient condition every drone can check (\cref{thm:ch23-discrete}).
   \item On a directed graph consensus needs a directed spanning tree and
     reaches a weighted average; on switching graphs it needs the union over
@@ -1450,7 +1449,7 @@ step size is \textcite{xiao2004fast}.
 \label{exr:ch23-laplacian}
 Four drones communicate over the edges $\set{1,2}$, $\set{2,3}$, $\set{3,4}$,
 $\set{4,1}$ and $\set{1,3}$ (a square with one diagonal). Write down
-$\mat{A}$, $\mat{D}$ and $\mat{L}$, verify $\mat{L}\vect{1} = \vect{0}$, and
+$\mat{W}$, $\mat{D}$ and $\mat{L}$, verify $\mat{L}\vect{1} = \vect{0}$, and
 compute $\vect{x}\T\mat{L}\vect{x}$ for $\vect{x} = (1, 0, 0, 1)\T$ both from
 the matrix and from the sum over the edges. Find the four eigenvalues (guess
 eigenvectors orthogonal to $\vect{1}$ and check the trace), and give
@@ -1461,8 +1460,8 @@ $1/d_{\max}$ and $2/\lambda_4$.
 \begin{exercise}[\difficulty{1}]
 \label{exr:ch23-average}
 (a) Show that the discrete protocol \cref{eq:ch23-discrete} conserves the
-average for every $\eps$, and that the maximum state never grows if
-$\eps \le 1/d_{\max}$. (b) Four drones sit on a line at $x = 0$, $1$, $10$
+average for every $h$, and that the maximum state never grows if
+$h \le 1/d_{\max}$. (b) Four drones sit on a line at $x = 0$, $1$, $10$
 and $11$~m, so that $R_{\mathrm{comm}} = 2$~m splits them into the two
 components that never agree with each other. How large must
 $R_{\mathrm{comm}}$ be before they agree globally? Give $\lambda_2$ and the
@@ -1477,12 +1476,12 @@ that the example measures $e_F$ on four edges, not six.
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch23-proof}
 Prove \cref{thm:ch23-discrete} in full. Show that $\mat{P} = \mat{I} -
-\eps\mat{L}$ has the eigenvalues $1 - \eps\lambda_k$ with the eigenvectors of
+h\mat{L}$ has the eigenvalues $1 - h\lambda_k$ with the eigenvectors of
 $\mat{L}$, that the average is conserved, that the disagreement vector stays
 orthogonal to $\vect{1}$ and contracts by the factor $\rho$ of
 \cref{eq:ch23-discreterate} at every step, and that $\rho < 1$ when the graph
-is connected and $\eps < 2/\lambda_n$. Then prove $\lambda_n \le 2d_{\max}$
-with Gershgorin's theorem and conclude that $\eps < 1/d_{\max}$ suffices.
+is connected and $h < 2/\lambda_n$. Then prove $\lambda_n \le 2d_{\max}$
+with Gershgorin's theorem and conclude that $h < 1/d_{\max}$ suffices.
 Where exactly does connectedness enter?
 \end{exercise}
 
@@ -1490,7 +1489,7 @@ Where exactly does connectedness enter?
 \label{exr:ch23-directed}
 Three drones communicate over one-way links: drone~2 hears drone~1 and
 drone~3 hears drone~2, nobody hears anybody else. (a) Write $\mat{L}$ for the
-convention that $a_{ij} = 1$ when $i$ hears $j$, check that it has a directed
+convention that $w_{ij} = 1$ when $i$ hears $j$, check that it has a directed
 spanning tree, solve $\dot{\vect{x}} = -\mat{L}\vect{x}$ and show that all
 states converge to $x_1(0)$; identify the left eigenvector $\vect{w}$. (b) Add
 the link by which drone~1 hears drone~3; show that the digraph is now balanced

@@ -112,8 +112,8 @@ goal? Because of the way the nearest vertex is chosen.
 \Cref{fig:ch16-voronoi} shows a small tree in an empty square together with
 the \textbf{Voronoi region}\index{Voronoi region} of every vertex, the set of
 points closer to this vertex than to any other. A dart that lands in the
-region of vertex $v$ makes $v$ the parent of the new vertex, so with uniform
-darts the probability that $v$ is \emph{selected} equals the area of its
+region of vertex $\vect{v}$ makes $\vect{v}$ the parent of the new vertex, so with uniform
+darts the probability that $\vect{v}$ is \emph{selected} equals the area of its
 region divided by the area of the map; whether the step is then accepted is
 up to the collision check. The tips of branches that point into empty space
 own the largest regions, so they are selected most often, and every accepted
@@ -130,9 +130,9 @@ been filled.
   \inputfigure{ch16/voronoi}
   \caption{The Voronoi bias. A 15-vertex \rrt in an empty $10\times10$ square
   (step size $\eta=1$) and the Voronoi regions of its vertices. The vertex
-  $x_{\mathrm{near}}$ at the tip of the longest branch owns the orange region,
+  $\state_{\mathrm{near}}$ at the tip of the longest branch owns the orange region,
   $20.6\,\%$ of the square, so one uniform sample in five extends it; the
-  sample $x_{\mathrm{rand}}$ shown does, and the orange step of length $\eta$
+  sample $\state_{\mathrm{rand}}$ shown does, and the orange step of length $\eta$
   pushes the branch further into the empty part of the map. The small regions
   inside the tree are almost never chosen.}
   \label{fig:ch16-voronoi}
@@ -159,7 +159,7 @@ literature writes the same objects as $\mathcal{X}$, $\Xobs$ and $\Xfree$,
 because the space is often a \emph{state} space that contains velocities as
 well as positions (\cref{sec:ch16-kinodynamic}); this chapter and
 \cref{ch:ch17} follow that usage. For a drone planned as a sphere of radius
-$r$, a configuration is the position of its centre, $x\in\R^{d}$ with $d=2$
+$r$, a configuration is the position of its centre, $\state\in\R^{d}$ with $d=2$
 or $3$, and $\Xobs$ is the union of the obstacles inflated by $r$ (the
 Minkowski sum of \cref{ch:ch02}).
 
@@ -170,20 +170,20 @@ space}\index{configuration space!in sampling-based planning}, let
 $\Xobs\subset\mathcal{X}$ be a closed set, the \textbf{obstacle region}, and
 let $\Xfree=\mathcal{X}\setminus\Xobs$ be the \textbf{free
 space}\index{free space}. A query consists of an initial configuration
-$x_{\mathrm{init}}\in\Xfree$ and a \textbf{goal region}\index{goal region}
+$\state_{\mathrm{init}}\in\Xfree$ and a \textbf{goal region}\index{goal region}
 $X_{\mathrm{goal}}\subseteq\Xfree$; in this book the goal region is the ball
-$X_{\mathrm{goal}}=\set{x : \norm{x-x_{\mathrm{goal}}}\le r_{\mathrm{goal}}}$
-of radius $r_{\mathrm{goal}}>0$ around a goal point $x_{\mathrm{goal}}$.
+$X_{\mathrm{goal}}=\set{\state : \norm{\state-\state_{\mathrm{goal}}}\le r_{\mathrm{goal}}}$
+of radius $r_{\mathrm{goal}}>0$ around a goal point $\state_{\mathrm{goal}}$.
 A \textbf{solution} is a continuous path
-$\tau\colon[0,1]\to\Xfree$ with $\tau(0)=x_{\mathrm{init}}$ and
+$\tau\colon[0,1]\to\Xfree$ with $\tau(0)=\state_{\mathrm{init}}$ and
 $\tau(1)\in X_{\mathrm{goal}}$. The planners of this chapter return
-polygonal paths, sequences of configurations $x_0=x_{\mathrm{init}},x_1,\dots,x_k$
+polygonal paths, sequences of configurations $\state_0=\state_{\mathrm{init}},\state_1,\dots,\state_k$
 whose connecting segments lie in $\Xfree$; the \textbf{length} of such a path is
-$\sum_{i}\norm{x_{i}-x_{i-1}}$, the path length of \cref{ch:ch02}.
+$\sum_{i}\norm{\state_{i}-\state_{i-1}}$, the path length of \cref{ch:ch02}.
 \end{definition}
 
-The tree $T=(V,E)$ built by \rrt has a vertex set $V\subset\Xfree$ rooted at
-$x_{\mathrm{init}}$ and one directed edge $(x_{\mathrm{parent}},x)$ per
+The tree $\mathcal{T}=(V,E)$ built by \rrt has a vertex set $V\subset\Xfree$ rooted at
+$\state_{\mathrm{init}}$ and one directed edge $(\state_{\mathrm{parent}},\state)$ per
 vertex except the root, each a collision-free segment; the path from the
 root to any vertex is therefore a solution as soon as the vertex lies in
 $X_{\mathrm{goal}}$.
@@ -199,71 +199,71 @@ next changes one of them. \Cref{fig:ch16-primitives} shows them together.
 Let $\eta>0$ be the \textbf{step size}\index{step size}\index{RRT!step size} and
 $p_{\mathrm{goal}}\in[0,1)$ the \textbf{goal bias}\index{goal bias}\index{RRT!goal bias}.
 \begin{itemize}
-  \item $\textsc{Sample}()$\index{RRT!Sample} returns $x_{\mathrm{goal}}$ with probability
+  \item $\textsc{Sample}()$\index{RRT!Sample} returns $\state_{\mathrm{goal}}$ with probability
         $p_{\mathrm{goal}}$ and otherwise a configuration drawn uniformly at random
         from $\mathcal{X}$ (not from $\Xfree$: the sample may lie inside an obstacle,
         the collision check below takes care of it). Successive samples are
         independent.
-  \item $\Nearest(V,x)=\argmin_{v\in V}\norm{v-x}$\index{RRT!Nearest} is the vertex of the
-        tree closest to $x$ in the Euclidean norm, ties broken arbitrarily.
-  \item $\Steer(x_{\mathrm{near}},x_{\mathrm{rand}})$\index{RRT!Steer} moves from
-        $x_{\mathrm{near}}$ towards $x_{\mathrm{rand}}$ by at most $\eta$:
+  \item $\Nearest(V,\state)=\argmin_{\vect{v}\in V}\norm{\vect{v}-\state}$\index{RRT!Nearest} is the vertex of the
+        tree closest to $\state$ in the Euclidean norm, ties broken arbitrarily.
+  \item $\Steer(\state_{\mathrm{near}},\state_{\mathrm{rand}})$\index{RRT!Steer} moves from
+        $\state_{\mathrm{near}}$ towards $\state_{\mathrm{rand}}$ by at most $\eta$:
         \begin{equation}
-        \Steer(x_{\mathrm{near}},x_{\mathrm{rand}})=
+        \Steer(\state_{\mathrm{near}},\state_{\mathrm{rand}})=
         \begin{cases}
-          x_{\mathrm{rand}} & \text{if } \norm{x_{\mathrm{rand}}-x_{\mathrm{near}}}\le\eta,\\[2pt]
-          x_{\mathrm{near}}+\eta\,\dfrac{x_{\mathrm{rand}}-x_{\mathrm{near}}}{\norm{x_{\mathrm{rand}}-x_{\mathrm{near}}}} & \text{otherwise.}
+          \state_{\mathrm{rand}} & \text{if } \norm{\state_{\mathrm{rand}}-\state_{\mathrm{near}}}\le\eta,\\[2pt]
+          \state_{\mathrm{near}}+\eta\,\dfrac{\state_{\mathrm{rand}}-\state_{\mathrm{near}}}{\norm{\state_{\mathrm{rand}}-\state_{\mathrm{near}}}} & \text{otherwise.}
         \end{cases}
         \label{eq:ch16-steer}
         \end{equation}
-  \item $\CollisionFree(a,b)$\index{RRT!CollisionFree} is true if and only if the closed
-        segment $[a,b]=\set{a+t(b-a): t\in[0,1]}$ lies in $\Xfree$.
+  \item $\CollisionFree(\vect{a},\vect{b})$\index{RRT!CollisionFree} is true if and only if the closed
+        segment $[\vect{a},\vect{b}]=\set{\vect{a}+t(\vect{b}-\vect{a}): t\in[0,1]}$ lies in $\Xfree$.
 \end{itemize}
 \end{definition}
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch16/primitives}
-  \caption{The primitives of one iteration. The sample $x_{\mathrm{rand}}$
-  selects the nearest vertex $x_{\mathrm{near}}$; \textsc{Steer} moves at most
-  $\eta$ towards the sample and proposes $x_{\mathrm{new}}$;
+  \caption{The primitives of one iteration. The sample $\state_{\mathrm{rand}}$
+  selects the nearest vertex $\state_{\mathrm{near}}$; \textsc{Steer} moves at most
+  $\eta$ towards the sample and proposes $\state_{\mathrm{new}}$;
   \textsc{CollisionFree} tests points spaced $\delta$ apart along the new
   segment against the obstacle inflated by $r+\delta/2$ (dashed), which is
   conservative by \cref{thm:ch16-resolution}. The second attempt, from
-  $x_{\mathrm{new}}$ towards $x'_{\mathrm{rand}}$, is rejected because its
+  $\state_{\mathrm{new}}$ towards $\state'_{\mathrm{rand}}$, is rejected because its
   second test point falls inside the inflated region; no vertex is added.}
   \label{fig:ch16-primitives}
 \end{figure}
 
 A segment has infinitely many points, so \textsc{CollisionFree} is
 implemented by testing finitely many of them. The following proposition says
-how to do this without ever missing an obstacle. Write $\dist(x,\mathcal{O})$
-for the Euclidean distance from $x$ to the workspace obstacles $\mathcal{O}$;
+how to do this without ever missing an obstacle. Write $\dist(\state,\mathcal{O})$
+for the Euclidean distance from $\state$ to the workspace obstacles $\mathcal{O}$;
 for axis-aligned boxes and spheres it has a closed form
 (\cref{sec:ch16-collision}).
 
 \begin{proposition}[Collision checking by subdivision]
 \label{thm:ch16-resolution}
-Let $r\ge0$ be the robot radius, so that a point $x$ is free if and only if
-$\dist(x,\mathcal{O})>r$, and let $\delta>0$ be the \textbf{check
+Let $r\ge0$ be the robot radius, so that a point $\state$ is free if and only if
+$\dist(\state,\mathcal{O})>r$, and let $\delta>0$ be the \textbf{check
 resolution}\index{collision checking!resolution}\index{collision checking!by subdivision}.
-Let $p_0=a,p_1,\dots,p_n=b$ be points on the segment $[a,b]$ with
-$\norm{p_{i}-p_{i-1}}\le\delta$ for all $i$. If $\dist(p_i,\mathcal{O})>r+\delta/2$
-for every $i$, then every point $p$ of $[a,b]$ has $\dist(p,\mathcal{O})>r$, that is,
+Let $\vect{p}_0=\vect{a},\vect{p}_1,\dots,\vect{p}_n=\vect{b}$ be points on the segment $[\vect{a},\vect{b}]$ with
+$\norm{\vect{p}_{i}-\vect{p}_{i-1}}\le\delta$ for all $i$. If $\dist(\vect{p}_i,\mathcal{O})>r+\delta/2$
+for every $i$, then every point $\vect{p}$ of $[\vect{a},\vect{b}]$ has $\dist(\vect{p},\mathcal{O})>r$, that is,
 the segment is collision-free.
 \end{proposition}
 \begin{proof}
-Take any $p\in[a,b]$. It lies between two consecutive test points, so its
-distance to the nearer of them, $p_i$ say, is at most $\delta/2$. The function
-$x\mapsto\dist(x,\mathcal{O})$ is $1$-Lipschitz (an infimum of distances,
-each of which changes by at most $\norm{p-p_i}$ when $p_i$ is replaced by
-$p$), so
-$\dist(p,\mathcal{O})\ge\dist(p_i,\mathcal{O})-\norm{p-p_i}>r+\delta/2-\delta/2=r$.
+Take any $\vect{p}\in[\vect{a},\vect{b}]$. It lies between two consecutive test points, so its
+distance to the nearer of them, $\vect{p}_i$ say, is at most $\delta/2$. The function
+$\state\mapsto\dist(\state,\mathcal{O})$ is $1$-Lipschitz (an infimum of distances,
+each of which changes by at most $\norm{\vect{p}-\vect{p}_i}$ when $\vect{p}_i$ is replaced by
+$\vect{p}$), so
+$\dist(\vect{p},\mathcal{O})\ge\dist(\vect{p}_i,\mathcal{O})-\norm{\vect{p}-\vect{p}_i}>r+\delta/2-\delta/2=r$.
 \qedhere
 \end{proof}
 
 The test rejects some free segments, those that pass within $r+\delta/2$ of
-an obstacle, and needs $\lceil\norm{b-a}/\delta\rceil+1$ point tests. It
+an obstacle, and needs $\lceil\norm{\vect{b}-\vect{a}}/\delta\rceil+1$ point tests. It
 never accepts a colliding segment, whatever the shape or thickness of the
 obstacles, which is what makes it safe for a drone. Without the inflation by
 $\delta/2$ a wall thinner than $\delta$ can slip between two test points
@@ -279,18 +279,18 @@ crossings of it.
 \begin{algorithm}[htb]
 \caption{Rapidly-exploring random tree with goal bias \cite{lavalle1998rrt,lavalle2001randomized}}
 \label{alg:ch16-rrt}
-\KwIn{$x_{\mathrm{init}}$, $x_{\mathrm{goal}}$, goal radius $r_{\mathrm{goal}}$, step size $\eta$, goal bias $p_{\mathrm{goal}}$, iteration budget $N$}
-\KwOut{a collision-free polygonal path from $x_{\mathrm{init}}$ into $X_{\mathrm{goal}}$, or \emph{failure}}
-\Fn{\RrtGrow{$x_{\mathrm{init}}$, $x_{\mathrm{goal}}$, $N$}}{
-  $V\gets\set{x_{\mathrm{init}}}$; $E\gets\emptyset$\label{alg:ch16-rrt:init}\;
+\KwIn{$\state_{\mathrm{init}}$, $\state_{\mathrm{goal}}$, goal radius $r_{\mathrm{goal}}$, step size $\eta$, goal bias $p_{\mathrm{goal}}$, iteration budget $N$}
+\KwOut{a collision-free polygonal path from $\state_{\mathrm{init}}$ into $X_{\mathrm{goal}}$, or \emph{failure}}
+\Fn{\RrtGrow{$\state_{\mathrm{init}}$, $\state_{\mathrm{goal}}$, $N$}}{
+  $V\gets\set{\state_{\mathrm{init}}}$; $E\gets\emptyset$\label{alg:ch16-rrt:init}\;
   \For{$i\gets1$ \KwTo $N$}{
-    $x_{\mathrm{rand}}\gets$ \RrtSampleBiased{}\label{alg:ch16-rrt:sample}\tcp*{$x_{\mathrm{goal}}$ with probability $p_{\mathrm{goal}}$, else uniform in $\mathcal{X}$}
-    $x_{\mathrm{near}}\gets\Nearest(V,x_{\mathrm{rand}})$\label{alg:ch16-rrt:nearest}\;
-    $x_{\mathrm{new}}\gets\Steer(x_{\mathrm{near}},x_{\mathrm{rand}})$\label{alg:ch16-rrt:steer}\tcp*{at most $\eta$ from $x_{\mathrm{near}}$, \cref{eq:ch16-steer}}
-    \If{\RrtSegmentFree{$x_{\mathrm{near}}$, $x_{\mathrm{new}}$}\label{alg:ch16-rrt:free}}{
-      $V\gets V\cup\set{x_{\mathrm{new}}}$; $E\gets E\cup\set{(x_{\mathrm{near}},x_{\mathrm{new}})}$\label{alg:ch16-rrt:add}\;
-      \If{$\norm{x_{\mathrm{new}}-x_{\mathrm{goal}}}\le r_{\mathrm{goal}}$\label{alg:ch16-rrt:goal}}{
-        \KwRet{\RrtExtractPath{$V$, $E$, $x_{\mathrm{new}}$}}\tcp*{follow the parents back to $x_{\mathrm{init}}$}
+    $\state_{\mathrm{rand}}\gets$ \RrtSampleBiased{}\label{alg:ch16-rrt:sample}\tcp*{$\state_{\mathrm{goal}}$ with probability $p_{\mathrm{goal}}$, else uniform in $\mathcal{X}$}
+    $\state_{\mathrm{near}}\gets\Nearest(V,\state_{\mathrm{rand}})$\label{alg:ch16-rrt:nearest}\;
+    $\state_{\mathrm{new}}\gets\Steer(\state_{\mathrm{near}},\state_{\mathrm{rand}})$\label{alg:ch16-rrt:steer}\tcp*{at most $\eta$ from $\state_{\mathrm{near}}$, \cref{eq:ch16-steer}}
+    \If{\RrtSegmentFree{$\state_{\mathrm{near}}$, $\state_{\mathrm{new}}$}\label{alg:ch16-rrt:free}}{
+      $V\gets V\cup\set{\state_{\mathrm{new}}}$; $E\gets E\cup\set{(\state_{\mathrm{near}},\state_{\mathrm{new}})}$\label{alg:ch16-rrt:add}\;
+      \If{$\norm{\state_{\mathrm{new}}-\state_{\mathrm{goal}}}\le r_{\mathrm{goal}}$\label{alg:ch16-rrt:goal}}{
+        \KwRet{\RrtExtractPath{$V$, $E$, $\state_{\mathrm{new}}$}}\tcp*{follow the parents back to $\state_{\mathrm{init}}$}
       }
     }
   }
@@ -309,29 +309,29 @@ Line~\ref{alg:ch16-rrt:steer} limits the new edge to length $\eta$: without
 the limit a far-away sample would produce a long edge that is almost always
 blocked. Line~\ref{alg:ch16-rrt:free} is the only place where the obstacles
 enter, and it tests the whole segment, not just the new vertex. If the
-segment is free, the new vertex joins the tree with $x_{\mathrm{near}}$ as
+segment is free, the new vertex joins the tree with $\state_{\mathrm{near}}$ as
 its parent (line~\ref{alg:ch16-rrt:add}); if not, the sample is simply
 forgotten. The goal test of line~\ref{alg:ch16-rrt:goal} asks whether the new
-vertex lies in the goal ball: exact equality with $x_{\mathrm{goal}}$ never
+vertex lies in the goal ball: exact equality with $\state_{\mathrm{goal}}$ never
 happens with continuous samples, which is why a goal region is part of the
 problem statement. The implementation of \cref{sec:ch16-implementation}
-finally appends $x_{\mathrm{goal}}$ itself when the segment from the entry
+finally appends $\state_{\mathrm{goal}}$ itself when the segment from the entry
 vertex to it is free, so that the path ends exactly at the goal.
 
 Kuffner and LaValle \cite{kuffner2000rrtconnect} package
 lines~\ref{alg:ch16-rrt:nearest}--\ref{alg:ch16-rrt:add} as one operation
-$\textsc{Extend}(T,x)$ with three outcomes: \textsc{Trapped} if the segment
-was blocked, \textsc{Advanced} if a new vertex was added short of $x$, and
-\textsc{Reached} if the new vertex is $x$ itself, which happens exactly when
-$\norm{x-x_{\mathrm{near}}}\le\eta$. \Cref{alg:ch16-connect} is written in
+$\textsc{Extend}(\mathcal{T},\state)$ with three outcomes: \textsc{Trapped} if the segment
+was blocked, \textsc{Advanced} if a new vertex was added short of $\state$, and
+\textsc{Reached} if the new vertex is $\state$ itself, which happens exactly when
+$\norm{\state-\state_{\mathrm{near}}}\le\eta$. \Cref{alg:ch16-connect} is written in
 these terms.
 
 \paragraph{The Voronoi bias, quantified.}
 With $p_{\mathrm{goal}}=0$ the sample is uniform on $\mathcal{X}$, so the
-probability that vertex $v$ is chosen by line~\ref{alg:ch16-rrt:nearest} is
+probability that vertex $\vect{v}$ is chosen by line~\ref{alg:ch16-rrt:nearest} is
 \begin{equation}
-\Prob\bigl(x_{\mathrm{near}}=v\bigr)=\frac{\mathrm{vol}\bigl(\mathrm{Vor}(v)\cap\mathcal{X}\bigr)}{\mathrm{vol}(\mathcal{X})},
-\qquad \mathrm{Vor}(v)=\set{x : \norm{x-v}\le\norm{x-w}\ \text{for all } w\in V},
+\Prob\bigl(\state_{\mathrm{near}}=\vect{v}\bigr)=\frac{\mathrm{vol}\bigl(\mathrm{Vor}(\vect{v})\cap\mathcal{X}\bigr)}{\mathrm{vol}(\mathcal{X})},
+\qquad \mathrm{Vor}(\vect{v})=\set{\state : \norm{\state-\vect{v}}\le\norm{\state-\vect{w}}\ \text{for all } \vect{w}\in V},
 \label{eq:ch16-voronoi}
 \end{equation}
 the relative volume of its Voronoi region. LaValle \cite{lavalle1998rrt} observed that
@@ -350,7 +350,7 @@ The configuration space is the square $\mathcal{X}=[0,10]^{2}$ with two
 rectangular obstacles, $[3,5]\times[0,6]$ and $[6,8]\times[4,10]$, so that
 the only way from the bottom-left to the top-right corner passes between
 them. The robot is a point ($r=0$), the start is
-$x_{\mathrm{init}}=(1,1)$, the goal $x_{\mathrm{goal}}=(9,9)$ with
+$\state_{\mathrm{init}}=(1,1)$, the goal $\state_{\mathrm{goal}}=(9,9)$ with
 $r_{\mathrm{goal}}=0.5$, the step size $\eta=0.5$, the goal bias
 $p_{\mathrm{goal}}=0.05$ and the check resolution $\delta=0.05$. The random
 generator is seeded with $1$. The instance is \code{worked\_example\_world()}
@@ -367,7 +367,7 @@ every step is rejected by the wall $[3,5]\times[0,6]$, as the text explains.}
 \label{tab:ch16-trace}
 \begin{tabular}{@{}rccccl@{}}
 \toprule
-Iteration & $x_{\mathrm{rand}}$ & Nearest vertex & $x_{\mathrm{near}}$ & $x_{\mathrm{new}}$ & Segment free? \\
+Iteration & $\state_{\mathrm{rand}}$ & Nearest vertex & $\state_{\mathrm{near}}$ & $\state_{\mathrm{new}}$ & Segment free? \\
 \midrule
 1  & $(9.50, 1.44)$ & 0 & $(1.00, 1.00)$ & $(1.50, 1.03)$ & yes, vertex 1 added\\
 2  & $(3.12, 4.23)$ & 1 & $(1.50, 1.03)$ & $(1.72, 1.47)$ & yes, vertex 2\\
@@ -416,7 +416,7 @@ iterations. By iteration~$200$ the tree has $103$ vertices and has found the
 gap between the walls; the goal region is entered at iteration~$402$, when
 the tree has $245$ vertices, by a vertex at $(9.14,8.60)$ at distance
 $0.42<r_{\mathrm{goal}}$ from the goal. The final segment to
-$x_{\mathrm{goal}}$ is free and is appended, which gives a path of $50$
+$\state_{\mathrm{goal}}$ is free and is appended, which gives a path of $50$
 vertices and length $23.85$. Of the $402$ iterations, $158$ were rejected by
 the collision check, and the checks tested $3\,965$ points (a counter the self-test prints), about ten per
 iteration, as expected for $\eta/\delta=10$. The path is far from optimal:
@@ -449,7 +449,7 @@ without knowing whether the query was infeasible or merely hard.
 \label{thm:ch16-complete}
 Let $\mathcal{X}$ be a bounded box, $\eta>0$, $0\le p_{\mathrm{goal}}<1$ and
 $r_{\mathrm{goal}}>0$. Suppose there is a path $\tau$ of finite length from
-$x_{\mathrm{init}}$ to $x_{\mathrm{goal}}$ with \textbf{clearance}\index{clearance}
+$\state_{\mathrm{init}}$ to $\state_{\mathrm{goal}}$ with \textbf{clearance}\index{clearance}
 $\delta_{c}>0$: every segment that lies within distance $\delta_{c}$ of $\tau$
 is accepted by \textup{\textsc{CollisionFree}}. Then the probability that
 \cref{alg:ch16-rrt} has not found a solution after $n$ iterations is at most
@@ -459,40 +459,40 @@ particular it tends to $0$ as $n\to\infty$.
 \end{theorem}
 \begin{proof}
 Let $\nu=\min(\eta/3,\ \delta_{c}/4,\ r_{\mathrm{goal}})$ and choose points
-$x_0=x_{\mathrm{init}},x_1,\dots,x_m=x_{\mathrm{goal}}$ along $\tau$ with
-$\norm{x_{k+1}-x_k}\le\nu$ for all $k$; a path of finite length admits such a
+$\state_0=\state_{\mathrm{init}},\state_1,\dots,\state_m=\state_{\mathrm{goal}}$ along $\tau$ with
+$\norm{\state_{k+1}-\state_k}\le\nu$ for all $k$; a path of finite length admits such a
 sequence with $m\le\lceil\mathrm{length}(\tau)/\nu\rceil+1$. Finite length
 is no restriction: the image of a path with clearance $\delta_{c}$ is
 compact, so finitely many of the balls of radius $\delta_{c}/2$ centred on
 its points cover it, and joining the centres of consecutive overlapping
 balls gives a polygonal path of finite length inside the same tube, with
 clearance at least $\delta_{c}/2$. Let
-$B_k$ be the open ball of radius $\nu$ around $x_k$; since $B_k$ lies within
+$B_k$ be the open ball of radius $\nu$ around $\state_k$; since $B_k$ lies within
 $\delta_{c}$ of $\tau$ it is contained in $\Xfree\subseteq\mathcal{X}$, so a
 uniform sample lands in it with probability
 $p=(1-p_{\mathrm{goal}})\,\mathrm{vol}(B_k)/\mathrm{vol}(\mathcal{X})>0$,
 the same for every $k$.
 
-\emph{Claim: if the tree has a vertex $v\in B_k$ and the current sample
-satisfies $x_{\mathrm{rand}}\in B_{k+1}$, then the iteration adds a vertex in
-$B_{k+1}$.} Let $v'=\Nearest(V,x_{\mathrm{rand}})$. Then
-$\norm{v'-x_{\mathrm{rand}}}\le\norm{v-x_{\mathrm{rand}}}
-\le\norm{v-x_k}+\norm{x_k-x_{k+1}}+\norm{x_{k+1}-x_{\mathrm{rand}}}<3\nu\le\eta$,
-so \textsc{Steer} returns $x_{\mathrm{new}}=x_{\mathrm{rand}}$ itself. Both
-endpoints of the segment $[v',x_{\mathrm{rand}}]$ lie within
-$3\nu+\nu=4\nu\le\delta_{c}$ of $x_{k+1}\in\tau$, and a ball is convex, so the
+\emph{Claim: if the tree has a vertex $\vect{v}\in B_k$ and the current sample
+satisfies $\state_{\mathrm{rand}}\in B_{k+1}$, then the iteration adds a vertex in
+$B_{k+1}$.} Let $\vect{v}'=\Nearest(V,\state_{\mathrm{rand}})$. Then
+$\norm{\vect{v}'-\state_{\mathrm{rand}}}\le\norm{\vect{v}-\state_{\mathrm{rand}}}
+\le\norm{\vect{v}-\state_k}+\norm{\state_k-\state_{k+1}}+\norm{\state_{k+1}-\state_{\mathrm{rand}}}<3\nu\le\eta$,
+so \textsc{Steer} returns $\state_{\mathrm{new}}=\state_{\mathrm{rand}}$ itself. Both
+endpoints of the segment $[\vect{v}',\state_{\mathrm{rand}}]$ lie within
+$3\nu+\nu=4\nu\le\delta_{c}$ of $\state_{k+1}\in\tau$, and a ball is convex, so the
 whole segment lies within $\delta_{c}$ of $\tau$ and \textsc{CollisionFree}
-accepts it. Hence $x_{\mathrm{rand}}\in B_{k+1}$ becomes a vertex.
+accepts it. Hence $\state_{\mathrm{rand}}\in B_{k+1}$ becomes a vertex.
 
 Let $K_n$ be the largest $k$ such that the tree after $n$ iterations has a
-vertex in $B_k$; $K_0\ge0$ because $x_0\in B_0$ is the root. By the claim,
+vertex in $B_k$; $K_0\ge0$ because $\state_0\in B_0$ is the root. By the claim,
 whenever $K_n=k<m$ and the next sample lands in $B_{k+1}$, $K_{n+1}\ge k+1$.
 Samples are independent of the past and each lands in the required ball with
 probability at least $p$, so the number of iterations $T$ until $K_n=m$ is
 stochastically at most a sum of $m$ independent geometric variables with
 success probability $p$, whence $\E[T]\le m/p$ and, by Markov's inequality,
 $\Prob(T>n)\le m/(np)$. When $K_n=m$ the tree has a vertex within
-$\nu\le r_{\mathrm{goal}}$ of $x_{\mathrm{goal}}$, that is, in
+$\nu\le r_{\mathrm{goal}}$ of $\state_{\mathrm{goal}}$, that is, in
 $X_{\mathrm{goal}}$, and line~\ref{alg:ch16-rrt:goal} of \cref{alg:ch16-rrt}
 has returned a path.
 \qedhere
@@ -561,7 +561,7 @@ happens.
 \begin{theorem}[\rrt converges to a suboptimal path; Karaman and Frazzoli 2011]
 \label{thm:ch16-suboptimal}
 Let $c^{*}$ be the length of a shortest solution and let $Y_n$ be the length
-of the shortest path from $x_{\mathrm{init}}$ into $X_{\mathrm{goal}}$
+of the shortest path from $\state_{\mathrm{init}}$ into $X_{\mathrm{goal}}$
 contained in the tree after $n$ iterations of \cref{alg:ch16-rrt}
 (continued past the first solution). Assume, with
 \textcite{karaman2011sampling}, that $X_{\mathrm{goal}}$ has non-empty
@@ -619,40 +619,40 @@ both ingredients.\index{RRT-Connect}\index{RRT!RRT-Connect}
 \begin{algorithm}[htb]
 \caption{\rrt-Connect \cite{kuffner2000rrtconnect}}
 \label{alg:ch16-connect}
-\KwIn{$x_{\mathrm{init}}$, $x_{\mathrm{goal}}$, step size $\eta$, budget $N$}
-\KwOut{a collision-free path from $x_{\mathrm{init}}$ to $x_{\mathrm{goal}}$, or \emph{failure}}
-\Fn{\RrtExtendTree{$T$, $x$}}{
-  $x_{\mathrm{near}}\gets\Nearest(V_T,x)$; $x_{\mathrm{new}}\gets\Steer(x_{\mathrm{near}},x)$\;
-  \If{\RrtSegmentFree{$x_{\mathrm{near}}$, $x_{\mathrm{new}}$}}{
-    add $x_{\mathrm{new}}$ to $T$ with parent $x_{\mathrm{near}}$\;
-    \lIf{$x_{\mathrm{new}}=x$}{\KwRet{\textup{\textsc{Reached}}}}
+\KwIn{$\state_{\mathrm{init}}$, $\state_{\mathrm{goal}}$, step size $\eta$, budget $N$}
+\KwOut{a collision-free path from $\state_{\mathrm{init}}$ to $\state_{\mathrm{goal}}$, or \emph{failure}}
+\Fn{\RrtExtendTree{$\mathcal{T}$, $\state$}}{
+  $\state_{\mathrm{near}}\gets\Nearest(V_{\mathcal{T}},\state)$; $\state_{\mathrm{new}}\gets\Steer(\state_{\mathrm{near}},\state)$\;
+  \If{\RrtSegmentFree{$\state_{\mathrm{near}}$, $\state_{\mathrm{new}}$}}{
+    add $\state_{\mathrm{new}}$ to $\mathcal{T}$ with parent $\state_{\mathrm{near}}$\;
+    \lIf{$\state_{\mathrm{new}}=\state$}{\KwRet{\textup{\textsc{Reached}}}}
     \KwRet{\textup{\textsc{Advanced}}}\;
   }
   \KwRet{\textup{\textsc{Trapped}}}\;
 }
-\Fn{\RrtConnectGreedy{$T$, $x$}}{
-  \Repeat{$s\neq\textup{\textsc{Advanced}}$}{$s\gets$ \RrtExtendTree{$T$, $x$}\label{alg:ch16-connect:greedy}\;}
+\Fn{\RrtConnectGreedy{$\mathcal{T}$, $\state$}}{
+  \Repeat{$s\neq\textup{\textsc{Advanced}}$}{$s\gets$ \RrtExtendTree{$\mathcal{T}$, $\state$}\label{alg:ch16-connect:greedy}\;}
   \KwRet{$s$}\;
 }
-\Fn{\RrtConnectPlan{$x_{\mathrm{init}}$, $x_{\mathrm{goal}}$, $N$}}{
-  $T_a\gets$ tree with root $x_{\mathrm{init}}$; $T_b\gets$ tree with root $x_{\mathrm{goal}}$\;
+\Fn{\RrtConnectPlan{$\state_{\mathrm{init}}$, $\state_{\mathrm{goal}}$, $N$}}{
+  $\mathcal{T}_a\gets$ tree with root $\state_{\mathrm{init}}$; $\mathcal{T}_b\gets$ tree with root $\state_{\mathrm{goal}}$\;
   \For{$i\gets1$ \KwTo $N$}{
-    $x_{\mathrm{rand}}\gets$ uniform sample in $\mathcal{X}$\tcp*{no goal bias}
-    \If{\RrtExtendTree{$T_a$, $x_{\mathrm{rand}}$} $\neq\textup{\textsc{Trapped}}$\label{alg:ch16-connect:extend}}{
-      $x_{\mathrm{new}}\gets$ the vertex just added to $T_a$\;
-      \If{\RrtConnectGreedy{$T_b$, $x_{\mathrm{new}}$} $=\textup{\textsc{Reached}}$\label{alg:ch16-connect:test}}{
-        \KwRet{the path root$(T_a)\to x_{\mathrm{new}}$ in $T_a$ joined with $x_{\mathrm{new}}\to$ root$(T_b)$ in $T_b$, reversed if $T_a$ is the goal tree}\;
+    $\state_{\mathrm{rand}}\gets$ uniform sample in $\mathcal{X}$\tcp*{no goal bias}
+    \If{\RrtExtendTree{$\mathcal{T}_a$, $\state_{\mathrm{rand}}$} $\neq\textup{\textsc{Trapped}}$\label{alg:ch16-connect:extend}}{
+      $\state_{\mathrm{new}}\gets$ the vertex just added to $\mathcal{T}_a$\;
+      \If{\RrtConnectGreedy{$\mathcal{T}_b$, $\state_{\mathrm{new}}$} $=\textup{\textsc{Reached}}$\label{alg:ch16-connect:test}}{
+        \KwRet{the path root$(\mathcal{T}_a)\to \state_{\mathrm{new}}$ in $\mathcal{T}_a$ joined with $\state_{\mathrm{new}}\to$ root$(\mathcal{T}_b)$ in $\mathcal{T}_b$, reversed if $\mathcal{T}_a$ is the goal tree}\;
       }
     }
-    \RrtSwap{$T_a$, $T_b$}\label{alg:ch16-connect:swap}\;
+    \RrtSwap{$\mathcal{T}_a$, $\mathcal{T}_b$}\label{alg:ch16-connect:swap}\;
   }
   \KwRet{failure}\;
 }
 \end{algorithm}
 
-Line~\ref{alg:ch16-connect:extend} extends the current tree $T_a$ towards a
+Line~\ref{alg:ch16-connect:extend} extends the current tree $\mathcal{T}_a$ towards a
 uniform sample exactly as \rrt does. If that produced a vertex, the other
-tree $T_b$ tries to connect to it (line~\ref{alg:ch16-connect:test}): the
+tree $\mathcal{T}_b$ tries to connect to it (line~\ref{alg:ch16-connect:test}): the
 \textsc{Connect} heuristic\index{Connect heuristic} of
 line~\ref{alg:ch16-connect:greedy} repeats \textsc{Extend} towards the
 \emph{same} target, adding one edge of length $\eta$ per repetition, until
@@ -661,7 +661,7 @@ run of edges across the map, and this greedy extension is what makes the
 method fast. The trees swap roles every iteration
 (line~\ref{alg:ch16-connect:swap}), which keeps them balanced; no goal bias
 is needed, because the goal is the root of the second tree. When
-\textsc{Connect} returns \textsc{Reached}, $x_{\mathrm{new}}$ belongs to both
+\textsc{Connect} returns \textsc{Reached}, $\state_{\mathrm{new}}$ belongs to both
 trees and the two root-to-vertex chains form the path, one of them reversed;
 it is collision-free because every edge of either tree is.
 \Cref{fig:ch16-connect} shows the two trees on \cref{ex:ch16-map}: with
@@ -817,22 +817,22 @@ version of \textcite{geraerts2007creating} and a greedy variant.
 \begin{algorithm}[!htb]
 \caption{Path post-processing: random shortcutting and greedy pruning}
 \label{alg:ch16-shortcut}
-\KwIn{a collision-free polygonal path $\tau=(x_0,\dots,x_k)$, number of attempts $K$}
+\KwIn{a collision-free polygonal path $\tau=(\state_0,\dots,\state_k)$, number of attempts $K$}
 \KwOut{a collision-free path with the same endpoints that is no longer than $\tau$}
 \Fn{\RrtShortcutPath{$\tau$, $K$}}{
   \For{$i\gets1$ \KwTo $K$}{
-    draw $s_1<s_2$ uniformly from $[0,\mathrm{length}(\tau)]$ and let $a=\tau(s_1)$, $b=\tau(s_2)$ be the points at these arc lengths\;
-    \If{$a$ and $b$ lie on different segments of $\tau$ \KwAnd \RrtSegmentFree{$a$, $b$}}{
-      replace the part of $\tau$ between $a$ and $b$ by the segment $[a,b]$\label{alg:ch16-shortcut:replace}\;
+    draw $s_1<s_2$ uniformly from $[0,\mathrm{length}(\tau)]$ and let $\vect{a}=\tau(s_1)$, $\vect{b}=\tau(s_2)$ be the points at these arc lengths\;
+    \If{$\vect{a}$ and $\vect{b}$ lie on different segments of $\tau$ \KwAnd \RrtSegmentFree{$\vect{a}$, $\vect{b}$}}{
+      replace the part of $\tau$ between $\vect{a}$ and $\vect{b}$ by the segment $[\vect{a},\vect{b}]$\label{alg:ch16-shortcut:replace}\;
     }
   }
   \KwRet{$\tau$}\;
 }
 \Fn{\RrtPrunePath{$\tau$}}{
-  $\tau'\gets(x_0)$; $i\gets0$\;
+  $\tau'\gets(\state_0)$; $i\gets0$\;
   \While{$i<k$}{
-    $j\gets$ the largest index $>i$ with \RrtSegmentFree{$x_i$, $x_j$}\label{alg:ch16-shortcut:jump}\;
-    append $x_j$ to $\tau'$; $i\gets j$\;
+    $j\gets$ the largest index $>i$ with \RrtSegmentFree{$\state_i$, $\state_j$}\label{alg:ch16-shortcut:jump}\;
+    append $\state_j$ to $\tau'$; $i\gets j$\;
   }
   \KwRet{$\tau'$}\;
 }
@@ -934,15 +934,15 @@ The obstacles of this chapter are axis-aligned boxes and spheres, which
 cover buildings, no-fly volumes and other drones well enough for planning
 and have closed-form distance functions.\index{collision checking!sphere versus box}
 \begin{itemize}
-  \item \emph{Sphere versus box.} The distance from a point $x$ to the box
-        $[\vect{l},\vect{u}]$ is the length of the vector from $x$ to its
-        \emph{clamped} copy, $\norm{x-\mathrm{clamp}(x,\vect{l},\vect{u})}$,
+  \item \emph{Sphere versus box.} The distance from a point $\state$ to the box
+        $[\vect{l},\vect{u}]$ is the length of the vector from $\state$ to its
+        \emph{clamped} copy, $\norm{\state-\mathrm{clamp}(\state,\vect{l},\vect{u})}$,
         with $\mathrm{clamp}$ applied per coordinate; the sphere of radius $r$
-        around $x$ is free of the box if and only if this distance exceeds $r$.
+        around $\state$ is free of the box if and only if this distance exceeds $r$.
         \code{World.box\_distances} computes it for all points and all boxes
         at once with NumPy broadcasting.
   \item \emph{Segment versus sphere.} A sphere obstacle of radius $R$ at
-        $\vect{c}$ meets the sphere robot moving along $[a,b]$ if and only
+        $\vect{c}$ meets the sphere robot moving along $[\vect{a},\vect{b}]$ if and only
         if the distance from $\vect{c}$ to the segment is at most $R+r$; the
         point-to-segment distance of \cref{ch:ch02} (project $\vect{c}$ onto
         the line, clamp the parameter to $[0,1]$) answers this exactly, with
@@ -1082,7 +1082,7 @@ and the nearest-neighbour timings quoted above.
 \label{sec:ch16-pitfalls}
 
 \begin{pitfall}[Testing the vertices but not the segments]
-The most common bug in a first \rrt is to test only $x_{\mathrm{new}}$, or
+The most common bug in a first \rrt is to test only $\state_{\mathrm{new}}$, or
 the endpoints of the edge, for collision. The tree then tunnels through every
 obstacle thinner than $\eta$, and the bug is invisible on maps with thick
 walls. A step size that is ``too large'' is dangerous only in this sense;
@@ -1106,12 +1106,12 @@ $0.1$, or use \rrt-Connect, which needs no bias.
 \end{pitfall}
 
 \begin{pitfall}[Forgetting the goal region]
-With continuous samples the tree never lands exactly on $x_{\mathrm{goal}}$,
-so a test $x_{\mathrm{new}}=x_{\mathrm{goal}}$ succeeds only through a goal
+With continuous samples the tree never lands exactly on $\state_{\mathrm{goal}}$,
+so a test $\state_{\mathrm{new}}=\state_{\mathrm{goal}}$ succeeds only through a goal
 sample within $\eta$ of its nearest vertex, and never when
 $p_{\mathrm{goal}}=0$. Define the goal as a region of radius
 $r_{\mathrm{goal}}$ (\cref{def:ch16-problem}), test membership on every new
-vertex, and append the final segment to $x_{\mathrm{goal}}$ when it is free
+vertex, and append the final segment to $\state_{\mathrm{goal}}$ when it is free
 so that the path ends where the mission requires. In the kinodynamic planner
 the goal state should also allow a range of arrival velocities.
 \end{pitfall}
@@ -1264,9 +1264,9 @@ $20\,000$ vertices in three dimensions (three 8-byte coordinates and one
 \begin{exercise}[\difficulty{1}]
 \label{exr:ch16-trace}
 Continue \cref{tab:ch16-trace} by hand for iterations~11 and~12 of
-\cref{ex:ch16-map}, given the samples $x_{\mathrm{rand}}=(9.70,5.16)$ and
+\cref{ex:ch16-map}, given the samples $\state_{\mathrm{rand}}=(9.70,5.16)$ and
 $(6.23,7.77)$: find the nearest vertex among vertices~0 to~6 (their
-coordinates are in the table), compute $x_{\mathrm{new}}$ from
+coordinates are in the table), compute $\state_{\mathrm{new}}$ from
 \cref{eq:ch16-steer} with $\eta=0.5$, and decide whether the segment enters
 the wall $[3,5]\times[0,6]$. Then explain, using the Voronoi bias, why
 almost every sample in iterations~7 to~16 selects vertex~5 or~6.
@@ -1280,8 +1280,8 @@ lie outside the wall although the segment crosses it. (b)~The margin
 $r+\delta/2$ of \cref{thm:ch16-resolution} is sufficient but not the
 smallest: show that the margin $\sqrt{r^{2}+\delta^{2}/4}$ also guarantees
 a collision-free segment, and that no smaller margin does.
-(c)~Let $d_0=\dist(a,\mathcal{O})-r$ be the free distance of the first
-endpoint. Explain why no point of the segment within $d_0$ of $a$ needs to
+(c)~Let $d_0=\dist(\vect{a},\mathcal{O})-r$ be the free distance of the first
+endpoint. Explain why no point of the segment within $d_0$ of $\vect{a}$ needs to
 be tested, and design an adaptive check that uses this idea at every test
 point (exact, no $\delta$, fast in open space).
 \end{exercise}
@@ -1303,10 +1303,10 @@ like $\eta_i=1/i$ at iteration $i$?
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch16-voronoi}
-Consider the tree with vertices $v_0=(0,0)$, $v_1=(1,0)$ and $v_2=(2,0)$ in
+Consider the tree with vertices $\vect{v}_0=(0,0)$, $\vect{v}_1=(1,0)$ and $\vect{v}_2=(2,0)$ in
 the square $\mathcal{X}=[-1,3]\times[-2,2]$, with $p_{\mathrm{goal}}=0$.
 Draw the Voronoi regions of the three vertices and compute the probability
-that each one is chosen as $x_{\mathrm{near}}$ by the next sample, using
+that each one is chosen as $\state_{\mathrm{near}}$ by the next sample, using
 \cref{eq:ch16-voronoi}. Then show in general that for a tree that is a single
 straight chain of $k+1$ vertices spaced $\eta$ apart, centred in a large
 square map of side $L$ with $L\gg k\eta$, each of the two tips is chosen with

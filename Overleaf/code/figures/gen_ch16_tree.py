@@ -196,14 +196,14 @@ def voronoi_figure():
     lines.append("\\draw[sbannot,dashed,-{Stealth[length=4pt]}] (%s,%s) -- (%s,%s);"
                  % (f(a[0]), f(a[1]), f(b[0]), f(b[1])))
     lines.append("\\fill[sbRed] (%s,%s) circle (1.8pt);" % (f(b[0]), f(b[1])))
-    lines.append("\\node[sbannot,anchor=west] at (%s,%s) {$x_{\mathrm{rand}}$};"
+    lines.append("\\node[sbannot,anchor=west] at (%s,%s) {$\\state_{\mathrm{rand}}$};"
                  % (f(b[0] + 0.1), f(b[1])))
     lines.append("\\draw[sbOrange,line width=1.4pt] (%s,%s) -- (%s,%s);"
                  % (f(a[0]), f(a[1]), f(c[0]), f(c[1])))
     lines.append("\\fill[sbOrange] (%s,%s) circle (1.8pt);" % (f(c[0]), f(c[1])))
-    lines.append("\\node[sbannot,anchor=north west] at (%s,%s) {$x_{\mathrm{new}}$};"
+    lines.append("\\node[sbannot,anchor=north west] at (%s,%s) {$\\state_{\mathrm{new}}$};"
                  % (f(c[0] + 0.05), f(c[1] - 0.05)))
-    lines.append("\\node[sbannot,anchor=south east] at (%s,%s) {$x_{\mathrm{near}}$};"
+    lines.append("\\node[sbannot,anchor=south east] at (%s,%s) {$\\state_{\mathrm{near}}$};"
                  % (f(a[0] - 0.05), f(a[1] + 0.05)))
     lines.append("\\end{tikzpicture}")
     write("voronoi.tex", lines)

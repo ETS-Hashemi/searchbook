@@ -141,11 +141,11 @@ optimal. The trouble starts in corridors and near goals, as the counterexamples 
 We use the classical MAPF setting of \cref{ch:ch07} and of Stern et
 al.~\cite{stern2019mapf}: an undirected graph $G = (V, E)$, usually a 4-connected grid,
 and $k$ agents $a_1, \dots, a_k$ with distinct start vertices $s_i$ and distinct goal
-vertices $g_i$. Time is discrete. In one time step an agent either moves along an edge
+vertices $\gamma_i$. Time is discrete. In one time step an agent either moves along an edge
 or waits in its cell; both actions cost one. A \textbf{path}\index{path!time-indexed}
 for agent $i$ is a sequence $\pi_i = (\pi_i[0], \pi_i[1], \dots, \pi_i[T_i])$ with
-$\pi_i[0] = s_i$, $\pi_i[T_i] = g_i$ and consecutive vertices equal or adjacent. The
-agent stays at $g_i$ afterwards, so we define $\pi_i[t] = g_i$ for all $t > T_i$. The
+$\pi_i[0] = s_i$, $\pi_i[T_i] = \gamma_i$ and consecutive vertices equal or adjacent. The
+agent stays at $\gamma_i$ afterwards, so we define $\pi_i[t] = \gamma_i$ for all $t > T_i$. The
 cost of the path is its arrival time $T_i$ and the cost of a plan is the sum of costs
 $\sumcost = \sum_i T_i$\index{sum of costs}; its makespan is $\makespan = \max_i T_i$.
 Two paths $\pi_i$ and $\pi_j$ have a \textbf{vertex conflict}\index{conflict!vertex}
@@ -195,7 +195,7 @@ The definition makes precise what \emph{greedy} means here: each agent takes a p
 is optimal for itself given the agents before it, and that path is never revised. The
 revised rule costs nothing in open maps and is the ingredient that makes the
 completeness theorem of \cref{sec:ch08-properties} work: a lower-priority agent that
-has not moved yet can never be run over. The rule does need the goal $g_i$ of the
+has not moved yet can never be run over. The rule does need the goal $\gamma_i$ of the
 planned agent not to be the start of a lower-priority agent. That is automatic on the
 well-formed instances of \cref{def:ch08-wellformed}, whose endpoints are all distinct;
 on an arbitrary instance in which one agent's goal is another agent's start, the rule
@@ -203,17 +203,17 @@ turns that goal into a static obstacle and the search fails at once.
 
 \begin{definition}[Well-formed instance]
 \label{def:ch08-wellformed}
-Let $P = \set{s_1, \dots, s_k, g_1, \dots, g_k}$ be the set of all
+Let $P = \set{s_1, \dots, s_k, \gamma_1, \dots, \gamma_k}$ be the set of all
 \textbf{endpoints}\index{endpoint}, and assume that they are pairwise distinct,
 $\abs{P} = 2k$. An instance is
 \textbf{well-formed}\index{well-formed instance} if for every agent $i$ there is a path
-in $G$ from $s_i$ to $g_i$ that visits no endpoint of $P$ other than $s_i$ and $g_i$. In
+in $G$ from $s_i$ to $\gamma_i$ that visits no endpoint of $P$ other than $s_i$ and $\gamma_i$. In
 words: every agent can reach its goal without passing through the start or goal of any
 other agent~\cite{cap2015prioritized}.
 \end{definition}
 
-Distinctness is not a technicality. If some $g_j$ were the start $s_i$ of another
-agent, the revised rule would turn $g_j$ into a static obstacle for agent~$j$ and its
+Distinctness is not a technicality. If some $\gamma_j$ were the start $s_i$ of another
+agent, the revised rule would turn $\gamma_j$ into a static obstacle for agent~$j$ and its
 own search would fail at once, as noted after \cref{def:ch08-order}; the completeness
 theorem of \cref{sec:ch08-properties} would then be false for the very instances the
 definition is meant to describe. The function \code{is\_well\_formed} of
@@ -239,14 +239,14 @@ no path exists.
 \begin{algorithm}[htb]
 \caption{Prioritized planning}
 \label{alg:ch08-pp}
-\KwIn{graph $G$, agents with starts $s_i$ and goals $g_i$, priority order $\sigma$, horizon $T_{\max}$, flag \emph{revised}}
+\KwIn{graph $G$, agents with starts $s_i$ and goals $\gamma_i$, priority order $\sigma$, horizon $T_{\max}$, flag \emph{revised}}
 \KwOut{a conflict-free plan $(\pi_1, \dots, \pi_k)$ or \emph{failure}}
-\Fn{\PpPlan{$G$, $s$, $g$, $\sigma$, $T_{\max}$, \emph{revised}}}{
+\Fn{\PpPlan{$G$, $s$, $\gamma$, $\sigma$, $T_{\max}$, \emph{revised}}}{
   $R \gets (\emptyset, \emptyset)$\tcp*{empty reservation table}
   \For{$j \gets 1$ \KwTo $k$}{
     $i \gets \sigma(j)$\label{alg:ch08-pp:pick}\;
     $B \gets \set{s_{\sigma(m)} : m > j}$ if \emph{revised}, otherwise $B \gets \emptyset$\label{alg:ch08-pp:avoid}\;
-    $\pi_i \gets$ \PpStar{$G$, $s_i$, $g_i$, $R$, $B$, $T_{\max}$, $\hcost$}\label{alg:ch08-pp:search}\;
+    $\pi_i \gets$ \PpStar{$G$, $s_i$, $\gamma_i$, $R$, $B$, $T_{\max}$, $\hcost$}\label{alg:ch08-pp:search}\;
     \If{$\pi_i = $ failure}{\KwRet{failure}\label{alg:ch08-pp:fail}\;}
     \PpReserve{$R$, $\pi_i$}\label{alg:ch08-pp:reserve}\tcp*{vertices, reverse edges, parked goal}
   }
@@ -257,16 +257,16 @@ no path exists.
 \begin{algorithm}[htb]
 \caption{Cooperative \astar: space-time \astar against a reservation table}
 \label{alg:ch08-ca}
-\KwIn{graph $G$, start $s$, goal $g$, reservation table $R$, static obstacles $B$, horizon $T_{\max}$, heuristic $\hcost$}
-\KwOut{a shortest unblocked path from $s$ to $g$ or \emph{failure}}
-\Fn{\PpStar{$G$, $s$, $g$, $R$, $B$, $T_{\max}$, $\hcost$}}{
-  $t_g \gets$ last time at which $g$ is reserved in $R$ ($-1$ if never, $\infty$ if parked on)\label{alg:ch08-ca:tg}\;
-  \lIf{$t_g = \infty$ \KwOr $(s, 0)$ is blocked}{\KwRet{failure}}
+\KwIn{graph $G$, start $s$, goal $\gamma$, reservation table $R$, static obstacles $B$, horizon $T_{\max}$, heuristic $\hcost$}
+\KwOut{a shortest unblocked path from $s$ to $\gamma$ or \emph{failure}}
+\Fn{\PpStar{$G$, $s$, $\gamma$, $R$, $B$, $T_{\max}$, $\hcost$}}{
+  $t_\gamma \gets$ last time at which $\gamma$ is reserved in $R$ ($-1$ if never, $\infty$ if parked on)\label{alg:ch08-ca:tg}\;
+  \lIf{$t_\gamma = \infty$ \KwOr $(s, 0)$ is blocked}{\KwRet{failure}}
   \Open $\gets \set{(s, 0)}$; \Closed $\gets \emptyset$\;
   \While{\Open $\neq \emptyset$}{
     $(v, t) \gets \argmin_{\text{\Open}} \fcost(v, t) = t + \hcost(v)$\label{alg:ch08-ca:pop}\;
     move $(v, t)$ from \Open to \Closed\;
-    \If{$v = g$ \KwAnd $t > t_g$}{\KwRet{path reconstructed from parents}\label{alg:ch08-ca:goal}\;}
+    \If{$v = \gamma$ \KwAnd $t > t_\gamma$}{\KwRet{path reconstructed from parents}\label{alg:ch08-ca:goal}\;}
     \lIf{$t \ge T_{\max}$}{\KwContinue\label{alg:ch08-ca:horizon}}
     \ForEach{$v' \in \set{v} \cup \Succ(v)$, $v' \notin B$\label{alg:ch08-ca:succ}}{
       \lIf{$(v', t+1)$ is blocked in $R$}{\KwContinue\label{alg:ch08-ca:vertex}}
@@ -292,11 +292,11 @@ Line~\ref{alg:ch08-pp:reserve} reserves the new path exactly as
 \cref{def:ch08-reservation} says.
 
 \paragraph{Walkthrough of \cref{alg:ch08-ca}.} Line~\ref{alg:ch08-ca:tg} computes the
-\textbf{goal-stay time}\index{goal-stay check} $t_g$: the last time step at which some
-higher-priority agent visits $g$. If a higher-priority agent is parked on $g$, then $g$
+\textbf{goal-stay time}\index{goal-stay check} $t_\gamma$: the last time step at which some
+higher-priority agent visits $\gamma$. If a higher-priority agent is parked on $\gamma$, then $\gamma$
 is reserved for ever and the search cannot succeed, so the function returns failure
-immediately. The goal test in line~\ref{alg:ch08-ca:goal} accepts $(g, t)$ only if
-$t > t_g$: from then on nobody else will use $g$, so the agent can stay there. Because
+immediately. The goal test in line~\ref{alg:ch08-ca:goal} accepts $(\gamma, t)$ only if
+$t > t_\gamma$: from then on nobody else will use $\gamma$, so the agent can stay there. Because
 every action costs one, the cost so far of a state $(v, t)$ is simply $t$, which is why
 the key in line~\ref{alg:ch08-ca:pop} is $t + \hcost(v)$ and why the first time a
 space-time state is generated is also the cheapest: no state in \Open ever needs its
@@ -329,9 +329,9 @@ row $r \in \set{0, 1, 2}$ counted from the top and the column $c \in \set{0, \do
 from the left, as in \cref{ch:ch07}. The middle row is blocked except for its three
 open cells $(1,0)$, $(1,3)$ and $(1,6)$, so the map consists of two corridors joined at
 both ends and in the middle. Agent~1 flies along the bottom corridor from $s_1 = (2,0)$
-to $g_1 = (2,6)$, agent~2 along the top corridor from $s_2 = (0,0)$ to $g_2 = (0,6)$,
+to $\gamma_1 = (2,6)$, agent~2 along the top corridor from $s_2 = (0,0)$ to $\gamma_2 = (0,6)$,
 and agent~3 crosses from $s_3 = (0,3)$ down through the middle opening to
-$g_3 = (2,3)$. Alone, the agents need $6$, $6$ and $2$ steps; the sum $14$ is a lower
+$\gamma_3 = (2,3)$. Alone, the agents need $6$, $6$ and $2$ steps; the sum $14$ is a lower
 bound on every valid plan. The instance is not well-formed: every path of agent~3 ends
 on the bottom corridor, which agent~1 cannot avoid.
 \end{example}
@@ -358,7 +358,7 @@ $\pi_2[t] = (0, t)$ and reserves the corresponding entries. \Cref{tab:ch08-table
 the table that agent~3 now faces. Only four of its entries matter for agent~3: the vertices $(2,3)$ and $(0,3)$ are
 taken at $t = 3$, the move $(2,2) \to (2,3)$ at $t = 2$ forbids the reverse move at
 that time, and $(0,2)$ is taken at $t = 2$. The goal-stay time
-of agent~3 is $t_g = 3$, the last time at which $(2,3)$ is reserved.
+of agent~3 is $t_\gamma = 3$, the last time at which $(2,3)$ is reserved.
 
 \begin{table}[tb]
   \centering\small
@@ -372,7 +372,7 @@ of agent~3 is $t_g = 3$, the last time at which $(2,3)$ is reserved.
   1 & $((2,t), t)$ for $t = 0, \dots, 6$ & $(((2,t),(2,t{+}1)), t)$ for $t = 0, \dots, 5$ & $(2,6)$ from $t = 6$ \\
   2 & $((0,t), t)$ for $t = 0, \dots, 6$ & $(((0,t),(0,t{+}1)), t)$ for $t = 0, \dots, 5$ & $(0,6)$ from $t = 6$ \\
   \midrule
-  seen by 3 & $((2,3), 3)$, $((0,3), 3)$, $((0,2), 2)$ & $(((2,2),(2,3)), 2)$: no move $(2,3) \to (2,2)$ at $t = 2$ & $t_g = 3$ \\
+  seen by 3 & $((2,3), 3)$, $((0,3), 3)$, $((0,2), 2)$ & $(((2,2),(2,3)), 2)$: no move $(2,3) \to (2,2)$ at $t = 2$ & $t_\gamma = 3$ \\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -381,13 +381,13 @@ of agent~3 is $t_g = 3$, the last time at which $(2,3)$ is reserved.
 \cref{alg:ch08-ca} for agent~3 with the Manhattan heuristic, and
 \cref{fig:ch08-spacetime} draws the same search as a space-time diagram of column
 $c = 3$. The first two expansions go straight down. At step~3 the search pops
-$((2,3), 2)$: the goal, but too early, because $t = 2 \le t_g = 3$. Its three
+$((2,3), 2)$: the goal, but too early, because $t = 2 \le t_\gamma = 3$. Its three
 successors show all three kinds of blocking at once: waiting at $(2,3)$ until $t = 3$
 is a vertex conflict with agent~1, moving left to $(2,2)$ would swap with agent~1's
 move $(2,2) \to (2,3)$, and only moving up to $(1,3)$ and right to $(2,4)$ survive.
 Steps~4 and~5 pop the two remaining states with $\fcost = 3$ and find their moves
 towards the goal blocked as well (moving up from $(1,3)$ at $t = 2$ runs into agent~2 at $(0,3)$). Step~6 expands
-$((1,3), 3)$, and step~7 pops $((2,3), 4)$ with $t = 4 > t_g$: the goal test succeeds.
+$((1,3), 3)$, and step~7 pops $((2,3), 4)$ with $t = 4 > t_\gamma$: the goal test succeeds.
 The path is $(0,3), (1,3), (2,3), (1,3), (2,3)$ with cost $4$, two more than the
 undisturbed $2$, and the sum of costs of the order $(1,2,3)$ is $6 + 6 + 4 = 16$.
 
@@ -408,7 +408,7 @@ undisturbed $2$, and the sum of costs of the order $(1,2,3)$ is $6 + 6 + 4 = 16$
   4 & $((1,3), 2)$ & 2 & 1 & 3 & $(1,3)$ wait & $(0,3)$: V, $(2,3)$: V \\
   5 & $((0,3), 1)$ & 1 & 2 & 3 & $(0,3)$ wait, $(0,4)$ & $(0,2)$: V \\
   6 & $((1,3), 3)$ & 3 & 1 & 4 & $(1,3)$ wait, $(0,3)$, $(2,3)$ & -- \\
-  7 & $((2,3), 4)$ & 4 & 0 & 4 & goal: $t = 4 > t_g = 3$ & \\
+  7 & $((2,3), 4)$ & 4 & 0 & 4 & goal: $t = 4 > t_\gamma = 3$ & \\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -484,7 +484,7 @@ no later than $T_{\max}$.
 \end{proposition}
 \begin{proof}
 Let $\pi_i$ be planned after $\pi_j$. Every state $(\pi_i[t], t)$ was generated as an
-unblocked successor in \cref{alg:ch08-ca}, and the goal state satisfies $t > t_g$, so
+unblocked successor in \cref{alg:ch08-ca}, and the goal state satisfies $t > t_\gamma$, so
 $\pi_i[t] \ne \pi_j[t]$ for all $t$, including the times at which $\pi_j$ is parked:
 no vertex conflict. If $\pi_i[t] = \pi_j[t+1] = v$ and $\pi_i[t+1] = \pi_j[t] = u$ with
 $u \ne v$, then agent $j$ moved $u \to v$ at time $t$ and $((u, v), t) \in R_E$, so
@@ -605,7 +605,7 @@ the lifetime of the reader.
 \begin{theorem}[Completeness on well-formed instances~\cite{cap2015prioritized}]
 \label{thm:ch08-wellformed}
 Let the instance be well-formed (\cref{def:ch08-wellformed}), and for each agent $i$
-let $L_i$ be the length of a path from $s_i$ to $g_i$ that avoids all other endpoints.
+let $L_i$ be the length of a path from $s_i$ to $\gamma_i$ that avoids all other endpoints.
 Then \cref{alg:ch08-pp} with the revised rule and a horizon $T_{\max} \ge \sum_i L_i$
 returns a valid plan for \emph{every} priority order $\sigma$. The arrival time of the
 $j$-th planned agent is at most $\sum_{m \le j} L_{\sigma(m)}$.
@@ -629,15 +629,15 @@ creates no swap either.
 goal, so $R$ contains no timed vertex entry with $t > T^*_j$ and no move entry with
 $t \ge T^*_j$; the wait-then-go path is still at $s_i$ at time $T^*_j$, a cell that no
 earlier agent ever reserved. The only blocked cells at times $t > T^*_j$ are the goals
-$g_{\sigma(m)}$, $m < j$, which $P_i$ avoids by construction. $P_i$ also avoids the starts of the lower-priority agents, which are the
+$\gamma_{\sigma(m)}$, $m < j$, which $P_i$ avoids by construction. $P_i$ also avoids the starts of the lower-priority agents, which are the
 static obstacles $B$ of agent $i$. So each step of $P_i$, taken at a time $\ge T^*_j$,
 is an unblocked successor.
 
-\emph{The goal test passes.} The last time at which some earlier agent visits $g_i$ is
-at most $T^*_j$, because after $T^*_j$ nobody moves and nobody is parked on $g_i$. Thus
-$t_g \le T^*_j < T^*_j + L_i$, and the wait-then-go path is accepted at its arrival.
-(If $s_i = g_i$ then $L_i = 0$ and the chain reads $t_g = -1 < 0 = T^*_j + L_i$ only
-because no earlier agent may enter $s_i$ at all; assume $s_i \ne g_i$ otherwise.)
+\emph{The goal test passes.} The last time at which some earlier agent visits $\gamma_i$ is
+at most $T^*_j$, because after $T^*_j$ nobody moves and nobody is parked on $\gamma_i$. Thus
+$t_\gamma \le T^*_j < T^*_j + L_i$, and the wait-then-go path is accepted at its arrival.
+(If $s_i = \gamma_i$ then $L_i = 0$ and the chain reads $t_\gamma = -1 < 0 = T^*_j + L_i$ only
+because no earlier agent may enter $s_i$ at all; assume $s_i \ne \gamma_i$ otherwise.)
 Its arrival time is at most $T^*_j + L_i \le \sum_{m \le j} L_{\sigma(m)} \le T_{\max}$,
 which completes the induction; \cref{alg:ch08-ca} may of course return a shorter path.
 Validity of the plan follows from \cref{thm:ch08-sound}. \qedhere
@@ -674,7 +674,7 @@ a plain grid, because every cell that is explored at time $t$ is explored again 
 $t + 1$, $t + 2$, \dots while the agent waits in front of an obstacle. Silver's
 \textbf{Hierarchical Cooperative \astar}\index{HCA*} (HCA\textsuperscript{*})
 replaces $\hcost$ by the exact static distance to the goal, $\hcost^*(v) =
-\dist_G(v, g)$, computed on the map without agents. This is the backward search of
+\dist_G(v, \gamma)$, computed on the map without agents. This is the backward search of
 \cref{ch:ch03}: one breadth-first search (Dijkstra with unit costs) from the goal gives
 $\hcost^*$ for every cell at once, and the table is reused at every time step of the
 space-time search. Silver computes it lazily with a \emph{reverse resumable}
@@ -723,14 +723,14 @@ more.
 \begin{algorithm}[htb]
 \caption{Windowed Cooperative \astar (WHCA\textsuperscript{*})}
 \label{alg:ch08-whca}
-\KwIn{graph $G$, starts $s_i$, goals $g_i$, window $w$, execution length $\delta \le w$}
+\KwIn{graph $G$, starts $s_i$, goals $\gamma_i$, window $w$, execution length $\delta \le w$}
 \KwOut{the executed paths $(\pi_1, \dots, \pi_k)$}
-\Fn{\PpWindowed{$G$, $s$, $g$, $w$, $\delta$}}{
-  $p_i \gets s_i$ and $\pi_i \gets (s_i)$ for every agent $i$; $\hcost_i^* \gets$ static distances to $g_i$\;
+\Fn{\PpWindowed{$G$, $s$, $\gamma$, $w$, $\delta$}}{
+  $p_i \gets s_i$ and $\pi_i \gets (s_i)$ for every agent $i$; $\hcost_i^* \gets$ static distances to $\gamma_i$\;
   \While{some agent is not at its goal}{
     $R \gets$ an empty table in which entries with $t \ge w$ are ignored\label{alg:ch08-whca:table}\;
     \ForEach{agent $i$ in the current order}{
-      $\rho_i \gets$ \PpStar{$G$, $p_i$, $g_i$, $R$, $\emptyset$, $\infty$, $\hcost_i^*$}\label{alg:ch08-whca:search}\;
+      $\rho_i \gets$ \PpStar{$G$, $p_i$, $\gamma_i$, $R$, $\emptyset$, $\infty$, $\hcost_i^*$}\label{alg:ch08-whca:search}\;
       \lIf{$\rho_i = $ failure}{$\rho_i \gets (p_i)$\tcp*{stay put; no guarantee}}
       \PpReserve{$R$, $\rho_i$}\;
     }
@@ -756,7 +756,7 @@ Three details of \cref{alg:ch08-whca} matter. First, the table of
 line~\ref{alg:ch08-whca:table} is relative to the current round: time $0$ is now, and
 entries beyond $t = w$ are invisible. A cell that a higher-priority agent has parked on
 inside the window is the exception: the goal-stay check of \cref{alg:ch08-ca} then
-reports $t_g = \infty$, the search fails at once, and the agent takes the stay-put
+reports $t_\gamma = \infty$, the search fails at once, and the agent takes the stay-put
 branch of line~\ref{alg:ch08-whca:search}: it stays where it is with no guarantee at
 all, and an agent planned earlier in the same round may be walking straight into it.
 This is how the windowed plans of \cref{exr:ch08-whca} come to contain a collision. The
@@ -1150,7 +1150,7 @@ constraints~\cite{honig2016mapf} extend the low-level search.
 \label{exr:ch08-table}
 Take \cref{ex:ch08-three} in the order $(2,3,1)$. (a) Write down all entries of $R_V$,
 $R_E$ and the parked cells after agents~2 and~3 have been planned. (b) What is the
-goal-stay time $t_g$ of agent~1? (c) Without running the search, explain why agent~1
+goal-stay time $t_\gamma$ of agent~1? (c) Without running the search, explain why agent~1
 has no unblocked path, and how the implementation of \cref{lst:ch08-search} terminates
 with a failure although it uses no horizon.
 \end{exercise}
@@ -1198,7 +1198,7 @@ agent in each of the two orders.
 
 \begin{exercise}[\difficulty{2} Heuristics that know about parked agents]
 \label{exr:ch08-hca}
-(a) Compute the true distance $\hcost^*(v)$ to $g_1 = (2,6)$ for every free cell of
+(a) Compute the true distance $\hcost^*(v)$ to $\gamma_1 = (2,6)$ for every free cell of
 \cref{ex:ch08-three} and compare it with the Manhattan distance. (b) Use the code to
 count the expansions of \cref{alg:ch08-ca} for agent~1 in the order $(3,1,2)$ with both
 heuristics, and explain why both first explore the bottom corridor. (c) Modify the
