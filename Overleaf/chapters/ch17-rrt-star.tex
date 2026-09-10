@@ -85,15 +85,15 @@ junction that is. If the nearest junction happens to lie at the end of a
 long detour, the new road inherits the detour, and so does every road built
 from it later. Nothing in \rrt ever revisits this decision.
 
-\rrtstar makes two changes, both local to the new vertex $x_{\mathrm{new}}$
+\rrtstar makes two changes, both local to the new vertex $\state_{\mathrm{new}}$
 and both restricted to a ball of radius $r_n$ around it
 (\cref{fig:ch17-primitives}).
 \begin{itemize}
   \item \textbf{Choose the parent.}\index{RRT*!ChooseParent} Connect
-  $x_{\mathrm{new}}$ to the neighbour that gives it the cheapest
+  $\state_{\mathrm{new}}$ to the neighbour that gives it the cheapest
   collision-free route from the start, not merely to the nearest vertex.
   \item \textbf{Rewire the neighbours.}\index{RRT*!Rewire} Make
-  $x_{\mathrm{new}}$ the parent of every neighbour whose route it shortens
+  $\state_{\mathrm{new}}$ the parent of every neighbour whose route it shortens
   by a collision-free segment, and pass the saving on to that neighbour's
   descendants.
 \end{itemize}
@@ -118,7 +118,7 @@ the cheapest parent within radius $r_n$ and becomes the parent of every
 neighbour it can serve more cheaply. With $r_n\propto(\log n/n)^{1/d}$ and a
 large enough constant, the best path converges to the optimum almost surely.
 Once a path of cost $c_{\mathrm{best}}$ exists, \irrtstar keeps the same tree
-but samples only $\norm{x-x_{\mathrm{init}}}+\norm{x-x_{\mathrm{goal}}}\le c_{\mathrm{best}}$, the only region a better path can cross.
+but samples only $\norm{\state-\state_{\mathrm{init}}}+\norm{\state-\state_{\mathrm{goal}}}\le c_{\mathrm{best}}$, the only region a better path can cross.
 \end{keyidea}
 
 \begin{figure}[tb]
@@ -137,12 +137,12 @@ but samples only $\norm{x-x_{\mathrm{init}}}+\norm{x-x_{\mathrm{goal}}}\le c_{\m
   \end{subfigure}
   \caption{One \rrtstar iteration on the ten-vertex tree of
   \cref{ex:ch17-hand}. (a)~The ball of radius $r_n=2$ around
-  $x_{\mathrm{new}}$ contains $v_3,v_4,v_6,v_7,v_8$; $v_4$ is the nearest
-  vertex. (b)~The cost-to-come through each candidate: $v_6$ would be the
-  cheapest parent ($4.58$) but the segment crosses the obstacle, so $v_7$
-  wins with $5.26$, not the nearest $v_4$ ($5.69$). (c)~$v_8$ is cheaper
-  through $x_{\mathrm{new}}$ ($6.25$ instead of $6.45$), so its edge from
-  $v_4$ is cut and the saving reaches its child $v_9$.}
+  $\state_{\mathrm{new}}$ contains $\vect{v}_3,\vect{v}_4,\vect{v}_6,\vect{v}_7,\vect{v}_8$; $\vect{v}_4$ is the nearest
+  vertex. (b)~The cost-to-come through each candidate: $\vect{v}_6$ would be the
+  cheapest parent ($4.58$) but the segment crosses the obstacle, so $\vect{v}_7$
+  wins with $5.26$, not the nearest $\vect{v}_4$ ($5.69$). (c)~$\vect{v}_8$ is cheaper
+  through $\state_{\mathrm{new}}$ ($6.25$ instead of $6.45$), so its edge from
+  $\vect{v}_4$ is cut and the saving reaches its child $\vect{v}_9$.}
   \label{fig:ch17-primitives}
 \end{figure}
 
@@ -155,21 +155,21 @@ $\mathcal{X}\subset\R^d$ with $d\in\{2,3\}$ (a robot position, or a
 configuration after the obstacles have been inflated by the drone radius as
 in \cref{ch:ch02}), $\Xobs$ is its obstacle region and
 $\Xfree=\mathcal{X}\setminus\Xobs$ the free space. The start is
-$x_{\mathrm{init}}\in\Xfree$ and the goal $x_{\mathrm{goal}}\in\Xfree$.
+$\state_{\mathrm{init}}\in\Xfree$ and the goal $\state_{\mathrm{goal}}\in\Xfree$.
 A path is a continuous map $\sigma:[0,1]\to\mathcal{X}$; it is
 \textbf{collision-free}\index{path!collision-free} if
 $\sigma(s)\in\Xfree$ for all $s$, and its cost $c(\sigma)$ is its Euclidean
 length. Throughout, $\mu(\cdot)$ denotes volume (Lebesgue measure),
-$\disc{x}{r}$ the closed ball of radius $r$ around $x$, and
-$\zeta_d=\mu(\disc{0}{1})$ the volume of the unit ball: $\zeta_2=\pi$,
+$\disc{\state}{r}$ the closed ball of radius $r$ around $\state$, and
+$\zeta_d=\mu(\disc{\vect{0}}{1})$ the volume of the unit ball: $\zeta_2=\pi$,
 $\zeta_3=4\pi/3$.
 
 \begin{definition}[Optimal planning problem]
 \label{def:ch17-problem}
-Given $(\Xfree,x_{\mathrm{init}},x_{\mathrm{goal}})$, find a collision-free path
-$\sigma^*$ from $x_{\mathrm{init}}$ to $x_{\mathrm{goal}}$ with
-$c(\sigma^*)=c^*:=\inf\set{c(\sigma):\sigma\text{ collision-free from }x_{\mathrm{init}}\text{ to }x_{\mathrm{goal}}}$.
-We write $c_{\min}=\norm{x_{\mathrm{goal}}-x_{\mathrm{init}}}$ for the
+Given $(\Xfree,\state_{\mathrm{init}},\state_{\mathrm{goal}})$, find a collision-free path
+$\sigma^*$ from $\state_{\mathrm{init}}$ to $\state_{\mathrm{goal}}$ with
+$c(\sigma^*)=c^*:=\inf\set{c(\sigma):\sigma\text{ collision-free from }\state_{\mathrm{init}}\text{ to }\state_{\mathrm{goal}}}$.
+We write $c_{\min}=\norm{\state_{\mathrm{goal}}-\state_{\mathrm{init}}}$ for the
 straight-line distance; every path has $c(\sigma)\ge c_{\min}$.
 \end{definition}
 
@@ -193,26 +193,29 @@ clearance approximates it, and no sampling-based planner finds it.
 
 \begin{definition}[Tree, cost-to-come, best cost]
 \label{def:ch17-tree}
-The planner maintains a tree $T=(V,E)$ rooted at $x_{\mathrm{init}}$ with
-$n=\abs{V}$ vertices; $\mathrm{parent}(v)$ is the parent of $v\ne
-x_{\mathrm{init}}$. The \textbf{cost-to-come}\index{cost-to-come}
-$\mathrm{Cost}(v)$ is the length of the tree path from $x_{\mathrm{init}}$ to
-$v$, so $\mathrm{Cost}(v)=\mathrm{Cost}(\mathrm{parent}(v))+\norm{v-\mathrm{parent}(v)}$
-and $\mathrm{Cost}(x_{\mathrm{init}})=0$. The symbol $n$ is reserved for
+The planner maintains a tree $\mathcal{T}=(V,E)$ rooted at $\state_{\mathrm{init}}$ with
+$n=\abs{V}$ vertices; $\mathrm{parent}(\vect{v})$ is the parent of $\vect{v}\ne
+\state_{\mathrm{init}}$. The \textbf{cost-to-come}\index{cost-to-come}
+$\mathrm{Cost}(\vect{v})$ is the length of the tree path from $\state_{\mathrm{init}}$ to
+$\vect{v}$, so $\mathrm{Cost}(\vect{v})=\mathrm{Cost}(\mathrm{parent}(\vect{v}))+\norm{\vect{v}-\mathrm{parent}(\vect{v})}$
+and $\mathrm{Cost}(\state_{\mathrm{init}})=0$. The symbol $n$ is reserved for
 $\abs{V}$ and iterations are counted by $i$; the two differ, because a
 blocked sample adds no vertex. The \textbf{best cost} after $i$
-iterations is $c_{\mathrm{best}}=\mathrm{Cost}(x_{\mathrm{goal}})$ if
-$x_{\mathrm{goal}}\in V$ and $c_{\mathrm{best}}=\infty$ otherwise.
+iterations is $c_{\mathrm{best}}=\mathrm{Cost}(\state_{\mathrm{goal}})$ if
+$\state_{\mathrm{goal}}\in V$ and $c_{\mathrm{best}}=\infty$ otherwise.
 \end{definition}
 
-The primitives $\Nearest(V,x)$, $\Steer(x,y)$ (move from $x$ towards $y$ by
-at most the step $\eta$) and $\CollisionFree(x,y)$ (the segment from $x$ to
-$y$ lies in $\Xfree$) are those of \cref{ch:ch16}; \rrtstar adds one more.
+The primitives $\Nearest(V,\state)$, $\Steer(\state,\vect{y})$ (move from $\state$ towards
+$\vect{y}$ by at most the step $\eta$) and $\CollisionFree(\state,\vect{y})$ (the segment
+from $\state$ to $\vect{y}$ lies in $\Xfree$) are those of \cref{ch:ch16}; \rrtstar adds one
+more. The vertex returned by $\Nearest$ is written $\state_{\mathrm{nearest}}$ here,
+not $\state_{\mathrm{near}}$ as in \cref{ch:ch16}, because this chapter needs the
+name \emph{near} for the set $X_{\mathrm{near}}$ of \cref{def:ch17-near}.
 
 \begin{definition}[Near and the connection radius]
 \label{def:ch17-near}
-$\Near(V,x,r)=\set{v\in V:\norm{v-x}\le r}$\index{RRT*!Near} is the set of
-vertices within distance $r$ of $x$. \rrtstar calls it with the
+$\Near(V,\state,r)=\set{\vect{v}\in V:\norm{\vect{v}-\state}\le r}$\index{RRT*!Near} is the set
+of vertices within distance $r$ of $\state$. \rrtstar calls it with the
 \textbf{connection radius}\index{connection radius}
 \begin{equation}
   r_n=\min\Bigl\{\gamma_{\rrtstar}\Bigl(\frac{\log n}{n}\Bigr)^{1/d},\ \eta\Bigr\},
@@ -240,7 +243,7 @@ Finally, the set that \irrtstar samples.
 For a current best cost $c_{\mathrm{best}}\ge c_{\min}$, the
 \textbf{informed set}\index{informed set} is
 \begin{equation}
-  \mathcal{X}_{\hat f}(c_{\mathrm{best}})=\set{x\in\mathcal{X}:\ \norm{x-x_{\mathrm{init}}}+\norm{x-x_{\mathrm{goal}}}\le c_{\mathrm{best}}}.
+  \mathcal{X}_{\hat f}(c_{\mathrm{best}})=\set{\state\in\mathcal{X}:\ \norm{\state-\state_{\mathrm{init}}}+\norm{\state-\state_{\mathrm{goal}}}\le c_{\mathrm{best}}}.
   \label{eq:ch17-informed-set}
 \end{equation}
 \end{definition}
@@ -253,35 +256,35 @@ For a current best cost $c_{\mathrm{best}}\ge c_{\min}$, the
 \label{sec:ch17-primitives}
 
 An \rrtstar iteration begins exactly like an \rrt iteration: draw
-$x_{\mathrm{rand}}$, find the nearest vertex
-$x_{\mathrm{nearest}}$, steer to $x_{\mathrm{new}}$, and give up on the sample if the segment from
-$x_{\mathrm{nearest}}$ to $x_{\mathrm{new}}$ is blocked. If it is free,
-\rrt would insert the edge $(x_{\mathrm{nearest}},x_{\mathrm{new}})$ and
+$\state_{\mathrm{rand}}$, find the nearest vertex
+$\state_{\mathrm{nearest}}$, steer to $\state_{\mathrm{new}}$, and give up on the sample if the segment from
+$\state_{\mathrm{nearest}}$ to $\state_{\mathrm{new}}$ is blocked. If it is free,
+\rrt would insert the edge $(\state_{\mathrm{nearest}},\state_{\mathrm{new}})$ and
 stop. \rrtstar instead runs three steps, illustrated in
 \cref{fig:ch17-primitives} on the small tree that \cref{ex:ch17-hand} works
 through in numbers.
 
-\paragraph{Near.} $X_{\mathrm{near}}=\Near(V,x_{\mathrm{new}},r_n)$ collects
+\paragraph{Near.} $X_{\mathrm{near}}=\Near(V,\state_{\mathrm{new}},r_n)$ collects
 every vertex within the connection radius of the new point. It is the
-candidate set for both of the following steps; $x_{\mathrm{nearest}}$ is
+candidate set for both of the following steps; $\state_{\mathrm{nearest}}$ is
 added to it if the radius happens to exclude it, so that a parent always
 exists.
 
-\paragraph{ChooseParent.} For every candidate $v\in X_{\mathrm{near}}$
-compute the cost-to-come that $x_{\mathrm{new}}$ would have through $v$,
-namely $\mathrm{Cost}(v)+\norm{x_{\mathrm{new}}-v}$, and connect
-$x_{\mathrm{new}}$ to the candidate with the smallest value whose segment
-$\CollisionFree(v,x_{\mathrm{new}})$ holds. 
+\paragraph{ChooseParent.} For every candidate $\vect{v}\in X_{\mathrm{near}}$
+compute the cost-to-come that $\state_{\mathrm{new}}$ would have through $\vect{v}$,
+namely $\mathrm{Cost}(\vect{v})+\norm{\state_{\mathrm{new}}-\vect{v}}$, and connect
+$\state_{\mathrm{new}}$ to the candidate with the smallest value whose segment
+$\CollisionFree(\vect{v},\state_{\mathrm{new}})$ holds. 
 
-\paragraph{Rewire.} For every candidate $v\in X_{\mathrm{near}}$ other than
-the chosen parent, compute the cost $v$ would have through the new vertex,
-$\mathrm{Cost}(x_{\mathrm{new}})+\norm{v-x_{\mathrm{new}}}$. If it is smaller
-than $\mathrm{Cost}(v)$ and $\CollisionFree(x_{\mathrm{new}},v)$ holds,
-replace the edge from $\mathrm{parent}(v)$ to $v$ by the edge from
-$x_{\mathrm{new}}$ to $v$. The cost of $v$ drops, and so does the cost of
-every descendant of $v$ by the same amount; \textsc{UpdateSubtree}
+\paragraph{Rewire.} For every candidate $\vect{v}\in X_{\mathrm{near}}$ other than
+the chosen parent, compute the cost $\vect{v}$ would have through the new vertex,
+$\mathrm{Cost}(\state_{\mathrm{new}})+\norm{\vect{v}-\state_{\mathrm{new}}}$. If it is smaller
+than $\mathrm{Cost}(\vect{v})$ and $\CollisionFree(\state_{\mathrm{new}},\vect{v})$ holds,
+replace the edge from $\mathrm{parent}(\vect{v})$ to $\vect{v}$ by the edge from
+$\state_{\mathrm{new}}$ to $\vect{v}$. The cost of $\vect{v}$ drops, and so does the cost of
+every descendant of $\vect{v}$ by the same amount; \textsc{UpdateSubtree}
 propagates the change through the subtree so that the invariant
-$\mathrm{Cost}(u)=\mathrm{Cost}(\mathrm{parent}(u))+\norm{u-\mathrm{parent}(u)}$
+$\mathrm{Cost}(\vect{u})=\mathrm{Cost}(\mathrm{parent}(\vect{u}))+\norm{\vect{u}-\mathrm{parent}(\vect{u})}$
 holds again for every vertex.
 
 \subsection{Pseudocode}
@@ -290,7 +293,7 @@ holds again for every vertex.
 \Cref{alg:ch17-rrtstar} is the main loop and \cref{alg:ch17-helpers} its
 three helpers. The goal is handled as in \cref{ch:ch16} by goal
 bias:\index{goal bias} with probability $p_{\mathrm{goal}}$ the sample is
-$x_{\mathrm{goal}}$ itself, and since $\Steer$ returns the target when it is
+$\state_{\mathrm{goal}}$ itself, and since $\Steer$ returns the target when it is
 within $\eta$, the goal point eventually becomes a vertex. From then on the
 tree path to that vertex \emph{is} the current best path, its cost is
 $c_{\mathrm{best}}$, and rewiring keeps shortening it; the bias is switched
@@ -299,23 +302,23 @@ off because the goal needs no second copy.
 \begin{algorithm}[htb]
 \caption{\rrtstar (Karaman and Frazzoli)}
 \label{alg:ch17-rrtstar}
-\KwIn{free space $\Xfree$ (via $\CollisionFree$), start $x_{\mathrm{init}}$, goal $x_{\mathrm{goal}}$, step $\eta$, constant $\gamma_{\rrtstar}$, goal bias $p_{\mathrm{goal}}$, budget $N$}
-\KwOut{a tree $T$; the tree path to $x_{\mathrm{goal}}$ of cost $c_{\mathrm{best}}$, or \emph{failure}}
-\Fn{\RrtStarPlan{$x_{\mathrm{init}}$, $x_{\mathrm{goal}}$, $N$}}{
-  $V\gets\set{x_{\mathrm{init}}}$; $E\gets\emptyset$; $\mathrm{Cost}(x_{\mathrm{init}})\gets0$; $c_{\mathrm{best}}\gets\infty$\label{alg:ch17-rrtstar:init}\;
+\KwIn{free space $\Xfree$ (via $\CollisionFree$), start $\state_{\mathrm{init}}$, goal $\state_{\mathrm{goal}}$, step $\eta$, constant $\gamma_{\rrtstar}$, goal bias $p_{\mathrm{goal}}$, budget $N$}
+\KwOut{a tree $\mathcal{T}$; the tree path to $\state_{\mathrm{goal}}$ of cost $c_{\mathrm{best}}$, or \emph{failure}}
+\Fn{\RrtStarPlan{$\state_{\mathrm{init}}$, $\state_{\mathrm{goal}}$, $N$}}{
+  $V\gets\set{\state_{\mathrm{init}}}$; $E\gets\emptyset$; $\mathrm{Cost}(\state_{\mathrm{init}})\gets0$; $c_{\mathrm{best}}\gets\infty$\label{alg:ch17-rrtstar:init}\;
   \For{$i\gets1$ \KwTo $N$}{
-    $x_{\mathrm{rand}}\gets x_{\mathrm{goal}}$ with probability $p_{\mathrm{goal}}$ if $x_{\mathrm{goal}}\notin V$, else a uniform sample of $\mathcal{X}$\label{alg:ch17-rrtstar:sample}\;
-    $x_{\mathrm{nearest}}\gets\Nearest(V,x_{\mathrm{rand}})$; $x_{\mathrm{new}}\gets\Steer(x_{\mathrm{nearest}},x_{\mathrm{rand}})$\label{alg:ch17-rrtstar:steer}\;
-    \If{$\CollisionFree(x_{\mathrm{nearest}},x_{\mathrm{new}})$\label{alg:ch17-rrtstar:free}}{
+    $\state_{\mathrm{rand}}\gets \state_{\mathrm{goal}}$ with probability $p_{\mathrm{goal}}$ if $\state_{\mathrm{goal}}\notin V$, else a uniform sample of $\mathcal{X}$\label{alg:ch17-rrtstar:sample}\;
+    $\state_{\mathrm{nearest}}\gets\Nearest(V,\state_{\mathrm{rand}})$; $\state_{\mathrm{new}}\gets\Steer(\state_{\mathrm{nearest}},\state_{\mathrm{rand}})$\label{alg:ch17-rrtstar:steer}\;
+    \If{$\CollisionFree(\state_{\mathrm{nearest}},\state_{\mathrm{new}})$\label{alg:ch17-rrtstar:free}}{
       $n\gets\abs{V}$; $r_n\gets\min\{\gamma_{\rrtstar}(\log n/n)^{1/d},\eta\}$\label{alg:ch17-rrtstar:radius}\;
-      $X_{\mathrm{near}}\gets\Near(V,x_{\mathrm{new}},r_n)\cup\set{x_{\mathrm{nearest}}}$\label{alg:ch17-rrtstar:near}\;
-      $x_{\mathrm{parent}}\gets$ \RrtStarChooseParent{$X_{\mathrm{near}}$, $x_{\mathrm{nearest}}$, $x_{\mathrm{new}}$}\label{alg:ch17-rrtstar:parent}\;
-      $V\gets V\cup\set{x_{\mathrm{new}}}$; $E\gets E\cup\set{(x_{\mathrm{parent}},x_{\mathrm{new}})}$; $\mathrm{Cost}(x_{\mathrm{new}})\gets\mathrm{Cost}(x_{\mathrm{parent}})+\norm{x_{\mathrm{new}}-x_{\mathrm{parent}}}$\label{alg:ch17-rrtstar:add}\;
-      \RrtStarRewire{$X_{\mathrm{near}}$, $x_{\mathrm{new}}$}\label{alg:ch17-rrtstar:rewire}\;
-      \lIf{$x_{\mathrm{goal}}\in V$}{$c_{\mathrm{best}}\gets\mathrm{Cost}(x_{\mathrm{goal}})$\label{alg:ch17-rrtstar:best}}
+      $X_{\mathrm{near}}\gets\Near(V,\state_{\mathrm{new}},r_n)\cup\set{\state_{\mathrm{nearest}}}$\label{alg:ch17-rrtstar:near}\;
+      $\state_{\mathrm{parent}}\gets$ \RrtStarChooseParent{$X_{\mathrm{near}}$, $\state_{\mathrm{nearest}}$, $\state_{\mathrm{new}}$}\label{alg:ch17-rrtstar:parent}\;
+      $V\gets V\cup\set{\state_{\mathrm{new}}}$; $E\gets E\cup\set{(\state_{\mathrm{parent}},\state_{\mathrm{new}})}$; $\mathrm{Cost}(\state_{\mathrm{new}})\gets\mathrm{Cost}(\state_{\mathrm{parent}})+\norm{\state_{\mathrm{new}}-\state_{\mathrm{parent}}}$\label{alg:ch17-rrtstar:add}\;
+      \RrtStarRewire{$X_{\mathrm{near}}$, $\state_{\mathrm{new}}$}\label{alg:ch17-rrtstar:rewire}\;
+      \lIf{$\state_{\mathrm{goal}}\in V$}{$c_{\mathrm{best}}\gets\mathrm{Cost}(\state_{\mathrm{goal}})$\label{alg:ch17-rrtstar:best}}
     }
   }
-  \lIf{$c_{\mathrm{best}}<\infty$}{\KwRet{the tree path from $x_{\mathrm{init}}$ to $x_{\mathrm{goal}}$}}
+  \lIf{$c_{\mathrm{best}}<\infty$}{\KwRet{the tree path from $\state_{\mathrm{init}}$ to $\state_{\mathrm{goal}}$}}
   \KwRet{failure}\;
 }
 \end{algorithm}
@@ -323,28 +326,28 @@ off because the goal needs no second copy.
 \begin{algorithm}[htb]
 \caption{The helpers of \rrtstar}
 \label{alg:ch17-helpers}
-\Fn{\RrtStarChooseParent{$X_{\mathrm{near}}$, $x_{\mathrm{nearest}}$, $x_{\mathrm{new}}$}}{
-  $x_{\mathrm{par}}\gets x_{\mathrm{nearest}}$; $c_{\mathrm{par}}\gets\mathrm{Cost}(x_{\mathrm{nearest}})+\norm{x_{\mathrm{new}}-x_{\mathrm{nearest}}}$\label{alg:ch17-helpers:default}\;
-  \ForEach{$v\in X_{\mathrm{near}}$ in increasing order of $\mathrm{Cost}(v)+\norm{x_{\mathrm{new}}-v}$\label{alg:ch17-helpers:sort}}{
-    \lIf{$\mathrm{Cost}(v)+\norm{x_{\mathrm{new}}-v}\ge c_{\mathrm{par}}$}{\KwBreak}
-    \If{$\CollisionFree(v,x_{\mathrm{new}})$\label{alg:ch17-helpers:cpfree}}{
-      $x_{\mathrm{par}}\gets v$; $c_{\mathrm{par}}\gets\mathrm{Cost}(v)+\norm{x_{\mathrm{new}}-v}$; \KwBreak\;
+\Fn{\RrtStarChooseParent{$X_{\mathrm{near}}$, $\state_{\mathrm{nearest}}$, $\state_{\mathrm{new}}$}}{
+  $\state_{\mathrm{par}}\gets \state_{\mathrm{nearest}}$; $c_{\mathrm{par}}\gets\mathrm{Cost}(\state_{\mathrm{nearest}})+\norm{\state_{\mathrm{new}}-\state_{\mathrm{nearest}}}$\label{alg:ch17-helpers:default}\;
+  \ForEach{$\vect{v}\in X_{\mathrm{near}}$ in increasing order of $\mathrm{Cost}(\vect{v})+\norm{\state_{\mathrm{new}}-\vect{v}}$\label{alg:ch17-helpers:sort}}{
+    \lIf{$\mathrm{Cost}(\vect{v})+\norm{\state_{\mathrm{new}}-\vect{v}}\ge c_{\mathrm{par}}$}{\KwBreak}
+    \If{$\CollisionFree(\vect{v},\state_{\mathrm{new}})$\label{alg:ch17-helpers:cpfree}}{
+      $\state_{\mathrm{par}}\gets \vect{v}$; $c_{\mathrm{par}}\gets\mathrm{Cost}(\vect{v})+\norm{\state_{\mathrm{new}}-\vect{v}}$; \KwBreak\;
     }
   }
-  \KwRet{$x_{\mathrm{par}}$}\;
+  \KwRet{$\state_{\mathrm{par}}$}\;
 }
-\Fn{\RrtStarRewire{$X_{\mathrm{near}}$, $x_{\mathrm{new}}$}}{
-  \ForEach{$v\in X_{\mathrm{near}}\setminus\set{\mathrm{parent}(x_{\mathrm{new}})}$}{
-    $c\gets\mathrm{Cost}(x_{\mathrm{new}})+\norm{v-x_{\mathrm{new}}}$\label{alg:ch17-helpers:via}\;
-    \If{$c<\mathrm{Cost}(v)$ \KwAnd $\CollisionFree(x_{\mathrm{new}},v)$\label{alg:ch17-helpers:rwfree}}{
-      $E\gets E\setminus\set{(\mathrm{parent}(v),v)}\cup\set{(x_{\mathrm{new}},v)}$; $\mathrm{parent}(v)\gets x_{\mathrm{new}}$\label{alg:ch17-helpers:cut}\;
-      \RrtStarUpdate{$v$}\label{alg:ch17-helpers:update}\;
+\Fn{\RrtStarRewire{$X_{\mathrm{near}}$, $\state_{\mathrm{new}}$}}{
+  \ForEach{$\vect{v}\in X_{\mathrm{near}}\setminus\set{\mathrm{parent}(\state_{\mathrm{new}})}$}{
+    $c\gets\mathrm{Cost}(\state_{\mathrm{new}})+\norm{\vect{v}-\state_{\mathrm{new}}}$\label{alg:ch17-helpers:via}\;
+    \If{$c<\mathrm{Cost}(\vect{v})$ \KwAnd $\CollisionFree(\state_{\mathrm{new}},\vect{v})$\label{alg:ch17-helpers:rwfree}}{
+      $E\gets E\setminus\set{(\mathrm{parent}(\vect{v}),\vect{v})}\cup\set{(\state_{\mathrm{new}},\vect{v})}$; $\mathrm{parent}(\vect{v})\gets \state_{\mathrm{new}}$\label{alg:ch17-helpers:cut}\;
+      \RrtStarUpdate{$\vect{v}$}\label{alg:ch17-helpers:update}\;
     }
   }
 }
-\Fn{\RrtStarUpdate{$v$}}{
-  $\mathrm{Cost}(v)\gets\mathrm{Cost}(\mathrm{parent}(v))+\norm{v-\mathrm{parent}(v)}$\;
-  \lForEach{child $u$ of $v$}{\RrtStarUpdate{$u$}\tcp*[f]{depth-first over the subtree}}
+\Fn{\RrtStarUpdate{$\vect{v}$}}{
+  $\mathrm{Cost}(\vect{v})\gets\mathrm{Cost}(\mathrm{parent}(\vect{v}))+\norm{\vect{v}-\mathrm{parent}(\vect{v})}$\;
+  \lForEach{child $\vect{u}$ of $\vect{v}$}{\RrtStarUpdate{$\vect{u}$}\tcp*[f]{depth-first over the subtree}}
 }
 \end{algorithm}
 
@@ -352,11 +355,11 @@ off because the goal needs no second copy.
 are \rrt. Line~\ref{alg:ch17-rrtstar:radius} computes the radius from the
 \emph{current} number of vertices, which is why the radius is recomputed in
 every iteration, and line~\ref{alg:ch17-rrtstar:near} collects the
-candidates; $x_{\mathrm{nearest}}$ is added so that \textsc{ChooseParent}
+candidates; $\state_{\mathrm{nearest}}$ is added so that \textsc{ChooseParent}
 always has one whose segment is known to be free, and adding it for
 \textsc{ChooseParent} only, as \cref{lst:ch17-core} does, costs at most the
-rare rewire of $x_{\mathrm{nearest}}$ itself. In \cref{alg:ch17-helpers}, \textsc{ChooseParent} starts from
-the nearest vertex as the default ($x_{\mathrm{par}}$, $c_{\mathrm{par}}$ in
+rare rewire of $\state_{\mathrm{nearest}}$ itself. In \cref{alg:ch17-helpers}, \textsc{ChooseParent} starts from
+the nearest vertex as the default ($\state_{\mathrm{par}}$, $c_{\mathrm{par}}$ in
 line~\ref{alg:ch17-helpers:default}),
 whose segment is already known to be free, and improves on it only with a
 candidate whose segment passes the check in
@@ -364,7 +367,7 @@ line~\ref{alg:ch17-helpers:cpfree}; the early \KwBreak after the sorted loop
 means that no candidate is tested once it cannot beat the best value found.
 The new vertex is inserted with its cost (line~\ref{alg:ch17-rrtstar:add} of
 \cref{alg:ch17-rrtstar}) \emph{before} rewiring, because \textsc{Rewire}
-reads $\mathrm{Cost}(x_{\mathrm{new}})$ in line~\ref{alg:ch17-helpers:via}
+reads $\mathrm{Cost}(\state_{\mathrm{new}})$ in line~\ref{alg:ch17-helpers:via}
 of \cref{alg:ch17-helpers}. Its line~\ref{alg:ch17-helpers:rwfree} tests the
 improvement first and the collision second, so segments are checked only
 when they would be used; line~\ref{alg:ch17-helpers:cut} swaps the parent
@@ -484,24 +487,24 @@ the two are interchangeable.
 
 \begin{example}[One \rrtstar iteration on a ten-vertex tree]
 \label{ex:ch17-hand}
-\Cref{fig:ch17-primitives} shows a tree with root $v_0=(0.5,0.5)$ in the
+\Cref{fig:ch17-primitives} shows a tree with root $\vect{v}_0=(0.5,0.5)$ in the
 box $[0,6]\times[0,4.5]$ with one obstacle $[2.6,3.1]\times[1.9,2.45]$; the
 first block of \cref{tab:ch17-hand} lists the vertices, their parents and
-their costs. The sample is $x_{\mathrm{rand}}=(4.0,2.1)$ and $\eta=1$. The
-nearest vertex is $v_4=(4.5,1.3)$ at distance $0.943<\eta$, so
-$x_{\mathrm{new}}=x_{\mathrm{rand}}$, and the segment $v_4x_{\mathrm{new}}$ is
-free. With $r_n=2$, $\Near$ returns $\set{v_3,v_4,v_6,v_7,v_8}$; the
-distances to $x_{\mathrm{new}}$ are $1.900$, $0.943$, $1.924$, $1.221$ and
+their costs. The sample is $\state_{\mathrm{rand}}=(4.0,2.1)$ and $\eta=1$. The
+nearest vertex is $\vect{v}_4=(4.5,1.3)$ at distance $0.943<\eta$, so
+$\state_{\mathrm{new}}=\state_{\mathrm{rand}}$, and the segment $\vect{v}_4\state_{\mathrm{new}}$ is
+free. With $r_n=2$, $\Near$ returns $\set{\vect{v}_3,\vect{v}_4,\vect{v}_6,\vect{v}_7,\vect{v}_8}$; the
+distances to $\state_{\mathrm{new}}$ are $1.900$, $0.943$, $1.924$, $1.221$ and
 $0.985$. \textsc{ChooseParent} sorts the candidates by
-$\mathrm{Cost}(v)+\norm{x_{\mathrm{new}}-v}$: $v_6$ ($2.654+1.924=4.578$),
-$v_7$ ($5.264$), $v_3$ ($5.440$), $v_4$ ($5.692$), $v_8$ ($7.436$). The
-segment from $v_6$ crosses the obstacle and is rejected; the segment from
-$v_7$ is free, so $x_{\mathrm{new}}$ becomes $v_{10}$ with parent $v_7$ and
+$\mathrm{Cost}(\vect{v})+\norm{\state_{\mathrm{new}}-\vect{v}}$: $\vect{v}_6$ ($2.654+1.924=4.578$),
+$\vect{v}_7$ ($5.264$), $\vect{v}_3$ ($5.440$), $\vect{v}_4$ ($5.692$), $\vect{v}_8$ ($7.436$). The
+segment from $\vect{v}_6$ crosses the obstacle and is rejected; the segment from
+$\vect{v}_7$ is free, so $\state_{\mathrm{new}}$ becomes $\vect{v}_{10}$ with parent $\vect{v}_7$ and
 cost $5.264$, $0.43$ less than through the nearest vertex. \textsc{Rewire}
-then tests the remaining candidates: $v_3$, $v_4$ and $v_6$ are cheaper as
-they are, but $v_8$ would cost $5.264+0.985=6.249<6.451$, and its segment is
-free. Its parent changes from $v_4$ to $v_{10}$, and \textsc{UpdateSubtree}
-lowers its child $v_9$ from $7.583$ to $7.380$ (second block of
+then tests the remaining candidates: $\vect{v}_3$, $\vect{v}_4$ and $\vect{v}_6$ are cheaper as
+they are, but $\vect{v}_8$ would cost $5.264+0.985=6.249<6.451$, and its segment is
+free. Its parent changes from $\vect{v}_4$ to $\vect{v}_{10}$, and \textsc{UpdateSubtree}
+lowers its child $\vect{v}_9$ from $7.583$ to $7.380$ (second block of
 \cref{tab:ch17-hand}). Every number is produced by \code{tiny\_example()} in
 \code{code/ch17\_rrt\_star.py}.
 \end{example}
@@ -510,7 +513,8 @@ lowers its child $v_9$ from $7.583$ to $7.380$ (second block of
   \centering\small
   \caption{Trace of \cref{ex:ch17-hand}: the tree before and after one
   iteration of \cref{alg:ch17-rrtstar}. Costs are rounded to three
-  decimals; changed entries are in bold.}
+  decimals; the costs that change are in bold, and the comment column
+  names the two vertices whose parent changes.}
   \label{tab:ch17-hand}
   \begin{tabular}{@{}lccrccr@{}}
   \toprule
@@ -518,17 +522,17 @@ lowers its child $v_9$ from $7.583$ to $7.380$ (second block of
   \cmidrule(lr){2-4}\cmidrule(lr){5-7}
   Vertex & position & parent & cost & parent & cost & comment\\
   \midrule
-  $v_0$ & $(0.5,0.5)$ & -- & $0$ & -- & $0$ & root\\
-  $v_1$ & $(1.6,0.2)$ & $v_0$ & $1.140$ & $v_0$ & $1.140$ & \\
-  $v_2$ & $(2.8,0.2)$ & $v_1$ & $2.340$ & $v_1$ & $2.340$ & \\
-  $v_3$ & $(4.0,0.2)$ & $v_2$ & $3.540$ & $v_2$ & $3.540$ & near; $7.164$ via $v_{10}$, no\\
-  $v_4$ & $(4.5,1.3)$ & $v_3$ & $4.748$ & $v_3$ & $4.748$ & nearest; $6.207$ via $v_{10}$, no\\
-  $v_5$ & $(0.9,1.7)$ & $v_0$ & $1.265$ & $v_0$ & $1.265$ & \\
-  $v_6$ & $(2.1,2.4)$ & $v_5$ & $2.654$ & $v_5$ & $2.654$ & near; cheapest parent but blocked\\
-  $v_7$ & $(3.3,3.1)$ & $v_6$ & $4.043$ & $v_6$ & $4.043$ & near; chosen parent\\
-  $v_8$ & $(4.4,3.0)$ & $v_4$ & $6.451$ & $\mathbf{v_{10}}$ & $\mathbf{6.249}$ & near; rewired\\
-  $v_9$ & $(5.2,3.8)$ & $v_8$ & $7.583$ & $v_8$ & $\mathbf{7.380}$ & updated with its parent\\
-  $v_{10}$ & $(4.0,2.1)$ & -- & -- & $\mathbf{v_7}$ & $\mathbf{5.264}$ & $x_{\mathrm{new}}$\\
+  $\vect{v}_0$ & $(0.5,0.5)$ & -- & $0$ & -- & $0$ & root\\
+  $\vect{v}_1$ & $(1.6,0.2)$ & $\vect{v}_0$ & $1.140$ & $\vect{v}_0$ & $1.140$ & \\
+  $\vect{v}_2$ & $(2.8,0.2)$ & $\vect{v}_1$ & $2.340$ & $\vect{v}_1$ & $2.340$ & \\
+  $\vect{v}_3$ & $(4.0,0.2)$ & $\vect{v}_2$ & $3.540$ & $\vect{v}_2$ & $3.540$ & near; $7.164$ via $\vect{v}_{10}$, no\\
+  $\vect{v}_4$ & $(4.5,1.3)$ & $\vect{v}_3$ & $4.748$ & $\vect{v}_3$ & $4.748$ & nearest; $6.207$ via $\vect{v}_{10}$, no\\
+  $\vect{v}_5$ & $(0.9,1.7)$ & $\vect{v}_0$ & $1.265$ & $\vect{v}_0$ & $1.265$ & \\
+  $\vect{v}_6$ & $(2.1,2.4)$ & $\vect{v}_5$ & $2.654$ & $\vect{v}_5$ & $2.654$ & near; cheapest parent but blocked\\
+  $\vect{v}_7$ & $(3.3,3.1)$ & $\vect{v}_6$ & $4.043$ & $\vect{v}_6$ & $4.043$ & near; chosen parent\\
+  $\vect{v}_8$ & $(4.4,3.0)$ & $\vect{v}_4$ & $6.451$ & $\vect{v}_{10}$ & $\mathbf{6.249}$ & near; rewired\\
+  $\vect{v}_9$ & $(5.2,3.8)$ & $\vect{v}_8$ & $7.583$ & $\vect{v}_8$ & $\mathbf{7.380}$ & updated with its parent\\
+  $\vect{v}_{10}$ & $(4.0,2.1)$ & -- & -- & $\vect{v}_7$ & $\mathbf{5.264}$ & $\state_{\mathrm{new}}$\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -626,10 +630,10 @@ iterations, $2.7$ times the $3\,000$ of
 \begin{proposition}[Invariants of \rrtstar]
 \label{prop:ch17-invariant}
 After every iteration of \cref{alg:ch17-rrtstar}:
-(i)~$T$ is a tree rooted at $x_{\mathrm{init}}$ and every edge is
+(i)~$\mathcal{T}$ is a tree rooted at $\state_{\mathrm{init}}$ and every edge is
 collision-free;
-(ii)~$\mathrm{Cost}(v)$ is the length of the tree path from
-$x_{\mathrm{init}}$ to $v$ for every $v\in V$;
+(ii)~$\mathrm{Cost}(\vect{v})$ is the length of the tree path from
+$\state_{\mathrm{init}}$ to $\vect{v}$ for every $\vect{v}\in V$;
 (iii)~no cost increases during an iteration, so $c_{\mathrm{best}}$ is
 non-increasing in the number of iterations;
 (iv)~the vertex set is the one that \rrt would have built from the same
@@ -640,16 +644,16 @@ sequence of samples.
 (i) Every edge is inserted only after $\CollisionFree$ has accepted it
 (line~\ref{alg:ch17-rrtstar:free} of \cref{alg:ch17-rrtstar}, lines~\ref{alg:ch17-helpers:cpfree}
 and \ref{alg:ch17-helpers:rwfree} of \cref{alg:ch17-helpers}). A rewire could create a cycle only if
-$x_{\mathrm{new}}$ were a descendant of the rewired vertex $v$; but then the
-tree path to $x_{\mathrm{new}}$ passes through $v$, so
-$\mathrm{Cost}(x_{\mathrm{new}})\ge\mathrm{Cost}(v)+\norm{x_{\mathrm{new}}-v}$
-by the triangle inequality, and the test $c<\mathrm{Cost}(v)$ in
+$\state_{\mathrm{new}}$ were a descendant of the rewired vertex $\vect{v}$; but then the
+tree path to $\state_{\mathrm{new}}$ passes through $\vect{v}$, so
+$\mathrm{Cost}(\state_{\mathrm{new}})\ge\mathrm{Cost}(\vect{v})+\norm{\state_{\mathrm{new}}-\vect{v}}$
+by the triangle inequality, and the test $c<\mathrm{Cost}(\vect{v})$ in
 line~\ref{alg:ch17-helpers:rwfree} of \cref{alg:ch17-helpers} fails. (ii) The new vertex receives
-$\mathrm{Cost}(x_{\mathrm{parent}})+\norm{x_{\mathrm{new}}-x_{\mathrm{parent}}}$,
+$\mathrm{Cost}(\state_{\mathrm{parent}})+\norm{\state_{\mathrm{new}}-\state_{\mathrm{parent}}}$,
 and after a rewire \textsc{UpdateSubtree} recomputes exactly the vertices
-whose tree path changed, namely $v$ and its descendants. (iii)
+whose tree path changed, namely $\vect{v}$ and its descendants. (iii)
 \textsc{ChooseParent} touches no existing cost, and \textsc{Rewire} lowers
-$\mathrm{Cost}(v)$ and, by the same amount, the cost of every descendant.
+$\mathrm{Cost}(\vect{v})$ and, by the same amount, the cost of every descendant.
 (iv) Whether a sample becomes a vertex, and where, depends only on
 $\Nearest$, $\Steer$ and the check of line~\ref{alg:ch17-rrtstar:free} of
 \cref{alg:ch17-rrtstar}; these are the steps of \rrt, and the extra steps
@@ -667,8 +671,8 @@ completeness\index{RRT*!probabilistic completeness} (\cref{ch:ch16}).
 \label{thm:ch17-ao}
 Let $d\ge2$, let $\mathcal{X}$ be bounded with $\mu(\Xfree)>0$, let the cost
 be Euclidean length, let the samples be uniform on $\mathcal{X}$ apart
-from the goal-biased draws, which stop once $x_{\mathrm{goal}}$ is in $V$,
-let $x_{\mathrm{goal}}$ enter the tree through the goal bias of
+from the goal-biased draws, which stop once $\state_{\mathrm{goal}}$ is in $V$,
+let $\state_{\mathrm{goal}}$ enter the tree through the goal bias of
 \cref{alg:ch17-rrtstar}, and suppose the problem has a robustly optimal solution
 (\cref{def:ch17-clearance}) of cost $c^*<\infty$. If
 $\gamma_{\rrtstar}>\gamma^*_{\rrtstar}$ in \cref{eq:ch17-radius}, then the
@@ -696,7 +700,7 @@ Read the statement carefully; it is easy to hear more in it than it says.
   probability one to a limit \emph{strictly larger} than $c^*$
   \cite{karaman2011sampling}, because the root of an \rrt tree acquires only
   finitely many children (once vertices surround it, new samples are steered
-  from them instead), so every tree path leaves $x_{\mathrm{init}}$ along one
+  from them instead), so every tree path leaves $\state_{\mathrm{init}}$ along one
   of finitely many random segments, none of which points along the optimal
   path.\index{RRT!not asymptotically optimal}
 \end{itemize}
@@ -817,16 +821,16 @@ checks per iteration instead of the worst case of $48$.
 \label{sec:ch17-informed-set}
 
 Once the tree contains a path of cost $c_{\mathrm{best}}$, most of the
-free space can no longer matter. Take any point $x$ and any path
-$\sigma$ from $x_{\mathrm{init}}$ to $x_{\mathrm{goal}}$ through $x$. The
-cheapest way into $x$ is the straight segment from the start and the
+free space can no longer matter. Take any point $\state$ and any path
+$\sigma$ from $\state_{\mathrm{init}}$ to $\state_{\mathrm{goal}}$ through $\state$. The
+cheapest way into $\state$ is the straight segment from the start and the
 cheapest way out is the straight segment to the goal, so
 \begin{equation}
-  c(\sigma)\ \ge\ \hat f(x):=\norm{x-x_{\mathrm{init}}}+\norm{x_{\mathrm{goal}}-x}.
+  c(\sigma)\ \ge\ \hat f(\state):=\norm{\state-\state_{\mathrm{init}}}+\norm{\state_{\mathrm{goal}}-\state}.
   \label{eq:ch17-fhat}
 \end{equation}
 A path that improves on the current one has $c(\sigma)<c_{\mathrm{best}}$,
-hence every point on it satisfies $\hat f(x)<c_{\mathrm{best}}$: it lies in
+hence every point on it satisfies $\hat f(\state)<c_{\mathrm{best}}$: it lies in
 the informed set $\mathcal{X}_{\hat f}(c_{\mathrm{best}})$ of
 \cref{def:ch17-informed}. Samples outside that set cannot improve the
 solution, and a planner that keeps drawing them wastes its iterations. You
@@ -834,16 +838,16 @@ have met $\hat f$ before: it is $\gcost+\hcost$ with the straight-line
 heuristic, and the informed set is the region $\fcost\le C^*$ outside which
 \astar with a consistent heuristic never expands (\cref{ch:ch04}).
 
-The set $\set{x:\norm{x-x_{\mathrm{init}}}+\norm{x-x_{\mathrm{goal}}}\le c_{\mathrm{best}}}$
+The set $\set{\state:\norm{\state-\state_{\mathrm{init}}}+\norm{\state-\state_{\mathrm{goal}}}\le c_{\mathrm{best}}}$
 is, by the string-and-two-pins definition, an ellipse in 2D and an
 ellipsoid of revolution in 3D; the general name is \textbf{prolate
 hyperspheroid}.\index{prolate hyperspheroid}\index{informed set!geometry}
-Its foci are $x_{\mathrm{init}}$ and $x_{\mathrm{goal}}$, its centre is
-$\vect{x}_{\mathrm{centre}}=(x_{\mathrm{init}}+x_{\mathrm{goal}})/2$, and its
+Its foci are $\state_{\mathrm{init}}$ and $\state_{\mathrm{goal}}$, its centre is
+$\state_{\mathrm{centre}}=(\state_{\mathrm{init}}+\state_{\mathrm{goal}})/2$, and its
 \textbf{transverse diameter} (along the focal axis) is $c_{\mathrm{best}}$.
-Its \textbf{conjugate diameter} follows from the point $x$ on the conjugate
+Its \textbf{conjugate diameter} follows from the point $\state$ on the conjugate
 axis at distance $b$ from the centre: both foci are at distance
-$\sqrt{b^2+c_{\min}^2/4}$ from it, so $\hat f(x)=2\sqrt{b^2+c_{\min}^2/4}=c_{\mathrm{best}}$
+$\sqrt{b^2+c_{\min}^2/4}$ from it, so $\hat f(\state)=2\sqrt{b^2+c_{\min}^2/4}=c_{\mathrm{best}}$
 gives $2b=\sqrt{c_{\mathrm{best}}^2-c_{\min}^2}$. In summary,
 \begin{equation}
   \text{semi-axes}\quad r_1=\frac{c_{\mathrm{best}}}{2},\qquad
@@ -887,18 +891,18 @@ $41\,\%$ of the box, one of cost $16.0$ only $11\,\%$.
 \label{sec:ch17-sampling}
 
 Rejection sampling (draw uniformly in $\mathcal{X}$, keep the sample if
-$\hat f(x)\le c_{\mathrm{best}}$) is correct but wasteful in exactly the
+$\hat f(\state)\le c_{\mathrm{best}}$) is correct but wasteful in exactly the
 cases where the informed set helps, because its acceptance rate is the
 volume ratio just computed. \textcite{gammell2014informed} sample the
 hyperspheroid directly by mapping the unit ball onto it
 (\cref{fig:ch17-ellipse-transform}):
 \begin{equation}
-  x=\mat{C}\,\mat{L}\,\vect{x}_{\mathrm{ball}}+\vect{x}_{\mathrm{centre}},\qquad
+  \state=\mat{C}\,\mat{L}\,\state_{\mathrm{ball}}+\state_{\mathrm{centre}},\qquad
   \mat{L}=\diag(r_1,r_2,\dots,r_d),\qquad
-  \mat{C}\vect{e}_1=\vect{a}_1:=\frac{x_{\mathrm{goal}}-x_{\mathrm{init}}}{c_{\min}}.
+  \mat{C}\vect{e}_1=\vect{a}_1:=\frac{\state_{\mathrm{goal}}-\state_{\mathrm{init}}}{c_{\min}}.
   \label{eq:ch17-transform}
 \end{equation}
-Here $\vect{x}_{\mathrm{ball}}$ is uniform in the unit ball, $\mat{L}$
+Here $\state_{\mathrm{ball}}$ is uniform in the unit ball, $\mat{L}$
 stretches the ball into the axis-aligned spheroid with the semi-axes of
 \cref{eq:ch17-axes}, $\mat{C}$ is a rotation matrix that turns the first
 coordinate axis into the start-to-goal direction, and the translation puts
@@ -938,7 +942,7 @@ to verify this and the axes). Two ingredients remain.
   \caption{Sampling the informed set: the same six points of the unit
   ball after scaling by $\mat{L}$ (semi-axes $c_{\mathrm{best}}/2$ and
   $\frac12\sqrt{c_{\mathrm{best}}^2-c_{\min}^2}$) and after rotation by
-  $\mat{C}$ and translation to $\vect{x}_{\mathrm{centre}}$; the foci of the
+  $\mat{C}$ and translation to $\state_{\mathrm{centre}}$; the foci of the
   result are the start and the goal.}
   \label{fig:ch17-ellipse-transform}
 \end{figure}
@@ -963,25 +967,25 @@ rejecting by $\hat f$.
 \caption{\irrtstar (Gammell, Srinivasa and Barfoot)}
 \label{alg:ch17-informed}
 \KwIn{as in \cref{alg:ch17-rrtstar}}
-\KwOut{the tree path to $x_{\mathrm{goal}}$ of cost $c_{\mathrm{best}}$, or \emph{failure}}
-\Fn{\RrtStarInformed{$x_{\mathrm{init}}$, $x_{\mathrm{goal}}$, $N$}}{
-  $V\gets\set{x_{\mathrm{init}}}$; $E\gets\emptyset$; $c_{\mathrm{best}}\gets\infty$; $c_{\min}\gets\norm{x_{\mathrm{goal}}-x_{\mathrm{init}}}$; $\vect{x}_{\mathrm{centre}}\gets(x_{\mathrm{init}}+x_{\mathrm{goal}})/2$\;
-  $\mat{C}\gets$ \RrtStarRotation{$(x_{\mathrm{goal}}-x_{\mathrm{init}})/c_{\min}$}\label{alg:ch17-informed:rot}\;
+\KwOut{the tree path to $\state_{\mathrm{goal}}$ of cost $c_{\mathrm{best}}$, or \emph{failure}}
+\Fn{\RrtStarInformed{$\state_{\mathrm{init}}$, $\state_{\mathrm{goal}}$, $N$}}{
+  $V\gets\set{\state_{\mathrm{init}}}$; $E\gets\emptyset$; $c_{\mathrm{best}}\gets\infty$; $c_{\min}\gets\norm{\state_{\mathrm{goal}}-\state_{\mathrm{init}}}$; $\state_{\mathrm{centre}}\gets(\state_{\mathrm{init}}+\state_{\mathrm{goal}})/2$\;
+  $\mat{C}\gets$ \RrtStarRotation{$(\state_{\mathrm{goal}}-\state_{\mathrm{init}})/c_{\min}$}\label{alg:ch17-informed:rot}\;
   \For{$i\gets1$ \KwTo $N$}{
-    $x_{\mathrm{rand}}\gets$ \RrtStarSample{$c_{\mathrm{best}}$}\label{alg:ch17-informed:sample}\;
-    run lines~\ref{alg:ch17-rrtstar:steer}--\ref{alg:ch17-rrtstar:best} of \cref{alg:ch17-rrtstar} on $x_{\mathrm{rand}}$ ($\Nearest$, $\Steer$, $\Near$, \RrtStarChooseParent, \RrtStarRewire)\label{alg:ch17-informed:body}\;
+    $\state_{\mathrm{rand}}\gets$ \RrtStarSample{$c_{\mathrm{best}}$}\label{alg:ch17-informed:sample}\;
+    run lines~\ref{alg:ch17-rrtstar:steer}--\ref{alg:ch17-rrtstar:best} of \cref{alg:ch17-rrtstar} on $\state_{\mathrm{rand}}$ ($\Nearest$, $\Steer$, $\Near$, \RrtStarChooseParent, \RrtStarRewire)\label{alg:ch17-informed:body}\;
   }
-  \lIf{$c_{\mathrm{best}}<\infty$}{\KwRet{the tree path from $x_{\mathrm{init}}$ to $x_{\mathrm{goal}}$}}
+  \lIf{$c_{\mathrm{best}}<\infty$}{\KwRet{the tree path from $\state_{\mathrm{init}}$ to $\state_{\mathrm{goal}}$}}
   \KwRet{failure}\;
 }
 \Fn{\RrtStarSample{$c_{\mathrm{best}}$}}{
-  \lIf{$c_{\mathrm{best}}=\infty$}{\KwRet{$x_{\mathrm{goal}}$ with probability $p_{\mathrm{goal}}$, else a uniform sample of $\mathcal{X}$}}
+  \lIf{$c_{\mathrm{best}}=\infty$}{\KwRet{$\state_{\mathrm{goal}}$ with probability $p_{\mathrm{goal}}$, else a uniform sample of $\mathcal{X}$}}
   $r_1\gets c_{\mathrm{best}}/2$; $r_2,\dots,r_d\gets\sqrt{c_{\mathrm{best}}^2-c_{\min}^2}/2$; $\mat{L}\gets\diag(r_1,\dots,r_d)$\label{alg:ch17-informed:axes}\;
-  \Repeat{$x_{\mathrm{rand}}\in\mathcal{X}$}{
-    $\vect{u}\sim\Normal(\vect{0},\mat{I})$; $w\sim U(0,1)$; $\vect{x}_{\mathrm{ball}}\gets w^{1/d}\,\vect{u}/\norm{\vect{u}}$\label{alg:ch17-informed:ball}\;
-    $x_{\mathrm{rand}}\gets\mat{C}\mat{L}\vect{x}_{\mathrm{ball}}+\vect{x}_{\mathrm{centre}}$\label{alg:ch17-informed:map}\;
+  \Repeat{$\state_{\mathrm{rand}}\in\mathcal{X}$}{
+    $\vect{u}\sim\Normal(\vect{0},\mat{I})$; $w\sim U(0,1)$; $\state_{\mathrm{ball}}\gets w^{1/d}\,\vect{u}/\norm{\vect{u}}$\label{alg:ch17-informed:ball}\;
+    $\state_{\mathrm{rand}}\gets\mat{C}\mat{L}\state_{\mathrm{ball}}+\state_{\mathrm{centre}}$\label{alg:ch17-informed:map}\;
   }
-  \KwRet{$x_{\mathrm{rand}}$}\;
+  \KwRet{$\state_{\mathrm{rand}}$}\;
 }
 \Fn{\RrtStarRotation{$\vect{a}_1$}}{
   $\mat{U}\mat{\Sigma}\mat{V}\T\gets$ singular value decomposition of $\vect{a}_1\vect{e}_1\T$\label{alg:ch17-informed:svd}\;
@@ -1041,7 +1045,7 @@ budget, but not anytime: the batch size is chosen before the run.
 growing while the robot follows the current best path, the robot commits to
 the first segment of that path and the tree is re-rooted at its end, and
 \textbf{branch-and-bound pruning}\index{branch-and-bound pruning} deletes
-every vertex $v$ with $\mathrm{Cost}(v)+\norm{x_{\mathrm{goal}}-v}\ge c_{\mathrm{best}}$,
+every vertex $\vect{v}$ with $\mathrm{Cost}(\vect{v})+\norm{\state_{\mathrm{goal}}-\vect{v}}\ge c_{\mathrm{best}}$,
 which can never lie on a better path. Pruning is the tree-side twin of the
 informed set, and the two are usually combined
 (\cref{sec:ch17-implementation}).
@@ -1155,7 +1159,7 @@ edge to the nearest vertex, which is already known to be free.
 
 \paragraph{Propagating costs to a subtree.} Every candidate's cost-to-come
 must be available in $\bigO{1}$, so the implementation stores
-$\mathrm{Cost}(v)$ and keeps it consistent: \cref{lst:ch17-subtree} stores,
+$\mathrm{Cost}(\vect{v})$ and keeps it consistent: \cref{lst:ch17-subtree} stores,
 per vertex, its parent, its parent-edge length and its children;
 \code{set\_parent} moves the vertex, then walks its subtree
 with a stack and recomputes $\mathrm{Cost}$ from the parent, exactly
@@ -1207,12 +1211,12 @@ problem, where $\zeta_3$ and the exponent $1/3$ change the threshold.
 \end{pitfall}
 
 \begin{pitfall}[Rewiring without propagating]
-If \textsc{Rewire} updates $\mathrm{Cost}(v)$ but not the costs of $v$'s
+If \textsc{Rewire} updates $\mathrm{Cost}(\vect{v})$ but not the costs of $\vect{v}$'s
 descendants, the tree still returns valid paths, but $\mathrm{Cost}$ of
 those descendants is now too high: \textsc{ChooseParent} undervalues them
 as parents and \textsc{Rewire} rewires them when it should not.
 Convergence slows down and $c_{\mathrm{best}}$, read from
-$\mathrm{Cost}(x_{\mathrm{goal}})$, may be reported wrongly. Keep children
+$\mathrm{Cost}(\state_{\mathrm{goal}})$, may be reported wrongly. Keep children
 lists and propagate (\cref{lst:ch17-subtree}), and assert
 \cref{prop:ch17-invariant}(ii) in your tests; the bug shows up only there.
 \end{pitfall}
@@ -1228,7 +1232,7 @@ $c_{\mathrm{best}}^2-c_{\min}^2$ at zero.
 
 \begin{pitfall}[Rewiring through obstacles]
 The temptation is to skip the collision check in \textsc{Rewire} because
-``$x_{\mathrm{new}}$ was checked when it was inserted''. Only the segment to
+``$\state_{\mathrm{new}}$ was checked when it was inserted''. Only the segment to
 its parent was. Every rewired edge is a new segment and needs its own check
 (line~\ref{alg:ch17-helpers:rwfree} of \cref{alg:ch17-helpers}); the same
 holds for the candidate segments of \textsc{ChooseParent}, and a checker that is not symmetric (a drone with a heading) must run in
@@ -1293,7 +1297,7 @@ able to say, for a given mission, which planner of
   collision checks; a run costs $\bigO{n\log n}$, a constant factor above
   \rrt.
     \item Once a solution of cost $c_{\mathrm{best}}$ exists, only the
-  prolate hyperspheroid with foci $x_{\mathrm{init}},x_{\mathrm{goal}}$,
+  prolate hyperspheroid with foci $\state_{\mathrm{init}},\state_{\mathrm{goal}}$,
   transverse diameter $c_{\mathrm{best}}$ and conjugate diameter
   $\sqrt{c_{\mathrm{best}}^2-c_{\min}^2}$ can contain a better path;
   \irrtstar samples it uniformly (scale the unit ball, rotate, translate)
@@ -1326,8 +1330,8 @@ the subject of \textcite{penrose2003random}.
 \begin{exercise}[\difficulty{1}]
 \label{exr:ch17-hand}
 Repeat \cref{ex:ch17-hand} on the tree of \cref{tab:ch17-hand} (before the
-iteration) with the sample $x_{\mathrm{rand}}=(5.0,2.6)$, $\eta=1$ and
-$r_n=2$. Give the nearest vertex, $x_{\mathrm{new}}$, the \textsc{Near}
+iteration) with the sample $\state_{\mathrm{rand}}=(5.0,2.6)$, $\eta=1$ and
+$r_n=2$. Give the nearest vertex, $\state_{\mathrm{new}}$, the \textsc{Near}
 set, the candidates of \textsc{ChooseParent} in the order they are tested
 with their costs, the chosen parent, and every rewiring with the costs
 before and after. Check with \code{tiny\_example(x\_rand=(5.0, 2.6))}.
@@ -1348,8 +1352,8 @@ for $\gamma=15$. (c) Explain, with the computation of
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch17-ellipsoid}
 Derive the sampling transformation of \cref{eq:ch17-transform}. (a) Show
-that the set $\hat f(x)\le c_{\mathrm{best}}$ is the image of the unit ball
-under $x=\mat{C}\mat{L}\vect{x}_{\mathrm{ball}}+\vect{x}_{\mathrm{centre}}$
+that the set $\hat f(\state)\le c_{\mathrm{best}}$ is the image of the unit ball
+under $\state=\mat{C}\mat{L}\state_{\mathrm{ball}}+\state_{\mathrm{centre}}$
 with the semi-axes of \cref{eq:ch17-axes}; start from the frame in which
 the foci are $(\pm c_{\min}/2,0,\dots,0)$. (b) Show that an affine map with
 invertible matrix $\mat{A}$ sends a uniform density to a uniform density
@@ -1396,7 +1400,8 @@ whole map?
 
 \begin{exercise}[\difficulty{3} Coding]
 \label{exr:ch17-coding}
-This is the Week~8 coding exercise of the study plan (\cref{ch:appA}).
+This completes the Week~8 coding exercise of the study plan
+(\cref{ch:appA}), whose first half is \cref{exr:ch16-coding}.
 Starting from your \rrt of \cref{ch:ch16}, implement \rrtstar in the API
 of \code{code/ch17\_rrt\_star.py} (read that file only when stuck): a tree
 with parents, edge lengths, costs and children lists, \textsc{Near} by
@@ -1416,8 +1421,9 @@ ellipsoid, final cost within $5\,\%$ of the grid reference.
 \begin{exercise}[\difficulty{3}]
 \label{exr:ch17-anytime}
 Build the anytime planner of \cref{sec:ch17-implementation}. (a) Implement
-re-rooting: given a waypoint $w$ on the current best path, make $w$ the
-root, subtract $\mathrm{Cost}(w)$ from its subtree and discard the rest.
+re-rooting: given a waypoint $\vect{w}$ on the current best path, make
+$\vect{w}$ the root, subtract $\mathrm{Cost}(\vect{w})$ from its subtree and
+discard the rest.
 (b) Implement branch-and-bound pruning and measure how many vertices it
 removes on the wide field after the first solution. (c) Seed the tree with
 the string-pulled grid path of \cref{ex:ch17-map} as its initial branch,

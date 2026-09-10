@@ -59,7 +59,7 @@ The problem of finding routes for many agents that never collide is
 it. In the hybrid architecture of \cref{ch:ch24}, MAPF is the job of the
 \emph{global} layer: it produces the nominal, time-indexed routes of all
 drones before take-off, and it is consulted again whenever the local
-avoidance layer or the replanning layer has changed a route and the swarm
+safety layer or the replanning layer has changed a route and the swarm
 must re-check it against the others. That re-check is the conflict detector
 of this chapter, the one piece of MAPF that every layer uses.
 
@@ -1070,7 +1070,7 @@ Classical MAPF isolates the combinatorial part of the problem, who passes
 first at each shared cell, from the continuous part, how a drone flies from
 one cell to the next, and it is the combinatorial part that is NP-hard
 (\cref{thm:ch07-nphard}). The discrete plan fixes the order of visits at
-every cell, and this order is what MAPF-POST and the local layers of
+every cell, and this order is what MAPF-POST and the local safety layer of
 \cref{ch:ch24} preserve while they adapt speeds and trajectories. The
 guarantees, completeness and optimality within a factor $w$, are proved at
 the discrete level and survive as long as the cell side, the time step and
@@ -1086,9 +1086,9 @@ classical MAPF instance on the flight lattice with \cbs or \ecbs
 (\cref{ch:ch09,ch:ch10}) before take-off. Its output is exactly the table of
 \cref{sec:ch07-intuition}: one time-indexed route per drone, with
 stay-at-target describing a drone that hovers or lands at its target. The
-prediction layer (\cref{ch:ch18,ch:ch20}) and the local layer
+prediction layer (\cref{ch:ch18,ch:ch20}) and the local safety layer
 (\cref{ch:ch13,ch:ch14}) know nothing about MAPF; each sees the nominal route
-of its own drone and the intruders around it. Whenever the local layer has
+of its own drone and the intruders around it. Whenever the local safety layer has
 deviated from a route or the replanning layer (\cref{ch:ch05}) has computed a
 new one, the changed route is re-checked against the others with the detector
 of \cref{sec:ch07-detection}, and a conflict triggers a new MAPF solve for the
@@ -1238,13 +1238,23 @@ accepts although two agents collide.
 
 \begin{exercise}[\difficulty{3} Coding]
 \label{exr:ch07-prioritized}
-The coding exercise of Week~3 (\cref{ch:appA}): write a first
-prioritized planner for two to five agents that plans the agents in index
-order with the space-time \astar of \cref{ch:ch04}, turning every planned
-path into vertex constraints, reverse-edge constraints and a blocked goal for
-the later agents; validate every plan with your detector, compare its sum
-of costs on \cref{ex:ch07-grid} with the optimum $12$, and show that on the
-corridor with one pocket of \cref{exr:ch07-corridor} it fails for one order
-of the two agents and succeeds for the other (\cref{ch:ch08} develops this
-planner properly).
+This is the first half of the Week~3 coding exercise (\cref{ch:appA}) --- represent
+MAPF instances and plans, and detect their conflicts --- and \cref{exr:ch08-coding} is
+the second half, prioritized planning for two to five agents.
+(a) Put the pieces of \cref{exr:ch07-coding,exr:ch07-conflict-cases} together into one
+small library: an instance $\langle G, s, \gamma\rangle$ read from a \code{.map} and a
+\code{.scen} file or written by hand, a plan as one time-indexed path per agent padded
+by the stay-at-target rule of \cref{def:ch07-plan}, and the detector on top of them.
+(b) You need plans to check, so plan the agents one after another in index order with
+the space-time \astar of \cref{ch:ch04}, each agent treating the cells, the reversed
+moves and the parked goals of the earlier agents as forbidden. This is prioritized
+planning in its crudest form, and here it is only a source of plans: run the detector
+on every plan it returns and confirm that it reports no conflict whenever the planner
+succeeds, on \cref{ex:ch07-grid} and on the corridor with one pocket of
+\cref{exr:ch07-corridor}.
+(c) Report $\cost(\pi_i)$, $\sumcost$ and $\makespan$ for the plan of
+\cref{ex:ch07-grid} and compare the sum of costs with the optimum $12$; explain the
+gap in terms of the conflicts your detector found in the naive plan.
+\Cref{ch:ch08} turns the sketch of part~(b) into a planner --- reservation table,
+priority orders, the revised rule --- and that is where the second half does its work.
 \end{exercise}

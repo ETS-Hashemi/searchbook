@@ -22,9 +22,9 @@
 
 Picture eight quadrotors inspecting the racks of a warehouse. A global planner has given each of them a route. Halfway through the mission a forklift-mounted drone that nobody planned for crosses the main aisle. To handle this scene the four layers of \cref{ch:ch24} need a shared vocabulary. The global planner needs a \emph{map} it can search: a graph, usually a grid. It also needs to know how \emph{big} a drone is, so that a route through a narrow gap is not a route into a shelf. It needs \emph{time}, because two drones may use the same aisle if they do so at different moments, and \emph{cost measures} to compare routes and whole multi-agent plans.
 
-The local avoidance layer needs the drone's \emph{motion limits} (how fast, how hard it can brake) and a small kit of \emph{geometry}: when do two moving discs touch, and which velocities steer clear of an obstacle? The prediction layer describes the intruder with a mean and a covariance, so the planner must understand \emph{uncertainty}. Finally, everything has to run in a few milliseconds, which is a question of \emph{computation}: complexity, priority queues and hashing.
+The local safety layer needs the drone's \emph{motion limits} (how fast, how hard it can brake) and a small kit of \emph{geometry}: when do two moving discs touch, and which velocities steer clear of an obstacle? The prediction layer describes the intruder with a mean and a covariance, so the planner must understand \emph{uncertainty}. Finally, everything has to run in a few milliseconds, which is a question of \emph{computation}: complexity, priority queues and hashing.
 
-This chapter collects these tools in one place. It is the only chapter that presents no algorithm; it fixes instead the definitions and conventions that every later chapter cites by number. Read it once, then use it as a reference; the drone box of \cref{sec:ch02-drone} says which layer uses what. Every formal object gets a numbered definition, and every number quoted in the text comes from one of the companion files \code{code/ch02\_toolbox.py}, \code{code/figures/gen\_ch02\_gaussian.py} and \code{code/figures/gen\_ch02\_double\_integrator.py}.
+This chapter collects these tools in one place. It is the only chapter with no planning algorithm of its own---its single piece of pseudocode is the priority queue that all the others run on---and it fixes instead the definitions and conventions that every later chapter cites by number. Read it once, then use it as a reference; the drone box of \cref{sec:ch02-drone} says which layer uses what. Every formal object gets a numbered definition, and every number quoted in the text comes from one of the companion files \code{code/ch02\_toolbox.py}, \code{code/figures/gen\_ch02\_gaussian.py} and \code{code/figures/gen\_ch02\_double\_integrator.py}.
 
 
 % ---------------------------------------------------------------------
@@ -385,7 +385,7 @@ Along the direction of motion the speed is $v(t)=v-a_{\max}t$, which reaches zer
   \label{fig:ch02-double-integrator}
 \end{figure}
 
-\Cref{fig:ch02-double-integrator} shows the formula at work. The stopping distance is the single most important number of the reactive layer: it sets the safety horizon after which an intruder must trigger avoidance (\cref{ch:ch24}), defines the admissible velocities of the dynamic window approach (\cref{ch:ch14}), and tells you how far ahead a prediction must look (\cref{ch:ch20}). \Cref{tab:ch02-motion-models} lists the models side by side.
+\Cref{fig:ch02-double-integrator} shows the formula at work. The stopping distance is the single most important number of the local safety layer: it sets the safety horizon after which an intruder must trigger avoidance (\cref{ch:ch24}), defines the admissible velocities of the dynamic window approach (\cref{ch:ch14}), and tells you how far ahead a prediction must look (\cref{ch:ch20}). \Cref{tab:ch02-motion-models} lists the models side by side.
 
 \begin{table}[tb]
 \centering\small
@@ -412,7 +412,7 @@ The limits $\norm{\acc}\le a_{\max}$ and $\norm{\vel}\le v_{\max}$ are not part 
 \section{A geometry toolkit}
 \label{sec:ch02-geometry}
 
-The reactive layer of the book is built from a handful of geometric primitives. They are collected here with their formulas and proofs; the toolbox implements each of them on plain tuples of floats.
+The local safety layer of the book is built from a handful of geometric primitives. They are collected here with their formulas and proofs; the toolbox implements each of them on plain tuples of floats. The vector algebra they rest on---norms, dot and cross products, projections---is in \cref{sec:appB-linalg}.
 
 \begin{definition}[Vectors, dot product, 2D cross product]
 \label{def:ch02-dot-cross}
@@ -484,77 +484,53 @@ A radius is perpendicular to the tangent at its endpoint, so $\vect{p}$, $\vect{
 
 \begin{definition}[Closest approach and time to collision]
 \label{def:ch02-closest-approach}
-Let two objects move with constant velocities, $\pos_A(t)=\pos_A+t\,\vel_A$ and $\pos_B(t)=\pos_B+t\,\vel_B$, and write $\pos=\pos_B-\pos_A$ and $\vel=\vel_B-\vel_A$ for the \textbf{relative position and velocity}\index{relative velocity}. Their distance is $D(t)=\norm{\pos+t\,\vel}$. The \textbf{time of closest approach}\index{closest approach!time of} is $t^*=\argmin_{t\ge0}D(t)$, the \textbf{minimum distance} is $d_{\min}=D(t^*)$, and, for a collision distance $R$, the \textbf{time to collision}\index{time to collision} is $t_c=\min\set{t\ge0 : D(t)\le R}$, or $\infty$ if no such time exists (the toolbox function \code{time\_to\_collision} returns \code{None} in that case). With a horizon $\ttc$ the minimisation is restricted to $t\in[0,\ttc]$.
+Let two objects move with constant velocities, $\pos_A(t)=\pos_A+t\,\vel_A$ and $\pos_B(t)=\pos_B+t\,\vel_B$, and write
+\begin{equation}
+\pos_{\mathrm{rel}}=\pos_B-\pos_A,\qquad \vel_{\mathrm{rel}}=\vel_A-\vel_B
+\label{eq:ch02-relative}
+\end{equation}
+for the \textbf{relative position}\index{relative position} of $B$ with respect to $A$ and the \textbf{relative velocity}\index{relative velocity} of $A$ with respect to $B$. These are the signs that \cref{ch:ch12,ch:ch13} use to build the velocity obstacle, and this book uses no others. Their distance is $D(t)=\norm{\pos_{\mathrm{rel}}-t\,\vel_{\mathrm{rel}}}$. The \textbf{time of closest approach}\index{closest approach!time of} is $t^*=\argmin_{t\ge0}D(t)$, the \textbf{minimum distance} is $d_{\min}=D(t^*)$, and, for a collision distance $R$, the \textbf{time to collision}\index{time to collision} is $t_c=\min\set{t\ge0 : D(t)\le R}$, or $\infty$ if no such time exists (the toolbox function \code{time\_to\_collision} returns \code{None} in that case). With a horizon $\ttc$ the minimisation is restricted to $t\in[0,\ttc]$.
 \end{definition}
 
 \begin{proposition}[Closest approach of two constant-velocity objects]
 \label[proposition]{thm:ch02-closest-approach}
-If $\vel\neq\vect{0}$ then
+If $\vel_{\mathrm{rel}}\neq\vect{0}$ then
 \begin{equation}
-t^*=\max\Bigl(0,\ -\frac{\pos\cdot\vel}{\vel\cdot\vel}\Bigr),
+t^*=\max\Bigl(0,\ \frac{\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}}}{\vel_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}}}\Bigr),
 \qquad
-d_{\min}=\norm{\pos+t^*\vel},
+d_{\min}=\norm{\pos_{\mathrm{rel}}-t^*\vel_{\mathrm{rel}}},
 \label{eq:ch02-tca}
 \end{equation}
-and when the maximum is not clamped, $d_{\min}=\abs{\pos\times\vel}/\norm{\vel}$ in the plane (in 3D, $\norm{\pos\times\vel}/\norm{\vel}$). The objects come within $R$ of each other if and only if $d_{\min}\le R$, and then
+and when the maximum is not clamped, $d_{\min}=\abs{\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}}}/\norm{\vel_{\mathrm{rel}}}$ in the plane (in 3D, $\norm{\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}}}/\norm{\vel_{\mathrm{rel}}}$). The objects come within $R$ of each other if and only if $d_{\min}\le R$, and then
 \begin{equation}
-t_c=\max\Bigl(0,\ t^*-\frac{\sqrt{R^2-d_{\min}^2}}{\norm{\vel}}\Bigr).
+t_c=\max\Bigl(0,\ t^*-\frac{\sqrt{R^2-d_{\min}^2}}{\norm{\vel_{\mathrm{rel}}}}\Bigr).
 \label{eq:ch02-ttc}
 \end{equation}
-If $\vel=\vect{0}$ the distance is constant, $t^*=0$ and $t_c$ is $0$ if $\norm{\pos}\le R$ and $\infty$ otherwise.
+If $\vel_{\mathrm{rel}}=\vect{0}$ the distance is constant, $t^*=0$ and $t_c$ is $0$ if $\norm{\pos_{\mathrm{rel}}}\le R$ and $\infty$ otherwise.
 \end{proposition}
 \begin{proof}
-$D(t)^2=\norm{\pos}^2+2t\,(\pos\cdot\vel)+t^2\norm{\vel}^2$ is a parabola in $t$ with positive leading coefficient; its derivative $2(\pos\cdot\vel)+2t\norm{\vel}^2$ vanishes at $t=-(\pos\cdot\vel)/\norm{\vel}^2$. If this value is negative, the objects are already separating and the closest approach on $t\ge0$ is at $t=0$, which the maximum expresses. At the unclamped minimum, $D^2=\norm{\pos}^2-(\pos\cdot\vel)^2/\norm{\vel}^2=\bigl(\norm{\pos}^2\norm{\vel}^2-(\pos\cdot\vel)^2\bigr)/\norm{\vel}^2=(\pos\times\vel)^2/\norm{\vel}^2$ by Lagrange's identity. For the time to collision, $D(t)^2=R^2$ is the quadratic of \cref{thm:ch02-ray-circle} with $\vect{o}=\pos$, $\vect{d}=\vel$, $\vect{c}=\vect{0}$; it has real roots exactly when $d_{\min}\le R$, symmetric about $t^*$ at distance $\sqrt{R^2-d_{\min}^2}/\norm{\vel}$, and the smaller root is the first contact, clamped at $0$ when the discs already overlap. \qedhere
+$D(t)^2=\norm{\pos_{\mathrm{rel}}}^2-2t\,(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})+t^2\norm{\vel_{\mathrm{rel}}}^2$ is a parabola in $t$ with positive leading coefficient; its derivative $-2(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})+2t\norm{\vel_{\mathrm{rel}}}^2$ vanishes at $t=(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})/\norm{\vel_{\mathrm{rel}}}^2$. If this value is negative, the objects are already separating and the closest approach on $t\ge0$ is at $t=0$, which the maximum expresses. At the unclamped minimum, $D^2=\norm{\pos_{\mathrm{rel}}}^2-(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})^2/\norm{\vel_{\mathrm{rel}}}^2=\bigl(\norm{\pos_{\mathrm{rel}}}^2\norm{\vel_{\mathrm{rel}}}^2-(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})^2\bigr)/\norm{\vel_{\mathrm{rel}}}^2=(\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}})^2/\norm{\vel_{\mathrm{rel}}}^2$ by Lagrange's identity. For the time to collision, $D(t)^2=R^2$ is the quadratic of \cref{thm:ch02-ray-circle} with $\vect{o}=\pos_{\mathrm{rel}}$, $\vect{d}=-\vel_{\mathrm{rel}}$, $\vect{c}=\vect{0}$; it has real roots exactly when $d_{\min}\le R$, symmetric about $t^*$ at distance $\sqrt{R^2-d_{\min}^2}/\norm{\vel_{\mathrm{rel}}}$, and the smaller root is the first contact, clamped at $0$ when the discs already overlap. \qedhere
 \end{proof}
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch02/closest-approach}
-  \caption{Closest approach in the relative frame of \cref{ex:ch02-closest-approach}. Drone $A$ sits at the origin as a point; drone $B$ starts at $\pos=(4,2)$ and moves with the relative velocity $\vel=(-1,-1)$. The perpendicular from the origin to the line of motion gives $d_{\min}=\sqrt2$ at $t^*=3$. With collision distance $R=1.5$ the relative motion enters the disc at $t_c\approx2.65$.}
+  \caption{Closest approach in the relative frame of \cref{ex:ch02-closest-approach}. Drone $A$ sits at the origin as a point; drone $B$ starts at $\pos_{\mathrm{rel}}=(4,2)$ and closes on $A$ along $-\vel_{\mathrm{rel}}=(-1,-1)$, the relative velocity being $\vel_{\mathrm{rel}}=\vel_A-\vel_B=(1,1)$. The perpendicular from the origin to the line of motion gives $d_{\min}=\sqrt2$ at $t^*=3$. With collision distance $R=1.5$ the relative motion enters the disc at $t_c\approx2.65$.}
   \label{fig:ch02-closest-approach}
 \end{figure}
 
 \begin{example}[Two drones on crossing courses]
 \label[example]{ex:ch02-closest-approach}
-Drone $A$ is at the origin and flies along the $x$-axis at $1$~m/s; drone $B$ is at $(4,2)$ and flies straight down at $1$~m/s. Then $\pos=(4,2)$ and $\vel=(0,-1)-(1,0)=(-1,-1)$. From \cref{eq:ch02-tca}, $t^*=-(\pos\cdot\vel)/(\vel\cdot\vel)=-(-6)/2=3$~s and $d_{\min}=\abs{\pos\times\vel}/\norm{\vel}=\abs{4\cdot(-1)-2\cdot(-1)}/\sqrt2=2/\sqrt2=\sqrt2\approx1.414$~m. If both drones have radius $0.75$~m, the collision distance is $R=1.5>\sqrt2$, and \cref{eq:ch02-ttc} gives the first contact at $t_c=3-\sqrt{2.25-2}/\sqrt2\approx2.646$~s. If both have radius $0.5$~m then $R=1<\sqrt2$ and they pass each other safely. The toolbox functions \code{time\_of\_closest\_approach} and \code{time\_to\_collision} return exactly these numbers; \cref{fig:ch02-closest-approach} draws the situation.
+Drone $A$ is at the origin and flies along the $x$-axis at $1$~m/s; drone $B$ is at $(4,2)$ and flies straight down at $1$~m/s. Then $\pos_{\mathrm{rel}}=(4,2)$ and $\vel_{\mathrm{rel}}=\vel_A-\vel_B=(1,0)-(0,-1)=(1,1)$. From \cref{eq:ch02-tca}, $t^*=(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})/(\vel_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})=6/2=3$~s and $d_{\min}=\abs{\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}}}/\norm{\vel_{\mathrm{rel}}}=\abs{4\cdot1-2\cdot1}/\sqrt2=2/\sqrt2=\sqrt2\approx1.414$~m. If both drones have radius $0.75$~m, the collision distance is $R=1.5>\sqrt2$, and \cref{eq:ch02-ttc} gives the first contact at $t_c=3-\sqrt{2.25-2}/\sqrt2\approx2.646$~s. If both have radius $0.5$~m then $R=1<\sqrt2$ and they pass each other safely. The toolbox functions \code{time\_of\_closest\_approach} and \code{time\_to\_collision} return exactly these numbers; \cref{fig:ch02-closest-approach} draws the situation.
 \end{example}
 
-Two remarks close the toolkit. The horizon $\ttc$ of \cref{def:ch02-closest-approach} is the form in which the safety layer of \cref{ch:ch24} asks the question. And everything here carries over to three dimensions, except that the cross product becomes a vector (use its norm in \cref{eq:ch02-tca}) and the two tangent lines become a cone with the same half-angle $\theta=\arcsin(r/d)$.
+Two remarks close the toolkit. The horizon $\ttc$ of \cref{def:ch02-closest-approach} is the form in which the local safety layer of \cref{ch:ch24} asks the question. And everything here carries over to three dimensions, except that the cross product becomes a vector (use its norm in \cref{eq:ch02-tca}) and the two tangent lines become a cone with the same half-angle $\theta=\arcsin(r/d)$.
 
 % ---------------------------------------------------------------------
 \section{Uncertainty: random vectors, Gaussians and Bayes' rule}
 \label{sec:ch02-uncertainty}
 
-The tracker of \cref{ch:ch18} does not hand the planner a position; it hands over an estimate \emph{and} a covariance that says how much to trust it. This section fixes the few facts about that object which Part~VI builds on and \cref{ch:ch24} uses to inflate constraints.
-
-\begin{definition}[Random vector, mean, covariance]
-\label{def:ch02-mean-covariance}
-A \textbf{random vector}\index{random vector} $\state\in\R^n$ has a probability density $p(\state)$. Its \textbf{mean}\index{mean} and \textbf{covariance}\index{covariance} are
-\begin{equation}
-\vect{\mu}=\E[\state]=\int \state\,p(\state)\,d\state,
-\qquad
-\mat{\Sigma}=\Cov(\state)=\E\bigl[(\state-\vect{\mu})(\state-\vect{\mu})\T\bigr].
-\label{eq:ch02-mean-cov}
-\end{equation}
-$\mat{\Sigma}$ is symmetric and positive semidefinite; its diagonal entries are the variances $\Sigma_{ii}=\Var(x_i)=\sigma_i^2$, and $\Sigma_{ij}$ is the covariance of $x_i$ and $x_j$, with correlation coefficient $\rho_{ij}=\Sigma_{ij}/(\sigma_i\sigma_j)\in[-1,1]$. Under an affine map $\vect{y}=\mat{A}\state+\vect{b}$,
-\begin{equation}
-\E[\vect{y}]=\mat{A}\vect{\mu}+\vect{b},\qquad \Cov(\vect{y})=\mat{A}\mat{\Sigma}\mat{A}\T .
-\label{eq:ch02-linear-transform}
-\end{equation}
-\end{definition}
-
-\begin{definition}[Multivariate Gaussian]
-\label{def:ch02-gaussian}
-The \textbf{multivariate Gaussian}\index{Gaussian!multivariate} (normal) distribution $\Normal(\vect{\mu},\mat{\Sigma})$ with positive definite $\mat{\Sigma}$ has the density
-\begin{equation}
-p(\state)=\frac{1}{\sqrt{(2\pi)^n\det\mat{\Sigma}}}\,
-\exp\Bigl(-\tfrac12\,(\state-\vect{\mu})\T\mat{\Sigma}\inv(\state-\vect{\mu})\Bigr).
-\label{eq:ch02-gaussian}
-\end{equation}
-The quadratic form in the exponent is the squared \textbf{Mahalanobis distance}\index{Mahalanobis distance} of $\state$ from $\vect{\mu}$. An affine map of a Gaussian vector is Gaussian, with the mean and covariance of \cref{eq:ch02-linear-transform}, and the sum of two independent Gaussian vectors is Gaussian with the sum of the means and the sum of the covariances.
-\end{definition}
-
-These two closure properties are the whole reason the Kalman filter has a closed form: pushing a Gaussian through the linear motion model of \cref{def:ch02-double-integrator} and adding Gaussian noise gives another Gaussian, so the filter only has to update a mean and a covariance (\cref{ch:ch18}). A covariance matrix is hard to read as numbers; it is easy to read as an ellipse.
+The tracker of \cref{ch:ch18} does not hand the planner a position; it hands over an estimate \emph{and} a covariance that says how much to trust it. \Cref{ch:appB} owns the mathematics of that object for the whole book: \cref{sec:appB-probability} defines the mean and covariance of a random vector (\cref{def:appB-covariance}), proves the affine rule $\Cov(\mat{A}\state+\vect{b})=\mat{A}\mat{\Sigma}\mat{A}\T$, which needs no Gaussian assumption (\cref{thm:appB-cov-rules}), gives the multivariate Gaussian density and its Mahalanobis exponent (\cref{def:appB-gaussian}), and shows that Gaussians survive affine maps and the addition of independent Gaussian noise (\cref{thm:appB-affine}). Those last two closure properties are the whole reason the Kalman filter has a closed form: pushing a Gaussian through the linear motion model of \cref{def:ch02-double-integrator} and adding noise gives another Gaussian, so the filter has only a mean and a covariance to update (\cref{ch:ch18}). This section assumes all of that and spends its space on the use \cref{ch:appB} does not make of it: reading a covariance as a picture of an intruder's uncertainty, the form in which \cref{ch:ch20} hands a prediction to \cref{ch:ch24}. A covariance matrix is hard to read as numbers; it is easy to read as an ellipse.
 
 \begin{definition}[Covariance ellipse]
 \label{def:ch02-covariance-ellipse}
@@ -575,7 +551,7 @@ Let $\mat{\Sigma}=\mat{E}\mat{\Lambda}\mat{E}\T$ be the eigen-decomposition of a
 and the major axis makes the angle $\operatorname{atan2}(e_{1,y},e_{1,x})$ with the $x$-axis, with $\vect{e}_1$ normalised so that $e_{1,x}\ge0$ (an eigenvector has no canonical sign, and this is the choice \code{covariance\_ellipse} makes). In two dimensions the probability mass inside $\mathcal{E}_k$ is $1-e^{-k^2/2}$: $39.3\%$ for $k=1$, $86.5\%$ for $k=2$ and $98.9\%$ for $k=3$.
 \end{proposition}
 \begin{proof}
-Substitute $\vect{y}=\mat{E}\T(\state-\vect{\mu})$. Since $\mat{E}$ is orthogonal, $\mat{\Sigma}\inv=\mat{E}\mat{\Lambda}\inv\mat{E}\T$ and the quadratic form becomes $y_1^2/\lambda_1+y_2^2/\lambda_2=k^2$, an axis-aligned ellipse with semi-axes $k\sqrt{\lambda_i}$, which \cref{eq:ch02-ellipse-param} parametrises; $\state=\vect{\mu}+\mat{E}\vect{y}$ rotates it back onto the eigenvectors. For the mass, note that $\vect{y}$ scaled by $\mat{\Lambda}^{-1/2}$ is a standard Gaussian in $\R^2$, whose squared norm is $\chi^2$-distributed with two degrees of freedom, i.e.\ exponential with mean $2$; hence $\Prob(\text{inside }\mathcal{E}_k)=1-e^{-k^2/2}$. \qedhere
+Substitute $\vect{y}=\mat{E}\T(\state-\vect{\mu})$. Since $\mat{E}$ is orthogonal, $\mat{\Sigma}\inv=\mat{E}\mat{\Lambda}\inv\mat{E}\T$ and the quadratic form becomes $y_1^2/\lambda_1+y_2^2/\lambda_2=k^2$, an axis-aligned ellipse with semi-axes $k\sqrt{\lambda_i}$, which \cref{eq:ch02-ellipse-param} parametrises; $\state=\vect{\mu}+\mat{E}\vect{y}$ rotates it back onto the eigenvectors. For the mass, note that $\vect{y}$ scaled by $\mat{\Lambda}^{-1/2}$ is a standard Gaussian in $\R^2$, whose squared norm is $\chi^2$-distributed with two degrees of freedom (\cref{thm:appB-chi2}), i.e.\ exponential with mean $2$; hence $\Prob(\text{inside }\mathcal{E}_k)=1-e^{-k^2/2}$. \qedhere
 \end{proof}
 
 To draw the ellipse, call \code{numpy.linalg.eigh} on $\mat{\Sigma}$ (its eigenvalues come in ascending order, so reverse them), take the square roots and evaluate \cref{eq:ch02-ellipse-param} at, say, $72$ angles; the toolbox does this in \code{covariance\_ellipse} and \code{ellipse\_points}.
@@ -597,47 +573,16 @@ In one dimension $68.3\%$ of the mass of a Gaussian lies within $1\sigma$ and $9
 \end{pitfall}
 
 \paragraph{Bayes' rule.}
-Everything in Part~VI is an application of one formula. If $\state$ is the unknown state and $\meas$ a measurement, then
-\begin{equation}
-p(\state\mid\meas)=\frac{p(\meas\mid\state)\,p(\state)}{p(\meas)},\qquad p(\meas)=\int p(\meas\mid\state)\,p(\state)\,d\state,
-\label{eq:ch02-bayes}
-\end{equation}
-where $p(\state)$ is the \textbf{prior}\index{Bayes' rule} (what you believed before the measurement), $p(\meas\mid\state)$ the \textbf{likelihood} (how probable the measurement is for each state) and $p(\state\mid\meas)$ the \textbf{posterior}; the denominator is a normalising constant that does not depend on $\state$, so in practice one writes posterior $\propto$ likelihood $\times$ prior. Tracking applies the rule again and again: today's posterior, pushed through the motion model, becomes tomorrow's prior. With a Gaussian prior, a linear motion model and a linear measurement with Gaussian noise, the posterior is again Gaussian and \cref{eq:ch02-bayes} reduces to a few matrix operations, which is the Kalman filter of \cref{ch:ch18}; \cref{ch:ch19} covers what to do when the models are not linear. The standard reference for all of this is \textcite{thrun2005probabilistic}.
+Everything in Part~VI is an application of one formula, posterior $\propto$ likelihood $\times$ prior, stated as \cref{eq:appB-bayes} and turned into the predict--update recursion of a filter in \cref{eq:appB-predict,eq:appB-update}. Tracking applies it again and again: today's posterior, pushed through the motion model, becomes tomorrow's prior. With a Gaussian prior, a linear motion model and a linear measurement with Gaussian noise the posterior is again Gaussian and the rule reduces to a few matrix operations, which is the Kalman filter of \cref{ch:ch18}; \cref{ch:ch19} covers what to do when the models are not linear. The standard reference for all of this is \textcite{thrun2005probabilistic}.
 
 % ---------------------------------------------------------------------
 \section{Computation: complexity, priority queues and hashing}
 \label{sec:ch02-computation}
 
-\begin{definition}[Big-O notation]
-\label{def:ch02-big-o}
-For functions $f,g\colon\N\to[0,\infty)$ we write $f(n)=\bigO{g(n)}$\index{big-O notation} if there are constants $c>0$ and $n_0$ such that $f(n)\le c\,g(n)$ for all $n\ge n_0$. The running time of a search is expressed in the sizes of its input: the numbers of vertices $\abs{V}$ and edges $\abs{E}$, the branching factor $b$, the horizon $T_{\max}$, the number of agents $k$.
-\end{definition}
-
-Big-O hides constants, and in \python the constants are large: a loop iteration costs about a hundred nanoseconds, while NumPy does the same work per element roughly a hundred times faster, because the loop runs in C. \Cref{tab:ch02-operations} lists the operations that the book's code relies on. Two of them deserve a closer look, because getting them wrong turns an $\bigO{n\log n}$ search into an $\bigO{n^2}$ one.
-
-\begin{table}[tb]
-\centering\small
-\caption{Cost of the basic operations used by the search code of this book. $n$ is the number of stored items. Dictionary and set costs are averages; keys must be hashable.}
-\label{tab:ch02-operations}
-\begin{tabular}{@{}llll@{}}
-\toprule
-Operation & \python & Time & Note\\
-\midrule
-pop from the front & \code{list.pop(0)} & $\bigO{n}$ & use \code{collections.deque}\\
-lookup, insert, delete & \code{dict}, \code{set} & $\bigO{1}$ & tuples of integers as keys\\
-push, pop-min & \code{heapq} & $\bigO{\log n}$ & binary heap on a list\\
-decrease-key & --- & --- & not available: use lazy deletion\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{definition}[Priority queue]
-\label{def:ch02-priority-queue}
-A \textbf{priority queue}\index{priority queue} stores items with numeric keys and supports \emph{insert}(item, key), \emph{pop-min} (remove and return the item with the smallest key) and, optionally, \emph{decrease-key}. A \textbf{binary heap}\index{binary heap} implements insert and pop-min in $\bigO{\log n}$ time and peeking at the minimum in $\bigO{1}$ \cite{cormen2009clrs}. \python's \code{heapq} module is a binary heap over a list; the book stores the tuples \code{(key, counter, item)} in it, where the counter breaks ties by insertion order.
-\end{definition}
+Asymptotic notation, the mechanics of a binary heap and the cost model of a hash table are stated once, with their proofs, in \cref{sec:appB-complexity}: $f(n)=\bigO{g(n)}$ means $f(n)\le c\,g(n)$ beyond some $n_0$ (\cref{def:appB-bigO}), a binary heap inserts and extracts the minimum in $\bigO{\log n}$ and peeks at it in $\bigO{1}$, a hash table inserts, looks up and deletes in constant expected time, and \cref{tab:appB-heap} collects the cost of every container the book's code uses. What a \emph{search} adds is the reading. Its running time is expressed in the sizes of \emph{its} input---the numbers of vertices $\abs{V}$ and edges $\abs{E}$, the branching factor $b$, the horizon $T_{\max}$, the number of agents $k$---and which of them a bound is read in matters more than the bound itself: the exponential worst case of \cref{ch:ch09,ch:ch10} is in $k$, not in $\abs{V}$. Big-O also hides constants, and in \python they are large: a loop iteration costs about a hundred nanoseconds, while NumPy does the same work per element roughly a hundred times faster, because the loop runs in C. Two of the operations in \cref{tab:appB-heap} deserve a closer look, because getting them wrong turns an $\bigO{n\log n}$ search into an $\bigO{n^2}$ one: the missing decrease-key, and the hashing of a state.
 
 \paragraph{The lazy-deletion idiom.}
-Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a vertex whenever they find a cheaper path to it, and Lifelong Planning \astar (\lpastar) and \dstarlite (\cref{ch:ch05}) must also remove vertices from the queue. \code{heapq} offers neither operation, and searching the list for the entry would cost $\bigO{n}$. The idiom used throughout this book, called \textbf{lazy deletion}\index{lazy deletion}\index{priority queue!lazy deletion}, avoids both: never touch an entry that is already in the heap; when a key improves, push a \emph{second} entry with the better key; when popping, skip any entry whose key is no longer the item's best known key. \Cref{alg:ch02-lazypq} states the two operations; the class \code{LazyPQ} of \code{code/ch02\_toolbox.py} implements them.
+Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a vertex whenever they find a cheaper path to it, and Lifelong Planning \astar (\lpastar) and \dstarlite (\cref{ch:ch05}) must also remove vertices from the queue. \python's \code{heapq}, the binary heap of \cref{sec:appB-complexity} over a plain list, offers neither operation, and searching the list for the entry would cost $\bigO{n}$. The idiom used throughout this book, called \textbf{lazy deletion}\index{lazy deletion}\index{priority queue!lazy deletion}, avoids both: never touch an entry that is already in the heap; when a key improves, push a \emph{second} entry with the better key; when popping, skip any entry whose key is no longer the item's best known key. \Cref{alg:ch02-lazypq} states the two operations; the class \code{LazyPQ} of \code{code/ch02\_toolbox.py} implements them.
 
 \begin{algorithm}[htb]
 \caption{Priority queue with lazy deletion}
@@ -662,12 +607,8 @@ Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a
 
 Line~\ref{alg:ch02-lazypq:best} of \cref{alg:ch02-lazypq} records the best key of each item, which is what makes a stale entry recognisable at line~\ref{alg:ch02-lazypq:pop}: an entry is stale exactly when its key differs from the recorded best key. Each push costs $\bigO{\log n}$, each pop costs $\bigO{\log n}$ plus one extra pop per stale entry it skips; since every entry is popped at most once, the total cost of a search with $P$ pushes is $\bigO{P\log P}$. A search that relaxes every edge once pushes at most $\abs{E}$ entries, so the heap can hold $\abs{E}$ rather than $\abs{V}$ entries; because $\log\abs{E}\le2\log\abs{V}$, the asymptotic bound of the search is unchanged. Two variants appear in the literature: comparing the popped key with the vertex's current $\gcost$ instead of keeping a separate dictionary, which is equivalent to the version above, and skipping a popped vertex that is already in a closed set, which never re-opens a node while \cref{alg:ch02-lazypq} does. The two coincide whenever the heuristic is consistent, and \cref{ch:ch04} is where reopening is analysed. Where \cref{alg:ch02-lazypq} returns ``empty'', \code{LazyPQ.pop} raises \code{IndexError}, so a search loop tests \code{len(pq)} before popping. The toolbox version also counts pushes and stale pops so that you can watch the overhead in the exercises.
 
-\paragraph{Hashing states.}
-The dictionaries of a search ($\gcost$-values, parents, the closed set, the best keys of the queue) need hashable keys. In this book a state is always a tuple of integers, such as \code{(x, y)} for a grid cell, \code{((x, y), t)} for a space-time state, or \code{(x, y, z)} for a lattice cell. Tuples of integers hash in constant time, compare quickly and cost about a hundred bytes each. Continuous states, as in \cref{ch:ch16,ch:ch17}, are \emph{not} hashed; they live in arrays and are searched with a KD-tree. If you must key a dictionary by a continuous quantity, round it to a resolution first.
-
-\begin{pitfall}[Floats and arrays as dictionary keys]
-\code{0.1 + 0.2 == 0.3} is \code{False} in floating point, so two states that are physically identical can hash to different keys and the closed set stops working: the search revisits states forever or until memory runs out. NumPy arrays are not hashable at all (\code{tuple(a)} is).
-\end{pitfall}
+\paragraph{Encoding a state.}
+The dictionaries of a search ($\gcost$-values, parents, the closed set, the best keys of the queue) need hashable keys, and \cref{sec:appB-complexity} explains why floating-point keys are legal but dangerous. The book's convention follows from that warning: a state is always a tuple of integers, \code{(x, y)} for a grid cell, \code{((x, y), t)} for a space-time state, \code{(x, y, z)} for a lattice cell. Such tuples hash in constant time, compare quickly and cost about a hundred bytes each, and---unlike a rounded float---two physically identical states always produce the same key, so the closed set of \cref{ch:ch03,ch:ch04} cannot silently stop working. Continuous states, as in \cref{ch:ch16,ch:ch17}, are \emph{not} hashed at all; they live in arrays and are searched with a KD-tree.
 
 \paragraph{Why dictionaries are enough.}
 The largest instances in this book are grids of about $100\times100$ cells with horizons of about $100$ steps, i.e.\ $10^6$ space-time states, and a \python dictionary holding $10^6$ tuple keys occupies about $150$~MB and is filled in a few seconds. A search touches far fewer states than that, so no chapter uses a specialised data structure for its closed set; \cref{ch:ch25} is where faster encodings are discussed.
@@ -723,7 +664,7 @@ The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, lis
 \label{sec:ch02-drone}
 
 \begin{dronebox}
-Each of the four layers of the hybrid architecture in \cref{ch:ch24} is built from tools of this chapter. The \emph{global planner} searches a grid or lattice (\cref{def:ch02-grid,def:ch02-lattice}) of inflated obstacles (\cref{thm:ch02-inflation}) in space-time (\cref{def:ch02-space-time-state}), compares plans by makespan and sum of costs (\cref{def:ch02-makespan,def:ch02-sum-of-costs}), and runs on the lazy priority queue (\cref{alg:ch02-lazypq}). The \emph{prediction layer} describes an intruder by a Gaussian (\cref{def:ch02-gaussian}) propagated through the double-integrator model (\cref{def:ch02-double-integrator}) with Bayes' rule (\cref{eq:ch02-bayes}). The \emph{local safety layer} works in the relative frame of two discs (\cref{thm:ch02-disc-minkowski}), decides with the time to collision (\cref{thm:ch02-closest-approach}) whether an intruder is inside the safety horizon, avoids it with the tangent cone (\cref{thm:ch02-tangents}), and respects the stopping distance (\cref{thm:ch02-stopping-distance}). The \emph{replanning layer} re-searches the grid from the current space-time state with hashed states. In the twelve-week study plan of \cref{ch:appA} this chapter accompanies Week~1, the foundations week, and is the reference to return to in every later week.
+Each of the four layers of the hybrid architecture in \cref{ch:ch24} is built from tools of this chapter. The \emph{global planner} searches a grid or lattice (\cref{def:ch02-grid,def:ch02-lattice}) of inflated obstacles (\cref{thm:ch02-inflation}) in space-time (\cref{def:ch02-space-time-state}), compares plans by makespan and sum of costs (\cref{def:ch02-makespan,def:ch02-sum-of-costs}), and runs on the lazy priority queue (\cref{alg:ch02-lazypq}). The \emph{prediction layer} describes an intruder by a Gaussian (\cref{def:appB-gaussian}), read as the covariance ellipse of \cref{def:ch02-covariance-ellipse} and propagated through the double-integrator model (\cref{def:ch02-double-integrator}) with Bayes' rule (\cref{eq:appB-bayes}). The \emph{local safety layer} works in the relative frame of two discs (\cref{thm:ch02-disc-minkowski}), decides with the time to collision (\cref{thm:ch02-closest-approach}) whether an intruder is inside the safety horizon, avoids it with the tangent cone (\cref{thm:ch02-tangents}), and respects the stopping distance (\cref{thm:ch02-stopping-distance}). The \emph{replanning layer} re-searches the grid from the current space-time state with hashed states. In the twelve-week study plan of \cref{ch:appA} this chapter accompanies Week~1, the foundations week, and is the reference to return to in every later week.
 \end{dronebox}
 
 % ---------------------------------------------------------------------
@@ -735,7 +676,7 @@ Each of the four layers of the hybrid architecture in \cref{ch:ch24} is built fr
   \item Discrete time adds the wait action and turns the map into the time-expanded graph; a time-indexed path fixes where and when, a plan is one such path per agent, a trajectory is continuous motion (\cref{def:ch02-time-indexed-path,def:ch02-plan,def:ch02-trajectory}).
   \item Path length, travel time, makespan $\makespan=\max_i T_i$, sum of costs $\sumcost=\sum_i T_i$ and minimum separation are the cost measures of the book; a plan without grid conflicts can still bring physical agents too close.
   \item The single integrator chooses velocities, the double integrator chooses accelerations with exact discrete matrices $\mat{A},\mat{B}$; a quadrotor is nearly the latter; the stopping distance is $v^2/(2a_{\max})$.
-  \item Distance to a segment, ray--circle intersection, the Minkowski disc, tangent lines and the time of closest approach $t^*=-(\pos\cdot\vel)/\norm{\vel}^2$ with $d_{\min}=\abs{\pos\times\vel}/\norm{\vel}$ are the geometry of collision avoidance.
+  \item Distance to a segment, ray--circle intersection, the Minkowski disc, tangent lines and the time of closest approach $t^*=(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})/\norm{\vel_{\mathrm{rel}}}^2$ with $d_{\min}=\abs{\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}}}/\norm{\vel_{\mathrm{rel}}}$ are the geometry of collision avoidance.
   \item A covariance is an ellipse with axes $\sqrt{\lambda_i}\,\vect{e}_i$ (\cref{thm:ch02-ellipse-axes}); in 2D the $1\sigma$ ellipse holds only $39\%$ of the mass; Bayes' rule turns a prior and a measurement into a posterior.
   \item Searches use a binary heap with lazy deletion (push duplicates, skip stale pops) and dictionaries keyed by integer tuples; \python and NumPy are enough for every instance in this book.
 \end{itemize}
@@ -780,7 +721,7 @@ A drone flies at $v=2$~m/s with $a_{\max}=1$~m/s$^2$ and $\dt=0.1$~s. How many s
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch02-closest-approach}
-Derive \cref{eq:ch02-tca} by minimising $D(t)^2$, show that $d_{\min}=\abs{\pos\times\vel}/\norm{\vel}$ when the minimum is not clamped, and derive the time to collision \cref{eq:ch02-ttc}. Evaluate all three for $\pos=(4,2)$, $\vel=(-1,-1)$ and collision distances $R=1.5$ and $R=1$.
+Derive \cref{eq:ch02-tca} by minimising $D(t)^2$, show that $d_{\min}=\abs{\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}}}/\norm{\vel_{\mathrm{rel}}}$ when the minimum is not clamped, and derive the time to collision \cref{eq:ch02-ttc}. Evaluate all three for $\pos_{\mathrm{rel}}=(4,2)$, $\vel_{\mathrm{rel}}=(1,1)$ and collision distances $R=1.5$ and $R=1$.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Trajectory prediction: baselines, metrics, a NumPy LSTM sequence-to-sequence
-predictor trained with backpropagation through time, attention, and the
-helpers that turn a predicted distribution into planner constraints.
+predictor trained with backpropagation through time, attention, a NumPy
+encoder-decoder Transformer predictor, and the helpers that turn a predicted
+distribution into planner constraints.
 
 Reference implementation for Chapter 20 of "Multi-Agent Path Planning and
 Drone Collision Avoidance".
@@ -21,7 +22,7 @@ Conventions
   are divided by ``SCALE`` so that inputs and targets are of order one.
 
 Run ``python3 ch20_prediction.py`` for the self-test followed by the
-experiment of the chapter (about 40 s in total).
+experiment of the chapter (about 80 s in total).
 """
 from __future__ import annotations
 
@@ -696,6 +697,195 @@ def toy_agent_attention(pos, vel, tau=2.0, ell=2.0):
 
 
 # ---------------------------------------------------------------------------
+# A Transformer trajectory predictor (encoder-decoder, one attention layer)
+# ---------------------------------------------------------------------------
+def _split_heads(x, n_heads):
+    """(B, T, d) -> (B, n_heads, T, d / n_heads)."""
+    b, t, d = x.shape
+    return x.reshape(b, t, n_heads, d // n_heads).transpose(0, 2, 1, 3)
+
+
+def _merge_heads(x):
+    """(B, n_heads, T, d_h) -> (B, T, n_heads * d_h)."""
+    b, h, t, dh = x.shape
+    return x.transpose(0, 2, 1, 3).reshape(b, t, h * dh)
+
+
+def _softmax_backward(weights, d_weights):
+    """Gradient of the scores from the gradient of softmax(scores)."""
+    return weights * (d_weights - np.sum(d_weights * weights, axis=-1, keepdims=True))
+
+
+class TransformerPredictor:
+    """Encoder-decoder Transformer for one trajectory, in NumPy.
+
+    Encoder: every observed displacement is embedded linearly into R^d, the
+    sinusoidal positional encoding of its time step is added, and one
+    multi-head self-attention layer with a residual connection, followed by a
+    position-wise tanh feed-forward block (also residual), produces one
+    context vector per observed step.
+
+    Decoder: the ``horizon`` future steps are represented by their positional
+    encodings mapped through a learned matrix, one query per predicted step;
+    one multi-head cross-attention layer reads the encoder outputs and a
+    linear head maps each query to one displacement.  All ``horizon``
+    displacements leave in a single pass, so there is no autoregression and
+    hence no exposure bias, but also no way for step k to see what step k-1
+    predicted.  As in the LSTM, the output is a residual over the constant
+    velocity of the observation window.
+
+    The interface (``params``, ``loss_and_grads``, ``predict_frame`` and the
+    attributes ``gaussian`` and ``cumulative``) is that of
+    ``Seq2SeqPredictor``, so ``train_predictor`` and ``predict_lstm`` work
+    unchanged.  The layer is deliberately simplified: one layer instead of a
+    stack, and no layer normalisation, which a deep stack needs and a single
+    residual layer does not.
+    """
+
+    PARAM_NAMES = ("W_emb", "b_emb", "Wq", "Wk", "Wv", "Wo", "Wf1", "bf1",
+                   "Wf2", "bf2", "Wq2", "Wk2", "Wv2", "Wo2", "W_out", "b_out")
+
+    def __init__(self, d_model=24, n_heads=2, d_ff=None, horizon=T_PRED,
+                 residual=True, rng=None):
+        rng = np.random.default_rng(0) if rng is None else rng
+        assert d_model % n_heads == 0
+        d = d_model
+        dff = 2 * d if d_ff is None else d_ff
+        self.d_model, self.n_heads, self.d_ff = d, n_heads, dff
+        self.horizon, self.residual = horizon, residual
+        self.gaussian, self.cumulative = False, True      # squared error on positions
+        s = 1.0 / math.sqrt(d)
+        self.W_emb = 0.5 * rng.standard_normal((2, d))
+        self.b_emb = np.zeros(d)
+        for name in ("Wq", "Wk", "Wv", "Wo", "Wq2", "Wk2", "Wv2", "Wo2"):
+            setattr(self, name, rng.standard_normal((d, d)) * s)
+        self.Wf1 = rng.standard_normal((d, dff)) * s
+        self.bf1 = np.zeros(dff)
+        self.Wf2 = rng.standard_normal((dff, d)) / math.sqrt(dff)
+        self.bf2 = np.zeros(d)
+        self.W_out = 0.1 * rng.standard_normal((2, d)) * s
+        self.b_out = np.zeros(2)
+        self.pe = positional_encoding(T_OBS + horizon, d)     # fixed, not learned
+
+    # -- parameters ----------------------------------------------------------
+    def params(self):
+        return {n: getattr(self, n) for n in self.PARAM_NAMES}
+
+    def set_params(self, values):
+        for name, val in values.items():
+            self.params()[name][...] = val
+
+    def n_params(self):
+        return int(sum(p.size for p in self.params().values()))
+
+    def baseline(self, x):
+        """Displacement added to every decoder output (constant velocity)."""
+        return x.mean(axis=1) if self.residual else np.zeros((x.shape[0], 2))
+
+    # -- forward -------------------------------------------------------------
+    def forward(self, x, horizon=None):
+        """x (B, T_obs-1, 2) -> displacements (B, horizon, 2) and a cache."""
+        P = self.horizon if horizon is None else horizon
+        nh, dh = self.n_heads, self.d_model // self.n_heads
+        T = x.shape[1]
+        Z = x @ self.W_emb + self.b_emb + self.pe[:T]
+        # encoder self-attention over the observed steps
+        Q, K, V = Z @ self.Wq, Z @ self.Wk, Z @ self.Wv
+        qh, kh, vh = _split_heads(Q, nh), _split_heads(K, nh), _split_heads(V, nh)
+        A = softmax(np.einsum("bhtd,bhsd->bhts", qh, kh) / math.sqrt(dh))
+        C = _merge_heads(np.einsum("bhts,bhsd->bhtd", A, vh))
+        Z1 = Z + C @ self.Wo
+        Hff = np.tanh(Z1 @ self.Wf1 + self.bf1)
+        Z2 = Z1 + Hff @ self.Wf2 + self.bf2
+        # decoder cross-attention: one query per predicted step
+        pe_dec = self.pe[T_OBS:T_OBS + P]
+        Q2 = pe_dec @ self.Wq2
+        K2, V2 = Z2 @ self.Wk2, Z2 @ self.Wv2
+        q2h = Q2.reshape(P, nh, dh).transpose(1, 0, 2)
+        k2h, v2h = _split_heads(K2, nh), _split_heads(V2, nh)
+        A2 = softmax(np.einsum("hpd,bhtd->bhpt", q2h, k2h) / math.sqrt(dh))
+        C2 = _merge_heads(np.einsum("bhpt,bhtd->bhpd", A2, v2h))
+        Z3 = Q2 + C2 @ self.Wo2
+        out = Z3 @ self.W_out.T + self.b_out + self.baseline(x)[:, None]
+        cache = (x, Z, qh, kh, vh, A, C, Z1, Hff, Z2, pe_dec, q2h, k2h, v2h, A2, C2, Z3)
+        return out, cache
+
+    # -- loss and backward ---------------------------------------------------
+    def loss_and_grads(self, x, y, teacher_forcing=False):
+        """Squared error of the predicted positions and its exact gradient.
+
+        ``teacher_forcing`` is accepted for interface compatibility and has no
+        meaning here: the decoder is not autoregressive, so it is never fed
+        its own output.
+        """
+        del teacher_forcing
+        B, P = y.shape[0], y.shape[1]
+        nh, dh = self.n_heads, self.d_model // self.n_heads
+        out, cache = self.forward(x, horizon=P)
+        (x, Z, qh, kh, vh, A, C, Z1, Hff, Z2, pe_dec, q2h, k2h, v2h, A2, C2, Z3) = cache
+        pos_pred, pos_true = np.cumsum(out, axis=1), np.cumsum(y, axis=1)
+        loss = np.mean(np.sum((pos_pred - pos_true) ** 2, axis=2))
+        d_pos = 2.0 * (pos_pred - pos_true) / (B * P)
+        d_out = np.cumsum(d_pos[:, ::-1], axis=1)[:, ::-1]         # sum_{j >= k}
+
+        g = {n: np.zeros_like(p) for n, p in self.params().items()}
+        # -- head
+        g["W_out"] += np.einsum("bpo,bpd->od", d_out, Z3)
+        g["b_out"] += d_out.sum(axis=(0, 1))
+        dZ3 = d_out @ self.W_out
+        # -- decoder cross-attention
+        dQ2 = dZ3.sum(axis=0)                                      # residual branch
+        g["Wo2"] += np.einsum("bpi,bpj->ij", C2, dZ3)
+        dC2h = _split_heads(dZ3 @ self.Wo2.T, nh)
+        dA2 = _softmax_backward(A2, np.einsum("bhpd,bhtd->bhpt", dC2h, v2h))
+        dv2h = np.einsum("bhpt,bhpd->bhtd", A2, dC2h)
+        dq2h = np.einsum("bhpt,bhtd->hpd", dA2, k2h) / math.sqrt(dh)
+        dk2h = np.einsum("bhpt,hpd->bhtd", dA2, q2h) / math.sqrt(dh)
+        dQ2 = dQ2 + dq2h.transpose(1, 0, 2).reshape(P, self.d_model)
+        g["Wq2"] += pe_dec.T @ dQ2
+        dK2, dV2 = _merge_heads(dk2h), _merge_heads(dv2h)
+        g["Wk2"] += np.einsum("bti,btj->ij", Z2, dK2)
+        g["Wv2"] += np.einsum("bti,btj->ij", Z2, dV2)
+        dZ2 = dK2 @ self.Wk2.T + dV2 @ self.Wv2.T
+        # -- feed-forward block
+        g["Wf2"] += np.einsum("bti,btj->ij", Hff, dZ2)
+        g["bf2"] += dZ2.sum(axis=(0, 1))
+        dPre = (dZ2 @ self.Wf2.T) * (1.0 - Hff ** 2)
+        g["Wf1"] += np.einsum("bti,btj->ij", Z1, dPre)
+        g["bf1"] += dPre.sum(axis=(0, 1))
+        dZ1 = dZ2 + dPre @ self.Wf1.T
+        # -- encoder self-attention
+        g["Wo"] += np.einsum("bti,btj->ij", C, dZ1)
+        dCh = _split_heads(dZ1 @ self.Wo.T, nh)
+        dA = _softmax_backward(A, np.einsum("bhtd,bhsd->bhts", dCh, vh))
+        dvh = np.einsum("bhts,bhtd->bhsd", A, dCh)
+        dqh = np.einsum("bhts,bhsd->bhtd", dA, kh) / math.sqrt(dh)
+        dkh = np.einsum("bhts,bhtd->bhsd", dA, qh) / math.sqrt(dh)
+        dQ, dK, dV = _merge_heads(dqh), _merge_heads(dkh), _merge_heads(dvh)
+        g["Wq"] += np.einsum("bti,btj->ij", Z, dQ)
+        g["Wk"] += np.einsum("bti,btj->ij", Z, dK)
+        g["Wv"] += np.einsum("bti,btj->ij", Z, dV)
+        dZ = dZ1 + dQ @ self.Wq.T + dK @ self.Wk.T + dV @ self.Wv.T
+        # -- embedding
+        g["W_emb"] += np.einsum("bti,btj->ij", x, dZ)
+        g["b_emb"] += dZ.sum(axis=(0, 1))
+        return float(loss), g
+
+    # -- inference -----------------------------------------------------------
+    def predict_frame(self, x, horizon=T_PRED):
+        """Rollout in one pass: positions (B, horizon, 2) in the normalised
+        frame, and a per-step std of ones (this model has no uncertainty)."""
+        out, _ = self.forward(x, horizon=horizon)
+        pos = np.cumsum(out, axis=1)
+        return pos, np.ones_like(pos)
+
+    def attention_maps(self, x, horizon=T_PRED):
+        """Encoder self-attention (B, n_heads, T, T) and decoder
+        cross-attention (B, n_heads, horizon, T) weights of a forward pass."""
+        _, cache = self.forward(x, horizon=horizon)
+        return cache[5], cache[14]
+
+# ---------------------------------------------------------------------------
 # From a predicted distribution to planner constraints
 # ---------------------------------------------------------------------------
 def chi2_radius(p):
@@ -768,7 +958,7 @@ def evaluate(pred, data, name="all"):
 
 
 def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
-                   n_hidden=32, epochs=40, verbose=True):
+                   n_hidden=32, epochs=40, d_model=24, n_heads=2, verbose=True):
     """Generate the data, tune the baselines on the validation split, train
     the LSTMs and evaluate everything on the test split.
 
@@ -817,6 +1007,22 @@ def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
             % (name, time.time() - t0, hist["best_epoch"], len(hist["val_ade"]),
                min(hist["val_ade"])))
 
+    # -- the Transformer: same data, same optimiser, its own patience -----------
+    #    (its validation curve is noisier than the LSTM's, so 10 epochs of
+    #    patience stop some initialisations while they are still improving)
+    t0 = time.time()
+    tr = TransformerPredictor(d_model=d_model, n_heads=n_heads,
+                              rng=np.random.default_rng(seed + 1))
+    hist = train_predictor(tr, train, val, epochs=epochs, mode="frame", patience=15,
+                           rng=np.random.default_rng(seed + 2))
+    means, _, _ = predict_lstm(tr, test, "frame")
+    preds["Transformer"] = means
+    models["Transformer"], histories["Transformer"] = tr, hist
+    log("%-9s trained in %5.1f s, best epoch %2d of %2d, val ADE %.3f m (%d weights, "
+        "d=%d, %d heads)" % ("Transf.", time.time() - t0, hist["best_epoch"],
+                             len(hist["val_ade"]), min(hist["val_ade"]), tr.n_params(),
+                             d_model, n_heads))
+
     # -- metrics ---------------------------------------------------------------
     metrics = {name: {s: evaluate(p, test, s) for s in SUBSETS} for name, p in preds.items()}
     _, _, samples = predict_lstm(models["LSTM-NLL"], test, "frame", n_samples=20,
@@ -827,7 +1033,9 @@ def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
              "calibration": {name: calibration(preds[name], covs[name], test["future"], 0.95)
                              for name in ("KF (tuned)", "LSTM-NLL")}}
     return {"train": train, "val": val, "test": test, "preds": preds, "metrics": metrics,
-            "settings": {"k_cv": k_cv, "k_ca": k_ca, "q_kf": q_kf, "noise": noise},
+            "settings": {"k_cv": k_cv, "k_ca": k_ca, "q_kf": q_kf, "noise": noise,
+                         "n_params_lstm": sum(p.size for p in models["LSTM-MSE"].params().values()),
+                         "n_params_transformer": tr.n_params()},
             "histories": histories, "models": models, "covs": covs, "extra": extra,
             "samples": samples}
 
@@ -975,7 +1183,25 @@ def _self_test():
     expected = softmax(-np.sum((x_ext[:, None] - x_ext[None]) ** 2, axis=-1) / (2 * 2.0 ** 2))
     assert np.allclose(w_ag, expected)
 
-    # 8. ellipses, inflated radius and occupancy cells
+    # 8. the Transformer predictor: exact gradients, shapes, attention rows,
+    #    and a short training run that beats the constant-velocity start
+    tr = TransformerPredictor(d_model=8, n_heads=2, rng=np.random.default_rng(11))
+    err = _gradient_check(tr, x, y, rng=np.random.default_rng(12))
+    assert err < 1e-5, "transformer gradient check failed: %.2e" % err
+    pos, sd = tr.predict_frame(x)
+    assert pos.shape == (x.shape[0], T_PRED, 2) and np.allclose(sd, 1.0)
+    enc_w, dec_w = tr.attention_maps(x)
+    assert enc_w.shape == (x.shape[0], 2, T_OBS - 1, T_OBS - 1)
+    assert dec_w.shape == (x.shape[0], 2, T_PRED, T_OBS - 1)
+    assert np.allclose(enc_w.sum(-1), 1.0) and np.allclose(dec_w.sum(-1), 1.0)
+    tr = TransformerPredictor(d_model=16, n_heads=2, rng=np.random.default_rng(13))
+    train_predictor(tr, train, val, epochs=12, lr=5e-3, lr_final=1e-3, patience=12,
+                    rng=np.random.default_rng(14))
+    means_tr, _, _ = predict_lstm(tr, val)
+    assert ade(means_tr, val["future"]) < ade(predict_cv(val["obs"], k=T_OBS - 1),
+                                              val["future"])
+
+    # 9. ellipses, inflated radius and occupancy cells
     cov = np.array([[0.09, 0.0], [0.0, 0.09]])
     assert abs(inflated_radius(cov, 0.95) - 0.3 * math.sqrt(-2 * math.log(0.05))) < 1e-12
     assert abs(chance_constraint_margin(cov, 0.05, 0.5) - (0.5 + inflated_radius(cov, 0.95))) < 1e-12
@@ -1004,4 +1230,8 @@ if __name__ == "__main__":
         assert met["LSTM-NLL"]["all"][0][-1] < met["KF (tuned)"]["all"][0][-1]
         assert met["CV (tuned)"]["straight"][0][-1] < met["LSTM-NLL"]["straight"][0][-1]
         assert met["LSTM-NLL"]["all"][0][-1] < met["LSTM-TF"]["all"][0][-1]
+        assert met["Transformer"]["all"][0][-1] < met["CV (tuned)"]["all"][0][-1]
+        assert met["Transformer"]["turn"][0][-1] < met["CV (tuned)"]["turn"][0][-1]
+        # at this data scale the Transformer matches the LSTM but does not beat it
+        assert met["Transformer"]["all"][0][-1] > met["LSTM-MSE"]["all"][0][-1]
         print("experiment finished in %.1f s" % (time.time() - t0))

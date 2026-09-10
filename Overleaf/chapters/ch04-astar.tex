@@ -929,7 +929,7 @@ allowed, so from every state there is an infinite chain of wait actions. The
 time horizon of \cref{sec:ch04-horizon} cuts the chain at a point where nothing
 is lost.
 
-\subsection{Constraints and reservation tables}
+\subsection{Vertex and edge constraints}
 
 \begin{definition}[Vertex and edge constraint]
 \label{def:ch04-constraints}
@@ -955,22 +955,14 @@ pairs $(v, t)$ and triples $(u, v, t)$.
 Where do the constraints come from? In \cref{ch:ch09} the high level of \cbs
 invents them, one per node of its constraint tree, to resolve a collision it has
 detected. In prioritized planning (\cref{ch:ch08}) they come from the paths of
-the agents that were planned earlier, collected in a \textbf{reservation
-table}\index{reservation table}, the data structure Silver introduced for
-cooperative pathfinding~\cite{silver2005cooperative}. Reserving a planned path
-$\pi$ means three things:
-\begin{itemize}
-  \item a vertex constraint $(\pi_t, t)$ for every $t$, so that no one flies
-        through an occupied cell;
-  \item an edge constraint $(\pi_{t+1}, \pi_t, t)$ for every move, that is, the
-        \emph{reverse} of the move, so that no one swaps places with $\pi$
-        head-on;
-  \item a permanent block of the goal cell $\pi_T$ for every $t \ge T$: the
-        agent parks there and does not evaporate.
-\end{itemize}
-The class \code{ReservationTable} in \code{ch04\_astar.py} stores exactly these
-three sets and answers the two questions the search asks: is $v$ blocked at time
-$t$, and is the move $u \to v$ blocked at time $t$.
+the agents that were planned earlier, collected in a reservation table --- the
+data structure Silver introduced for cooperative
+pathfinding~\cite{silver2005cooperative} and defined formally in
+\cref{def:ch08-reservation}. Either way the search sees nothing but a set of
+forbidden pairs $(v, t)$ and triples $(u, v, t)$, and the class
+\code{ReservationTable} in \code{ch04\_astar.py} answers the only two questions
+it asks: is $v$ blocked at time $t$, and is the move $u \to v$ blocked at
+time $t$.
 
 \subsection{The goal test: the agent has to stay}
 \label{sec:ch04-goalstay}
@@ -1434,7 +1426,7 @@ static distance table of \cref{sec:ch04-static} is computed once per drone and
 reused, and every constant factor in \cref{lst:ch04-astar} is multiplied by a
 four-digit number.
 
-\textbf{2. The fallback of the replanning layer.} The reactive layer of
+\textbf{2. The fallback of the replanning layer.} The local safety layer of
 \cref{ch:ch24} --- optimal reciprocal collision avoidance (\orca,
 \cref{ch:ch13}) and the dynamic window approach (DWA, \cref{ch:ch14}) --- handles the
 seconds-scale avoidance of an intruder locally. When a manoeuvre has pushed a
@@ -1456,6 +1448,9 @@ and closed sets --- is \cref{exr:ch04-coding} below.
 \end{dronebox}
 
 % ---------------------------------------------------------------------
+\section{Summary}
+\label{sec:ch04-summary}
+
 \begin{summary}
 \begin{itemize}
   \item \astar is best-first search on $\fcost = \gcost + \hcost$: the cost so
@@ -1489,7 +1484,7 @@ and closed sets --- is \cref{exr:ch04-coding} below.
 \end{itemize}
 \end{summary}
 
-\paragraph*{Further reading.}
+\paragraph{Further reading.}
 \astar was introduced by Hart, Nilsson and Raphael~\cite{hart1968formal}, whose
 correction note~\cite{hart1972correction} fixes the definition of the ``more
 informed'' relation used in \cref{thm:ch04-dominance}.

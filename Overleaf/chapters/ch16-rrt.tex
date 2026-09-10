@@ -175,8 +175,8 @@ $X_{\mathrm{goal}}\subseteq\Xfree$; in this book the goal region is the ball
 $X_{\mathrm{goal}}=\set{\state : \norm{\state-\state_{\mathrm{goal}}}\le r_{\mathrm{goal}}}$
 of radius $r_{\mathrm{goal}}>0$ around a goal point $\state_{\mathrm{goal}}$.
 A \textbf{solution} is a continuous path
-$\tau\colon[0,1]\to\Xfree$ with $\tau(0)=\state_{\mathrm{init}}$ and
-$\tau(1)\in X_{\mathrm{goal}}$. The planners of this chapter return
+$\sigma\colon[0,1]\to\Xfree$ with $\sigma(0)=\state_{\mathrm{init}}$ and
+$\sigma(1)\in X_{\mathrm{goal}}$. The planners of this chapter return
 polygonal paths, sequences of configurations $\state_0=\state_{\mathrm{init}},\state_1,\dots,\state_k$
 whose connecting segments lie in $\Xfree$; the \textbf{length} of such a path is
 $\sum_{i}\norm{\state_{i}-\state_{i-1}}$, the path length of \cref{ch:ch02}.
@@ -448,27 +448,27 @@ without knowing whether the query was infeasible or merely hard.
 \begin{theorem}[Probabilistic completeness of \rrt; LaValle and Kuffner 2001]
 \label{thm:ch16-complete}
 Let $\mathcal{X}$ be a bounded box, $\eta>0$, $0\le p_{\mathrm{goal}}<1$ and
-$r_{\mathrm{goal}}>0$. Suppose there is a path $\tau$ of finite length from
+$r_{\mathrm{goal}}>0$. Suppose there is a path $\sigma$ of finite length from
 $\state_{\mathrm{init}}$ to $\state_{\mathrm{goal}}$ with \textbf{clearance}\index{clearance}
-$\delta_{c}>0$: every segment that lies within distance $\delta_{c}$ of $\tau$
+$\delta_{c}>0$: every segment that lies within distance $\delta_{c}$ of $\sigma$
 is accepted by \textup{\textsc{CollisionFree}}. Then the probability that
 \cref{alg:ch16-rrt} has not found a solution after $n$ iterations is at most
-$m/(np)$ for constants $m$ and $p>0$ that depend on $\tau$, $\eta$,
+$m/(np)$ for constants $m$ and $p>0$ that depend on $\sigma$, $\eta$,
 $\delta_{c}$, $r_{\mathrm{goal}}$ and $\mathcal{X}$ but not on $n$; in
 particular it tends to $0$ as $n\to\infty$.
 \end{theorem}
 \begin{proof}
 Let $\nu=\min(\eta/3,\ \delta_{c}/4,\ r_{\mathrm{goal}})$ and choose points
-$\state_0=\state_{\mathrm{init}},\state_1,\dots,\state_m=\state_{\mathrm{goal}}$ along $\tau$ with
+$\state_0=\state_{\mathrm{init}},\state_1,\dots,\state_m=\state_{\mathrm{goal}}$ along $\sigma$ with
 $\norm{\state_{k+1}-\state_k}\le\nu$ for all $k$; a path of finite length admits such a
-sequence with $m\le\lceil\mathrm{length}(\tau)/\nu\rceil+1$. Finite length
+sequence with $m\le\lceil\mathrm{length}(\sigma)/\nu\rceil+1$. Finite length
 is no restriction: the image of a path with clearance $\delta_{c}$ is
 compact, so finitely many of the balls of radius $\delta_{c}/2$ centred on
 its points cover it, and joining the centres of consecutive overlapping
 balls gives a polygonal path of finite length inside the same tube, with
 clearance at least $\delta_{c}/2$. Let
 $B_k$ be the open ball of radius $\nu$ around $\state_k$; since $B_k$ lies within
-$\delta_{c}$ of $\tau$ it is contained in $\Xfree\subseteq\mathcal{X}$, so a
+$\delta_{c}$ of $\sigma$ it is contained in $\Xfree\subseteq\mathcal{X}$, so a
 uniform sample lands in it with probability
 $p=(1-p_{\mathrm{goal}})\,\mathrm{vol}(B_k)/\mathrm{vol}(\mathcal{X})>0$,
 the same for every $k$.
@@ -480,8 +480,8 @@ $\norm{\vect{v}'-\state_{\mathrm{rand}}}\le\norm{\vect{v}-\state_{\mathrm{rand}}
 \le\norm{\vect{v}-\state_k}+\norm{\state_k-\state_{k+1}}+\norm{\state_{k+1}-\state_{\mathrm{rand}}}<3\nu\le\eta$,
 so \textsc{Steer} returns $\state_{\mathrm{new}}=\state_{\mathrm{rand}}$ itself. Both
 endpoints of the segment $[\vect{v}',\state_{\mathrm{rand}}]$ lie within
-$3\nu+\nu=4\nu\le\delta_{c}$ of $\state_{k+1}\in\tau$, and a ball is convex, so the
-whole segment lies within $\delta_{c}$ of $\tau$ and \textsc{CollisionFree}
+$3\nu+\nu=4\nu\le\delta_{c}$ of $\state_{k+1}\in\sigma$, and a ball is convex, so the
+whole segment lies within $\delta_{c}$ of $\sigma$ and \textsc{CollisionFree}
 accepts it. Hence $\state_{\mathrm{rand}}\in B_{k+1}$ becomes a vertex.
 
 Let $K_n$ be the largest $k$ such that the tree after $n$ iterations has a
@@ -817,24 +817,24 @@ version of \textcite{geraerts2007creating} and a greedy variant.
 \begin{algorithm}[!htb]
 \caption{Path post-processing: random shortcutting and greedy pruning}
 \label{alg:ch16-shortcut}
-\KwIn{a collision-free polygonal path $\tau=(\state_0,\dots,\state_k)$, number of attempts $K$}
-\KwOut{a collision-free path with the same endpoints that is no longer than $\tau$}
-\Fn{\RrtShortcutPath{$\tau$, $K$}}{
+\KwIn{a collision-free polygonal path $\sigma=(\state_0,\dots,\state_k)$, number of attempts $K$}
+\KwOut{a collision-free path with the same endpoints that is no longer than $\sigma$}
+\Fn{\RrtShortcutPath{$\sigma$, $K$}}{
   \For{$i\gets1$ \KwTo $K$}{
-    draw $s_1<s_2$ uniformly from $[0,\mathrm{length}(\tau)]$ and let $\vect{a}=\tau(s_1)$, $\vect{b}=\tau(s_2)$ be the points at these arc lengths\;
-    \If{$\vect{a}$ and $\vect{b}$ lie on different segments of $\tau$ \KwAnd \RrtSegmentFree{$\vect{a}$, $\vect{b}$}}{
-      replace the part of $\tau$ between $\vect{a}$ and $\vect{b}$ by the segment $[\vect{a},\vect{b}]$\label{alg:ch16-shortcut:replace}\;
+    draw $s_1<s_2$ uniformly from $[0,\mathrm{length}(\sigma)]$ and let $\vect{a}=\sigma(s_1)$, $\vect{b}=\sigma(s_2)$ be the points at these arc lengths\;
+    \If{$\vect{a}$ and $\vect{b}$ lie on different segments of $\sigma$ \KwAnd \RrtSegmentFree{$\vect{a}$, $\vect{b}$}}{
+      replace the part of $\sigma$ between $\vect{a}$ and $\vect{b}$ by the segment $[\vect{a},\vect{b}]$\label{alg:ch16-shortcut:replace}\;
     }
   }
-  \KwRet{$\tau$}\;
+  \KwRet{$\sigma$}\;
 }
-\Fn{\RrtPrunePath{$\tau$}}{
-  $\tau'\gets(\state_0)$; $i\gets0$\;
+\Fn{\RrtPrunePath{$\sigma$}}{
+  $\sigma'\gets(\state_0)$; $i\gets0$\;
   \While{$i<k$}{
     $j\gets$ the largest index $>i$ with \RrtSegmentFree{$\state_i$, $\state_j$}\label{alg:ch16-shortcut:jump}\;
-    append $\state_j$ to $\tau'$; $i\gets j$\;
+    append $\state_j$ to $\sigma'$; $i\gets j$\;
   }
-  \KwRet{$\tau'$}\;
+  \KwRet{$\sigma'$}\;
 }
 \end{algorithm}
 
@@ -1344,7 +1344,8 @@ below the wall, although that route is shorter.
 
 \begin{exercise}[\difficulty{3} Coding]
 \label{exr:ch16-coding}
-The coding exercise of Week~8. Build a 3D obstacle field of about $20$ boxes
+This is the first half of the Week~8 coding exercise of the study plan
+(\cref{ch:appA}); \cref{ch:ch17} completes it. Build a 3D obstacle field of about $20$ boxes
 in a $50\times50\times20$~m volume (or reuse \code{scene\_3d()}) and plan
 between random start--goal pairs with (a)~\rrt and \rrt-Connect from
 \code{ch16\_rrt.py} followed by shortcutting, (b)~\rrtstar from

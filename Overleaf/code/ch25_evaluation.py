@@ -19,8 +19,12 @@ The file has five parts.
    or the time in Avoiding grows or reconnection fails), driven by the
    Nominal / Avoiding / Reconnecting / Replanning state machine of
    Chapter 24.  Intruders are predicted perfectly, by constant velocity from
-   the true state, or by a constant-velocity Kalman filter on noisy
-   measurements with an uncertainty-inflated safety radius.
+   the true state, by a constant-velocity Kalman filter on noisy
+   measurements with an uncertainty-inflated safety radius, or by the
+   Week-10 predictor of Chapter 20 through the adapter week10_predictor().
+   The formation-preserving level of the constraints factor is the soft
+   consensus term of Chapter 24, Eq. (24.6), switched on by the formation
+   argument of run_episode()/run_study().
 4. A paired runner: every strategy sees exactly the same scenarios (same
    seed, same intruder trajectories, same measurement noise).
 5. Statistics: t intervals, bootstrap intervals, Wilson intervals for
@@ -59,6 +63,7 @@ R_COMM = 10.0        # communication range of the study (m)
 DEV_MAX = 3.0        # hybrid: deviation that triggers a replan (m)
 AVOID_MAX = 4.0      # hybrid: time in Avoiding that triggers a replan (s)
 REPLAN_GAP = 1.0     # minimum time between two replans (s)
+K_FORM = 0.6         # gain of the soft formation term, Eq. (24.6) (1/s)
 RECONNECT_LEAD = 2.0  # lead of the reconnection waypoint (s)
 N_MAX = int(round(T_MAX / DT))
 H = int(round(TAU_H / DT))
@@ -378,10 +383,100 @@ def predict_intruders(sc, n, prediction, kfs, predictor=None):
             infl[j] = np.minimum(KAPPA * np.sqrt(sp ** 2 + (HS * sv) ** 2), INFL_MAX)
         elif prediction == "learned":
             hist = sc.Q[max(0, n - 20):n + 1, j] + sc.noise[max(0, n - 20):n + 1, j]
-            pred[j] = predictor(hist)  # user-supplied model returning (H+1, 2)
+            out = predictor(hist)      # the Chapter 20 model, see week10_predictor
+            if isinstance(out, tuple):
+                pred[j], infl[j] = out         # means and their inflation
+            else:
+                pred[j] = out                  # means only: R_SAFE is not inflated
         else:
             raise ValueError(prediction)
     return pred, infl
+
+
+# ----------------------------------------------------------------------
+# The Week-10 (Chapter 20) predictor behind the "learned" level
+# ----------------------------------------------------------------------
+PRED_DT = 0.2        # sampling interval of the Chapter 20 predictor (s)
+PRED_OBS = 8         # observed samples it expects (1.6 s of history)
+PRED_STEPS = 12      # steps it returns (12 * 0.2 s = 2.4 s ahead)
+PRED_SCALE = 0.5     # displacement normalisation of Chapter 20
+
+
+def _resample(track, dt_in, dt_out, n):
+    """The last n samples of a track, dt_out apart, from one sampled dt_in
+    apart; short tracks are padded by holding the first sample."""
+    track = np.asarray(track, float)
+    t_in = np.arange(len(track)) * dt_in
+    t_out = t_in[-1] - dt_out * np.arange(n - 1, -1, -1)
+    out = np.empty((n, 2))
+    for a in (0, 1):
+        out[:, a] = np.interp(t_out, t_in, track[:, a])
+    return out
+
+
+def week10_predictor(model=None, horizon=TAU_H, dt=DT):
+    """Adapter for the trajectory predictor of Chapter 20 (Week 10).
+
+    Returns the callable that predict_intruders(..., prediction="learned")
+    expects: predictor(hist) -> (H + 1, 2) positions on this chapter's grid,
+    the first of them the current position.  It does the three conversions
+    the two chapters disagree on: the history length and rate (Chapter 20
+    reads PRED_OBS samples PRED_DT apart, this chapter logs one sample per
+    DT), the agent frame (Chapter 20 predicts displacements in a frame whose
+    origin is the last observation and whose +x is the last heading, divided
+    by PRED_SCALE), and the output horizon (PRED_STEPS * PRED_DT = 2.4 s,
+    extended to TAU_H at constant velocity).
+
+    model is the reader's trained Seq2SeqPredictor of Chapter 20, used as
+    model.predict_frame(x, PRED_STEPS) with x of shape (1, PRED_OBS - 1, 2)
+    and returning (positions, per-step std) in the normalised frame.  A
+    Gaussian model therefore also feeds the inflation of the safety radius:
+    the adapter then returns the pair (means, inflation) that
+    predict_intruders accepts, with the same KAPPA and INFL_MAX as the
+    Kalman level.
+
+    Nothing is imported across chapters: with model=None the adapter falls
+    back to the constant-velocity predictor of Chapter 20 (predict_cv), so
+    the book's own runs of the "learned" level are constant-velocity runs in
+    the learned level's clothing and are labelled as such.  The stand-in has
+    no covariance, so those runs get no inflation --- which is exactly what
+    an uncalibrated learned predictor costs (Section 25.11).
+    """
+    n_out = int(round(horizon / dt)) + 1
+
+    def predictor(hist):
+        obs = _resample(hist, dt, PRED_DT, PRED_OBS)
+        origin = obs[-1]
+        d = obs[-1] - obs[-3]
+        phi = math.atan2(d[1], d[0])
+        c, s = math.cos(phi), math.sin(phi)
+        R = np.array([[c, s], [-s, c]])                  # world -> agent frame
+        x = np.diff((obs - origin) @ R.T, axis=0) / PRED_SCALE
+        std = None
+        if model is None:
+            step = x[-1:] if np.any(x[-1:]) else np.zeros((1, 2))
+            pos = np.cumsum(np.repeat(step, PRED_STEPS, axis=0), axis=0)
+        else:
+            pos, std = model.predict_frame(x[None], PRED_STEPS)
+            pos, std = np.asarray(pos)[0], np.asarray(std)[0]
+        world = origin + (pos * PRED_SCALE) @ R          # back to world, (PRED_STEPS, 2)
+        src = np.vstack([origin[None], world])
+        t_src = PRED_DT * np.arange(PRED_STEPS + 1)
+        t_out = dt * np.arange(n_out)
+        out = np.empty((n_out, 2))
+        for a in (0, 1):
+            out[:, a] = np.interp(t_out, t_src, src[:, a])
+        late = t_out > t_src[-1]
+        if np.any(late):
+            v_end = (src[-1] - src[-2]) / PRED_DT
+            out[late] = src[-1] + (t_out[late][:, None] - t_src[-1]) * v_end
+        if std is None:
+            return out
+        sig = np.concatenate([[0.0], np.max(std, axis=1) * PRED_SCALE])
+        infl = np.minimum(KAPPA * np.interp(t_out, t_src, sig), INFL_MAX)
+        return out, infl
+
+    return predictor
 
 
 def track_velocity(p, ref, t):
@@ -466,6 +561,30 @@ def replan(p, t, goal, obs, rad):
     return best if best is not None else fallback
 
 
+def formation_edges(k, kind="chain"):
+    """The formation graph E_F of the constraints factor: "chain" links
+    consecutive drones (k - 1 edges), "all" every pair."""
+    if kind == "all":
+        return tuple((i, j) for i in range(k) for j in range(i + 1, k))
+    if kind == "chain":
+        return tuple((i, i + 1) for i in range(k - 1))
+    raise ValueError(kind)
+
+
+def formation_correction(p, i, edges, nom, gain=K_FORM):
+    """The soft formation term of Chapter 24, Eq. (24.6): one consensus
+    correction per formation neighbour j of drone i, pulling i towards the
+    nominal displacement nom[j] - nom[i] it should keep from j.  Returned as
+    a velocity to be added to the preferred velocity, not as an override."""
+    c = np.zeros(2)
+    for (a, b) in edges:
+        j = b if a == i else (a if b == i else None)
+        if j is None:
+            continue
+        c += (p[j] - p[i]) - (nom[j] - nom[i])
+    return gain * c
+
+
 class RunLog:
     """Execution log of one run (positions, modes, computation, events)."""
 
@@ -479,10 +598,20 @@ class RunLog:
         self.nominal_lengths = np.array([r.length() for r in sc.refs])
 
 
-def run_episode(sc, strategy, prediction="noisy", predictor=None):
-    """Simulate one scenario under one strategy and return its log."""
+def run_episode(sc, strategy, prediction="noisy", predictor=None, formation=None):
+    """Simulate one scenario under one strategy and return its log.
+
+    formation switches on the formation-preserving level of the constraints
+    factor: pass the formation graph E_F as a sequence of edges (i, j), or
+    the name of one of formation_edges().  The term of Eq. (24.6) is then
+    added to the preferred velocity while Nominal and Reconnecting and
+    dropped while Avoiding, exactly as in Chapter 24, Section 24.8.
+    """
     if strategy not in STRATEGIES:
         raise ValueError(strategy)
+    if isinstance(formation, str):
+        formation = formation_edges(sc.k, formation)
+    edges_F = tuple(formation) if formation else ()
     k, m = sc.k, sc.m
     p = sc.starts.copy()
     v = np.zeros((k, 2))
@@ -508,12 +637,16 @@ def run_episode(sc, strategy, prediction="noisy", predictor=None):
             others = np.delete(np.arange(k), i)
             obs = np.concatenate([p[others][:, None, :] + HS[None, :, None] * v[others][:, None, :], pred])
             rad = np.concatenate([np.full((k - 1, H + 1), R_SAFE), R_SAFE + infl])
-            v_pref = track_velocity(p[i], refs[i], t)
+            v_track = track_velocity(p[i], refs[i], t)
+            v_pref = v_track
+            if edges_F:
+                nom = np.array([r.at(t)[0] for r in sc.refs])
+                v_pref = clamp_speed(v_track + formation_correction(p, i, edges_F, nom))
             conflict = predicted_conflict(p[i], v_pref, obs, rad)
             new_mode, cmd = "Nominal", v_pref
             if strategy == "local":
                 if conflict:
-                    new_mode, cmd = "Avoiding", safe_velocity(p[i], v_pref, obs, rad)
+                    new_mode, cmd = "Avoiding", safe_velocity(p[i], v_track, obs, rad)
             elif strategy == "replan":
                 if conflict and t - t_replan[i] >= REPLAN_GAP:
                     refs[i] = replan(p[i], t, sc.goals[i], obs, rad)
@@ -531,7 +664,7 @@ def run_episode(sc, strategy, prediction="noisy", predictor=None):
                         t_replan[i] = t
                         new_mode, cmd = "Replanning", track_velocity(p[i], refs[i], t)
                     else:
-                        new_mode, cmd = "Avoiding", safe_velocity(p[i], v_pref, obs, rad)
+                        new_mode, cmd = "Avoiding", safe_velocity(p[i], v_track, obs, rad)
                 elif mode[i] in ("Avoiding", "Reconnecting"):
                     if leg_is_safe(p[i], refs[i].at(t + RECONNECT_LEAD)[0], obs, rad):
                         new_mode, cmd = "Nominal", v_pref
@@ -601,19 +734,29 @@ METRIC_COLUMNS = ("collision", "n_collisions", "near_miss", "dmin_dd", "dmin_di"
                   "ef_max", "comm_viol", "steps")
 
 
-def run_study(cells, strategies, seeds, prediction="noisy", family="mixed", **kw):
+def run_study(cells, strategies, seeds, prediction="noisy", family="mixed",
+              predictor=None, formation=None, r_comm=R_COMM, edges_keep=(), **kw):
     """Paired design: for every cell (k, m) and seed one scenario is built
-    and every strategy runs on it.  Returns one row (dict) per run."""
+    and every strategy runs on it.  Returns one row (dict) per run.
+
+    predictor is the callable of the "learned" prediction level (see
+    week10_predictor).  The two halves of the constraints factor are
+    independent: formation switches on the formation-preserving level (None
+    or the formation graph E_F, see run_episode), while r_comm and
+    edges_keep set the communication level that the violations are counted
+    against."""
     rows = []
     for (k, m) in cells:
         for seed in seeds:
             sc = make_scenario(seed, k, m, family=family, **kw)
             sig = sc.signature()
+            edges_F = formation_edges(k, formation) if isinstance(formation, str) else formation
             for strat in strategies:
-                log = run_episode(sc, strat, prediction)
+                log = run_episode(sc, strat, prediction, predictor, edges_F)
                 row = {"k": k, "m": m, "seed": seed, "strategy": strat,
+                       "formation": formation if formation else "-",
                        "family": sc.families[0] if sc.m else "-", "signature": sig}
-                row.update(compute_metrics(log))
+                row.update(compute_metrics(log, r_comm=r_comm, edges_keep=edges_keep))
                 rows.append(row)
     return rows
 
@@ -978,6 +1121,37 @@ def _selftest_simulator():
         assert log.P.shape[1] == 2 and log.P.shape[0] > 10
 
 
+def _selftest_predictor():
+    """The Week-10 adapter: shape, anchor and the constant-velocity case."""
+    pred = week10_predictor()
+    hist = np.stack([0.1 * np.arange(21) * 2.0, np.zeros(21)], axis=1)   # 2 m/s along +x
+    out = pred(hist)
+    assert out.shape == (H + 1, 2)
+    assert np.allclose(out[0], hist[-1])                    # anchored at the present
+    truth = hist[-1] + HS[:, None] * np.array([2.0, 0.0])   # exact for constant velocity
+    assert np.max(np.abs(out - truth)) < 1e-9, np.max(np.abs(out - truth))
+    assert np.allclose(pred(hist[-1:]), hist[-1])           # a one-sample history stands still
+    # the level runs end to end through the simulator
+    log = run_episode(make_scenario(5, 2, 1), "hybrid", prediction="learned", predictor=pred)
+    assert log.P.shape[1] == 2 and log.P.shape[0] > 10
+    rows = run_study([(2, 1)], ("hybrid",), [0, 1], prediction="learned", predictor=pred)
+    assert len(rows) == 2 and all(np.isfinite(r["dmin_di"]) for r in rows)
+
+
+def _selftest_formation():
+    """The formation-preserving level keeps the shape it is given."""
+    seeds = range(6)
+    off = run_study([(4, 1)], ("hybrid",), seeds, formation=None)
+    on = run_study([(4, 1)], ("hybrid",), seeds, formation="all")
+    assert formation_edges(4, "chain") == ((0, 1), (1, 2), (2, 3))
+    assert len(formation_edges(4, "all")) == 6
+    e_off = np.mean([r["ef_max"] for r in off])
+    e_on = np.mean([r["ef_max"] for r in on])
+    assert e_on < e_off, (e_on, e_off)                      # the term does its job
+    assert all(r["collision"] == 0 for r in on)             # and does not cost safety here
+    return e_off, e_on
+
+
 def _selftest_study():
     t0 = time.perf_counter()
     rows = run_mini_study()
@@ -1004,6 +1178,10 @@ if __name__ == "__main__":
     _selftest_metrics()
     _selftest_statistics()
     _selftest_simulator()
+    _selftest_predictor()
+    e_off, e_on = _selftest_formation()
+    print("formation-preserving level, cell (4,1), 6 seeds: mean peak formation "
+          "error %.2f m off, %.2f m on" % (e_off, e_on))
     rows, summary = _selftest_study()
     for metric in ("path_ratio", "dmin_di", "makespan", "replans", "ef_mean"):
         for other in ("local", "replan"):

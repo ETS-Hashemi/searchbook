@@ -1149,12 +1149,12 @@ because two values equal on paper may differ in the last bit, which is why the
 search code of the book indexes cells by integer tuples.
 
 The \code{heapq} module implements a binary heap on a plain list, but it has
-no decrease-key. The idiom of \cref{ch:ch03,ch:ch04}, inherited by every
-planner built on them, is \emph{lazy deletion}\index{lazy deletion}: keep the
-best known $\gcost$ of every node in a \code{dict}; when a better cost is
-found, push a fresh entry $(\fcost, -\gcost, \mathit{counter}, \mathit{node})$
-and leave the old one in the heap; when an entry is popped, skip it if its node
-is already closed. The heap then holds at most one entry per relaxation,
+no decrease-key. The standard repair is the lazy-deletion queue that
+\cref{ch:ch02} states as \cref{alg:ch02-lazypq} and every planner of the book
+calls: a \code{dict} holds the best known key of each node, an improved key is
+pushed as a fresh entry $(\fcost, -\gcost, \mathit{counter}, \mathit{node})$
+rather than edited in place, and a popped entry whose key is no longer the best
+one is discarded. The heap then holds at most one entry per relaxation,
 $\bigO{\abs{E}}$ in total, which leaves the asymptotic bounds unchanged.
 
 \begin{pitfall}[Heap entries must be comparable]
@@ -1172,7 +1172,7 @@ $\bigO{\abs{E}}$ in total, which leaves the asymptotic bounds unchanged.
   \item A filter is total probability (predict) followed by Bayes' rule (update); Monte Carlo errors shrink like $1/\sqrt{N}$; the squared Mahalanobis distance of a Gaussian vector is $\chi^2_n$, which sets gates such as $5.991$ for $n = 2$ at $95\,\%$.
   \item Convexity makes local minima global and the KKT conditions sufficient. An LP attains its optimum at a vertex, a convex QP is an LP with a quadratic cost, a MILP is solved exactly by branch and bound with big-$M$ binaries encoding disjunctions, and gradient descent converges for $\alpha < 2/L$ with $L$ the Lipschitz constant of the gradient (that is $2/\lambda_{\max}$ for a quadratic) but crawls on ill-conditioned problems.
   \item The Laplacian $\mat{L} = \mat{D} - \mat{A}$ is PSD with $\mat{L}\vect{1} = \vect{0}$; $\lambda_2 > 0$ iff the graph is connected and sets the speed of consensus, and $\lambda_n \le 2d_{\max}$ bounds the safe step size.
-  \item A binary heap gives $\bigO{\log n}$ insertion and extraction; \code{heapq} plus a \code{dict}, lazy deletion and a tie-breaking counter is the priority queue of every search in this book.
+  \item A binary heap gives $\bigO{\log n}$ insertion and extraction; \code{heapq} plus a \code{dict}, the lazy deletion of \cref{alg:ch02-lazypq} and a tie-breaking counter is the priority queue of every search in this book.
 \end{itemize}
 \end{summary}
 

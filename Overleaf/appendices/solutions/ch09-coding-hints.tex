@@ -1,1 +1,49 @@
 % Hints for the coding exercise(s) of ch09 (assembled into Appendix C)
+
+\begin{solution}{exr:ch09-coding}
+Checkpoints. The reference is \code{ch09\_\allowbreak cbs.py}: \code{low\_\allowbreak level}
+(\cref{alg:ch09-lowlevel}), \code{cbs} (\cref{alg:ch09-cbs}), \code{all\_\allowbreak conflicts},
+\code{validate}, and \code{print\_\allowbreak trace} to compare your log against
+\cref{tab:ch09-ct}. A constraint-tree node holds one immutable constraint set per agent,
+one path per agent and their sum of costs; the high level is a heap keyed on that sum
+with the conflict count as tie-break, and a child copies its parent's set plus one entry.
+Steps: write the low level alone --- state $(v,t)$, wait action, vertex and edge
+constraints, the goal-stay test of \cref{eq:ch09-tgamma}, a horizon --- and check it
+against your unconstrained space-time \astar of \cref{ch:ch04}; reuse the Week-3 checker
+for detection with parked agents; add the high-level loop; certify tiny instances against
+a brute-force search of the joint space. Expected numbers: on \cref{ex:ch09-crossing} the
+root costs $10$, the tree generates seven nodes, expands four, calls the low level nine
+times and returns $12$. On random $8\times8$ grids with $15\,\%$ obstacles
+(\cref{fig:ch09-scaling}) expect about $1.3$ CT nodes and $0.4$~ms at $k=2$, $4$ nodes
+and $1.4$~ms at $k=4$, and $55$ nodes, $1\,300$ low-level expansions and $0.45$~s at
+$k=8$, where one instance in twelve already misses a five-second limit; by $k=12$ the
+mean is $600$ nodes. Classic mistakes: an edge constraint stored without its direction or
+time; a low level that returns at the first pop of the goal; sorting the high level by
+makespan while reporting $\sumcost$; missing conflicts after the shorter path has ended.
+Done when your plans pass the Week-3 checker, your costs equal the reference everywhere,
+and a hand-drawn two-agent tree matches your log --- the Week~4 milestone
+(\cref{ch:appA}).
+\end{solution}
+
+\begin{solution}{exr:ch09-icbs-coding}
+Checkpoints. Build on \cref{exr:ch09-coding}; the reference is the cardinal branch of
+\code{\_\allowbreak choose\_\allowbreak conflict} and \code{\_\allowbreak bypass} in \code{ch09\_\allowbreak cbs.py}. The cheap
+classifier: scan a node's conflicts in time order, generate \emph{both} children of each,
+and rank the conflict by how many children cost more than the parent --- two means
+cardinal (\cref{def:ch09-cardinal}), one semi-cardinal, zero non-cardinal; stop at the
+first cardinal one and keep the children you built, or you pay for them twice. The
+bypass: if a child has the parent's cost and fewer conflicts, adopt its paths in the
+parent and do not split. The MDD classifier: two breadth-first searches in space-time per
+agent, forward from the start and backward from the goal, keep the states on some optimal
+path, and read cardinality off the two widths at the conflict's time step, with no child
+generation at all. Expected numbers on the $8\times8$ benchmark of
+\cref{fig:ch09-scaling}: at $k=8$ the mean falls from about $55$ CT nodes and $0.45$~s to
+$15$ nodes and $0.045$~s, with success rising to $1.0$; at $k=12$, from $622$ to $92$
+nodes. Report the ratio: low-level expansions per CT node rise from roughly $23$ to
+$170$, which is what the node count was bought with, and why the MDD variant is worth the
+code. On \cref{ex:ch09-crossing} nothing changes --- four expansions, seven nodes, no
+bypass --- so do not tune on it. Classic mistakes: counting probe children as expansions;
+a bypass that changes a node's cost; MDDs built to the unconstrained depth instead of the
+agent's current optimal cost. Done when both classifiers agree on every conflict of a few
+hundred random nodes and your scaling plot shows the book's crossover.
+\end{solution}

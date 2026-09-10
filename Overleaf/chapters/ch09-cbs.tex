@@ -54,7 +54,7 @@ of the research literature since 2012.
 In the four-layer hybrid architecture of \cref{ch:ch24}, \cbs is the
 \emph{global swarm planner}: before take-off it computes the nominal
 time-indexed route of every drone, and these routes are what the prediction,
-local-avoidance and replanning layers later protect and repair. Whenever a
+local safety and replanning layers later protect and repair. Whenever a
 drone has been pushed off its route by an intruder and replans locally, the
 architecture re-validates the new route against the routes of the other
 drones with exactly the conflict check that \cbs uses at every node. This
@@ -213,17 +213,15 @@ $\mathcal{C}_i$, or report that none exists.
 \end{definition}
 
 This is the constrained space-time \astar of \cref{sec:ch04-spacetime} with the
-constraint set in the role of the reservation table (\cref{ch:ch08}).
-Three details of that
-search matter enough to repeat them here. The state is a pair $(v, t)$; a
-successor $(v', t+1)$ with $v' \in \set{v} \cup \Succ(v)$ is generated only
-if neither $\langle a_i, v', t+1\rangle$ nor $\langle a_i, v, v', t\rangle$
-is in $\mathcal{C}_i$. The heuristic is the static shortest-path distance
+constraint set in the role of the reservation table (\cref{ch:ch08});
+\cref{alg:ch09-lowlevel} states the differences line by line. Two of its
+ingredients are worth naming before that. The heuristic is the static
+shortest-path distance
 $d_i(v)$ to $\gamma_i$, computed once per agent by a backward breadth-first
 search (or Dijkstra, \cref{ch:ch03}); it is consistent, so no state is
 expanded twice. And the goal test is not ``$v = \gamma_i$'' but ``$v =
 \gamma_i$ and $t > t_\gamma$''. This is the \textbf{goal-stay
-test}\index{goal-stay test} of \cref{ch:ch08}, also called the
+test}\index{goal-stay test} of \cref{def:ch04-goalstay}, also called the
 goal-occupied-later test\index{goal-occupied-later test}; here
 \begin{equation}
 \label{eq:ch09-tgamma}
@@ -238,8 +236,11 @@ search key is simply $\fcost(v,t) = t + d_i(v)$.
 \section{The algorithm}
 \label{sec:ch09-algorithm}
 
-\Cref{alg:ch09-cbs} is the high level and \cref{alg:ch09-lowlevel} the low
-level. Together they are a complete description of \cbs as published by
+\Cref{alg:ch09-cbs} is the high level. The low level is not a new search: it is the
+space-time \astar of \cref{ch:ch04}, printed in full as \cref{alg:ch04-spacetime},
+reading its filter as the constraint set of one agent, and \cref{alg:ch09-lowlevel}
+lists only the lines in which the two differ. Together the three are a complete
+description of \cbs as published by
 Sharon et al.~\cite{sharon2015cbs}; the only freedom left is which conflict
 to split when a node has several, and how to break ties in \Open.
 
@@ -270,29 +271,17 @@ to split when a node has several, and how to break ties in \Open.
 \end{algorithm}
 
 \begin{algorithm}[htb]
-\caption{The low level: space-time \astar for one agent under its constraints}
+\caption{The low level as a delta on space-time \astar: the four lines by which
+\cref{alg:ch04-spacetime} becomes a search for one agent under its constraints}
 \label{alg:ch09-lowlevel}
 \KwIn{agent $a_i$ with start $s_i$ and goal $\gamma_i$; constraint set $\mathcal{C}_i$; static distances $d_i(v)$ to $\gamma_i$}
 \KwOut{a minimum-cost path from $s_i$ to $\gamma_i$ that respects $\mathcal{C}_i$, or \emph{failure}}
 \Fn{\CbsLowLevel{$a_i$, $\mathcal{C}_i$}}{
-  $t_\gamma \gets$ largest $t$ with $\langle a_i, \gamma_i, t\rangle \in \mathcal{C}_i$, or $-1$\label{alg:ch09-lowlevel:tgamma}\;
-  $T_{\max} \gets H + 1 + D$, with $H$ the largest time in $\mathcal{C}_i$ (or $-1$) and $D = \max_v d_i(v)$\label{alg:ch09-lowlevel:horizon}\;
-  $\gcost(s_i, 0) \gets 0$; \Open $\gets \set{(s_i, 0)}$ with key $(d_i(s_i), 0)$; \Closed $\gets \emptyset$\;
-  \While{\Open $\neq \emptyset$}{
-    $(v, t) \gets$ pop the state with the smallest key $(\fcost, -\gcost)$ from \Open\label{alg:ch09-lowlevel:pop}\;
-    \lIf{$(v, t) \in$ \Closed}{\KwContinue}
-    add $(v, t)$ to \Closed\;
-    \lIf{$v = \gamma_i$ \KwAnd $t > t_\gamma$}{\KwRet the path read off the parent pointers\label{alg:ch09-lowlevel:goal}}
-    \lIf{$t \ge T_{\max}$}{\KwContinue\label{alg:ch09-lowlevel:cut}}
-    \ForEach{$v' \in \set{v} \cup \Succ(v)$ with $(v', t+1) \notin$ \Closed}{\label{alg:ch09-lowlevel:succ}
-      \lIf{$\langle a_i, v', t+1\rangle \in \mathcal{C}_i$ \KwOr $\langle a_i, v, v', t\rangle \in \mathcal{C}_i$}{\KwContinue\label{alg:ch09-lowlevel:forbid}}
-      \If{$t + 1 < \gcost(v', t+1)$}{
-        $\gcost(v', t+1) \gets t + 1$; parent$(v', t+1) \gets (v, t)$\;
-        push $(v', t+1)$ into \Open with key $(t + 1 + d_i(v'),\, -(t+1))$\label{alg:ch09-lowlevel:push}\;
-      }
-    }
-  }
-  \KwRet failure\;
+  run \FuncSty{SpaceTimeAStar}$(G, s_i, \gamma_i, \mathcal{C}_i, T_{\max})$ of \cref{alg:ch04-spacetime} --- states $(v, t)$, wait action first, $\gcost(v,t) = t$, key $(\fcost, -t)$ with $\fcost(v,t) = t + d_i(v)$ --- with the following changes\;
+  \emph{filter:} the forbidden set is $\mathcal{C}_i$, the constraints of \emph{this} agent; skip the successor $v'$ if $\langle a_i, v', t+1\rangle \in \mathcal{C}_i$ \KwOr $\langle a_i, v, v', t\rangle \in \mathcal{C}_i$\label{alg:ch09-lowlevel:forbid}\;
+  $t_\gamma \gets$ largest $t$ with $\langle a_i, \gamma_i, t\rangle \in \mathcal{C}_i$, or $-1$; a constraint set, unlike a reservation table (\cref{def:ch08-reservation}), never parks an agent, so $t_\gamma < \infty$ always\label{alg:ch09-lowlevel:tgamma}\;
+  \emph{goal test:} return the path as soon as a popped state has $v = \gamma_i$ \KwAnd $t > t_\gamma$\label{alg:ch09-lowlevel:goal}\;
+  \emph{horizon:} $T_{\max} \gets H + 1 + D$, with $H$ the largest time in $\mathcal{C}_i$ (or $-1$; $t+1$ for an edge constraint $\langle a_i, u, v, t\rangle$) and $D = \max_v d_i(v)$\label{alg:ch09-lowlevel:horizon}\;
 }
 \end{algorithm}
 
@@ -346,29 +335,32 @@ ever, generating ever more expensive nodes (\cref{sec:ch09-properties}).
 
 \Cref{alg:ch09-lowlevel} solves the low-level problem of
 \cref{def:ch09-lowlevel}: it is \cref{sec:ch04-spacetime}'s space-time \astar
-written against a constraint set.\index{CBS!low level} Line~\ref{alg:ch09-lowlevel:tgamma}
-computes $t_\gamma$ of \cref{eq:ch09-tgamma}, the last time at which the goal
-is forbidden. Line~\ref{alg:ch09-lowlevel:horizon} fixes the time horizon:
-after the last constrained time $H$ the search is unconstrained, and from
-any cell the goal is then at most $D$ steps away, so an optimal path never
-needs more than $H + 1 + D$ steps. The horizon keeps the search finite when
-no path exists, for instance when the constraints seal the agent in. (For
-an edge constraint $\langle a_i, u, v, t\rangle$ the relevant time is
-$t + 1$.)
+written against a constraint set.\index{CBS!low level} The search itself is
+unchanged, and it is worth saying which parts that covers. The state is a pair
+$(v, t)$; the wait action is generated before the moves; the key is
+$\fcost = t + d_i(v)$ with ties broken towards the larger $t$ (the ``deeper''
+state); and relaxation is replaced by duplicate detection, because
+$\gcost(v, t) = t$ for every route into a state, so the first time a state is
+generated it is already the cheapest. Because $d_i$ is consistent, no state is
+expanded twice.
 
-Line~\ref{alg:ch09-lowlevel:pop} pops the state with the smallest
-$\fcost = t + d_i(v)$, with ties broken towards the larger $t$ (the
-``deeper'' state), exactly as in \cref{ch:ch04}. Line~\ref{alg:ch09-lowlevel:goal}
-is the goal test with the goal-stay rule; a path that reaches
-$\gamma_i$ at a time $t \le t_\gamma$ is not accepted, and the search
-continues, typically by waiting somewhere and re-entering the goal later, or
-by leaving the goal and coming back. Line~\ref{alg:ch09-lowlevel:succ}
-generates the wait action and the moves; line~\ref{alg:ch09-lowlevel:forbid}
-drops the successors that a vertex or edge constraint of
-\cref{def:ch09-constraint} forbids. Everything
-else is plain \astar with a consistent heuristic: because $d_i$ is
-consistent, a state is expanded once, and the first path that passes the
-goal test is a minimum-cost path among those that respect $\mathcal{C}_i$.
+Four lines are new. Line~\ref{alg:ch09-lowlevel:forbid} is the filter: it drops
+the successors that a vertex or edge constraint of \cref{def:ch09-constraint}
+forbids, and the agent index is what selects $\mathcal{C}_i$ out of the node's
+constraints. Line~\ref{alg:ch09-lowlevel:tgamma} computes $t_\gamma$ of
+\cref{eq:ch09-tgamma}, the last time at which the goal is forbidden; a
+constraint set is finite and forbids single time steps, so, unlike a
+reservation table, it can never make $t_\gamma$ infinite.
+Line~\ref{alg:ch09-lowlevel:goal} is the goal test with the goal-stay rule; a
+path that reaches $\gamma_i$ at a time $t \le t_\gamma$ is not accepted, and the
+search continues, typically by waiting somewhere and re-entering the goal later,
+or by leaving the goal and coming back. Line~\ref{alg:ch09-lowlevel:horizon}
+fixes the time horizon: after the last constrained time $H$ the search is
+unconstrained, and from any cell the goal is then at most $D$ steps away, so an
+optimal path never needs more than $H + 1 + D$ steps. The horizon keeps the
+search finite when no path exists, for instance when the constraints seal the
+agent in. With these four lines the first path that passes the goal test is a
+minimum-cost path among those that respect $\mathcal{C}_i$.
 
 % ---------------------------------------------------------------------
 \section{A worked example}
@@ -1198,7 +1190,7 @@ $\pi_1, \dots, \pi_k$, conflict-free and of minimum total flight time. In
 three dimensions nothing changes except the successor function of the low
 level (a 6-connected grid of altitude layers). The routes are what the
 other layers work with: the prediction layer (\cref{ch:ch18,ch:ch20})
-watches for intruders that were not in the plan, the local layer
+watches for intruders that were not in the plan, the local safety layer
 (\cref{ch:ch13,ch:ch14}) lets a drone deviate from its route to avoid them,
 and the replanning layer (\cref{ch:ch05}) repairs the deviated drone's
 route, using the routes of the other drones as constraints in exactly the

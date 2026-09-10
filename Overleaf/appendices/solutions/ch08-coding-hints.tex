@@ -1,1 +1,29 @@
 % Hints for the coding exercise(s) of ch08 (assembled into Appendix C)
+
+\begin{solution}{exr:ch08-coding}
+Checkpoints. Four objects of \code{ch08\_\allowbreak prioritized.py} carry the exercise: the
+class \code{ReservationTable}, the search \code{space\_\allowbreak time\_\allowbreak astar}
+(Cooperative \astar, \cref{alg:ch08-ca}), the loop \code{prioritized\_\allowbreak planning}
+(\cref{alg:ch08-pp}) and
+\code{validate}; the well-formedness test, the restarts and the brute-force optimum are
+in the same file. The table of \cref{def:ch08-reservation} is three dictionaries, not
+one: occupied cells keyed by $(v,t)$, occupied moves keyed by $(u,v,t)$, and a
+last-reserved time per cell that is $\infty$ for a parked agent. The low-level state is
+$(v,t)$ with a wait action and the true-distance heuristic of \cref{ch:ch03}. Steps:
+build the table and its three queries first and unit-test them on hand-written paths;
+add the goal-stay test of line~\ref{alg:ch08-ca:goal}, so the search may return only when
+the goal is free from $t$ on; loop over the agents, plan, reserve, and report failure as
+a value; add well-formedness and restarts last. Expected numbers: on
+\cref{ex:ch08-three} four of the six orders succeed, at $\sumcost=16$ or $21$; on the
+pocket corridor every order fails although the optimum is $11$
+(\cref{thm:ch08-incomplete}); on the bypass corridor every order returns $16$ against
+$15$ (\cref{thm:ch08-suboptimal}). On the $20\times20$ grids of
+\cref{fig:ch08-orders} a random order succeeds on about $97\,\%$ of instances at $k=16$
+and $87\,\%$ at $k=32$, while longest-first and five restarts stay near $100\,\%$, with
+sums of costs $4$--$7\,\%$ above the best order. Classic mistakes: reserving vertices but
+not moves, so swaps slip through; letting an arrived agent free its goal; returning at
+the first pop of the goal; a Manhattan heuristic in a cluttered map, which costs about
+three times the expansions of the true-distance table. Done when your validator passes
+every plan, well-formed instances always solve, and you own one instance that one order
+fails and another solves --- the Week~3 milestone of \cref{ch:appA}.
+\end{solution}

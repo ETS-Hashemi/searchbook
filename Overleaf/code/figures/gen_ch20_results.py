@@ -44,7 +44,8 @@ from ch20_prediction import (DT, SUBSETS, T_OBS, T_PRED, TOY_AGENTS_POS,  # noqa
 
 DATA = os.path.join(os.path.dirname(HERE), "..", "figures", "data")
 SHORT = {"CV (k=1)": "cv1", "CV (tuned)": "cv", "CA (tuned)": "ca", "KF (tuned)": "kf",
-         "LSTM-NLL": "nll", "LSTM-MSE": "mse", "LSTM-abs": "abs", "LSTM-TF": "tf"}
+         "LSTM-NLL": "nll", "LSTM-MSE": "mse", "LSTM-abs": "abs", "LSTM-TF": "tf",
+         "Transformer": "tr"}
 SUBSET_SHORT = {"all": "all", "straight": "straight", "turn": "turn",
                 "evasive_visible": "evis", "evasive_hidden": "ehid"}
 ELLIPSE_STEPS = (4, 8, 12)

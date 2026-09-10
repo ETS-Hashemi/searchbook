@@ -1,1 +1,26 @@
 % Hints for the coding exercise(s) of ch03 (assembled into Appendix C)
+
+\begin{solution}{exr:ch03-coding}
+Checkpoints, not a solution. In \code{ch03\_\allowbreak dijkstra.py} the models are \code{GridGraph}
+(successors, with the corner-cutting rule), \code{dijkstra}, \code{reconstruct\_\allowbreak path} and
+\code{backward\_\allowbreak dijkstra\_\allowbreak heuristic}; \code{dijkstra\_\allowbreak trace} prints the step table and
+\code{brute\_\allowbreak force\_\allowbreak distances} is the oracle for~(c). Four structures carry the search: a
+heap of triples $(\gcost,\text{counter},v)$, a $\gcost$ dictionary, a parent dictionary
+and a \Closed set --- no decrease-key, only lazy deletion. Steps: write and test the
+successor function alone on \cref{fig:ch03-grid-closed} (a diagonal is legal only when
+both of its axis neighbours are free); add the loop of \cref{alg:ch03-dijkstra},
+discarding a popped entry whose key exceeds the stored $\gcost$; put the early exit at
+pop time, on line~\ref{alg:ch03-dijkstra:exit}; run the same code on the reversed graph
+for~(c). Expected numbers (\cref{fig:ch03-expansions}, $20\,\%$ obstacles): on
+$30\times30$ the search settles $662.9$ of $678.8$ free cells and the path costs $49.0$;
+on $100\times100$, $7\,437.7$ of $7\,498.5$ and $165.5$. The early exit saves almost
+nothing corner to corner ($662.5$) and about $60\,\%$ with a central goal ($280.9$): run
+both, that contrast is the plot. \code{dijkstra\_\allowbreak trace} pops twelve entries of which five
+are stale --- if you count twelve expansions you are counting stale pops. Classic
+mistakes: testing the goal at generation time; cutting a corner between two blocked
+cells; re-expanding a settled node because \Closed was never written. Done, for the
+Week~1 milestone of \cref{ch:appA}, when the settled cells are always those with cost at
+most the last popped key (\cref{thm:ch03-invariant}), your true-distance table matches a
+forward search from every free cell, and \astar with $\hcost\equiv0$ (\cref{ch:ch04})
+expands the same cells up to tie-breaking.
+\end{solution}

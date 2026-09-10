@@ -1,1 +1,30 @@
 % Hints for the coding exercise(s) of ch14 (assembled into Appendix C)
+
+\begin{solution}{exr:ch14-coding}
+Checkpoints. In \code{ch14\_\allowbreak dwa.py} start from \code{window\_\allowbreak candidates} (the grid over
+the window of \cref{def:ch14-window}, with the braking candidate always appended),
+\code{free\_\allowbreak distance} along a rollout, \code{evaluate} (the three normalised terms of
+\cref{eq:ch14-G}) and \code{dwa\_\allowbreak command}; \code{simulate} closes the loop and three of
+the four failure scenes are already built. Obstacles are \code{Disc} and \code{Box}
+records with closed-form ray tests, the state is a position and a velocity vector (no
+heading: the drone of \cref{def:ch14-drone} is holonomic), and one \code{DwaParams}
+record holds $v_{\max}$, $a_{\max}$, $\dt$, the horizon, the grid step $\Delta v$ and the
+three weights. Steps: write \code{free\_\allowbreak distance} and test it alone --- a wall $1$~m
+ahead at $2$~m/s must be a collision within three steps; add the admissibility filter of
+\cref{eq:ch14-vadm} \emph{before} scoring and check that braking is always admissible;
+normalise the three terms over the admissible set, then score; only then build the
+failures and their repairs. Expected numbers: in an open field the drone arrives in about
+$17$ steps over $6.2$~m; the corridor takes $16$; the U-trap is \emph{not} solved --- the
+drone stalls against the back wall near $(4.7,0.0)$ --- and a global \astar path through
+\code{lookahead\_\allowbreak point} repairs it in $25$ steps and $10.2$~m; the crossing intruder
+collides under a static rollout and is cleared in $18$ steps with $0.04$~m of clearance
+by the relative-velocity rollout. In 3D the candidate count is
+$(2a_{\max}\dt/\Delta v+1)^3$: $125$ candidates and about $1.7$~ms per step at $\Delta
+v=0.25$~m/s against $1\,331$ and $17$~ms at $0.1$~m/s --- a factor ten in both, and the
+whole argument for a coarse grid plus a global path. Classic mistakes: summing the three
+terms before normalising, so the units choose the trajectory; skipping the braking check;
+sampling the window without intersecting it with $\norm{\vel}\le v_{\max}$; comparing
+repaired and unrepaired runs at different control rates. Done when each failure has a
+figure, a number that explains it and one remedy that fixes it, and you own a small
+tuning table of the weights --- the Week~7 milestone of \cref{ch:appA}.
+\end{solution}

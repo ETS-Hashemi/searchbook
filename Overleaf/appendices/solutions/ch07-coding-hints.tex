@@ -1,1 +1,49 @@
 % Hints for the coding exercise(s) of ch07 (assembled into Appendix C)
+
+\begin{solution}{exr:ch07-coding}
+Checkpoints. Write your own first, then compare with \code{validate\_\allowbreak plan},
+\code{first\_\allowbreak conflict} and \code{all\_\allowbreak conflicts} (\cref{alg:ch07-pairwise}), their hashed
+twins (\cref{alg:ch07-hashed}) and the parsers in \code{ch07\_\allowbreak mapf.py}. A path is a list
+of cells indexed by time, and the one function \code{position(path, t)}, which returns
+the last cell beyond the arrival, encodes the parking rule of \cref{def:ch07-path}; the
+hashed detector needs, per time step, a dictionary from cell to agent and one from the
+ordered pair $(u,v)$ to agent. Steps: write \code{position} and test it past the end of a
+path; scan $t=0,\dots,H$ with the horizon of \cref{def:ch07-plan}, emitting records that
+carry both agents, the cell or edge and the time; rewrite with the two dictionaries and
+assert that both detectors agree on thousands of random plans; add the parsers, keeping
+in mind that a \code{.scen} line stores $x$ before $y$. Expected numbers: on
+\cref{ex:ch07-grid} the naive plan has exactly three conflicts (vertex $(0,1)$ at $t=1$,
+the swap on $(0,1)\!-\!(0,2)$ between $t=1$ and $2$, vertex $(0,1)$ at $t=2$) and the
+conflict-free plan has $\sumcost=12$, $\makespan=5$. On random $32\times32$ maps with
+$20\,\%$ obstacles the naive plan carries about $1$ conflict at $k=10$, $50$ at $k=40$
+and $260$ at $k=100$ --- quadratic, the shape of \cref{fig:ch07-conflict-growth} --- and
+the pairwise detector needs $0.8$ and $120$~ms against $0.2$ and $3.4$~ms for the hashed
+one. Classic mistakes: comparing positions only, so swaps vanish; indexing a move by its
+arrival instead of its departure; ending the scan at the shorter path. Done when the
+checker finds every planted conflict of \cref{exr:ch07-conflict-cases} and nothing else
+--- half of the Week~3 milestone (\cref{ch:appA}). Keep it: it is the \cbs detector of
+Week~4 and the capstone's re-check.
+\end{solution}
+
+\begin{solution}{exr:ch07-prioritized}
+Checkpoints. This is a throwaway \cref{ch:ch08}: one space-time \astar per agent
+(\cref{ch:ch04}) against the paths already planned, no reservation table yet. Reuse your
+search and your detector from \cref{exr:ch07-coding};
+\code{prioritized\_\allowbreak planning} in \code{ch08\_\allowbreak prioritized.py} is the reference to read
+afterwards. Steps: after planning agent~$i$, give every later agent a vertex constraint
+$\langle v,t\rangle$ per occupied cell, a constraint on the \emph{reversed} edge
+$\langle v,u,t\rangle$ per move $u\to v$ (this, and only this, forbids swaps) and a
+permanent block of its goal from its arrival on; give the low level a horizon, or it
+loops forever on an agent that cannot get through; validate every plan before you believe
+any cost. Expected numbers: on \cref{ex:ch07-grid} the index order returns $\sumcost=17$
+against the optimum $12$, only the order $(a_2,a_1,a_3)$ reaches $12$, and four of the
+six orders fail outright --- an early sight of \cref{thm:ch08-incomplete} and
+\cref{thm:ch08-suboptimal}. On the corridor of \cref{exr:ch07-corridor} with $n=4$ and
+the pocket at $(1,1)$, planning the left agent first fails and planning the right agent
+first succeeds with costs $5$ and $3$, $\sumcost=8$, which is optimal. Classic mistakes:
+forgetting the parked goal, so a later agent plans through an arrived one; forbidding the
+same edge instead of the reversed one; raising an exception on failure instead of
+returning a value, which hides how often the planner gives up. Done when you own one
+instance that one order solves and another does not, and validator and planner agree on
+every run.
+\end{solution}

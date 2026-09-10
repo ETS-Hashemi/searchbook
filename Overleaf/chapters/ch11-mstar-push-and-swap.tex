@@ -13,6 +13,7 @@
 \SetKwFunction{PasPush}{Push}
 \SetKwFunction{PasSwap}{Swap}
 \SetKwFunction{PasRotate}{Rotate}
+\SetKwFunction{ParPlan}{PushAndRotate}
 
 \begin{objectives}
 \begin{itemize}
@@ -931,6 +932,60 @@ order, and an instance is recognised as unsolvable when an agent cannot be
 brought into the subproblem of its goal; this is where the theory of
 Kornhauser, Miller and Spirakis enters the algorithm.
 
+\Cref{alg:ch11-par} puts the three primitives together at the same level of
+detail as \cref{alg:ch11-pas}. Its first half is the rotation itself, stated for
+the case that costs nothing to state: a cycle $C = (u_0, u_1, \dots, u_{m-1})$
+one of whose vertices, $u_0$, is empty. Line~\ref{alg:ch11-par:shift} lets every
+other agent of $C$ step into the vertex just vacated, so after $m-1$ moves each
+of them has advanced one position along the cycle and the empty vertex has
+travelled to $u_{m-1}$. Nothing outside $C$ is touched. The work that
+\cref{fig:ch11-push-swap}(c) shows is the work of \emph{producing} that empty
+vertex when the cycle is full: line~\ref{alg:ch11-par:out} clears a vertex $e$
+next to $C$ and parks the agent of the adjacent cycle vertex in it, and
+line~\ref{alg:ch11-par:rotate} turns the cycle and lets the parked agent rejoin
+it. This is the permutation that no sequence of pushes can produce, because no
+vertex of $C$ was ever free, and it is the case that defeats plain
+Push-and-Swap: with the cycle full, the swap of \cref{fig:ch11-push-swap}(b)
+cannot clear the two neighbours it needs.
+
+The second half is the loop of \cref{alg:ch11-pas} with two further additions.
+Line~\ref{alg:ch11-par:decompose} computes the subproblems and orders the
+agents, and line~\ref{alg:ch11-par:feasible} is the decision procedure: an agent
+whose goal lies outside its own subproblem can never get there, and the instance
+is reported unsolvable rather than failed. Line~\ref{alg:ch11-par:resolve} is
+the resolve step of \cref{alg:ch11-pas}, unchanged: an agent that a swap or a
+rotation displaced from its goal goes back into the queue.
+
+\begin{algorithm}[!htb]
+\caption{Push-and-Rotate (conceptual), after de Wilde, ter Mors and Witteveen~\cite{dewilde2014push}}
+\label{alg:ch11-par}
+\KwIn{graph $G$, starts $s_1, \dots, s_k$, goals $\gamma_1, \dots, \gamma_k$, with at least two empty vertices}
+\KwOut{a sequence of single-agent moves, or \emph{unsolvable}}
+\Fn{\PasRotate{cycle $C = (u_0, u_1, \dots, u_{m-1})$ whose vertex $u_0$ is empty}}{
+  \lFor{$j \gets 1$ \KwTo $m-1$}{move the agent on $u_j$ to $u_{j-1}$\label{alg:ch11-par:shift}}
+  \KwRet{$m-1$ moves; every agent of $C$ has advanced one position along it and $u_{m-1}$ is now the empty vertex}\;
+}
+\Fn{\ParPlan{$G$, $s_{1..k}$, $\gamma_{1..k}$}}{
+  decompose $G$ into subproblems, assign every agent to one, and let $Q$ hold the agents ordered by subproblem; $U \gets \emptyset$\label{alg:ch11-par:decompose}\;
+  \lIf{some $\gamma_a$ lies outside the subproblem of agent $a$}{\KwRet \emph{unsolvable}\label{alg:ch11-par:feasible}}
+  \ForEach{agent $a$ taken from $Q$}{
+    \While{$a$ is not at $\gamma_a$}{
+      $p \gets$ shortest path from the position of $a$ to $\gamma_a$; \PasPush{$a$, $p$, $U$}\label{alg:ch11-par:push}\;
+      \If{$a$ is not at $\gamma_a$, blocked by the agent $b$ on the next vertex of $p$}{
+        \uIf{$a$ and $b$ lie on a cycle $C$ all of whose vertices are occupied}{
+          clear a vertex $e \notin C$ next to $C$ and park the agent of the adjacent cycle vertex in it\label{alg:ch11-par:out}\;
+          call \PasRotate{$C$} until $b$ has left $p$, then let the parked agent rejoin $C$\label{alg:ch11-par:rotate}\;
+        }
+        \lElse{\KwRet \emph{unsolvable} if \PasSwap{$a$, $b$} fails\label{alg:ch11-par:swap}}
+        \lIf{$b \in U$}{remove $b$ from $U$ and append it to $Q$\label{alg:ch11-par:resolve}}
+      }
+    }
+    add $a$ to $U$\label{alg:ch11-par:lock}\;
+  }
+  \KwRet the recorded moves\;
+}
+\end{algorithm}
+
 \begin{theorem}[Completeness of Push-and-Rotate; de Wilde, ter Mors and Witteveen 2014]
 \label{thm:ch11-par}
 For every MAPF instance whose graph has at least two unoccupied vertices,
@@ -1157,7 +1212,10 @@ or a replanning request that must be answered within one control cycle, is
 where Push-and-Rotate's guarantee earns its place as a fallback. What none
 of these methods does is react: they plan for the swarm's own members on a
 known map, and the intruder that appears after take-off is the business of
-the local avoidance and prediction layers of \cref{ch:ch12,ch:ch13,ch:ch18}.
+the local safety and prediction layers of \cref{ch:ch12,ch:ch13,ch:ch18}.
+This is the optional second half of Week~5 of the study plan
+(\cref{ch:appA}), which asks for awareness of \mstar and Push-and-Swap next
+to \ecbs; its coding exercise is \cref{exr:ch11-coding}.
 \end{dronebox}
 
 % ---------------------------------------------------------------------

@@ -58,3 +58,17 @@ particle weight \omega^{(i)}; terminal weight \mat{P}_f; QP bound \vect{u}_{\max
 states, calligraphic tree) and ch16 path tau -> sigma (fix pass F3a); ch23 code adjacency A -> W (F3b);
 \epsilon stragglers in ch06/ch14 (mechanical pass); consensus step h vs horizon index h in ch20/ch24 -> note in
 the notation table (F2).
+
+## Queue for the mechanical pass (from F2's report)
+- appendices/solutions/ch02-solutions.tex: closest-approach solution still uses v = v_B - v_A; flip to the
+  ch12/ch13 convention (v_rel = v_A - v_B, p_rel = p_B - p_A, t* = (p_rel . v_rel)/(v_rel . v_rel)).
+- code/ch02_toolbox.py: docstrings/comments describing relative velocity as v_b - v_a -> flip the wording
+  (returned numbers are unaffected); re-run the self-test.
+- ch05-terms.tex: remove the duplicate "Lazy deletion" term (ch02 owns it); re-run tools/assemble_glossary.py.
+- notation.tex: rows for R_safe (safety radius) and kappa_p (uncertainty inflation) of ch24 and an
+  "Evaluation" block for ch25's metric symbols.
+- Book-wide: "global swarm planner"/"reactive layer"/"avoidance layer"/"local avoidance layer"/bare
+  "safety layer" -> canonical names (global planner, prediction layer, local safety layer, replanning layer),
+  incl. tab:ch24-layers and figures/ch24/architecture.tex.
+- List of Algorithms: ch11's Push-and-Rotate caption overflows (36.7 pt) -> give the algorithm a short
+  caption via \caption[short]{long}; same for the List of Figures entry that overflows (29.1 pt).

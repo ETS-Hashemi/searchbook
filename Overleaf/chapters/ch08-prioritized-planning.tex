@@ -230,11 +230,14 @@ where starts and goals are parking bays off the main aisles, are well-formed by 
 \label{sec:ch08-algorithm}
 
 \Cref{alg:ch08-pp} is the outer loop. It takes an order, keeps one reservation table, and
-calls Cooperative \astar (\cref{alg:ch08-ca}) once per agent. Cooperative \astar is
-the space-time \astar of \cref{ch:ch04} with three changes: successors are filtered by
-the reservation table, the goal test also requires that the goal is free for all later
-times, and the search is cut off at a time horizon $T_{\max}$ so that it terminates when
-no path exists.
+calls Cooperative \astar (\cref{alg:ch08-ca}) once per agent. Cooperative \astar is not a
+new search. It is the space-time \astar of \cref{ch:ch04}, printed in full as
+\cref{alg:ch04-spacetime}, reading its filter as a reservation table;
+\cref{alg:ch08-ca} therefore lists only the lines in which the two differ ---
+the two blocking tests, on vertices and on reverse edges, the goal-stay test
+computed from the table, and the static obstacles of the revised rule. Everything
+else, from the wait-first successor order to the duplicate detection, is
+\cref{alg:ch04-spacetime} unchanged.
 
 \begin{algorithm}[htb]
 \caption{Prioritized planning}
@@ -255,28 +258,19 @@ no path exists.
 \end{algorithm}
 
 \begin{algorithm}[htb]
-\caption{Cooperative \astar: space-time \astar against a reservation table}
+\caption{Cooperative \astar as a delta on space-time \astar: the six lines by which
+\cref{alg:ch04-spacetime} becomes a search against a reservation table}
 \label{alg:ch08-ca}
-\KwIn{graph $G$, start $s$, goal $\gamma$, reservation table $R$, static obstacles $B$, horizon $T_{\max}$, heuristic $\hcost$}
+\KwIn{graph $G$, start $s$, goal $\gamma$, reservation table $R = (R_V, R_E)$, static obstacles $B$, horizon $T_{\max}$, heuristic $\hcost$}
 \KwOut{a shortest unblocked path from $s$ to $\gamma$ or \emph{failure}}
 \Fn{\PpStar{$G$, $s$, $\gamma$, $R$, $B$, $T_{\max}$, $\hcost$}}{
-  $t_\gamma \gets$ last time at which $\gamma$ is reserved in $R$ ($-1$ if never, $\infty$ if parked on)\label{alg:ch08-ca:tg}\;
-  \lIf{$t_\gamma = \infty$ \KwOr $(s, 0)$ is blocked}{\KwRet{failure}}
-  \Open $\gets \set{(s, 0)}$; \Closed $\gets \emptyset$\;
-  \While{\Open $\neq \emptyset$}{
-    $(v, t) \gets \argmin_{\text{\Open}} \fcost(v, t) = t + \hcost(v)$\label{alg:ch08-ca:pop}\;
-    move $(v, t)$ from \Open to \Closed\;
-    \If{$v = \gamma$ \KwAnd $t > t_\gamma$}{\KwRet{path reconstructed from parents}\label{alg:ch08-ca:goal}\;}
-    \lIf{$t \ge T_{\max}$}{\KwContinue\label{alg:ch08-ca:horizon}}
-    \ForEach{$v' \in \set{v} \cup \Succ(v)$, $v' \notin B$\label{alg:ch08-ca:succ}}{
-      \lIf{$(v', t+1)$ is blocked in $R$}{\KwContinue\label{alg:ch08-ca:vertex}}
-      \lIf{$v' \ne v$ \KwAnd $((v', v), t) \in R_E$}{\KwContinue\label{alg:ch08-ca:edge}}
-      \If{$(v', t+1) \notin$ \Open $\cup$ \Closed}{
-        parent$(v', t+1) \gets (v, t)$; insert $(v', t+1)$ into \Open\label{alg:ch08-ca:insert}\;
-      }
-    }
-  }
-  \KwRet{failure}\;
+  run \FuncSty{SpaceTimeAStar}$(G, s, \gamma, R, T_{\max})$ of \cref{alg:ch04-spacetime} --- states $(v, t)$, $\gcost(v,t) = t$, key $\fcost(v,t) = t + \hcost(v)$, wait action first, one entry per generated state --- with the following changes\;
+  $t_\gamma \gets$ last time at which $\gamma$ is reserved in $R$ ($-1$ if never, $\infty$ if parked on); \KwRet{failure} if $t_\gamma = \infty$ \KwOr $(s, 0)$ is blocked in $R$\label{alg:ch08-ca:tg}\;
+  \emph{goal test:} return the path as soon as a popped state has $v = \gamma$ \KwAnd $t > t_\gamma$\label{alg:ch08-ca:goal}\;
+  \emph{successors:} take $v' \in \set{v} \cup \Succ(v)$ with $v' \notin B$\label{alg:ch08-ca:succ}\;
+  \emph{vertex test:} skip $v'$ if $(v', t+1)$ is blocked in $R$, that is, if $(v', t+1) \in R_V$ or $v'$ is parked on from some time $\le t+1$\label{alg:ch08-ca:vertex}\;
+  \emph{edge test:} skip the move if $v' \ne v$ \KwAnd $((v', v), t) \in R_E$, the reverse of a reserved move\label{alg:ch08-ca:edge}\;
+  \emph{horizon:} generate no successors of a state with $t \ge T_{\max}$\label{alg:ch08-ca:horizon}\;
 }
 \end{algorithm}
 
@@ -291,23 +285,30 @@ is no backtracking, no re-ordering and no replanning of earlier agents. The call
 Line~\ref{alg:ch08-pp:reserve} reserves the new path exactly as
 \cref{def:ch08-reservation} says.
 
-\paragraph{Walkthrough of \cref{alg:ch08-ca}.} Line~\ref{alg:ch08-ca:tg} computes the
-\textbf{goal-stay time}\index{goal-stay check} $t_\gamma$: the last time step at which some
-higher-priority agent visits $\gamma$. If a higher-priority agent is parked on $\gamma$, then $\gamma$
-is reserved for ever and the search cannot succeed, so the function returns failure
-immediately. The goal test in line~\ref{alg:ch08-ca:goal} accepts $(\gamma, t)$ only if
-$t > t_\gamma$: from then on nobody else will use $\gamma$, so the agent can stay there. Because
-every action costs one, the cost so far of a state $(v, t)$ is simply $t$, which is why
-the key in line~\ref{alg:ch08-ca:pop} is $t + \hcost(v)$ and why the first time a
-space-time state is generated is also the cheapest: no state in \Open ever needs its
-cost updated (line~\ref{alg:ch08-ca:insert}). Line~\ref{alg:ch08-ca:succ} generates the
-wait action first and then the moves, skipping the static obstacles in $B$;
-line~\ref{alg:ch08-ca:vertex} discards successors whose target cell is reserved, and
-line~\ref{alg:ch08-ca:edge} discards moves that would swap with a reserved move. The
-horizon test in line~\ref{alg:ch08-ca:horizon} stops the search from waiting for ever:
-without it, a blocked agent would generate $(s, 1), (s, 2), \dots$ without end. A safe
-choice of $T_{\max}$, and a trick that removes the need for it, are discussed in
-\cref{sec:ch08-implementation}.
+\paragraph{Walkthrough of \cref{alg:ch08-ca}.} The machinery that is \emph{not} listed
+matters as much as the six lines that are. Because every action costs one time step, the
+cost so far of a state $(v, t)$ is simply $t$, whichever route reached it; the key is
+therefore $t + \hcost(v)$, the first time a space-time state is generated is also the
+cheapest, and no entry ever needs its cost updated. That is the argument of
+\cref{ch:ch04}, and it carries over unchanged, because a reservation table only removes
+states.
+
+Line~\ref{alg:ch08-ca:tg} computes the goal-stay time $t_\gamma$ of
+\cref{def:ch04-goalstay}\index{goal-stay check}: here it is the last time step at which
+some higher-priority agent visits $\gamma$ according to the table. If a
+higher-priority agent is parked on $\gamma$, then $\gamma$ is reserved for ever and the
+search cannot succeed, so the function returns failure immediately. The goal test in
+line~\ref{alg:ch08-ca:goal} accepts $(\gamma, t)$ only if $t > t_\gamma$: from then on
+nobody else will use $\gamma$, so the agent can stay there.
+Line~\ref{alg:ch08-ca:succ} generates the wait action first and then the moves, skipping
+the static obstacles in $B$; line~\ref{alg:ch08-ca:vertex} discards successors whose
+target cell is reserved, and line~\ref{alg:ch08-ca:edge} discards moves that would swap
+with a reserved move. These two tests are the whole of the difference between planning
+around walls and planning around drones, and \cref{def:ch08-reservation} is what makes
+them single lookups. The horizon test in line~\ref{alg:ch08-ca:horizon} stops the search
+from waiting for ever: without it, a blocked agent would generate
+$(s, 1), (s, 2), \dots$ without end. A safe choice of $T_{\max}$, and a trick that
+removes the need for it, are discussed in \cref{sec:ch08-implementation}.
 
 The heuristic $\hcost$ must be admissible for the static single-agent problem; the
 Manhattan distance is the usual first choice on 4-connected grids
@@ -1089,14 +1090,15 @@ plan of this chapter can be arbitrarily worse than optimal and may not exist for
 chosen order although the instance is solvable. Prioritized planning is what you fall
 back on when those solvers time out, what you use for swarms of hundreds, and what you
 run when a plan must be repaired in place: a drone that has been pushed off its route
-by the local avoidance layer can be replanned alone against the reservation table of
+by the local safety layer can be replanned alone against the reservation table of
 all the others, which is exactly one call of \cref{alg:ch08-ca}. Its failure modes are
 the ones of this chapter: corridors with a single passing bay, goals in the middle of
 somebody else's route, and orders that trap a long-haul drone; the well-formedness
 test of \cref{def:ch08-wellformed} tells you in advance whether the layout is safe, and
 the ordering rules of \cref{sec:ch08-ordering} with a few restarts remove most of the
-remaining risk. This chapter is Week~3 of the study plan (\cref{ch:appA}): implement
-prioritized planning for two to five agents and create deliberate conflict cases.
+remaining risk. This chapter is the second half of Week~3 of the study plan (\cref{ch:appA}): implement
+prioritized planning for two to five agents (\cref{exr:ch08-coding}), on the conflict
+cases you built with the detector of \cref{ch:ch07}.
 \end{dronebox}
 
 % ---------------------------------------------------------------------
@@ -1227,10 +1229,14 @@ at $t = 15$: agent~1 hides in the pocket while agent~2 passes.)
 
 \begin{exercise}[\difficulty{3} Coding: prioritized planning for two to five agents]
 \label{exr:ch08-coding}
-This is the Week~3 exercise of the study plan (\cref{ch:appA}). Starting from your
+This is the second half of the Week~3 coding exercise of the study plan
+(\cref{ch:appA}) --- prioritized planning for two to five agents --- whose first half,
+representing instances and detecting their conflicts, is \cref{exr:ch07-prioritized}.
+Starting from your
 space-time \astar of \cref{ch:ch04}, implement a reservation table with vertex, move
-and parked entries, Cooperative \astar with the goal-stay test, the priority loop with
-an optional revised rule, and an independent validator. Then create deliberate conflict
+and parked entries, Cooperative \astar with the goal-stay test, and the priority loop with
+an optional revised rule; the independent validator is the detector you already wrote in
+\cref{exr:ch07-prioritized}. Then create deliberate conflict
 cases with two to five agents on grids of about $10 \times 10$: a head-on meeting in a
 corridor with one pocket, a crossing at a junction, a goal that lies on another agent's
 shortest path, and a parked agent that cuts a corridor. For each case run every

@@ -1,1 +1,35 @@
 % Hints for the coding exercise(s) of ch25 (assembled into Appendix C)
+
+\begin{solution}{exr:ch25-coding}
+Checkpoints. \code{ch25\_\allowbreak evaluation.py} is built as the chapter asks you to build yours:
+\code{make\_\allowbreak scenario} turns a seed and a cell into a scenario, \code{run\_\allowbreak episode}
+returns a log and nothing else, \code{compute\_\allowbreak metrics} turns one log into the ten
+numbers of \cref{tab:ch25-metrics}, \code{run\_\allowbreak study} loops over cells, strategies and
+seeds, and \code{summarise}, \code{paired\_\allowbreak table}, \code{wilson}, \code{mean\_\allowbreak ci} and
+\code{holm} do the statistics. Keep one flat table of raw rows, one row per run, carrying
+cell, strategy, seed and every metric; write it to disk and never aggregate inside the
+simulator. Steps: fix the seed contract first, so that the same seed gives the same
+scenario for \emph{every} strategy and \cref{thm:ch25-pairing} applies; run the sanity
+baseline before anything else, since it must collide when an intruder is aimed at a drone
+and never when $m=0$; budget the run, knowing that the four-cell mini-study is $320$ runs
+in about $15$~s, so the one-factor-at-a-time design is minutes rather than hours;
+aggregate by script from the raw rows, with Wilson intervals for rates and $t$ or
+bootstrap intervals for means; write the results section, limitations included. Expected
+numbers on the chapter's cells: with $m=0$ all four strategies produce identical rows
+(path ratio $0.999$, makespan $13.2$), which is a test and not a result; with $k=4$,
+$m=1$ the sanity baseline collides on $75\,\%$ of seeds, \code{local} and \code{hybrid}
+on $5\,\%$ and \code{replan} on none, at path ratios $1.03$, $1.05$ and $1.08$ and means
+of $0$, $1.5$ and $7.5$ replans. The paired comparison carries the conclusion: hybrid
+against replan-only differs by $-5.95$ replans $[-7.59,-4.31]$ and by $-0.71$~m of
+minimum separation, while hybrid against local-only differs on path ratio by $+0.021$
+$[+0.006,+0.036]$, a real but tiny effect. Split the sanity baseline's collisions by
+intruder family ($14/14$ straight, $14/14$ turning, $4/12$ evasive) before concluding
+anything about difficulty. Classic mistakes: reporting success rate only; unpaired
+comparisons over paired seeds; a mean path ratio taken over runs that ended in a
+collision; one $p$-value per metric per cell with no correction. Done when the matrix
+runs unattended, every row is reproducible from its seed, and the box, cactus and Pareto
+figures and the table come out of the raw rows with no manual step --- the Week~12
+milestone of \cref{ch:appA}. Part~(d) tests the interface: if swapping the stand-ins for
+your real modules touches anything but \code{run\_\allowbreak episode}, the seam was in the wrong
+place.
+\end{solution}

@@ -430,7 +430,7 @@ constraints and a discussion of which guarantees survive the combination.
   \inputfigure{ch01/architecture}
   \caption{The four layers of the hybrid architecture and what flows between them.
     The global planner runs before take-off and hands nominal time-indexed paths to
-    the local layer, which alone talks to the flight controllers. The prediction
+    the local safety layer, which alone talks to the flight controllers. The prediction
     layer turns noisy observations of an intruder into a predicted motion with
     uncertainty, used by both the local layer and the replanner. The replanner is
     called only when the local layer cannot return to the nominal path; after a
@@ -441,7 +441,7 @@ constraints and a discussion of which guarantees survive the combination.
 \subsection{The four layers}
 \label{sec:ch01-layers}
 
-\paragraph{1. Global swarm planner (\cbs, \ecbs).}\index{global planner}
+\paragraph{1. Global planner (\cbs, \ecbs).}\index{global planner}
 Before the flight, the global planner receives the map, the start and goal of every
 controlled drone, and any constraints on formation or communication range. It returns
 a nominal, time-indexed path for each drone such that no two drones are ever in
@@ -450,6 +450,15 @@ optimal for the sum of costs \cite{sharon2015cbs}, and its bounded-suboptimal va
 faster for a chosen factor $w$ (\cref{ch:ch09,ch:ch10}). Both build on single-agent
 search in space and time (\cref{ch:ch04}). This layer resolves the planned conflicts
 of \cref{def:ch01-planned-conflict}; it never sees the intruder.
+
+The four names just used---\emph{global planner}, \emph{prediction layer}, \emph{local
+safety layer}, \emph{replanning layer}---are the names this book uses for the four
+layers everywhere, in the text, in \cref{fig:ch01-architecture} and in
+\cref{tab:ch24-layers}. Two short forms are allowed once the layer has been named:
+\emph{local layer} for the local safety layer, and \emph{replanner} for the replanning
+layer. \emph{Reactive} and \emph{deliberative} keep the meanings they have in
+\cref{sec:ch01-vocabulary}: they describe a \emph{style} of method, not one of the four
+boxes.
 
 \paragraph{2. Prediction layer (Kalman filter, LSTM).}\index{prediction layer}
 During the flight, the prediction layer observes every object that is not part of
@@ -550,7 +559,7 @@ measure them.
   \centering
   \inputfigure{ch01/timescales}
   \caption{Typical orders of magnitude of one decision cycle of each layer, on a
-    logarithmic time axis. The reactive layer acts in tens of milliseconds, a replan
+    logarithmic time axis. The local safety layer acts in tens of milliseconds, a replan
     takes a fraction of a second, and a global multi-agent plan takes seconds. The
     lower row shows how far an intruder flying at $5$ m/s moves in the meantime: a
     layer that needs one second cannot be the one that reacts to an object two metres
@@ -559,7 +568,7 @@ measure them.
 \end{figure}
 
 \begin{itemize}
-  \item The \textbf{reactive layer}\index{time scale!reactive} must deliver a velocity
+  \item The \textbf{local safety layer}\index{time scale!local safety layer} must deliver a velocity
         every control cycle, typically every few tens of milliseconds; \orca and DWA
         can, because their work per cycle is small and bounded.
   \item \textbf{Replanning}\index{time scale!replanning} takes a fraction of a second:
@@ -576,17 +585,17 @@ measure them.
 The lower row of \cref{fig:ch01-timescales} explains why the order matters. An intruder
 flying at $5$ m/s covers $10$ cm during a $20$ ms control cycle, $2.5$ m during a
 half-second replan, and $15$ m during a three-second global plan. A safety horizon of
-a few seconds, an avoidance layer that acts within one control cycle, and a replanner
-that is allowed to take longer because the avoidance layer covers for it: that is the
+a few seconds, a local safety layer that acts within one control cycle, and a replanner
+that is allowed to take longer because the local layer covers for it: that is the
 division of labour of \cref{fig:ch01-architecture}.
 
 \begin{pitfall}[Numbers on a logarithmic axis are not measurements]
 It is easy to read \cref{fig:ch01-timescales} as a promise. It is not. A Python
 implementation of \orca for fifty drones may take longer than ten milliseconds; a
 \cbs instance with eight agents in a corridor may not finish in a minute. Treat the
-figure as a statement of \emph{requirements}: whatever runs in the reactive layer must
-fit into a control cycle, and whatever cannot must be moved to a slower layer that the
-reactive layer can cover for. \Cref{ch:ch25} explains how to measure computation time
+figure as a statement of \emph{requirements}: whatever runs in the local safety layer
+must fit into a control cycle, and whatever cannot must be moved to a slower layer that
+the local layer can cover for. \Cref{ch:ch25} explains how to measure computation time
 honestly, and that is where real numbers belong.\index{pitfall!time scales}
 \end{pitfall}
 
@@ -599,7 +608,7 @@ delivers predicted positions with covariances over the safety horizon. The local
 layer (\cref{ch:ch13,ch:ch14}) receives the nominal path, the teammates' states and
 the predictions and delivers one velocity command per control cycle. The replanner
 (\cref{ch:ch04,ch:ch05}) receives the current state and the changed map and delivers
-a new path, which the global layer re-checks (\cref{ch:ch07}). The system is
+a new path, which the global planner re-checks (\cref{ch:ch07}). The system is
 assembled in \cref{ch:ch24}, evaluated in \cref{ch:ch25}, and is the capstone of
 week~12 of the study plan in \cref{ch:appA}.
 \end{dronebox}
@@ -680,12 +689,16 @@ Consensus, formation control & Maintains relative positions and shared swarm obj
 \end{longtable}
 \end{small}
 
-Two chapters do not appear in the table because they teach no algorithm of their own.
-\Cref{ch:ch02} is the toolbox: graphs, grids, configuration space, space-time states,
-path costs, drone motion models, the geometry of moving discs, Gaussians and priority
-queues. \Cref{ch:ch07} defines the multi-agent path finding problem, its conflicts and
-its benchmarks, following the standard terminology of \textcite{stern2019mapf}; every
-planner of group~B is stated in that language.
+Two chapters do not appear in the table because they teach no algorithm of the plan's
+list. \Cref{ch:ch02} is the toolbox: graphs, grids, configuration space, space-time
+states, path costs, drone motion models, the geometry of moving discs, Gaussians and
+priority queues. \Cref{ch:ch07} defines the multi-agent path finding problem, its
+conflicts and its benchmarks, following the standard terminology of
+\textcite{stern2019mapf}; every planner of group~B is stated in that language. It does
+teach two algorithms of its own, the pairwise and the hashed conflict detectors
+(\cref{alg:ch07-pairwise,alg:ch07-hashed}), which \cref{ch:ch09} and the conflict
+re-check of \cref{ch:ch24} both reuse---but the plan counts conflict detection as part
+of the MAPF problem rather than as one of its twenty-seven algorithms.
 
 \begin{historynote}[How old is all this?]
 Older than you may think. Dijkstra published his algorithm in 1959
@@ -784,10 +797,13 @@ with a schedule, and the plan suggests two shorter routes, drawn in
 
 \paragraph{The fast path.}
 The top row of \cref{fig:ch01-reading-paths} is the plan's own order, of which the
-first six items are the highest priority. Two remarks. The plan lists \cbs before the
+first six items are the highest priority. Three remarks. The plan lists \cbs before the
 MAPF overview; if you have never seen a multi-agent path finding
 instance, read \cref{ch:ch07} first, it is short and \cref{ch:ch09} assumes it. The
-``planning reference'' of the plan is not a chapter but a book to keep at hand: we
+order also reaches trajectory prediction without the Kalman filter, although
+\cref{ch:ch20} extrapolates with one and takes its input from the tracker of
+\cref{ch:ch18}; read \cref{ch:ch18} first, or at least its section on predicting ahead.
+And the ``planning reference'' of the plan is not a chapter but a book to keep at hand: we
 recommend \textcite{lavalle2006planning} for motion planning and
 \textcite{russell2020aima} for search, and the book's own reference material is the
 toolbox of \cref{ch:ch02} and the mathematical refresher of \cref{ch:appB}.
@@ -926,7 +942,7 @@ layout written by \code{to\_json} and read by \code{from\_json} in
   \item The vocabulary and the properties: \cref{tab:ch01-contrasts} holds the eight
         contrasts that organise the book, \cref{tab:ch01-properties} the six properties
         an algorithm may have, and no algorithm in the book has all six.
-  \item The architecture: global swarm planner (\cbs/\ecbs), prediction layer
+  \item The architecture: global planner (\cbs/\ecbs), prediction layer
         (Kalman filter/LSTM), local safety layer (\orca/DWA), replanning layer
         (\dstarlite/\astar), with a five-step decision logic---follow, avoid,
         reconnect, replan, re-check---and time scales of tens of milliseconds,

@@ -622,6 +622,29 @@ class PushSwapState:
             self.move(agent, nxt)
         return True
 
+    # -- rotate: turn a cycle that has one empty vertex ----------------------
+    def rotate(self, cycle):
+        """Advance every agent of ``cycle`` one position along it.
+
+        ``cycle`` is a list u[0], ..., u[m-1] of vertices forming a cycle in
+        the graph; u[0] must be empty and u[1], ..., u[m-1] occupied.  Each
+        agent steps into the vertex just vacated, so the operation costs
+        m - 1 single-agent moves, the empty vertex ends at u[m-1], and no
+        vertex outside the cycle changes.  This is the primitive that
+        Push-and-Rotate adds to Push-and-Swap (de Wilde et al. 2014): on a
+        cycle no push can turn, because no vertex of it is free unless one
+        agent is first parked in a cleared vertex next to the cycle.
+        """
+        m = len(cycle)
+        assert m >= 3, m
+        for u, v in zip(cycle, cycle[1:] + cycle[:1]):
+            assert v in self.graph.neighbours(u), (u, v)
+        assert self.empty(cycle[0]), cycle[0]
+        assert all(not self.empty(u) for u in cycle[1:]), cycle
+        for j in range(1, m):
+            self.move(self.at(cycle[j]), cycle[j - 1])
+        return True
+
     # -- swap: exchange two adjacent agents at a vertex of degree >= 3 -------
     def swap(self, a, b):
         """Exchange the positions of the adjacent agents a and b without

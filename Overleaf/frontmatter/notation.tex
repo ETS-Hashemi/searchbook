@@ -125,8 +125,10 @@ $\state$, $\ctrl$ & state and control input of a motion model & \cref{ch:ch02}\\
 $\mat{A}$, $\mat{B}$ & state-transition and input matrix of the double integrator & \cref{ch:ch02}\\
 $d_{ij}(t)$, $d_{\min}$ & separation of two agents; its minimum over the execution & \cref{ch:ch02}\\
 $d_{\mathrm{stop}}(v)$ & stopping distance $v^2/(2a_{\max})$ of a braking drone & \cref{ch:ch02}\\
+$\pos_{\mathrm{rel}}$, $\vel_{\mathrm{rel}}$ & relative position $\pos_B-\pos_A$ and relative velocity $\vel_A-\vel_B$ of a pair; these signs hold in \cref{ch:ch02,ch:ch12,ch:ch13} alike & \cref{ch:ch02}\\
 $t^*$, $t_c$ & time of closest approach and time to collision of $\pos_{\mathrm{rel}}$, $\vel_{\mathrm{rel}}$ & \cref{ch:ch02}\\
-$\ttc$ & horizon of the reactive layer, never a time to collision; \cref{ch:ch01} writes this horizon $\tau_h$ and the time to collision $t_c$ & \cref{ch:ch12}\\
+$\ttc$ & horizon of the local safety layer, never a time to collision; \cref{ch:ch01,ch:ch24} write this horizon $\tau_h$ and the time to collision $t_c$ & \cref{ch:ch12}\\
+$\tau_h$ & safety horizon of the hybrid architecture: a predicted conflict counts as a near-term risk when $t_c<\tau_h$, and \cref{ch:ch24} takes $\tau_h$ equal to the \orca horizon $\ttc$ & \cref{ch:ch24}\\
 $\VO_{A|B}$, $\VO^{\ttc}_{A|B}$ & velocity obstacle and its truncation at $\ttc$; $CC_{A|B}$ is its cone & \cref{ch:ch12}\\
 $\RVO_{A|B}$ & reciprocal velocity obstacle, apex at $\tfrac12(\vel_A+\vel_B)$ & \cref{ch:ch13}\\
 $\ORCA^{\ttc}_{A|B}$ & the \orca half-plane of velocities $A$ may choose & \cref{ch:ch13}\\
@@ -160,14 +162,14 @@ $\vect{w}_k$, $\vect{v}_k$ & process noise and measurement noise, of covariance 
 $\vect{y}_k$, $\mat{S}_k$ & innovation $\meas_k-h(\hat{\state}_k^-)$ and its covariance & \cref{ch:ch19}\\
 $\Kgain_k$ & Kalman gain $\mat{P}_k^-\mat{H}_k\T\mat{S}_k\inv$ & \cref{ch:ch18}\\
 $\mathcal{X}_i$, $\state^{(i)}$, $\omega^{(i)}$ & sigma point; particle $i$ and its weight, $\omega$ to keep $\vect{w}_k$ for the process noise & \cref{ch:ch19}\\
-$T_{\mathrm{obs}}$, $T_{\mathrm{pred}}$ & observation window and prediction horizon; $h$ is a horizon step & \cref{ch:ch20}\\
+$T_{\mathrm{obs}}$, $T_{\mathrm{pred}}$ & observation window and prediction horizon; $h$ is a horizon step, as in $\hat{\pos}_{T+h}$, and is not the consensus step of \cref{ch:ch23} & \cref{ch:ch20}\\
 $\mathrm{ADE}$, $\mathrm{FDE}$ & average and final displacement error; $\mathrm{minADE}_K$ over $K$ samples & \cref{ch:ch20}\\
 $\mat{Q}$, $\mat{K}$, $\mat{V}$ & query, key and value matrices of attention; this meaning only here & \cref{ch:ch20}\\
 \bottomrule
 \end{tabularx}\par}
 
-\paragraph{Two warnings about letters.}
-$\mat{Q}$ and $\mat{R}$ are \emph{noise covariances} in Part~VI, where they say
+\paragraph{Warnings about letters.}
+First, $\mat{Q}$ and $\mat{R}$ are \emph{noise covariances} in Part~VI, where they say
 how far the motion model and the sensor may be trusted, and \emph{cost weights}
 in Part~VII, where they say how much a tracking error and a control effort
 cost. The two roles are unrelated, they carry different units, and no equation
@@ -179,7 +181,15 @@ The plant models of \cref{ch:ch02} and the controller of \cref{ch:ch21} do use
 $\mat{A}$ and $\mat{B}$, because there they describe a vehicle and not a filter.
 For the same reason \cref{ch:ch23} writes its adjacency matrix $\mat{W}$: only
 the pinning matrix $\mat{B}$ of its leader keeps a plant letter, and it is
-graph data, not a plant.
+graph data, not a plant. Third, $h$ carries two meanings that no equation
+combines: it is the step of a prediction horizon in \cref{ch:ch20,ch:ch24},
+where $\hat{\pos}_{T+h}$, $\mat{\Sigma}_h$ and $\mathcal{B}_h$ are indexed by
+it, and the step size of the discrete consensus iteration
+$(\mat{I}-h\mat{L})$ in \cref{ch:ch23}, where it is a positive real bounded by
+$2/\lambda_n$ and not an index at all. Finally, $\eps$ is the inflation factor
+of \arastar in \cref{ch:ch06} (and of $\astar_\eps$ in \cref{ch:ch10}) and a
+numerical tolerance in \cref{ch:ch13,ch:ch21,ch:ch22}; the two are listed in
+different tables above for that reason.
 
 \section*{Optimization and control}
 
@@ -219,7 +229,7 @@ $\mat{W}=(w_{ij})$, $\mat{D}$ & adjacency matrix, $\mat{W}$ and not $\mat{A}$; d
 $\mat{L}=\mat{D}-\mat{W}$ & graph Laplacian; symmetric, $\mat{L}\vect{1}=\vect{0}$ & \cref{ch:ch23}\\
 $\lambda_2$, $\lambda_n$ & algebraic connectivity (Fiedler value); largest eigenvalue of $\mat{L}$ & \cref{ch:ch23}\\
 $\bar{x}$, $\vect{\delta}$ & average of the states; disagreement vector $\vect{x}-\bar{x}\vect{1}$ & \cref{ch:ch23}\\
-$h$ & step size of discrete consensus, $\vect{x}_{k+1}=(\mat{I}-h\mat{L})\vect{x}_k$ & \cref{ch:ch23}\\
+$h$ & step size of discrete consensus, $\vect{x}_{k+1}=(\mat{I}-h\mat{L})\vect{x}_k$; unrelated to the prediction-horizon step $h$ of \cref{ch:ch20,ch:ch24} & \cref{ch:ch23}\\
 $R_{\mathrm{comm}}$ & communication range: $\set{i,j}\in E$ iff $\norm{\pos_i-\pos_j}\le R_{\mathrm{comm}}$ & \cref{ch:ch23}\\
 $\vect{o}_i$, $\vect{d}_{ij}$ & formation offset of drone $i$; desired displacement $\vect{o}_j-\vect{o}_i$ & \cref{ch:ch23}\\
 $e_F$, $e_{\max}$ & formation error (RMS displacement violation) and its tolerance & \cref{ch:ch23}\\
