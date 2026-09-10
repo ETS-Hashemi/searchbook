@@ -161,7 +161,7 @@ The \textbf{minimum separation}\index{minimum separation} of a run is
 reported separately for drone--drone pairs ($d_{\min}^{\mathrm{dd}}$) and
 drone--intruder pairs ($d_{\min}^{\mathrm{di}}$), in meters. A run is a
 \textbf{near miss}\index{near miss} if $d_{\min} < r_{\mathrm{safe}}$, the
-safety radius the avoidance layers of \cref{ch:ch24} try to keep.
+safety radius the local safety layer of \cref{ch:ch24} tries to keep.
 \end{definition}
 
 \begin{definition}[Efficiency metrics]
@@ -423,7 +423,7 @@ denominator of $\rho_L$.
   \midrule
   No avoidance & follows the nominal plan of \cbs/\ecbs and ignores intruders & sanity: collides with aimed intruders, never without\\
   Local-only & \orca/DWA with horizon $\ttc$, never replans; rejoins the moving reference & lower bound on effort, reference for deviation\\
-  Replan-only & no reactive layer; \dstarlite/\astar replan whenever a conflict enters the horizon & reference for replanning count and path quality\\
+  Replan-only & no local safety layer; \dstarlite/\astar replan whenever a conflict enters the horizon & reference for replanning count and path quality\\
   Hybrid & the state machine of \cref{ch:ch24}: local first, replan when reconnection fails & the method under test\\
   MILP oracle & offline optimum with full knowledge of the intruder (\cref{ch:ch22}), tiny instances & gap to the optimum on path length and time\\
   \bottomrule
@@ -789,7 +789,7 @@ unsolved runs, and its final height is the success rate. Its mirror image,
 the \textbf{survival plot}\index{survival plot}, shows the fraction still
 unfinished at $x$; both show the whole distribution, including the tail a
 mean hides. In \cref{fig:ch25-cactus} the no-avoidance curve is the cost of
-prediction and tracking alone. The strategies with a reactive layer pay for
+prediction and tracking alone. The strategies with a local safety layer pay for
 their velocity sampling at every Avoiding step, and replanning is cheap here
 because it happens a few times per run.
 
@@ -1000,7 +1000,7 @@ $1.50$, local-only never. Under noisy prediction the replan-only strategy
 thrashes: every change of the predicted trajectory re-triggers a replan a
 second later, and each replan re-times the mission. The ordering of the
 computation times is the part that transfers to another machine: a step with
-a reactive layer costs about twice a replanning step and about twice a pure
+the local safety layer costs about twice a replanning step and about twice a pure
 prediction-and-tracking step, because the velocity sampling runs at every
 Avoiding step (\cref{fig:ch25-cactus}). On the machine that produced the
 table those steps are $0.12$~ms with two drones and $0.15$~ms with four,

@@ -14,7 +14,7 @@
   \item Derive the predict and update steps of the Kalman filter from two facts about Gaussians, and explain the Kalman gain as a precision-weighted compromise between prediction and measurement.
   \item Build the constant-velocity model in 2D and 3D with the white-noise-acceleration process noise, derive its $\mat{Q}$, and run the filter by hand for a few steps.
   \item Tune $\mat{Q}$ and $\mat{R}$ with the innovation statistics, gate outliers with the Mahalanobis distance, initialize a track from two measurements and cope with missing measurements.
-  \item Propagate the covariance several steps ahead to obtain the growing uncertainty ellipses that the safety layer uses, implement the filter in \python, and verify its accuracy and consistency on a simulation.
+  \item Propagate the covariance several steps ahead to obtain the growing uncertainty ellipses that the local safety layer uses, implement the filter in \python, and verify its accuracy and consistency on a simulation.
 \end{itemize}
 \end{objectives}
 
@@ -29,7 +29,7 @@ foreign drone that crosses the swarm's airspace is seen only through a sensor
 messages --- that delivers a noisy position a few times per second. Suppose
 the sensor reports the intruder's position every $\dt=0.1$~s with an error of
 about $1$~m in each coordinate. The velocity obstacle of \cref{ch:ch12},
-used by the local avoidance layer of \cref{ch:ch13}, needs the intruder's
+used by the local safety layer of \cref{ch:ch13}, needs the intruder's
 \emph{velocity}, and the obvious way to obtain it is to difference two consecutive reports. That
 divides the difference of two $1$-meter errors by $0.1$~s: the velocity
 estimate carries a noise of about $\sqrt2\cdot1/0.1\approx14$~m/s, several
@@ -1019,7 +1019,7 @@ Real sensors occasionally return a measurement that has nothing to do with
 the intruder: a reflection, a bird, a corrupted packet. Fed to
 \cref{alg:ch18-kf}, an outlier $50$~m from the predicted position moves the
 estimate by $\Kgain$ times $50$~m in one step, the velocity estimate with it,
-and the safety layer reacts to a phantom. The defense is the same statistic
+and the local safety layer reacts to a phantom. The defense is the same statistic
 as the first diagnostic, the squared \textbf{Mahalanobis
 distance}\index{Mahalanobis distance!gating} $d^2=\vect{y}\T\mat{S}\inv\vect{y}$
 of the measurement from its prediction, which under the model is
@@ -1067,7 +1067,7 @@ of which took seconds to build, and replaces them with a track started on the
 outlier itself. Drop a track only after \emph{several consecutive}
 rejections, when the gate has grown so wide that the track no longer says
 anything (line~\ref{alg:ch18-track:drop} of \cref{alg:ch18-track}), and
-report the count of rejections to the safety layer as a health signal.
+report the count of rejections to the local safety layer as a health signal.
 \end{pitfall}
 
 \paragraph{Several intruders: data association.}
@@ -1109,7 +1109,7 @@ instant and the update only when a measurement is available
 a miss is the prediction, whose position variance has grown by
 $2\dt\,b+\dt^2c+q\dt^3/3$ per axis, and nothing is lost by this bookkeeping:
 the larger covariance is the honest description of what the filter knows,
-the safety layer receives a larger ellipse to keep clear of, the gate widens
+the local safety layer receives a larger ellipse to keep clear of, the gate widens
 so that the next genuine measurement is accepted, and the next update shrinks
 the covariance back (the self-test checks all three, and a sensor that drops
 $30\%$ of its reports still beats the raw measurements). Only a long run of
@@ -1147,7 +1147,7 @@ implements \cref{eq:ch18-init2}.
 \section{Predicting ahead: uncertainty propagation}
 \label{sec:ch18-prediction}
 
-The safety layer of \cref{ch:ch24} asks where the intruder \emph{will be}
+The local safety layer of \cref{ch:ch24} asks where the intruder \emph{will be}
 during the next few seconds and how sure the tracker is. Both questions have
 the same answer, the predict step run $j$ times without an update, and since
 mean and covariance evolve independently of the measurements the result is
@@ -1205,7 +1205,7 @@ separation with the probability of the $\kappa$-sigma ellipse --- and in two
 dimensions the $2\sigma$ ellipse contains the true position with probability
 $1-e^{-2}=86.5\%$ only; $95\%$ needs $\kappa=\sqrt{5.99}=2.45$, by the same
 chi-square table as the gate. Since the inflation grows with the horizon, a
-safety layer that plans over $3$~s must keep clear of a disk several meters
+local safety layer that plans over $3$~s must keep clear of a disk several meters
 larger than the intruder: the concrete cost of sensor noise and unknown
 intentions, and the reason \cref{ch:ch24} triggers avoidance on a short
 horizon and leaves long horizons to the replanning layer. \Cref{ch:ch20}
@@ -1498,7 +1498,7 @@ observations.
   consecutive misses.
   \item Predicting $j$ steps ahead gives $\mat{F}^j\hat{\state}_k$ and a
   covariance that grows without bound; its ellipses, not $\mat{P}_k$, are
-  what the safety layer inflates the intruder's radius with.
+  what the local safety layer inflates the intruder's radius with.
 \end{itemize}
 \end{summary}
 
