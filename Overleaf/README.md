@@ -17,7 +17,7 @@ Biber and MakeIndex automatically; nothing else is required.
 
 ### Compiling only one chapter (fast compiles / free plan timeouts)
 
-The full book (about 700 pages, roughly 170 TikZ/pgfplots figures) takes 8-12 minutes to compile with pdfLaTeX.
+The full book (about 740 pages, roughly 170 TikZ/pgfplots figures) takes 8-12 minutes to compile with pdfLaTeX.
 If your compile times out, open `main.tex` and uncomment the line
 
 ```latex
