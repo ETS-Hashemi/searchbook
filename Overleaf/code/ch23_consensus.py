@@ -173,7 +173,7 @@ def formation_error(P, offsets, W_form):
     return float(np.sqrt(np.mean(sq)))
 
 
-def formation_error_centerd(P, offsets):
+def formation_error_centered(P, offsets):
     """RMS deviation from the template after removing the best translation."""
     Y = np.asarray(P, dtype=float) - np.asarray(offsets, dtype=float)
     Y = Y - Y.mean(axis=0)
@@ -307,7 +307,7 @@ def _record(rec, t, P, O, W, W_form):
     lengths = edge_lengths(P, W_form)
     rec["t"].append(t)
     rec["err"].append(formation_error(P, O, W_form))
-    rec["err_c"].append(formation_error_centerd(P, O))
+    rec["err_c"].append(formation_error_centered(P, O))
     rec["lam2"].append(algebraic_connectivity(laplacian(W)))
     rec["lmin"].append(float(lengths.min()))
     rec["lmax"].append(float(lengths.max()))
@@ -601,7 +601,7 @@ def _self_test():
     assert np.linalg.eigvalsh(pinned_matrix(W_cut, (0,)))[0] < 1e-9
 
     # 6. Formation error: zero exactly on the (translated) formation,
-    #    translation invariant, complete-graph identity with the centerd
+    #    translation invariant, complete-graph identity with the centered
     #    error, and convergence for a consistent d_ij set (first and
     #    second order, fixed graph and switching radius graph)
     O = EXAMPLE_OFFSETS
@@ -611,7 +611,7 @@ def _self_test():
     e1 = formation_error(P, O, Kn)
     e2 = formation_error(P + np.array([5.0, 1.0]), O, Kn)
     assert abs(e1 - e2) < 1e-12
-    ec = formation_error_centerd(P, O)
+    ec = formation_error_centered(P, O)
     assert abs(e1 - np.sqrt(2.0 * 4 / 3.0) * ec) < 1e-12
     assert abs(ex["formation"]["err"][0] - 2.5) < 1e-12
     assert ex["formation"]["err"][-1] < 1e-2

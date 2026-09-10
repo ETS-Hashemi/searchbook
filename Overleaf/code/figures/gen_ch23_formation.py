@@ -10,7 +10,7 @@
                                       fixed graph of the example converging
                                       into a square: t, x1 y1 .. x4 y4, err
                                       (edge RMS formation error), errc
-                                      (centerd error)
+                                      (centered error)
     figures/data/ch23-leader.dat      formation forming while drone 1 is
                                       pinned to a reference moving along a
                                       path: t, rx, ry, x1 y1 .. x4 y4, err,
