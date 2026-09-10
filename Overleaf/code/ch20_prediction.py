@@ -788,26 +788,24 @@ class TransformerPredictor:
         P = self.horizon if horizon is None else horizon
         nh, dh = self.n_heads, self.d_model // self.n_heads
         T = x.shape[1]
-        Z = x @ self.W_emb + self.b_emb + self.pe[:T]
-        # encoder self-attention over the observed steps
-        Q, K, V = Z @ self.Wq, Z @ self.Wk, Z @ self.Wv
+        Z = x @ self.W_emb + self.b_emb + self.pe[:T]     # embed + positional encoding
+        Q, K, V = Z @ self.Wq, Z @ self.Wk, Z @ self.Wv   # encoder self-attention
         qh, kh, vh = _split_heads(Q, nh), _split_heads(K, nh), _split_heads(V, nh)
         A = softmax(np.einsum("bhtd,bhsd->bhts", qh, kh) / math.sqrt(dh))
         C = _merge_heads(np.einsum("bhts,bhsd->bhtd", A, vh))
-        Z1 = Z + C @ self.Wo
+        Z1 = Z + C @ self.Wo                              # residual connection
         Hff = np.tanh(Z1 @ self.Wf1 + self.bf1)
-        Z2 = Z1 + Hff @ self.Wf2 + self.bf2
-        # decoder cross-attention: one query per predicted step
-        pe_dec = self.pe[T_OBS:T_OBS + P]
-        Q2 = pe_dec @ self.Wq2
-        K2, V2 = Z2 @ self.Wk2, Z2 @ self.Wv2
+        Z2 = Z1 + Hff @ self.Wf2 + self.bf2               # position-wise feed-forward
+        Q2 = self.pe[T_OBS:T_OBS + P] @ self.Wq2          # one query per predicted step
+        K2, V2 = Z2 @ self.Wk2, Z2 @ self.Wv2             # decoder cross-attention
         q2h = Q2.reshape(P, nh, dh).transpose(1, 0, 2)
         k2h, v2h = _split_heads(K2, nh), _split_heads(V2, nh)
         A2 = softmax(np.einsum("hpd,bhtd->bhpt", q2h, k2h) / math.sqrt(dh))
         C2 = _merge_heads(np.einsum("bhpt,bhtd->bhpd", A2, v2h))
         Z3 = Q2 + C2 @ self.Wo2
         out = Z3 @ self.W_out.T + self.b_out + self.baseline(x)[:, None]
-        cache = (x, Z, qh, kh, vh, A, C, Z1, Hff, Z2, pe_dec, q2h, k2h, v2h, A2, C2, Z3)
+        cache = (x, Z, qh, kh, vh, A, C, Z1, Hff, Z2, self.pe[T_OBS:T_OBS + P],
+                 q2h, k2h, v2h, A2, C2, Z3)
         return out, cache
 
     # -- loss and backward ---------------------------------------------------
