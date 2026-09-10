@@ -6,11 +6,11 @@ Conventions (Fiorini and Shiller 1998, as used in Chapter 12):
 
     p_rel = p_B - p_A      relative position of B as seen from A
     v_rel = v_A - v_B      relative velocity of A with respect to B
-    R     = r_A + r_B      radius of the Minkowski disc
+    R     = r_A + r_B      radius of the Minkowski disk
 
-The discs A and B touch or overlap at time t >= 0 if and only if
+The disks A and B touch or overlap at time t >= 0 if and only if
 |p_rel - t v_rel| <= R, i.e. if and only if the point t v_rel lies in the
-disc D(p_rel, R).  The collision cone CC_{A|B} is the set of relative
+disk D(p_rel, R).  The collision cone CC_{A|B} is the set of relative
 velocities for which this happens for some t > 0, the velocity obstacle is
 VO_{A|B} = v_B + CC_{A|B}, and the truncated VO^tau_{A|B} keeps only the
 velocities that collide within the horizon tau.
@@ -56,7 +56,7 @@ def norm(a):
 
 
 def rotate(a, angle):
-    """Rotate the vector a counter-clockwise by ``angle`` radians."""
+    """Rotate the vector a counterclockwise by ``angle`` radians."""
     c, s = math.cos(angle), math.sin(angle)
     return (c * a[0] - s * a[1], s * a[0] + c * a[1])
 
@@ -72,15 +72,15 @@ def ray_circle_intersection(o, d, c, r):
         return 0.0
     if a == 0.0:
         return None
-    disc = b * b - a * k
-    if disc < 0.0:
+    disk = b * b - a * k
+    if disk < 0.0:
         return None
-    t = (-b - math.sqrt(disc)) / a
+    t = (-b - math.sqrt(disk)) / a
     return t if t >= 0.0 else None
 
 
-def minkowski_disc(c1, r1, c2, r2):
-    """Minkowski sum of two discs: a disc of centre c1 + c2 and radius r1 + r2."""
+def minkowski_disk(c1, r1, c2, r2):
+    """Minkowski sum of two disks: a disk of center c1 + c2 and radius r1 + r2."""
     return add(c1, c2), r1 + r2
 
 
@@ -91,9 +91,9 @@ def tangent_points(p, c, r):
     d = norm(u)
     if d <= r:
         return None
-    u = scale(u, 1.0 / d)                 # unit vector from c towards p
+    u = scale(u, 1.0 / d)                 # unit vector from c toward p
     perp = (-u[1], u[0])                  # u rotated by +90 degrees
-    cos_a = r / d                         # angle at the centre
+    cos_a = r / d                         # angle at the center
     sin_a = math.sqrt(1.0 - cos_a * cos_a)
     t_left = add(c, scale(add(scale(u, cos_a), scale(perp, sin_a)), r))
     t_right = add(c, scale(add(scale(u, cos_a), scale(perp, -sin_a)), r))
@@ -105,7 +105,7 @@ def tangent_points(p, c, r):
 # ---------------------------------------------------------------------
 def time_to_collision(p_rel, v_rel, radius):
     """First time t >= 0 at which |p_rel - t v_rel| <= radius, or math.inf
-    if the discs (spheres) never touch.  Works in 2D and in 3D."""
+    if the disks (spheres) never touch.  Works in 2D and in 3D."""
     p = np.asarray(p_rel, dtype=float)
     v = np.asarray(v_rel, dtype=float)
     pp, pv, vv = p @ p, p @ v, v @ v
@@ -114,11 +114,11 @@ def time_to_collision(p_rel, v_rel, radius):
         return 0.0                        # already overlapping
     if vv == 0.0:
         return math.inf                   # no relative motion
-    disc = pv * pv - vv * k               # discriminant / 4
-    if disc < 0.0:
-        return math.inf                   # the ray misses the disc
-    t = (pv - math.sqrt(disc)) / vv       # smaller root = first contact
-    return t if t >= 0.0 else math.inf    # the disc lies behind A
+    disk = pv * pv - vv * k               # discriminant / 4
+    if disk < 0.0:
+        return math.inf                   # the ray misses the disk
+    t = (pv - math.sqrt(disk)) / vv       # smaller root = first contact
+    return t if t >= 0.0 else math.inf    # the disk lies behind A
 
 
 def in_velocity_obstacle(p_rel, v_rel, radius, tau=math.inf):
@@ -136,7 +136,7 @@ def cone_half_angle(distance, radius):
 
 
 def ttc_batch(p_rel, v_rels, radius):
-    """Vectorised time_to_collision: v_rels has shape (m, dim)."""
+    """Vectorized time_to_collision: v_rels has shape (m, dim)."""
     p = np.asarray(p_rel, dtype=float)
     v = np.asarray(v_rels, dtype=float)
     pp = p @ p
@@ -145,10 +145,10 @@ def ttc_batch(p_rel, v_rels, radius):
     k = pp - radius * radius
     if k <= 0.0:
         return np.zeros(len(v))
-    disc = pv * pv - vv * k
+    disk = pv * pv - vv * k
     out = np.full(len(v), np.inf)
-    ok = (disc >= 0.0) & (vv > 0.0)
-    t = (pv[ok] - np.sqrt(disc[ok])) / vv[ok]
+    ok = (disk >= 0.0) & (vv > 0.0)
+    t = (pv[ok] - np.sqrt(disk[ok])) / vv[ok]
     t[t < 0.0] = np.inf
     out[ok] = t
     return out
@@ -158,8 +158,8 @@ def ttc_batch(p_rel, v_rels, radius):
 # 3. The velocity obstacle as a geometric object (2D)
 # ---------------------------------------------------------------------
 class VelocityObstacle:
-    """VO^tau_{A|B}: apex v_B, axis towards p_rel, half-angle asin(R/d),
-    truncated by the disc D(v_B + p_rel/tau, R/tau) when tau < inf."""
+    """VO^tau_{A|B}: apex v_B, axis toward p_rel, half-angle asin(R/d),
+    truncated by the disk D(v_B + p_rel/tau, R/tau) when tau < inf."""
 
     def __init__(self, p_a, r_a, p_b, v_b, r_b, tau=math.inf):
         self.apex = (float(v_b[0]), float(v_b[1]))
@@ -183,8 +183,8 @@ class VelocityObstacle:
     def time_to_collision(self, v):
         return time_to_collision(self.p_rel, sub(v, self.apex), self.radius)
 
-    def truncation_disc(self):
-        """Centre and radius of the disc that cuts the apex off (absolute
+    def truncation_disk(self):
+        """Center and radius of the disk that cuts the apex off (absolute
         velocities); None for the untruncated cone."""
         if math.isinf(self.tau):
             return None
@@ -207,7 +207,7 @@ class VelocityObstacle:
         for e in (self.left, self.right):
             s = max(dot(w, e), s_min)
             cands.append(scale(e, s))
-        # the near arc of the truncation disc, between the tangency points
+        # the near arc of the truncation disk, between the tangency points
         if not math.isinf(self.tau):
             rho = self.radius / self.tau
             n_left = rotate(self.left, math.pi / 2)
@@ -228,7 +228,7 @@ class VelocityObstacle:
 # 4. Agents, velocity selection by sampling, simulation
 # ---------------------------------------------------------------------
 class Agent:
-    """A disc-shaped agent moving towards a goal at a nominal speed."""
+    """A disk-shaped agent moving toward a goal at a nominal speed."""
 
     def __init__(self, position, goal, radius=0.5, speed=1.0, v_max=1.5,
                  avoiding=True, velocity=None):
@@ -242,7 +242,7 @@ class Agent:
         self.done = False
 
     def preferred_velocity(self, dt):
-        """Towards the goal at the nominal speed, slowing down so as not to
+        """Toward the goal at the nominal speed, slowing down so as not to
         overshoot within one step; zero once the goal is reached."""
         to_goal = sub(self.goal, self.position)
         d = norm(to_goal)
@@ -268,7 +268,7 @@ def choose_velocity(agent, others, tau, dt, samples=None, penalty=1.0):
     Every candidate is tested against the truncated VO of every other
     agent (others keep their current velocities).  Among the candidates
     that are outside all VO^tau, the one closest to the preferred velocity
-    wins; if there is none, the penalised cost |v - v_pref| + penalty/t_c
+    wins; if there is none, the penalized cost |v - v_pref| + penalty/t_c
     picks the least dangerous candidate.  Returns (velocity, info)."""
     v_pref = agent.preferred_velocity(dt)
     if samples is None:
@@ -308,7 +308,7 @@ class Trace:
         self.infos = infos
 
     def separations(self):
-        """Smallest centre distance over all pairs, per time step."""
+        """Smallest center distance over all pairs, per time step."""
         p = self.positions
         n = p.shape[1]
         if n < 2:
@@ -391,7 +391,7 @@ def head_on_scenario(offset=0.2, avoiding=True):
 
 def circle_scenario(n, radius=6.0, seed=12, perturbation=0.05, avoiding=True):
     """n agents evenly spaced on a circle, each heading for the antipodal
-    point: every pair is on a crossing course through the centre.  A small
+    point: every pair is on a crossing course through the center.  A small
     fixed-seed perturbation of the start positions breaks the symmetry."""
     rng = np.random.default_rng(seed)
     agents = []
@@ -479,7 +479,7 @@ def worked_example(verbose=True, tau=5.0, dt=0.1):
     out.update(p_rel=vo.p_rel, distance=vo.distance, radius=vo.radius,
                half_angle_deg=vo.half_angle * deg, left=vo.left,
                right=vo.right, apex=vo.apex, v_rel=v_rel, tc_pref=tc_pref,
-               disc=vo.truncation_disc(), exact=exact,
+               disk=vo.truncation_disk(), exact=exact,
                tc_exact=vo.time_to_collision(exact), chosen=v_chosen,
                info=info)
     # no avoidance: closest approach
@@ -513,8 +513,8 @@ def worked_example(verbose=True, tau=5.0, dt=0.1):
         print("  quadratic: %.4f t^2 - %.4f t + %.4f = 0 -> t_c(v_pref) = %.4f s"
               % (dot(v_rel, v_rel), 2 * dot(vo.p_rel, v_rel),
                  dot(vo.p_rel, vo.p_rel) - vo.radius ** 2, tc_pref))
-        c, rho = vo.truncation_disc()
-        print("  truncation disc: centre (%.4f, %.4f), radius %.4f; v_pref in VO^tau: %s"
+        c, rho = vo.truncation_disk()
+        print("  truncation disk: center (%.4f, %.4f), radius %.4f; v_pref in VO^tau: %s"
               % (c[0], c[1], rho, vo.contains(v_pref)))
         print("  exact closest boundary point = (%.4f, %.4f), |dv| = %.4f, t_c = %.4f"
               % (exact[0], exact[1], norm(sub(exact, v_pref)),
@@ -558,12 +558,12 @@ def _self_test():
     assert in_velocity_obstacle(p_rel, (1.0, -1.0), R)
     assert not in_velocity_obstacle(p_rel, (1.0, 1.0), R)
     assert not in_velocity_obstacle(p_rel, (-1.0, 1.0), R)   # moving away
-    # (2) closed-form time to collision when heading straight at the disc
+    # (2) closed-form time to collision when heading straight at the disk
     tc = time_to_collision((10.0, 0.0), (2.0, 0.0), R)
     assert _close(tc, (10.0 - R) / 2.0)
     tc = time_to_collision(p_rel, (1.0, -1.0), R)
     assert _close(tc, 5.0 - 1.0 / math.sqrt(2.0))
-    # overlapping discs collide now; the toolbox routine agrees everywhere
+    # overlapping disks collide now; the toolbox routine agrees everywhere
     assert time_to_collision((0.5, 0.0), (1.0, 0.0), R) == 0.0
     rng = np.random.default_rng(3)
     for _ in range(500):
@@ -592,9 +592,9 @@ def _self_test():
     assert in_velocity_obstacle(p_rel, v_far, R)
     assert not in_velocity_obstacle(p_rel, v_far, R, tau=5.0)
     assert in_velocity_obstacle(p_rel, v_far, R, tau=13.0)
-    # the truncation disc is inscribed in the cone: its centre lies on the
+    # the truncation disk is inscribed in the cone: its center lies on the
     # axis and its distance to each tangent ray equals its radius
-    c, rho = vo.truncation_disc()
+    c, rho = vo.truncation_disk()
     c_rel = sub(c, vo.apex)
     assert _close(abs(cross(c_rel, vo.left)), rho) and _close(abs(cross(c_rel, vo.right)), rho)
     # (5) the worked example: exact projection and sampled choice
@@ -603,8 +603,8 @@ def _self_test():
     assert _close(ex["tc_exact"], 5.0, 1e-9)
     assert ex["info"]["feasible"] and ex["info"]["tc"] > 5.0
     assert ex["info"]["dist"] <= 0.2       # sampled choice close to the optimum
-    # a Minkowski sum of the two discs is the disc of the VO
-    assert minkowski_disc((0.0, -5.0), 0.5, (0.0, 0.0), 0.5) == ((0.0, -5.0), 1.0)
+    # a Minkowski sum of the two disks is the disk of the VO
+    assert minkowski_disk((0.0, -5.0), 0.5, (0.0, 0.0), 0.5) == ((0.0, -5.0), 1.0)
     # (6) static obstacle: v_B = 0 makes VO = CC (apex at the origin)
     vo_static = VelocityObstacle((0.0, 0.0), 0.5, (3.0, 0.0), (0.0, 0.0), 0.5)
     assert vo_static.apex == (0.0, 0.0) and vo_static.contains((1.0, 0.0))

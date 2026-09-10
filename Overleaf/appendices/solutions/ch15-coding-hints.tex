@@ -5,21 +5,21 @@ Checkpoints. \code{simulate\_\allowbreak swarm} in \code{ch15\_\allowbreak poten
 separation (the pairwise term of \cref{eq:ch15-interagent}) and an optional spring, and it
 builds the pairwise distance matrix once per step --- keep that matrix and read
 $N_i=\set{j\ne i : \norm{\pos_i-\pos_j}\le\rho_{\mathrm{a}}}$ off it as a boolean mask
-instead of looping. Steps: add cohesion as an attractive potential towards the neighbour
+instead of looping. Steps: add cohesion as an attractive potential toward the neighbor
 centroid, $\tfrac12k_{\mathrm{c}}\norm{\pos_i-\bar\pos_i}^2$, so that it enters the same
 force sum as everything else; apply the velocity update of \cref{eq:ch15-alignment}
 \emph{after} the force integration, with a gain $\alpha$ small enough that
 $\alpha\abs{N_i}<1$ for every drone, which is the only stability condition you need; log
 the standard deviation of the velocities and the radius of the position cloud at every
-step. Expected behaviour: on a graph that starts connected the velocity spread decays
+step. Expected behavior: on a graph that starts connected the velocity spread decays
 roughly geometrically to zero while the position spread settles at a constant and the
 flock translates rigidly, at a rate set by the algebraic connectivity --- \cref{ch:ch23}
 in disguise. For the split, place two tight clusters more than $\rho_{\mathrm{a}}$ apart
 with velocities pointing away from each other: two components, two limits, a gap that only
 grows. Keep separation switched on: the minimum pairwise distance stays above $1.0$ in the
 chapter's swarm run and drops to $0$ without it. Classic mistakes: an alignment gain not
-scaled by the neighbour count, so a drone with eight neighbours overshoots; recomputing
-neighbourhoods from stale positions; reading convergence off the mean velocity, which
+scaled by the neighbor count, so a drone with eight neighbors overshoots; recomputing
+neighborhoods from stale positions; reading convergence off the mean velocity, which
 \cref{eq:ch15-alignment} conserves. Done when one figure shows the velocity spread going
 to zero on a connected graph and holding two levels on a disconnected one, and you can
 name the eigenvalue that sets the rate.
@@ -27,11 +27,11 @@ name the eigenvalue that sets the rate.
 
 \begin{solution}{exr:ch15-coding}
 Checkpoints; read \code{ch15\_\allowbreak potential\_\allowbreak fields.py} only when stuck. The functions to
-compare against afterwards are \code{total\_\allowbreak force} (\cref{alg:ch15-force}),
+compare against afterward are \code{total\_\allowbreak force} (\cref{alg:ch15-force}),
 \code{simulate\_\allowbreak many} (\cref{alg:ch15-descend}), \code{numerical\_\allowbreak force},
 \code{stiffness}, \code{basin\_\allowbreak experiment} and \code{follow\_\allowbreak waypoints}. One
 \code{ApfParams} record holds the gains, $\rho_0$, $\dt$ and $v_{\max}$; obstacles are
-objects with a single distance method, so a segment is a drop-in replacement for a disc.
+objects with a single distance method, so a segment is a drop-in replacement for a disk.
 Steps: write the potentials first and the forces second, then assert that your force
 matches a central difference of your potential to about $10^{-6}$ at a hundred random
 points --- this one test catches most sign and chain-rule errors; add the clipped Euler
@@ -44,7 +44,7 @@ for a $1.0$~m gap, so $\dt=0.05$ gives $\dt\lambda_{\max}\approx33$ and a crash 
 $\dt=0.01$ merely oscillates --- the explaining number is $\dt\lambda_{\max}$, not the
 gap. On the $21\times21$ grid of starts of \cref{sec:ch15-basin}, $59.4\,\%$ arrive plain
 and $87.5\,\%$ with random-walk escapes, at about $40\,\%$ more steps. Classic mistakes:
-an unclamped repulsion, so one step crosses the obstacle; using the centre distance
+an unclamped repulsion, so one step crosses the obstacle; using the center distance
 instead of the clearance of \cref{eq:ch15-clearance}; calling every slowdown a local
 minimum. Done when each failure has a figure and its number, and your arrival fractions
 land within a few points of the chapter's --- the Week~7 milestone (\cref{ch:appA}).

@@ -101,7 +101,7 @@ def calculus():
     show("Jacobian H at x0", J)
     show("first-order prediction h(x0)+H d", lin)
     show("exact h(x0+d)", exact)
-    show("linearisation error", exact - lin)
+    show("linearization error", exact - lin)
     assert np.allclose(lin, [4.90, 0.88730], atol=5e-5)
     assert abs(exact[0] - 4.9041) < 5e-5 and abs(exact[1] - 0.8865) < 5e-5
     # double integrator: closed form equals the matrix form
@@ -175,7 +175,7 @@ def probability():
 
 # ---------------------------------------------------------------- B.4
 def lp2d(cons, c):
-    """Maximise c.z over {z : a.z <= b for (a, b) in cons} by vertex enumeration."""
+    """Maximize c.z over {z : a.z <= b for (a, b) in cons} by vertex enumeration."""
     best, arg = -math.inf, None
     A = np.array([a for a, _ in cons], float)
     b = np.array([bb for _, bb in cons], float)

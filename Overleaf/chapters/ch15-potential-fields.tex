@@ -22,19 +22,19 @@
 
 A drone of the swarm is following the path that the global planner of
 \cref{ch:ch09} assigned to it when a bird, or a drone that is not part of the
-swarm, appears three metres ahead. The on-board computer has perhaps ten
+swarm, appears three meters ahead. The on-board computer has perhaps ten
 milliseconds per control cycle, and in that time it must produce a velocity
 command that moves the drone away from the intruder and, as soon as it can,
-back towards its goal. The oldest and simplest answer is the
+back toward its goal. The oldest and simplest answer is the
 \textbf{artificial potential field}\index{artificial potential field} (APF) of
 Khatib~\cite{khatib1986realtime}: imagine a landscape over the map that slopes
-down towards the goal and rises steeply around every obstacle, and let the
+down toward the goal and rises steeply around every obstacle, and let the
 drone roll downhill. The command is the negative gradient of that landscape;
 per obstacle it costs one distance query and one square root, with no
-search, no queue and no optimisation.
+search, no queue and no optimization.
 
 The method has an equally old list of defects. Five years after Khatib, Koren
-and Borenstein~\cite{koren1991potential} catalogued the situations in which a
+and Borenstein~\cite{koren1991potential} cataloged the situations in which a
 potential field traps the robot, refuses to let it through a doorway, or makes
 it oscillate against a wall. Every one of these failures has a precise
 mathematical cause, and in this chapter you will produce each of them on
@@ -66,15 +66,14 @@ the place of the method in the drone system.
 Think of a marble on a hilly table (\cref{fig:ch15-idea}a). The table is
 shaped so that the goal is the lowest point and every obstacle sits on top of
 a steep hill. Released anywhere, the marble rolls downhill: away from the
-hills, towards the goal. The height of the table is the
+hills, toward the goal. The height of the table is the
 \textbf{potential}\index{potential} $U(\pos)$, a scalar function of the
 position; the direction of steepest descent at $\pos$ is the negative
-gradient $-\nabla U(\pos)$, and this vector is the \textbf{force}\index{force
-(potential field)} that the field exerts on the drone. The drone does not
+gradient $-\nabla U(\pos)$, and this vector is the \textbf{force}\index{force (potential field)} that the field exerts on the drone. The drone does not
 plan a path; at every control cycle it evaluates one vector and follows it.
 
 The potential is built from two kinds of terms (\cref{fig:ch15-idea}b). The
-\emph{attractive} term is a bowl centred at the goal; its gradient points
+\emph{attractive} term is a bowl centerd at the goal; its gradient points
 straight at the goal, and the further away the drone is, the harder it pulls.
 Each \emph{repulsive} term is a wall around one obstacle; it is zero beyond
 an \emph{influence distance} $\rho_0$, grows as the drone approaches the
@@ -124,7 +123,7 @@ to obstacle $i$ is the distance
   \label{eq:ch15-clearance}
 \end{equation}
 and $\nabla \rho_i(\pos)$ is its gradient, the unit vector that points from
-the closest point of $O_i$ towards $\pos$ (defined wherever that closest
+the closest point of $O_i$ toward $\pos$ (defined wherever that closest
 point is unique). A \textbf{potential}\index{potential} is a continuously
 differentiable function $U \colon \Cfree \to \R_{\ge 0}$; its
 \textbf{force}\index{force (potential field)} is $\vect{F}(\pos) = -\nabla
@@ -132,18 +131,17 @@ U(\pos)$. The task is to choose $U$ so that a drone that follows $\vect{F}$
 from a given start reaches $\pos_{\mathrm{g}}$ without leaving $\Cfree$.
 \end{definition}
 
-For a disc with centre $\vect{c}$ and radius $r$ the clearance is
+For a disk with center $\vect{c}$ and radius $r$ the clearance is
 $\rho(\pos) = \norm{\pos - \vect{c}} - r$ and $\nabla\rho = (\pos - \vect{c}) /
 \norm{\pos - \vect{c}}$; for a segment it is the point-to-segment distance of
 \cref{ch:ch02} and $\nabla\rho$ points away from the closest point. The code
-of this chapter uses discs; any convex obstacle is handled by the same two
+of this chapter uses disks; any convex obstacle is handled by the same two
 quantities, a distance and a unit vector.
 
 \begin{definition}[Attractive potential]
 \label{def:ch15-attractive}
 Let $d(\pos) = \norm{\pos - \pos_{\mathrm{g}}}$ and $k_{\mathrm{att}} > 0$. The
-\textbf{quadratic attractive potential}\index{artificial potential
-field!attractive potential} and its force are
+\textbf{quadratic attractive potential}\index{artificial potential field!attractive potential} and its force are
 \begin{equation}
   U_{\mathrm{att}}(\pos) = \tfrac12\, k_{\mathrm{att}}\, d(\pos)^2,
   \qquad
@@ -195,9 +193,7 @@ $v_{\max} = 1$.
 \begin{definition}[Repulsive potential, Khatib 1986]
 \label{def:ch15-repulsive}
 Let $k_{\mathrm{rep}} > 0$ and let $\rho_0 > 0$ be the
-\textbf{influence distance}\index{artificial potential field!influence
-distance}. The \textbf{repulsive potential}\index{artificial potential
-field!repulsive potential} of obstacle $i$ and its force are
+\textbf{influence distance}\index{artificial potential field!influence distance}. The \textbf{repulsive potential}\index{artificial potential field!repulsive potential} of obstacle $i$ and its force are
 \begin{equation}
   U_{\mathrm{rep},i}(\pos) =
   \begin{cases}
@@ -237,7 +233,7 @@ and infinitely steep at the obstacle boundary. At $\rho_i = \rho_0$ both the
 potential and the force are zero and join continuously with the zero
 outside. Khatib called this the FIRAS potential (\emph{force involving
 artificial repulsion from the surface}); the subtraction of $1/\rho_0$
-limits the influence of an obstacle to its neighbourhood.
+limits the influence of an obstacle to its neighborhood.
 
 \begin{definition}[Total potential, critical points]
 \label{def:ch15-total}
@@ -252,16 +248,15 @@ A point with $\vect{F}(\pos) = \vect{0}$ is a \textbf{critical
 point}\index{critical point} of $U$. It is a \textbf{local
 minimum}\index{artificial potential field!local minimum} if $U$ does not
 decrease in any direction from it, and a \textbf{saddle} if $U$ decreases in
-some directions and increases in others. The \textbf{basin}\index{basin of a
-local minimum} of a local minimum is the set of starts from which the descent
+some directions and increases in others. The \textbf{basin}\index{basin of a local minimum} of a local minimum is the set of starts from which the descent
 ends there.
 \end{definition}
 
 \Cref{fig:ch15-surface} shows the total potential of the scene used
-throughout the chapter: one disc of radius~$1$ centred at $(4, 4)$, the goal
+throughout the chapter: one disk of radius~$1$ centerd at $(4, 4)$, the goal
 at $(8, 4)$, $k_{\mathrm{att}} = k_{\mathrm{rep}} = 1$ and $\rho_0 = 2$. What
 the surface does not show at this scale is the feature that matters most: on
-the line from the far side of the disc to the goal, the slopes of the bowl
+the line from the far side of the disk to the goal, the slopes of the bowl
 and of the chimney cancel at one point, a critical point that is not the goal
 (\cref{sec:ch15-localmin}).
 
@@ -269,9 +264,9 @@ and of the chimney cancel at one point, a critical point that is not the goal
   \centering
   \inputfigure{ch15/surface}
   \caption{The total potential $U$ of the one-disc scene (goal at $(8,4)$,
-  disc of radius $1$ at $(4,4)$, $k_{\mathrm{att}} = k_{\mathrm{rep}} = 1$,
-  $\rho_0 = 2$), clipped at $U = 40$. The quadratic bowl is centred at the
-  goal; the repulsive term is zero beyond $\rho_0 = 2$ from the disc and rises
+  disk of radius $1$ at $(4,4)$, $k_{\mathrm{att}} = k_{\mathrm{rep}} = 1$,
+  $\rho_0 = 2$), clipped at $U = 40$. The quadratic bowl is centerd at the
+  goal; the repulsive term is zero beyond $\rho_0 = 2$ from the disk and rises
   to infinity at its boundary. Notice how gentle the bowl is compared with the
   chimney: close to the obstacle the attraction is negligible, far from it the
   obstacle is invisible.}
@@ -353,14 +348,13 @@ moved less than $\delta$ during the last $W$ steps -- the only way a gradient
 method can notice a local minimum, since the force there is zero and the
 drone simply stops.
 
-Line~\ref{alg:ch15-descend:clip} is the \textbf{velocity limit}\index{velocity
-limit}. The force has the units of a velocity only by convention: Khatib's
+Line~\ref{alg:ch15-descend:clip} is the \textbf{velocity limit}\index{velocity limit}. The force has the units of a velocity only by convention: Khatib's
 original applied $\vect{F}$ to a mass with viscous damping, $m\ddot{\pos} =
 \vect{F} - b\dot{\pos}$, while almost every mobile-robot implementation uses
 the first-order form $\vel = \vect{F}$ and sends $\vel$ to the velocity
 controller of the vehicle. The magnitude of $\vect{F}$ is then arbitrary and
 can be enormous, $k_{\mathrm{rep}}/\rho^3$ at a clearance of a few
-centimetres. The clip keeps the direction, which is the information the
+centimeters. The clip keeps the direction, which is the information the
 field carries, caps the speed at what the drone can fly, and bounds every
 step by $\dt\, v_{\max}$, which \cref{sec:ch15-oscillation} shows to be the
 difference between a controller that chatters and one that crashes. The
@@ -376,19 +370,19 @@ an obstacle is felt, and $\dt$ and $v_{\max}$ set the step length.
 
 \begin{example}[One drone, one obstacle]
 \label{ex:ch15-disc}
-The scene is that of \cref{fig:ch15-surface}: a disc obstacle of radius $1$
-centred at $(4, 4)$, the goal $\pos_{\mathrm{g}} = (8, 4)$, the gains
+The scene is that of \cref{fig:ch15-surface}: a disk obstacle of radius $1$
+centerd at $(4, 4)$, the goal $\pos_{\mathrm{g}} = (8, 4)$, the gains
 $k_{\mathrm{att}} = k_{\mathrm{rep}} = 1$ and the influence distance $\rho_0 =
-2$, so the repulsion acts within $3$ units of the disc centre (the dashed
+2$, so the repulsion acts within $3$ units of the disk center (the dashed
 circle in \cref{fig:ch15-field}). We evaluate the forces at three probe
 points, $A = (0.5, 4)$ far to the left, $B = (2.5, 4)$ on the axis half a unit
-from the disc, and $C = (3, 5.3)$ above and to the left of it, and then run
+from the disk, and $C = (3, 5.3)$ above and to the left of it, and then run
 \cref{alg:ch15-descend} from the start $(0, 4.5)$. The instance is
 \code{worked\_example()} in \code{ch15\_potential\_fields.py}, and every
 number below is printed by its self-test.
 \end{example}
 
-\emph{Point $A = (0.5, 4)$.} The distance to the disc centre is $3.5$, so the
+\emph{Point $A = (0.5, 4)$.} The distance to the disk center is $3.5$, so the
 clearance is $\rho = 2.5 > \rho_0$ and the repulsion is zero. The attraction
 is $\vect{F}_{\mathrm{att}} = -(\pos - \pos_{\mathrm{g}}) = -(0.5 - 8,\, 4 - 4)
 = (7.5, 0)$, and $U = \tfrac12 \cdot 7.5^2 = 28.125$.
@@ -402,12 +396,12 @@ $\tfrac12 \cdot 5.5^2 + \tfrac12 \cdot 1.5^2 = 16.25$. Somewhere between $A$
 and $B$ the horizontal force changes sign, and at that point a drone on the
 axis stops (\cref{sec:ch15-localmin}).
 
-\emph{Point $C = (3, 5.3)$.} The offset from the centre is $(-1, 1.3)$, of
+\emph{Point $C = (3, 5.3)$.} The offset from the center is $(-1, 1.3)$, of
 length $\sqrt{2.69} = 1.6401$, so $\rho = 0.6401$ and $\nabla\rho = (-0.6097,
 0.7926)$. The attraction is $(5, -1.3)$. The repulsion has magnitude
 $(1/0.6401 - 0.5)/0.6401^2 = 2.5928$ and equals $(-1.5805, 2.0547)$; the
 total force is $(3.4195, 0.7547)$, of magnitude $3.5018$. The drone is
-deflected upwards, over the obstacle, while still making progress towards
+deflected upward, over the obstacle, while still making progress toward
 the goal. \Cref{tab:ch15-forces} collects the three evaluations.
 
 \begin{table}[tb]
@@ -435,7 +429,7 @@ the goal. \Cref{tab:ch15-forces} collects the three evaluations.
   \caption{The force field of \cref{ex:ch15-disc}: arrows show the direction
   of $\vect{F}$, the dashed circle is the influence boundary $\rho = \rho_0$,
   the red dots are the probe points of \cref{tab:ch15-forces}, and the blue
-  curve is the trajectory from $(0, 4.5)$, which passes the disc with a
+  curve is the trajectory from $(0, 4.5)$, which passes the disk with a
   minimum clearance of $0.519$ and reaches the goal after $1\,099$ steps.
   Notice the arrows on the axis between $x = 1$ and $x = 3$, which first
   point right and then left: there the two forces cancel at one point.}
@@ -444,14 +438,14 @@ the goal. \Cref{tab:ch15-forces} collects the three evaluations.
 
 \Cref{fig:ch15-field} shows the trajectory from $(0, 4.5)$. The drone flies
 straight until it enters the influence circle, is deflected over the top of
-the disc, and curves back down to the goal, which it reaches after $1\,099$
+the disk, and curves back down to the goal, which it reaches after $1\,099$
 steps, that is, $10.99$ time units, with a minimum clearance of $0.519$. The
 path is $8.957$ units long against a straight-line distance of $8.016$; the
 detour costs about $12\,\%$. The drone flies at the speed limit until it is
 one unit from the goal; the last stretch is the exponential approach of the
 quadratic bowl, which is why the goal tolerance is needed. The same run with the hybrid potential
 ($d^* = 2$) reaches the goal in $1\,171$ steps with a larger clearance,
-$0.695$, because next to the disc the conic pull has the magnitude
+$0.695$, because next to the disk the conic pull has the magnitude
 $k_{\mathrm{att}} d^* = 2$ instead of about $5$: the ratio of the two forces
 near an obstacle, not their absolute size, shapes the path.
 
@@ -536,7 +530,7 @@ is locally Lipschitz along the trajectory. Then:
   \item $U(\pos(t))$ is non-increasing, with $\frac{d}{dt} U(\pos(t)) = -\norm{\nabla U(\pos(t))}^2$;
   \item the drone never touches an obstacle: $\rho_i(\pos(t)) \ge \rho_{\min} > 0$ for all $t$ and $i$, where
         $\rho_{\min} = \bigl(1/\rho_0 + \sqrt{2U_0/k_{\mathrm{rep}}}\bigr)^{-1}$;
-  \item $\pos(t)$ stays in a bounded neighbourhood of the goal -- within
+  \item $\pos(t)$ stays in a bounded neighborhood of the goal -- within
         $\sqrt{2U_0/k_{\mathrm{att}}}$ with the quadratic attraction
         \cref{eq:ch15-uatt}, within $U_0/(k_{\mathrm{att}} d^*) + d^*/2$ with the
         hybrid one \cref{eq:ch15-hybrid} -- and converges to the set of
@@ -595,7 +589,7 @@ summands contain a positive power of $d$ when $n \ge 2$.
 \begin{remark}[Critical points other than the goal cannot be avoided]
 \label{rem:ch15-saddles}
 Koditschek and Rimon~\cite{koditschek1990navigation} showed, using Morse
-theory, that on a sphere world (a disc with $M$ disjoint disc obstacles
+theory, that on a sphere world (a disk with $M$ disjoint disk obstacles
 removed) every smooth Morse potential that has the goal as its only minimum and is
 maximal on the obstacle boundaries has at least $M$ other critical points.
 The reason is topological: the free space has Euler characteristic $1 - M$,
@@ -623,9 +617,9 @@ gives the formula that explains it. Every number is printed by the self-test.
 \label{sec:ch15-localmin}
 
 Put the drone at $(0, 4)$ in the scene of \cref{ex:ch15-disc}, so that the
-disc sits exactly between it and the goal. By symmetry the force on the axis
+disk sits exactly between it and the goal. By symmetry the force on the axis
 $y = 4$ is horizontal, and for $1 \le x < 3$, inside the influence region
-and left of the disc, its $x$-component is
+and left of the disk, its $x$-component is
 \begin{equation}
   F_x(x) = (8 - x) - \left( \frac{1}{3 - x} - \frac{1}{2} \right) \frac{1}{(3 - x)^2},
   \label{eq:ch15-axis}
@@ -641,7 +635,7 @@ at the start to about $16$ at $x^*$ and then climbs the chimney. This is
 \index{artificial potential field!local minimum}the \textbf{classic local
 minimum}: the attraction says ``forward'', the repulsion says ``back'', and
 where they cancel the drone stops, although a free path over or under the
-disc exists: the shortest one, two tangents and an arc, is $8.25$ units
+disk exists: the shortest one, two tangents and an arc, is $8.25$ units
 against the straight-line $8$, only $3\,\%$ longer, and even one that keeps
 the clearance $0.519$ of \cref{fig:ch15-field} costs $7\,\%$.
 
@@ -668,32 +662,32 @@ of \cref{rem:ch15-saddles} is a saddle and only the starts exactly on the
 axis are trapped -- little comfort in practice, because a drone near the
 axis lingers next to the saddle, and any asymmetry (a second obstacle, a
 wall, a non-convex shape) turns the saddle into a true minimum. The basin
-experiment of \cref{sec:ch15-basin} uses two overlapping discs, and there
+experiment of \cref{sec:ch15-basin} uses two overlapping disks, and there
 $41\,\%$ of the starts end in a genuine local minimum with two positive
 Hessian eigenvalues.
 
 \subsection{Goals non-reachable with obstacles nearby (GNRON)}
 \label{sec:ch15-gnron}
 
-Move the goal to $(5.4, 4)$, $0.4$ units from the right edge of the disc and
+Move the goal to $(5.4, 4)$, $0.4$ units from the right edge of the disk and
 therefore well inside its influence region, and start the drone at $(8, 6)$.
 The run \code{gnron\_case()} stops at $(5.968, 4.001)$, $0.568$ units short
 of the goal, and stays there (\cref{fig:ch15-gnron}). The cause is
 \cref{thm:ch15-goal}(b): at the goal the attraction vanishes but the
 repulsion does not; with $\rho = 0.4$ it has the magnitude $(1/0.4 -
-1/2)/0.4^2 = 12.5$ and points away from the disc. The minimum of $U$ is
-where the pull towards the goal balances the push away from the disc,
+1/2)/0.4^2 = 12.5$ and points away from the disk. The minimum of $U$ is
+where the pull toward the goal balances the push away from the disk,
 $k_{\mathrm{att}}\, d = k_{\mathrm{rep}} (1/\rho - 1/\rho_0)/\rho^2$ with
 $\rho = 0.4 + d$, whose solution $d = 0.568$ is exactly where the drone
 stops. Ge and Cui~\cite{ge2000new} named the phenomenon
 \textbf{GNRON}\index{GNRON (goals non-reachable with obstacles nearby)},
 \emph{goals non-reachable with obstacles nearby}; a landing pad next to a
-building or a formation slot beside a neighbour is enough to produce it.
+building or a formation slot beside a neighbor is enough to produce it.
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch15/gnron}
-  \caption{Failure mode 2: the goal lies $0.4$ from the disc, inside the
+  \caption{Failure mode 2: the goal lies $0.4$ from the disk, inside the
   influence region. (a) With Khatib's repulsion (solid blue) the drone from
   $(8, 6)$ stops $0.57$ short of the goal, where attraction and repulsion
   balance; with the repulsion multiplied by $d^2$ (dashed orange) it arrives.
@@ -721,7 +715,7 @@ corrected force, line~\ref{alg:ch15-force:gnron} of \cref{alg:ch15-force}:
   \label{eq:ch15-gnron-f}
 \end{equation}
 The first term is the old repulsion, scaled down near the goal; the second
-is a new pull \emph{towards} the goal, present only inside influence
+is a new pull \emph{toward} the goal, present only inside influence
 regions. By \cref{thm:ch15-goal}(c) the goal is now the global minimum, and
 for $n \ge 2$ also a critical point; with $n = 1$ the second term keeps a
 non-zero magnitude at the goal whose direction depends on the side of
@@ -750,7 +744,7 @@ waypoint as reached at a tolerance of the order of $\rho_0$, or use
 \subsection{Oscillation in narrow passages and with discrete time steps}
 \label{sec:ch15-oscillation}
 
-Two discs of radius $1$ centred at $(4, 2.5)$ and $(4, 5.5)$ leave a passage
+Two disks of radius $1$ centerd at $(4, 2.5)$ and $(4, 5.5)$ leave a passage
 of width $1.0$ on the axis $y = 4$; the drone starts at $(0, 4.3)$ and its
 goal is $(8, 4.2)$, slightly off the axis as in any real scene.
 \Cref{fig:ch15-oscillation} shows three runs of \code{corridor\_case()}
@@ -771,7 +765,7 @@ same in all three runs; what differs is the step.
   per step) it zigzags between the walls; with $\dt = 0.10$ and no limit
   (red) the lateral error changes sign and grows at every step inside the
   passage, and the third step there overshoots the axis by $0.80$, more than
-  the half-width $0.5$, so the drone ends inside the lower disc after $8$
+  the half-width $0.5$, so the drone ends inside the lower disk after $8$
   steps. The lateral stiffness at the midpoint
   is $81$, so $\dt\,\lambda_{\max}$ is $0.81$, $4.05$ and $8.1$.}
   \label{fig:ch15-oscillation}
@@ -785,7 +779,7 @@ $\mat{H} = \nabla^2 U(\pos^*)$ and eigenvalues $0 < \lambda_1 \le \dots \le
 (line~\ref{alg:ch15-descend:step} of \cref{alg:ch15-descend} while the speed
 limit is inactive) is locally asymptotically stable at $\pos^*$ if
 $\dt\, \lambda_{\max} < 2$ and unstable if $\dt\, \lambda_{\max} > 2$; at
-$\dt\, \lambda_{\max} = 2$ the linearisation is marginally stable and decides
+$\dt\, \lambda_{\max} = 2$ the linearization is marginally stable and decides
 nothing. Along the eigenvector of $\lambda_i$ the error
 is multiplied by $1 - \dt\,\lambda_i$ per step: it shrinks monotonically for
 $\dt\,\lambda_i < 1$, alternates in sign for $1 < \dt\,\lambda_i < 2$, and
@@ -799,7 +793,7 @@ eigenvalues $1 - \dt\,\lambda_i$, and the linear recursion is
 asymptotically stable when all of them have modulus below $1$, that is, when
 $\dt\,\lambda_i < 2$ for all $i$, and unstable when one of them has modulus
 above $1$; the nonlinear system inherits both properties from its
-linearisation (Lyapunov's indirect method~\cite{khalil2002nonlinear}), which says nothing
+linearization (Lyapunov's indirect method~\cite{khalil2002nonlinear}), which says nothing
 when a modulus equals $1$. The statements about
 monotone and alternating decay are the sign and size of the factor.
 \end{proof}
@@ -864,8 +858,8 @@ damped mass, and noisy distances produce a jittering force.
 \subsection{No passage between closely spaced obstacles}
 \label{sec:ch15-nopassage}
 
-Narrow the passage to $w = 0.6$ (discs centred at $(4, 2.7)$ and $(4,
-5.3)$). The axis stays $0.3$ clear of both discs, so the passage is free,
+Narrow the passage to $w = 0.6$ (disks centerd at $(4, 2.7)$ and $(4,
+5.3)$). The axis stays $0.3$ clear of both disks, so the passage is free,
 and a drone that starts inside it is carried through: on the axis at $x = 4$
 the factor $4 - x$ of \cref{eq:ch15-gapforce} below kills the horizontal
 repulsion, so $F_x(4) = 8 - 4 = 4 > 0$ points at the goal, and the run
@@ -874,7 +868,7 @@ steps with a minimum clearance of $0.300$. Yet the drone from $(0, 4.3)$ never g
 $(3.163, 4.005)$, in front of the entrance, after $446$ steps
 (\cref{fig:ch15-nopassage}a). On the axis the vertical components of the two
 repulsions cancel and their horizontal components add. With $r(x) =
-\sqrt{(4 - x)^2 + 1.3^2}$ the distance to either centre and $\rho = r - 1$,
+\sqrt{(4 - x)^2 + 1.3^2}$ the distance to either center and $\rho = r - 1$,
 \begin{equation}
   F_x(x) = (8 - x) - 2\, k_{\mathrm{rep}} \left( \frac{1}{\rho} - \frac{1}{\rho_0} \right)
            \frac{1}{\rho^2}\, \frac{4 - x}{r},
@@ -905,15 +899,14 @@ planner in cluttered spaces.
   \label{fig:ch15-nopassage}
 \end{figure}
 
-\subsection{The Koren--Borenstein critique, summarised honestly}
+\subsection{The Koren--Borenstein critique, summarized honestly}
 \label{sec:ch15-koren}
 
 Koren and Borenstein~\cite{koren1991potential} tested their own
 implementation, the \emph{virtual force field}, on a mobile robot with sonar
 sensors, the repulsion being summed over the occupied cells of a certainty
 grid. They found the four problems above, concluded that potential fields
-are unsuitable for real-time obstacle avoidance, and replaced them with the \textbf{vector field histogram}\index{vector field
-histogram} (VFH) of Borenstein and Koren~\cite{borenstein1991vfh}, which picks
+are unsuitable for real-time obstacle avoidance, and replaced them with the \textbf{vector field histogram}\index{vector field histogram} (VFH) of Borenstein and Koren~\cite{borenstein1991vfh}, which picks
 a steering direction from a polar histogram instead of adding vectors. Three
 decades later the honest summary is this.\index{Koren--Borenstein critique}
 \begin{itemize}
@@ -925,7 +918,7 @@ decades later the honest summary is this.\index{Koren--Borenstein critique}
   \item \emph{The oscillations are partly implementation-dependent.} The
   first-order controller with exact distances never oscillates in
   continuous time (\cref{thm:ch15-descent}); what oscillated in their
-  experiments was discretisation, robot dynamics and sonar noise. But the
+  experiments was discretization, robot dynamics and sonar noise. But the
   stiffness \cref{eq:ch15-stiffness} leaves every discrete controller a
   passage too narrow for it.
   \item \emph{The verdict was about a role, not about the idea.} It
@@ -947,7 +940,7 @@ unique minimum, and whose other critical points are non-degenerate saddles.
 By \cref{thm:ch15-descent} and \cref{rem:ch15-saddles} this is the strongest
 possible guarantee: every start outside a set of measure zero reaches the
 goal, and no start collides. For a \textbf{sphere world}\index{sphere world}
--- a disc of radius $r_0$ centred at $\vect{c}_0$ with $M$ disjoint disc
+-- a disk of radius $r_0$ centerd at $\vect{c}_0$ with $M$ disjoint disk
 obstacles $(\vect{c}_i, r_i)$ inside -- they construct one explicitly:
 \begin{equation}
   \varphi_\kappa(\pos) = \frac{\norm{\pos - \pos_{\mathrm{g}}}^2}
@@ -1006,7 +999,7 @@ far-away goal are simply not there. The dashed path of
 drone reaches the waypoint, then the goal, in $1\,188$ steps, without any
 change to the field; \code{follow\_waypoints()} in
 \code{ch15\_potential\_fields.py} is the whole mechanism, a loop that runs
-\cref{alg:ch15-descend} towards each waypoint with a loose tolerance and
+\cref{alg:ch15-descend} toward each waypoint with a loose tolerance and
 aborts when a leg does not end with ``reached''. The field keeps its job as
 the reactive layer -- obstacles that were not on the map, and other drones,
 still repel -- and two rules keep the arrangement honest: waypoints must be
@@ -1020,7 +1013,7 @@ path, which is the loop of \cref{ch:ch24}.
 
 How much of the start space does a local minimum capture, and how much does
 a random walk recover? \code{basin\_experiment()} answers this for a scene
-with two obstacles: discs of radius $1$ centred at $(4, 3.2)$ and $(4,
+with two obstacles: disks of radius $1$ centerd at $(4, 3.2)$ and $(4,
 5.0)$, which overlap into a single peanut-shaped obstacle with a concave
 waist, and the goal at $(8, 4.1)$. Drones are released from $441$ starts on
 a $21 \times 21$ grid covering $x \in [0, 2]$, $y \in [0.5, 7.7]$, and
@@ -1040,7 +1033,7 @@ for starts already inside the influence region.
   \caption{The basin experiment. (a) $441$ starts in front of a
   peanut-shaped obstacle with the goal at $(8, 4.1)$: blue dots reach the
   goal, orange squares end in the local minimum at $(2.676, 4.1)$ (red
-  cross), grey curves are the trajectories from the column $x = 0$; the
+  cross), gray curves are the trajectories from the column $x = 0$; the
   basin is a band around the symmetry axis holding $41\,\%$ of the starts.
   (b) A single-drone run from the trapped start $(0, 4.1)$ with random-walk
   escapes (green), drawn from its own random stream: after $8$ walks and
@@ -1077,7 +1070,7 @@ that can tell the rest of the system that the field has failed;
 \label{sec:ch15-swarm}
 
 Nothing in \cref{alg:ch15-force} requires an obstacle to be static. The
-other drones of the swarm are obstacles too, discs of radius $r$ that move,
+other drones of the swarm are obstacles too, disks of radius $r$ that move,
 and the natural extension is a pairwise repulsion with the clearance
 $\rho_{ij} = \norm{\pos_i - \pos_j} - 2r$ between drones $i$ and $j$:
 \begin{equation}
@@ -1093,7 +1086,7 @@ is a clearance here, not the correlation of \cref{ch:ch02}).
 symmetric -- the term that $j$ exerts on $i$ is the negative of the term $i$
 exerts on $j$ -- so the pair shares one potential. \code{simulate\_swarm()}
 runs it for six drones on a ring of radius $3$ whose goals are the opposite
-points of the ring, so that all six nominal paths cross at the centre at the
+points of the ring, so that all six nominal paths cross at the center at the
 same moment. Without the pair term the minimum separation over the run is
 $0.000$: all six meet. With $k_{\mathrm{a}} = 1$, $\rho_{\mathrm{a}} = 1.5$,
 $r = 0.25$ and $\dt = 0.02$ it is $1.044$, twice the touching distance $2r = 0.5$, and
@@ -1109,30 +1102,30 @@ repulsion has no notion of who yields; the reciprocal velocity obstacles of
   \inputfigure{ch15/swarm}
   \caption{Inter-agent repulsion and flocking. (a) Reynolds's three rules
   seen from the focal drone (blue): separation pushes it away from close
-  neighbours, alignment turns its velocity towards the neighbours' average
-  heading (grey arrows), cohesion pulls it towards their centroid; all three
-  use only the neighbours within the radius $\rho_{\mathrm{a}}$. (b) Six
+  neighbors, alignment turns its velocity toward the neighbors' average
+  heading (gray arrows), cohesion pulls it toward their centroid; all three
+  use only the neighbors within the radius $\rho_{\mathrm{a}}$. (b) Six
   drones on a ring of radius $3$ swap places with their opposite points.
-  With pairwise repulsion (blue) the closest approach is $1.044$; the grey
-  lines are the paths without it, which all pass through the centre at the
+  With pairwise repulsion (blue) the closest approach is $1.044$; the gray
+  lines are the paths without it, which all pass through the center at the
   same time.}
   \label{fig:ch15-swarm}
 \end{figure}
 
 \paragraph{Flocking and consensus.}
 Reynolds~\cite{reynolds1987flocks} animated flocks with three local rules
-that every agent applies to the neighbours within a radius
+that every agent applies to the neighbors within a radius
 (\cref{fig:ch15-swarm}a): \textbf{separation}\index{flocking!separation},
-steer away from neighbours that are too close;
-\textbf{alignment}\index{flocking!alignment}, steer towards the average
-velocity of the neighbours; and \textbf{cohesion}\index{flocking!cohesion},
-steer towards their centroid. The three rules are potential fields and one
+steer away from neighbors that are too close;
+\textbf{alignment}\index{flocking!alignment}, steer toward the average
+velocity of the neighbors; and \textbf{cohesion}\index{flocking!cohesion},
+steer toward their centroid. The three rules are potential fields and one
 thing more. Separation is \cref{eq:ch15-interagent}. Cohesion is an
 attractive potential whose goal moves, $\tfrac12 k_{\mathrm{c}} \norm{\pos_i
-- \bar{\pos}_i}^2$ with $\bar{\pos}_i$ the centroid of the neighbours.
+- \bar{\pos}_i}^2$ with $\bar{\pos}_i$ the centroid of the neighbors.
 Alignment is not the gradient of any potential over positions; it acts on
 velocities. Write $N_i = \set{j \ne i \colon \norm{\pos_i - \pos_j} \le
-\rho_{\mathrm{a}}}$ for the neighbours of drone $i$ within the interaction
+\rho_{\mathrm{a}}}$ for the neighbors of drone $i$ within the interaction
 radius $\rho_{\mathrm{a}}$, and let $\alpha > 0$ be the alignment gain, small
 enough that $\alpha \abs{N_i} < 1$ for every drone, so that each update is a
 convex combination of the velocities:
@@ -1141,7 +1134,7 @@ convex combination of the velocities:
   \label{eq:ch15-alignment}
 \end{equation}
 and \cref{eq:ch15-alignment} is exactly the consensus update of
-\cref{ch:ch23} applied to the velocities: on a connected neighbourhood graph
+\cref{ch:ch23} applied to the velocities: on a connected neighborhood graph
 all velocities converge to a common value and the flock moves as one.
 Olfati-Saber~\cite{olfatisaber2006flocking} made the correspondence precise
 and proved that a pairwise potential (separation and cohesion in one smooth
@@ -1159,7 +1152,7 @@ the convergence proofs that this chapter, with its local minima, cannot.
 \label{sec:ch15-implementation}
 
 \code{ch15\_potential\_fields.py} implements everything in this chapter for
-a point drone in the plane with disc obstacles. Positions are NumPy arrays
+a point drone in the plane with disk obstacles. Positions are NumPy arrays
 of shape $(2,)$ or $(N, 2)$, and every function broadcasts over the leading
 axis, so that \code{simulate\_many()} advances $N$ drones with one call per
 step and the basin experiment moves its $441$ drones for $4\,000$ steps in
@@ -1215,7 +1208,7 @@ because the formula changes sign there.
 
 \paragraph{Distance queries.}
 Line~\ref{alg:ch15-force:dist} of \cref{alg:ch15-force} is where the
-implementation meets the map. For discs it is a subtraction; for a polygon,
+implementation meets the map. For disks it is a subtraction; for a polygon,
 the minimum over its edges of the point-to-segment distance of
 \cref{ch:ch02}; for a grid map, a Euclidean distance transform computed
 once, with the gradient read off by central differences. With many obstacles, keep them in a uniform
@@ -1227,7 +1220,7 @@ which is the mechanism of \cref{sec:ch15-nopassage}.
 \paragraph{Discrete-time instability and the controller loop.}
 The loop of \code{simulate\_many()} is \cref{alg:ch15-descend} with the
 three tests, the clipped step and the optional random-walk escape of
-\cref{sec:ch15-remedies}, vectorised over the drones with boolean masks. The
+\cref{sec:ch15-remedies}, vectorized over the drones with boolean masks. The
 stuck detector compares the current position with the position $W$ steps
 ago; $W$ should cover several periods of any chatter, and the tolerance
 $\delta$ should exceed the chatter amplitude $\dt\,v_{\max}$, otherwise a
@@ -1289,11 +1282,11 @@ is \cref{exr:ch15-coding}.
   \item The controller is explicit Euler with a speed limit and a stuck detector. In continuous time the potential decreases monotonically, the drone never touches an obstacle, and it converges to a critical point of $U$, which is the goal only when nothing cancels the attraction first.
   \item The four failure modes have formulas: a local minimum where $\vect{F}_{\mathrm{att}} + \vect{F}_{\mathrm{rep}} = \vect{0}$; GNRON, a goal inside $\rho_0$ where $\vect{F}_{\mathrm{rep}} \ne \vect{0}$, cured by the factor $d^{\,n}$; oscillation once $\dt\,\lambda_{\max} > 1$ and divergence once $\dt\,\lambda_{\max} > 2$, with a stiffness growing like the inverse fourth power of a passage width; and blocked passages, where two repulsions add up in front of a free gap.
   \item Critical points other than the goal cannot be avoided by any potential; navigation functions make them all saddles on sphere worlds, harmonic potentials need a global grid computation, random walks cost time and path quality. The remedy that scales is to use the field as a local layer under a global plan, with a stalled leg triggering replanning.
-  \item Inter-agent repulsion is Reynolds's separation rule, cohesion a spring to the neighbours' centroid, alignment a velocity consensus. Potential fields survive in the swarm as soft spacing and formation keeping, while \orca and DWA take the safety layer.
+  \item Inter-agent repulsion is Reynolds's separation rule, cohesion a spring to the neighbors' centroid, alignment a velocity consensus. Potential fields survive in the swarm as soft spacing and formation keeping, while \orca and DWA take the safety layer.
 \end{itemize}
 \end{summary}
 
-\paragraph*{Further reading.}
+\paragraph{Further reading.}
 Khatib~\cite{khatib1986realtime} introduced the artificial potential field
 with the FIRAS repulsion; Koren and Borenstein~\cite{koren1991potential} is
 the critique of \cref{sec:ch15-koren}, still worth reading for its
@@ -1319,7 +1312,7 @@ borrows: LaSalle's invariance principle and the indirect method.
 \label{exr:ch15-derivation}
 (a) Derive the repulsive force \cref{eq:ch15-frep} from the potential
 \cref{eq:ch15-urep} and show that the force is continuous at $\rho =
-\rho_0$. (b) Give $\rho$ and $\nabla\rho$ for a disc and for a segment
+\rho_0$. (b) Give $\rho$ and $\nabla\rho$ for a disk and for a segment
 obstacle (\cref{ch:ch02}), and say where $\nabla\rho$ is discontinuous. (c) Derive the corrected
 force \cref{eq:ch15-gnron-f} from \cref{eq:ch15-gnron-u} and show that at
 the goal it vanishes for $n \ge 2$ but not for $n = 1$.
@@ -1353,7 +1346,7 @@ saddle into a minimum.
 non-negative with its global minimum at the goal, and that for $n \ge 2$ the
 goal is a critical point. (b) Run the corrected field with $n = 1$ and a goal
 tolerance below the chatter amplitude $\dt\, v_{\max}$,
-\code{simulate((8,6), (5.4,4), DISC, replace(prm, n\_gnron=1, goal\_tol=1e-3))},
+\code{simulate((8,6), (5.4,4), DISK, replace(prm, n\_gnron=1, goal\_tol=1e-3))},
 describe the motion near the goal and explain it with
 \cref{exr:ch15-derivation}(c); repeat with $n = 2$ and with the chapter's
 tolerance $\eps_{\mathrm{g}} = 0.05$ and say what each run reports.
@@ -1367,7 +1360,7 @@ why the stopping point moves.
 (a) Without obstacles and without a speed limit, write the update of
 \cref{alg:ch15-descend} for the quadratic bowl as a linear recursion for the
 error $\pos_k - \pos_{\mathrm{g}}$ and find the values of $k_{\mathrm{att}}\dt$
-for which it converges monotonically, with alternating sign, or diverges. (b) Generalise to an arbitrary minimum with
+for which it converges monotonically, with alternating sign, or diverges. (b) Generalize to an arbitrary minimum with
 Hessian $\mat{H}$ and derive the condition of \cref{thm:ch15-stability}.
 (c) Derive \cref{eq:ch15-stiffness}, evaluate it for the widths $0.6$, $0.8$
 and $1.0$, and explain which runs of \cref{tab:ch15-corridor} the linear
@@ -1403,11 +1396,11 @@ both in the same way.
 \begin{exercise}[\difficulty{3} Coding]
 \label{exr:ch15-flocking}
 Extend \code{simulate\_swarm()} with Reynolds's alignment and cohesion
-rules, the velocity update \cref{eq:ch15-alignment} over the neighbours
-within $\rho_{\mathrm{a}}$ and a spring towards their centroid. Release
+rules, the velocity update \cref{eq:ch15-alignment} over the neighbors
+within $\rho_{\mathrm{a}}$ and a spring toward their centroid. Release
 twenty drones with random positions and velocities and plot the spread of
 the velocities and of the positions against time. Show that the
-velocities converge to a common value when the neighbourhood graph stays
+velocities converge to a common value when the neighborhood graph stays
 connected, construct an initial configuration in which the swarm splits into
 two flocks that never meet, and relate both outcomes to the consensus results
 of \cref{ch:ch23}.
@@ -1418,7 +1411,7 @@ of \cref{ch:ch23}.
 The Week~7 coding exercise of the study plan (\cref{ch:appA}): implement a
 potential-field controller in the plane and create its failure cases, without
 reading \code{ch15\_potential\_fields.py} until you are stuck. (a) Implement \cref{alg:ch15-force,alg:ch15-descend}
-for disc and segment obstacles and check your forces against central
+for disk and segment obstacles and check your forces against central
 differences of your potential. (b) Reproduce the four
 failure modes of \cref{sec:ch15-failures} in scenes of your own -- a local
 minimum, a goal inside $\rho_0$ (then fix it with $n = 2$), an oscillating and

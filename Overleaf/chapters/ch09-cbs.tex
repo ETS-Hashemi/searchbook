@@ -13,7 +13,7 @@
   \item Define constraints, constraint-tree nodes, conflicts and the split rule exactly, and trace \cbs by hand on a small instance, drawing the constraint tree with its costs.
   \item Prove that \cbs is complete on solvable instances and returns a plan with the minimum sum of costs, and explain what its running time depends on.
   \item Implement \cbs from scratch in \python, certify its optimality against a brute-force search on tiny instances, and test it on 2, 4 and 8 agents.
-  \item Recognise the classic implementation mistakes, and know the improvements (cardinal conflicts, bypass, high-level heuristics, symmetry breaking) that turn textbook \cbs into a practical solver.
+  \item Recognize the classic implementation mistakes, and know the improvements (cardinal conflicts, bypass, high-level heuristics, symmetry breaking) that turn textbook \cbs into a practical solver.
 \end{itemize}
 \end{objectives}
 
@@ -127,7 +127,7 @@ searches and one node. Second, the high level never looks inside a route. It
 only asks the low level for the cheapest route under a list of forbidden
 (cell, time) pairs, which is precisely the space-time \astar of
 \cref{ch:ch04}. Any single-agent planner that returns optimal paths under
-such constraints can serve as the low level, which is why \cbs generalises
+such constraints can serve as the low level, which is why \cbs generalizes
 easily to other graphs, action sets and cost functions.
 
 % ---------------------------------------------------------------------
@@ -157,7 +157,7 @@ vertex conflict.
 Note that conflicts are checked for all $t$, including times after one of
 the agents has arrived: a parked drone still occupies its goal cell. A
 \textbf{solution} is a plan without conflicts; an \textbf{optimal} solution
-minimises $\sumcost$, and $C^*$ denotes its cost.
+minimizes $\sumcost$, and $C^*$ denotes its cost.
 
 \begin{definition}[Constraints]
 \label{def:ch09-constraint}
@@ -338,7 +338,7 @@ ever, generating ever more expensive nodes (\cref{sec:ch09-properties}).
 written against a constraint set.\index{CBS!low level} The search itself is
 unchanged, and it is worth saying which parts that covers. The state is a pair
 $(v, t)$; the wait action is generated before the moves; the key is
-$\fcost = t + d_i(v)$ with ties broken towards the larger $t$ (the ``deeper''
+$\fcost = t + d_i(v)$ with ties broken toward the larger $t$ (the ``deeper''
 state); and relaxation is replaced by duplicate detection, because
 $\gcost(v, t) = t$ for every route into a state, so the first time a state is
 generated it is already the cheapest. Because $d_i$ is consistent, no state is
@@ -374,7 +374,7 @@ cell $(2,1)$; the four dark cells are buildings. Three drones fly:
 $a_1$ from $(0,1)$ to $\gamma_1 = (4,1)$ along the horizontal corridor,
 $a_2$ from $(2,0)$ up to $\gamma_2 = (2,2)$, and $a_3$ from $(2,2)$ down
 through the crossing and then east to $\gamma_3 = (4,0)$. Cells are written
-$(x, y)$ with $x$ the column and $y$ the row, $y$ growing upwards.
+$(x, y)$ with $x$ the column and $y$ the row, $y$ growing upward.
 \end{example}
 
 \begin{figure}[tb]
@@ -442,7 +442,7 @@ returned plan.
   \inputfigure{ch09/tree}
   \caption{The constraint tree of \cref{ex:ch09-crossing}. Every child adds
     exactly one constraint to its parent's sets ($+$) and replans one agent.
-    Costs never decrease downwards. Nodes $N_4$, $N_5$ and $N_6$ were
+    Costs never decrease downward. Nodes $N_4$, $N_5$ and $N_6$ were
     generated but never expanded; $N_4$ is a second optimal solution.}
   \label{fig:ch09-tree}
 \end{figure}
@@ -680,7 +680,7 @@ after the $2\,000$ constraint-tree nodes ($0.3$~s) that the self-test
 allows it, because every extra
 unit of cost can be spent as a wait of one step by one of several agents
 at one of several times, and each of these choices is a separate branch.
-\Cref{tab:ch09-compare} summarises the comparison; the improvements of
+\Cref{tab:ch09-compare} summarizes the comparison; the improvements of
 \cref{sec:ch09-variants} attack precisely the open-room and corridor cases.
 
 \begin{table}[tb]
@@ -710,7 +710,7 @@ Plain \cbs, as defined so far, is a clean algorithm but a slow solver: on
 open maps it spends most of its time generating equal-cost nodes that
 resolve nothing. The improvements below, all of which keep optimality,
 attack this waste at four points: \emph{which} conflict to split, whether
-to split at all, how to \emph{guide} the high level, and how to recognise
+to split at all, how to \emph{guide} the high level, and how to recognize
 whole families of conflicts at once. The bounded-suboptimal relaxation of
 \cbs, \ecbs, is the subject of \cref{ch:ch10}.
 
@@ -733,11 +733,11 @@ splitting a non-cardinal conflict is almost always wasted work: both
 children keep the parent's cost, so \Open receives two nodes that are as
 good as their parent and still have conflicts, and the level of equal-cost
 nodes doubles. Splitting a cardinal conflict, in contrast, raises the cost in
-both children, so the search makes progress towards $C^*$ with every split.
+both children, so the search makes progress toward $C^*$ with every split.
 Their algorithm, improved \cbs (ICBS)\index{ICBS}\index{CBS!improved},
 therefore splits a cardinal conflict if the node has
 one, else a semi-cardinal one, else any conflict. \Cref{tab:ch09-conflict-types}
-summarises the three cases; in \cref{ex:ch09-crossing} every split was
+summarizes the three cases; in \cref{ex:ch09-crossing} every split was
 cardinal, which is why ICBS builds the same tree there.
 
 \begin{table}[tb]
@@ -757,14 +757,14 @@ cardinal, which is why ICBS builds the same tree there.
   \end{tabular}
 \end{table}
 
-Recognising the type without generating the children uses the
+Recognizing the type without generating the children uses the
 \textbf{multi-valued decision diagram}\index{MDD} (MDD) of an agent,
 introduced by Sharon et al.\ for the increasing cost tree
 search~\cite{sharon2013icts}: for agent $a_i$ with current cost $c =
 \cost(N.\pi_i)$, the MDD is the layered graph whose level $t$ contains every
 cell that lies at time $t$ on \emph{some} path of cost $c$ from $s_i$ to
 $\gamma_i$ respecting $N.\mathcal{C}_i$. Building it costs one breadth-first
-search forwards and one backwards in space-time. A vertex conflict at
+search forward and one backward in space-time. A vertex conflict at
 $(v, t)$ is cardinal exactly when $v$ is the only cell at level $t$ of both
 MDDs~\cite{boyarski2015icbs}, semi-cardinal when it is the only cell in one of them, and
 non-cardinal otherwise; edge conflicts are classified in the same way on
@@ -811,8 +811,7 @@ the tree.
 \label{sec:ch09-macbs}
 
 When two agents keep conflicting, a long chain of one-cell constraints is
-a poor way to coordinate them. Meta-agent \cbs (MA-CBS)\index{meta-agent
-CBS}\index{CBS!meta-agent} by Sharon et al.~\cite{sharon2015cbs} counts, for
+a poor way to coordinate them. Meta-agent \cbs (MA-CBS)\index{meta-agent CBS}\index{CBS!meta-agent} by Sharon et al.~\cite{sharon2015cbs} counts, for
 every pair of agents, the conflicts split between them in the search so far
 (some implementations count only along the current branch); when the count
 exceeds a bound $B$, the two agents are
@@ -861,7 +860,7 @@ has the single edge $a_2 a_3$, so $h_{\mathrm{CG}}(N_0) = 1$ and the root's
 key is $11$; in $N_1$ the conflict $\langle a_1, a_2, (2,1), 2\rangle$ is
 cardinal, so $N_1$ has key $12$, the same as $N_2$ (cost $11$ plus one
 cardinal edge) and the same as $N_3$ (cost $12$, no conflict). A tie-break
-towards fewer conflicts then pops $N_3$ before $N_2$, and CBSH expands three
+toward fewer conflicts then pops $N_3$ before $N_2$, and CBSH expands three
 nodes instead of four. Later work strengthened the heuristic with
 dependency graphs (an edge whenever the pair's MDDs admit no conflict-free
 joint path) and weighted dependency graphs (the edge weight is the pair's
@@ -879,7 +878,7 @@ one at a time. Li et al.~\cite{li2019symmetry} identified the most common
 one on grids, the \textbf{rectangle symmetry}\index{symmetry!rectangle}
 (\cref{fig:ch09-symmetry}, left): two agents whose shortest paths cross an
 obstacle-free rectangle in perpendicular directions, each moving
-monotonically towards its goal. \Cref{exr:ch09-rectangle} asks you to prove
+monotonically toward its goal. \Cref{exr:ch09-rectangle} asks you to prove
 that every shortest path of one agent conflicts with every shortest path of
 the other. \textbf{Rectangle reasoning} detects such a pair from the MDDs
 and the start--goal bounding boxes, and replaces the two one-cell
@@ -932,7 +931,7 @@ each $k$ the script \code{code/figures/gen\_ch09\_scaling.py} draws $12$
 instances with random distinct starts and goals and runs two solvers from
 \code{ch09\_cbs.py} on each, with a limit of $5$~s and $20\,000$ expanded
 nodes per run: plain \cbs (split the earliest conflict, ties on fewer
-conflicts) and \cbs with cardinal conflicts first and the bypass, labelled
+conflicts) and \cbs with cardinal conflicts first and the bypass, labeled
 ICBS. The success rate is the fraction of instances solved within the
 limits; the node counts are averaged over the solved instances only.
 
@@ -1026,7 +1025,7 @@ $(N.\cost,\ \text{number of conflicts},\ \text{node id})$. Fewer conflicts
 first is the rule of \cref{alg:ch09-cbs}; the id makes the order
 deterministic (first generated, first expanded), which the worked example
 and the self-test rely on. Preferring \emph{deeper} nodes among equal keys
-is another common choice: it dives towards a goal node instead of sweeping
+is another common choice: it dives toward a goal node instead of sweeping
 a level.
 
 \paragraph{Duplicate nodes.} Two branches can reach the same constraint
@@ -1081,7 +1080,7 @@ def low_level(grid: Grid, start: Cell, goal: Cell, cons: Constraints,
             return path[::-1]
         if t >= horizon:
             continue
-        for w in grid.neighbours(v) + [v]:           # moves and the wait action
+        for w in grid.neighbors(v) + [v]:           # moves and the wait action
             nxt = (w, t + 1)
             if nxt in closed or nxt in cons.vertex or (v, w, t) in cons.edge:
                 continue

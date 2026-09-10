@@ -10,9 +10,9 @@ distance of at least d_min from each other at every sampled instant.
 Obstacle avoidance and separation are "either-or" constraints written
 with the big-M trick and binary variables.  Three objectives exist:
 
-    fuel  minimise dt * sum_k ||u_k||_1   (one slack per input component)
-    peak  minimise max_k ||u_k||_inf      (one slack per vehicle)
-    time  minimise the arrival time       (arrival binaries, Richards & How)
+    fuel  minimize dt * sum_k ||u_k||_1   (one slack per input component)
+    peak  minimize max_k ||u_k||_inf      (one slack per vehicle)
+    time  minimize the arrival time       (arrival binaries, Richards & How)
 
 The model is solved with scipy.optimize.milp (the HiGHS branch-and-cut
 solver).  A small textbook branch-and-bound, whose LP relaxations are
@@ -496,7 +496,7 @@ def tiny_instance(objective="fuel"):
 
 
 def example_instance(objective="fuel", d_min=1.0, horizon=12, dt=0.5, inflate=0.0):
-    """The two-vehicle instance of the worked example (metres, seconds).
+    """The two-vehicle instance of the worked example (meters, seconds).
 
     inflate grows the block by that margin on every side (inter-sample safety).
     """
@@ -511,12 +511,12 @@ def example_instance(objective="fuel", d_min=1.0, horizon=12, dt=0.5, inflate=0.
 def crossing_instance(m, horizon, seed=0, objective="fuel"):
     """m vehicles on a circle around a central block, each to the antipode."""
     rng = np.random.default_rng(seed)
-    centre, radius = np.array([5.0, 5.0]), 4.0
+    center, radius = np.array([5.0, 5.0]), 4.0
     vehicles = []
     for i in range(m):
         ang = 2 * np.pi * i / m + rng.uniform(-0.15, 0.15)
-        start = centre + radius * np.array([np.cos(ang), np.sin(ang)])
-        goal = centre - radius * np.array([np.cos(ang), np.sin(ang)])
+        start = center + radius * np.array([np.cos(ang), np.sin(ang)])
+        goal = center - radius * np.array([np.cos(ang), np.sin(ang)])
         vehicles.append(Vehicle(tuple(np.round(start, 3)), tuple(np.round(goal, 3))))
     return Instance(vehicles=vehicles, obstacles=[(4.0, 6.0, 4.0, 6.0)],
                     horizon=horizon, dt=0.5, a_max=2.0, v_max=3.0, d_min=1.0,

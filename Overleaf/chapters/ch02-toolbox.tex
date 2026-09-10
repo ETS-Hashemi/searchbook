@@ -8,7 +8,7 @@
 \begin{objectives}
 \begin{itemize}
   \item Define graphs, grid graphs and 3D lattices precisely, including the cost of a diagonal move and the corner-cutting rule.
-  \item Explain why a disc-shaped drone can be planned as a point once the obstacles have been inflated by a Minkowski sum.
+  \item Explain why a disk-shaped drone can be planned as a point once the obstacles have been inflated by a Minkowski sum.
   \item Tell a path, a plan and a trajectory apart; build the time-expanded graph with wait actions; compute path length, travel time, makespan, sum of costs and minimum separation.
   \item Write down the single- and double-integrator models of a drone with velocity and acceleration limits, and compute its stopping distance.
   \item Use the geometric primitives of later chapters: distance to a segment, ray--circle intersection, tangents to a circle and the time of closest approach.
@@ -22,7 +22,7 @@
 
 Picture eight quadrotors inspecting the racks of a warehouse. A global planner has given each of them a route. Halfway through the mission a forklift-mounted drone that nobody planned for crosses the main aisle. To handle this scene the four layers of \cref{ch:ch24} need a shared vocabulary. The global planner needs a \emph{map} it can search: a graph, usually a grid. It also needs to know how \emph{big} a drone is, so that a route through a narrow gap is not a route into a shelf. It needs \emph{time}, because two drones may use the same aisle if they do so at different moments, and \emph{cost measures} to compare routes and whole multi-agent plans.
 
-The local safety layer needs the drone's \emph{motion limits} (how fast, how hard it can brake) and a small kit of \emph{geometry}: when do two moving discs touch, and which velocities steer clear of an obstacle? The prediction layer describes the intruder with a mean and a covariance, so the planner must understand \emph{uncertainty}. Finally, everything has to run in a few milliseconds, which is a question of \emph{computation}: complexity, priority queues and hashing.
+The local safety layer needs the drone's \emph{motion limits} (how fast, how hard it can brake) and a small kit of \emph{geometry}: when do two moving disks touch, and which velocities steer clear of an obstacle? The prediction layer describes the intruder with a mean and a covariance, so the planner must understand \emph{uncertainty}. Finally, everything has to run in a few milliseconds, which is a question of \emph{computation}: complexity, priority queues and hashing.
 
 This chapter collects these tools in one place. It is the only chapter with no planning algorithm of its own---its single piece of pseudocode is the priority queue that all the others run on---and it fixes instead the definitions and conventions that every later chapter cites by number. Read it once, then use it as a reference; the drone box of \cref{sec:ch02-drone} says which layer uses what. Every formal object gets a numbered definition, and every number quoted in the text comes from one of the companion files \code{code/ch02\_toolbox.py}, \code{code/figures/gen\_ch02\_gaussian.py} and \code{code/figures/gen\_ch02\_double\_integrator.py}.
 
@@ -32,7 +32,7 @@ This chapter collects these tools in one place. It is the only chapter with no p
 \label{sec:ch02-graphs}
 
 \begin{keyidea}
-Every planner in this book searches a graph. The graph may be explicit (a road map stored in memory), implicit (a grid whose neighbours are computed on demand) or time-expanded (one copy of the map per time step). The search algorithms of Parts~II and~III do not care which; they only ask a vertex for its successors and their costs.
+Every planner in this book searches a graph. The graph may be explicit (a road map stored in memory), implicit (a grid whose neighbors are computed on demand) or time-expanded (one copy of the map per time step). The search algorithms of Parts~II and~III do not care which; they only ask a vertex for its successors and their costs.
 \end{keyidea}
 
 \subsection{Graphs, paths and shortest paths}
@@ -75,7 +75,7 @@ This small fact is why consistent heuristics work (\cref{ch:ch04}) and why the b
 \subsection{Grid graphs}
 \label{sec:ch02-grids}
 
-Most maps in this book are \textbf{occupancy grids}\index{grid!occupancy}: the workspace is cut into unit squares, and each square is either free or blocked. A grid is a graph in disguise, as \cref{def:ch02-grid} makes precise. Our coordinate convention is the mathematical one: $x$ grows to the right, $y$ grows upwards, the cell $(0,0)$ sits in the lower-left corner, and we identify a cell with its centre when we measure distances. The ASCII maps used by the code (\code{.} for free, \code{\#} for blocked) list the \emph{top} row first, so the code flips the row index when it reads them.
+Most maps in this book are \textbf{occupancy grids}\index{grid!occupancy}: the workspace is cut into unit squares, and each square is either free or blocked. A grid is a graph in disguise, as \cref{def:ch02-grid} makes precise. Our coordinate convention is the mathematical one: $x$ grows to the right, $y$ grows upward, the cell $(0,0)$ sits in the lower-left corner, and we identify a cell with its center when we measure distances. The ASCII maps used by the code (\code{.} for free, \code{\#} for blocked) list the \emph{top} row first, so the code flips the row index when it reads them.
 
 \begin{definition}[Grid graph, 4- and 8-connectivity, corner-cutting rule]
 \label{def:ch02-grid}
@@ -85,17 +85,17 @@ A \textbf{grid}\index{grid} of width $W$ and height $H$ is the set of \textbf{ce
 \begin{figure}[tb]
   \centering
   \inputfigure{ch02/grid-connectivity}
-  \caption{Grid connectivity. (a)~The four straight moves of $G_4$ cost $1$ each. (b)~In $G_8$ the diagonal moves cost $\sqrt{2}$; the move into the obstacle is forbidden because the cell is blocked, and the two diagonals past its corners are forbidden by the corner-cutting rule. (c)~Why: a disc that slides diagonally past an obstacle corner clips it, even though the start and end cells are free.}
+  \caption{Grid connectivity. (a)~The four straight moves of $G_4$ cost $1$ each. (b)~In $G_8$ the diagonal moves cost $\sqrt{2}$; the move into the obstacle is forbidden because the cell is blocked, and the two diagonals past its corners are forbidden by the corner-cutting rule. (c)~Why: a disk that slides diagonally past an obstacle corner clips it, even though the start and end cells are free.}
   \label{fig:ch02-grid-connectivity}
 \end{figure}
 
-Three choices in this definition deserve a comment. First, the diagonal cost is $\sqrt2$ and not $1$ because $\sqrt2$ is the distance between the centres of two diagonal neighbours. With costs $1$ and $\sqrt2$ the cost of a grid path is exactly the Euclidean length of the polyline through the cell centres, and the straight-line and octile heuristics of \cref{ch:ch04} never overestimate it. Second, the corner-cutting rule exists because a drone is not a point: \cref{fig:ch02-grid-connectivity}(c) shows a disc sliding diagonally past an obstacle corner and clipping it. Some code bases forbid the diagonal only when \emph{both} side cells are blocked; that rule is unsafe for a robot of positive size and this book never uses it. Third, \cref{def:ch02-grid} treats the grid as undirected: every move can be reversed. Later chapters add directed edges only when time enters (\cref{sec:ch02-time}).
+Three choices in this definition deserve a comment. First, the diagonal cost is $\sqrt2$ and not $1$ because $\sqrt2$ is the distance between the centers of two diagonal neighbors. With costs $1$ and $\sqrt2$ the cost of a grid path is exactly the Euclidean length of the polyline through the cell centers, and the straight-line and octile heuristics of \cref{ch:ch04} never overestimate it. Second, the corner-cutting rule exists because a drone is not a point: \cref{fig:ch02-grid-connectivity}(c) shows a disk sliding diagonally past an obstacle corner and clipping it. Some code bases forbid the diagonal only when \emph{both} side cells are blocked; that rule is unsafe for a robot of positive size and this book never uses it. Third, \cref{def:ch02-grid} treats the grid as undirected: every move can be reversed. Later chapters add directed edges only when time enters (\cref{sec:ch02-time}).
 
 Which connectivity should you use? \Cref{tab:ch02-connectivity} lists the \textbf{stretch}\index{grid!stretch factor} of each lattice, the worst-case ratio between the cost of the cheapest lattice path and the straight-line distance in an obstacle-free space. On $G_4$ the worst direction is the diagonal, where the grid path is $\sqrt2\approx1.41$ times longer than the straight line; $G_8$ brings the worst case down to $1.08$, at $22.5^\circ$ from an axis, which is why single-agent planners prefer it. The multi-agent benchmarks of \cref{ch:ch07}, following \textcite{stern2019mapf}, use $G_4$, because a unit cost per move makes ``one move per time step'' and ``one unit of cost per time step'' the same thing, which keeps conflicts simple.
 
 \begin{table}[tb]
 \centering\small
-\caption{Neighbourhoods on grids and lattices. The stretch is the worst-case ratio between the cost of the cheapest lattice path and the straight-line distance in an empty space, attained in the direction that the available moves imitate worst. The four values are printed by \code{worked\_example} in \code{ch02\_toolbox.py} as \code{stretch2}, \code{stretch3}, \code{stretch2\_straight} and \code{stretch3\_straight}.}
+\caption{Neighborhoods on grids and lattices. The stretch is the worst-case ratio between the cost of the cheapest lattice path and the straight-line distance in an empty space, attained in the direction that the available moves imitate worst. The four values are printed by \code{worked\_example} in \code{ch02\_toolbox.py} as \code{stretch2}, \code{stretch3}, \code{stretch2\_straight} and \code{stretch3\_straight}.}
 \label{tab:ch02-connectivity}
 \begin{tabular}{@{}lclll@{}}
 \toprule
@@ -119,13 +119,13 @@ A drone flies in three dimensions, and the same construction works there.
 A \textbf{lattice}\index{lattice!3D} of size $W\times H\times D$ has the cells $(x,y,z)$ with $0\le x<W$, $0\le y<H$, $0\le z<D$, some of which are obstacle cells. A \emph{move} changes each coordinate by $-1$, $0$ or $+1$ and is not the zero move. The \textbf{6-connected lattice}\index{lattice!6-connected} allows the six moves with one non-zero component, at cost~$1$. The \textbf{26-connected lattice}\index{lattice!26-connected} allows all $26$ moves; a move with $k$ non-zero components costs $\sqrt{k}$, and the corner-cutting rule requires every cell of the axis-aligned box spanned by the two endpoints to be free. The intermediate \emph{18-connected} lattice allows the moves with at most two non-zero components.
 \end{definition}
 
-The box rule generalises the two side cells of the plane: a move with two non-zero components spans a $2\times2$ box and checks the two other cells in it, one with three spans a $2\times2\times2$ box and checks six. In an empty 26-connected lattice the cheapest path to a cell at displacement $(a,b,c)$ with $a\ge b\ge c\ge0$ uses $c$ triple-diagonal, $b-c$ double-diagonal and $a-b$ straight moves, so it costs $(a-b)+\sqrt2\,(b-c)+\sqrt3\,c$; maximising the ratio of this cost to $\sqrt{a^2+b^2+c^2}$ over all directions gives the stretch $1.128$ of \cref{tab:ch02-connectivity}. The price of 26-connectivity is a branching factor of $26$ instead of $6$, which multiplies the work of every search by more than four. \Cref{ch:ch16,ch:ch17} show the alternative for 3D problems: do not discretise at all and sample the free space instead.
+The box rule generalizes the two side cells of the plane: a move with two non-zero components spans a $2\times2$ box and checks the two other cells in it, one with three spans a $2\times2\times2$ box and checks six. In an empty 26-connected lattice the cheapest path to a cell at displacement $(a,b,c)$ with $a\ge b\ge c\ge0$ uses $c$ triple-diagonal, $b-c$ double-diagonal and $a-b$ straight moves, so it costs $(a-b)+\sqrt2\,(b-c)+\sqrt3\,c$; maximizing the ratio of this cost to $\sqrt{a^2+b^2+c^2}$ over all directions gives the stretch $1.128$ of \cref{tab:ch02-connectivity}. The price of 26-connectivity is a branching factor of $26$ instead of $6$, which multiplies the work of every search by more than four. \Cref{ch:ch16,ch:ch17} show the alternative for 3D problems: do not discretize at all and sample the free space instead.
 
 % ---------------------------------------------------------------------
 \section{Workspace and configuration space}
 \label{sec:ch02-cspace}
 
-The map lives in the \textbf{workspace}\index{workspace} $\mathcal{W}\subseteq\R^2$ or $\R^3$, the physical space in which obstacles occupy a region $\mathcal{O}\subset\mathcal{W}$. A drone is not a point of this space but a body that occupies a region, so planning a route for its centre and then flying it would scrape every wall. The classical remedy, due to \textcite{lozanoperez1983spatial} and presented in every planning textbook \cite{lozanoperez1983spatial,lavalle2006planning,choset2005principles}, is to move the problem into the configuration space.
+The map lives in the \textbf{workspace}\index{workspace} $\mathcal{W}\subseteq\R^2$ or $\R^3$, the physical space in which obstacles occupy a region $\mathcal{O}\subset\mathcal{W}$. A drone is not a point of this space but a body that occupies a region, so planning a route for its center and then flying it would scrape every wall. The classical remedy, due to \textcite{lozanoperez1983spatial} and presented in every planning textbook \cite{lozanoperez1983spatial,lavalle2006planning,choset2005principles}, is to move the problem into the configuration space.
 
 \begin{definition}[Configuration space, free space, obstacle region]
 \label{def:ch02-configuration-space}
@@ -138,7 +138,7 @@ A \textbf{configuration}\index{configuration} $q$ of a robot is a tuple of param
 A path of configurations is \emph{collision-free} if it lies entirely in $\Cfree$.
 \end{definition}
 
-For a disc-shaped robot of radius $r$ whose orientation does not matter, the configuration is the centre $\pos\in\R^2$, $\Cspace=\R^2$ and $\mathcal{A}(\pos)=\disc{\pos}{r}$, the closed disc of radius $r$ around $\pos$. The obstacle region then has a simple description, which needs one more definition.
+For a disk-shaped robot of radius $r$ whose orientation does not matter, the configuration is the center $\pos\in\R^2$, $\Cspace=\R^2$ and $\mathcal{A}(\pos)=\disc{\pos}{r}$, the closed disk of radius $r$ around $\pos$. The obstacle region then has a simple description, which needs one more definition.
 
 \begin{definition}[Minkowski sum, inflation]
 \label{def:ch02-minkowski-sum}
@@ -147,34 +147,34 @@ The \textbf{Minkowski sum}\index{Minkowski sum} of two sets $A,B\subseteq\R^n$ i
 
 \begin{proposition}[Point-robot planning on the inflated map is exact]
 \label[proposition]{thm:ch02-inflation}
-For a disc (in 3D: a ball) robot of radius $r$ whose configuration is its centre $\pos$, and a closed obstacle region $\mathcal{O}$,
+For a disk (in 3D: a ball) robot of radius $r$ whose configuration is its center $\pos$, and a closed obstacle region $\mathcal{O}$,
 \begin{equation}
 \Cobs=\mathcal{O}\oplus\disc{\vect{0}}{r}.
 \label{eq:ch02-inflation}
 \end{equation}
-Consequently $\pos\in\Cfree$ if and only if $\dist(\pos,\mathcal{O})>r$, and a path of the centre is collision-free for the disc robot if and only if it is collision-free for a point robot on the map whose obstacles are inflated by $r$.
+Consequently $\pos\in\Cfree$ if and only if $\dist(\pos,\mathcal{O})>r$, and a path of the center is collision-free for the disk robot if and only if it is collision-free for a point robot on the map whose obstacles are inflated by $r$.
 \end{proposition}
 \begin{proof}
-The disc $\disc{\pos}{r}$ meets $\mathcal{O}$ if and only if there is an obstacle point $\vect{o}\in\mathcal{O}$ with $\norm{\pos-\vect{o}}\le r$, that is, if and only if $\pos=\vect{o}+\vect{b}$ for some $\vect{o}\in\mathcal{O}$ and some $\vect{b}$ with $\norm{\vect{b}}\le r$. The last statement says precisely that $\pos\in\mathcal{O}\oplus\disc{\vect{0}}{r}$. The second claim applies the first to every point of the path. \qedhere
+The disk $\disc{\pos}{r}$ meets $\mathcal{O}$ if and only if there is an obstacle point $\vect{o}\in\mathcal{O}$ with $\norm{\pos-\vect{o}}\le r$, that is, if and only if $\pos=\vect{o}+\vect{b}$ for some $\vect{o}\in\mathcal{O}$ and some $\vect{b}$ with $\norm{\vect{b}}\le r$. The last statement says precisely that $\pos\in\mathcal{O}\oplus\disc{\vect{0}}{r}$. The second claim applies the first to every point of the path. \qedhere
 \end{proof}
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch02/minkowski-inflation}
-  \caption{Obstacle inflation. (a)~In the workspace the disc robot of radius $r$ can at best touch the obstacle. (b)~In the configuration space the obstacle grows by $r$ (note the rounded corners) and the robot shrinks to a point; the path that touches the inflated boundary corresponds to the touching disc in~(a). (c)~On a grid, every cell whose centre lies within $r=1.5$ cells of an obstacle square is blocked: the two-cell obstacle drawn here blocks $16$ further cells (the text counts $5$, $9$ and $21$ for one cell at $r=0.6$, $1.0$, $1.6$).}
+  \caption{Obstacle inflation. (a)~In the workspace the disk robot of radius $r$ can at best touch the obstacle. (b)~In the configuration space the obstacle grows by $r$ (note the rounded corners) and the robot shrinks to a point; the path that touches the inflated boundary corresponds to the touching disk in~(a). (c)~On a grid, every cell whose center lies within $r=1.5$ cells of an obstacle square is blocked: the two-cell obstacle drawn here blocks $16$ further cells (the text counts $5$, $9$ and $21$ for one cell at $r=0.6$, $1.0$, $1.6$).}
   \label{fig:ch02-minkowski}
 \end{figure}
 
-\Cref{fig:ch02-minkowski} shows the construction. Inflating a polygon by a disc rounds its corners, and inflating a union of obstacles inflates each of them. The same idea serves twice more: \cref{ch:ch12} turns an encounter between two discs into a point and a disc of radius $r_A+r_B$ (\cref{thm:ch02-disc-minkowski}), and in \cref{ch:ch24} the inflation radius grows with the uncertainty of a predicted position.
+\Cref{fig:ch02-minkowski} shows the construction. Inflating a polygon by a disk rounds its corners, and inflating a union of obstacles inflates each of them. The same idea serves twice more: \cref{ch:ch12} turns an encounter between two disks into a point and a disk of radius $r_A+r_B$ (\cref{thm:ch02-disc-minkowski}), and in \cref{ch:ch24} the inflation radius grows with the uncertainty of a predicted position.
 
 \paragraph{The drone as a bounding sphere.}
-A quadrotor with its rotor guards is not a disc, and it rotates about its vertical axis while flying. Modelling it exactly would add the yaw angle to the configuration, giving $\Cspace=\R^3\times S^1$ and a heading-dependent obstacle region \cite{lavalle2006planning}. For a drone that is unnecessary: the body fits into a \textbf{bounding sphere}\index{bounding sphere} of radius $r$ that is the same in every heading, so the configuration is the position alone, $\Cspace=\R^3$ (or $\R^2$ at constant altitude), and \cref{thm:ch02-inflation} applies with the sphere radius. In this book every drone is such a sphere. Its radius includes a safety margin, as the following pitfall explains.
+A quadrotor with its rotor guards is not a disk, and it rotates about its vertical axis while flying. Modeling it exactly would add the yaw angle to the configuration, giving $\Cspace=\R^3\times S^1$ and a heading-dependent obstacle region \cite{lavalle2006planning}. For a drone that is unnecessary: the body fits into a \textbf{bounding sphere}\index{bounding sphere} of radius $r$ that is the same in every heading, so the configuration is the position alone, $\Cspace=\R^3$ (or $\R^2$ at constant altitude), and \cref{thm:ch02-inflation} applies with the sphere radius. In this book every drone is such a sphere. Its radius includes a safety margin, as the following pitfall explains.
 
 \paragraph{Inflation on a grid.}
-On a grid the inflation is approximated cell by cell: a cell is added to $O$ if its centre lies within $r$ of some obstacle square, which is what \code{Grid.inflate} does. Blocking a single cell and inflating by $r=0.6$, $1.0$ and $1.6$ cell widths blocks $5$, $9$ and $21$ cells respectively: a plus shape, a $3\times3$ block, and the block with a ring of $12$ further cells. The grid version is only a sampled Minkowski sum; a free cell may still contain points that are closer than $r$ to an obstacle. This is harmless for straight moves between cell centres, because obstacle centres and move endpoints both lie on the integer lattice, so for grid-aligned squares the distance to the obstacle along such a move is smallest at one of its endpoints, and the corner-cutting rule guards the diagonal moves.
+On a grid the inflation is approximated cell by cell: a cell is added to $O$ if its center lies within $r$ of some obstacle square, which is what \code{Grid.inflate} does. Blocking a single cell and inflating by $r=0.6$, $1.0$ and $1.6$ cell widths blocks $5$, $9$ and $21$ cells respectively: a plus shape, a $3\times3$ block, and the block with a ring of $12$ further cells. The grid version is only a sampled Minkowski sum; a free cell may still contain points that are closer than $r$ to an obstacle. This is harmless for straight moves between cell centers, because obstacle centers and move endpoints both lie on the integer lattice, so for grid-aligned squares the distance to the obstacle along such a move is smallest at one of its endpoints, and the corner-cutting rule guards the diagonal moves.
 
 \begin{pitfall}[Inflating by the body radius alone]
-The radius you inflate by is a promise that the drone's centre will never leave the inflated free space. Three things break that promise: the drone is larger than its nominal radius when propellers and guards are counted, the position estimate is off by the localisation error, and the controller does not track the plan exactly. Use $r = r_{\text{body}} + \text{margin}$, where the margin covers the localisation and tracking errors you expect, and on a grid round the result \emph{up} to the next cell width. A margin that is too small shows up as scraped walls; one that is too large closes narrow passages and makes the planner report that no path exists. \Cref{ch:ch25} measures the resulting minimum separation.
+The radius you inflate by is a promise that the drone's center will never leave the inflated free space. Three things break that promise: the drone is larger than its nominal radius when propellers and guards are counted, the position estimate is off by the localization error, and the controller does not track the plan exactly. Use $r = r_{\text{body}} + \text{margin}$, where the margin covers the localization and tracking errors you expect, and on a grid round the result \emph{up} to the next cell width. A margin that is too small shows up as scraped walls; one that is too large closes narrow passages and makes the planner report that no path exists. \Cref{ch:ch25} measures the resulting minimum separation.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
@@ -201,25 +201,25 @@ The \textbf{time-expanded graph}\index{time-expanded graph} of $G$ with horizon 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch02/time-expanded}
-  \caption{A three-vertex graph $G$ (left) and its time-expanded graph with three time layers (right). Grey arrows are wait edges, black arrows are move edges; every edge goes from layer $t$ to layer $t+1$, so the graph is acyclic. The highlighted time-indexed path waits at $a$ for one step and then moves to $b$, ending in the state $(b,2)$.}
+  \caption{A three-vertex graph $G$ (left) and its time-expanded graph with three time layers (right). Gray arrows are wait edges, black arrows are move edges; every edge goes from layer $t$ to layer $t+1$, so the graph is acyclic. The highlighted time-indexed path waits at $a$ for one step and then moves to $b$, ending in the state $(b,2)$.}
   \label{fig:ch02-time-expanded}
 \end{figure}
 
-\Cref{fig:ch02-time-expanded} shows a base graph with three vertices and its time-expanded graph with three layers. Note what the construction costs: $\abs{V}\,(T_{\max}+1)$ vertices and $T_{\max}\,(\abs{V}+2\abs{E})$ edges for an undirected $G$ (\cref{exr:ch02-time-expanded}). Nobody stores this graph. The planner keeps $G$ and generates the successors of $(v,t)$ on demand with a function like \code{space\_time\_successors} in the toolbox, which returns the wait successor and one move successor per free neighbour, all at time $t+1$. Since all edges point forward in time, the time-expanded graph is acyclic; a search in it terminates even without a closed set, though a closed set still saves work.
+\Cref{fig:ch02-time-expanded} shows a base graph with three vertices and its time-expanded graph with three layers. Note what the construction costs: $\abs{V}\,(T_{\max}+1)$ vertices and $T_{\max}\,(\abs{V}+2\abs{E})$ edges for an undirected $G$ (\cref{exr:ch02-time-expanded}). Nobody stores this graph. The planner keeps $G$ and generates the successors of $(v,t)$ on demand with a function like \code{space\_time\_successors} in the toolbox, which returns the wait successor and one move successor per free neighbor, all at time $t+1$. Since all edges point forward in time, the time-expanded graph is acyclic; a search in it terminates even without a closed set, though a closed set still saves work.
 
 \begin{definition}[Time-indexed path, arrival time, stay-at-goal convention]
 \label{def:ch02-time-indexed-path}
 A \textbf{time-indexed path}\index{time-indexed path} for an agent with start $s$ and goal $\gamma$ is a sequence $\pi=(v_0,v_1,\dots,v_{T_{\max}})$ with $v_0=s$, $v_{T_{\max}}=\gamma$ and, for every $t<T_{\max}$, either $v_{t+1}=v_t$ (a wait) or $(v_t,v_{t+1})\in E$ (a move); the last index $T_{\max}$ is the \textbf{horizon}\index{horizon} of the stored list. The agent occupies $v_t$ at time $t$, and by the \textbf{stay-at-goal convention}\index{stay-at-goal convention} it occupies $\gamma$ at every time $t>T_{\max}$. The \textbf{arrival time}\index{arrival time} $\cost(\pi)$ is the smallest $t$ such that $v_{t'}=\gamma$ for all $t'\ge t$; an agent that passes through $\gamma$ and leaves again has not arrived. It carries the cost operator because with unit action costs the two agree (\cref{def:ch02-travel-time}), and because the letter $T$ is reserved for horizons throughout the book. The two indices differ: $\cost(\pi)\le T_{\max}$, with equality exactly when the path ends without a trailing wait at the goal. \Cref{ch:ch07} writes the horizon of agent $i$'s stored path as $T_i$ and the plan horizon as $T=\max_i T_i$.
 \end{definition}
 
-The stay-at-goal convention matters for multi-agent planning: an agent that has landed still occupies its cell, and a later agent must route around it (\cref{ch:ch07,ch:ch08}). The arrival time is the individual cost that the multi-agent objectives of \cref{sec:ch02-costs} add up. It is computed by \code{path\_time} in the toolbox, which walks backwards from the end of the sequence while the vertex equals the goal.
+The stay-at-goal convention matters for multi-agent planning: an agent that has landed still occupies its cell, and a later agent must route around it (\cref{ch:ch07,ch:ch08}). The arrival time is the individual cost that the multi-agent objectives of \cref{sec:ch02-costs} add up. It is computed by \code{path\_time} in the toolbox, which walks backward from the end of the sequence while the vertex equals the goal.
 
 \subsection{Plans and trajectories}
 \label{sec:ch02-plans}
 
 \begin{definition}[Plan]
 \label{def:ch02-plan}
-A \textbf{plan}\index{plan} for $k$ agents is a tuple $\Pi=(\pi_1,\dots,\pi_k)$ of time-indexed paths, one per agent, all with the same time step. The position of agent $i$ at time $t$ is $v^i_t$ (\cref{ch:ch07} writes the same position as $\pi_i[t]$), extended by the stay-at-goal convention when $t$ exceeds the horizon of $\pi_i$. Which pairs of positions count as a \emph{conflict} is a modelling choice fixed in \cref{ch:ch07}; this chapter only measures how close the agents come.
+A \textbf{plan}\index{plan} for $k$ agents is a tuple $\Pi=(\pi_1,\dots,\pi_k)$ of time-indexed paths, one per agent, all with the same time step. The position of agent $i$ at time $t$ is $v^i_t$ (\cref{ch:ch07} writes the same position as $\pi_i[t]$), extended by the stay-at-goal convention when $t$ exceeds the horizon of $\pi_i$. Which pairs of positions count as a \emph{conflict} is a modeling choice fixed in \cref{ch:ch07}; this chapter only measures how close the agents come.
 \end{definition}
 
 \begin{definition}[Trajectory]
@@ -248,7 +248,7 @@ Trajectory (\cref{def:ch02-trajectory}) & position at every time & \cref{ch:ch13
 \end{tabularx}
 \end{table}
 
-\Cref{tab:ch02-path-plan-trajectory} summarises the vocabulary; keep the three words apart.
+\Cref{tab:ch02-path-plan-trajectory} summarizes the vocabulary; keep the three words apart.
 
 % ---------------------------------------------------------------------
 \section{Cost measures}
@@ -289,11 +289,11 @@ The \textbf{sum of costs}\index{sum of costs} of a plan $\Pi=(\pi_1,\dots,\pi_k)
 \end{equation}
 \end{definition}
 
-Later chapters write these two objectives with the macros $\makespan$ and $\sumcost$, exactly as above. They are the two standard objectives of multi-agent path finding \cite{stern2019mapf}; the sum of costs is the default in \cref{ch:ch09,ch:ch10}. They do not agree in general: a plan that minimises one may not minimise the other (\cref{exr:ch02-costs}).
+Later chapters write these two objectives with the macros $\makespan$ and $\sumcost$, exactly as above. They are the two standard objectives of multi-agent path finding \cite{stern2019mapf}; the sum of costs is the default in \cref{ch:ch09,ch:ch10}. They do not agree in general: a plan that minimizes one may not minimize the other (\cref{exr:ch02-costs}).
 
 \begin{definition}[Separation, minimum separation, collision distance]
 \label{def:ch02-min-separation}
-For two agents with positions $\pos_i(t)$ and $\pos_j(t)$, the \textbf{separation}\index{separation} at time $t$ is $d_{ij}(t)=\norm{\pos_i(t)-\pos_j(t)}$. The \textbf{minimum separation}\index{separation!minimum} of a plan or of a set of trajectories is $d_{\min}=\min_{t}\min_{i<j} d_{ij}(t)$ over the whole execution. Two disc (or sphere) agents of radii $r_i$ and $r_j$ \textbf{collide} at time $t$ if $d_{ij}(t)<r_i+r_j$; the sum $R_{ij}=r_i+r_j$ is their \textbf{collision distance}\index{collision distance}. The touching case $d_{ij}(t)=R_{ij}$ counts as safe here and in \cref{ch:ch12,ch:ch13}, which test the strict inequality; \cref{thm:ch02-disc-minkowski} calls it an overlap only because two closed discs that touch share a boundary point.
+For two agents with positions $\pos_i(t)$ and $\pos_j(t)$, the \textbf{separation}\index{separation} at time $t$ is $d_{ij}(t)=\norm{\pos_i(t)-\pos_j(t)}$. The \textbf{minimum separation}\index{separation!minimum} of a plan or of a set of trajectories is $d_{\min}=\min_{t}\min_{i<j} d_{ij}(t)$ over the whole execution. Two disk (or sphere) agents of radii $r_i$ and $r_j$ \textbf{collide} at time $t$ if $d_{ij}(t)<r_i+r_j$; the sum $R_{ij}=r_i+r_j$ is their \textbf{collision distance}\index{collision distance}. The touching case $d_{ij}(t)=R_{ij}$ counts as safe here and in \cref{ch:ch12,ch:ch13}, which test the strict inequality; \cref{thm:ch02-disc-minkowski} calls it an overlap only because two closed disks that touch share a boundary point.
 \end{definition}
 
 For a plan on a graph the separation can be evaluated at the integer times only (the toolbox function \code{min\_separation}) or along the straight-line motion of \cref{eq:ch02-path-to-trajectory} between consecutive steps (\code{min\_separation\_continuous}, which uses the closest-approach formula of \cref{sec:ch02-geometry} on every interval). The two answers differ, as the worked example shows.
@@ -327,7 +327,7 @@ The conflict definitions of \cref{ch:ch07} look at integer times and at swaps al
 \section{Motion models for a drone}
 \label{sec:ch02-motion}
 
-Graph search ignores dynamics: a move is a move, whatever the speed. The reactive and control layers cannot afford that, because a drone at $5$~m/s needs metres to stop. The two motion models below are both \emph{linear}, which is what makes the Kalman filter of \cref{ch:ch18} and the model predictive controller of \cref{ch:ch21} tractable.
+Graph search ignores dynamics: a move is a move, whatever the speed. The reactive and control layers cannot afford that, because a drone at $5$~m/s needs meters to stop. The two motion models below are both \emph{linear}, which is what makes the Kalman filter of \cref{ch:ch18} and the model predictive controller of \cref{ch:ch21} tractable.
 
 \begin{definition}[Single integrator]
 \label{def:ch02-single-integrator}
@@ -360,10 +360,10 @@ Not every robot can move in every direction; the distinction has a name.
 \label{def:ch02-holonomic}
 A robot is \textbf{holonomic}\index{holonomic} if every constraint on its motion restricts only the configurations it may occupy, so that from any configuration it can move in every direction of the configuration space. It is \textbf{non-holonomic}\index{non-holonomic} if some constraint restricts its velocity without restricting the reachable configurations.
 \end{definition}
-A car is the textbook non-holonomic system: it cannot slide sideways, yet it can reach any parking spot by manoeuvring. Planning for such systems needs the tools of \textcite{lavalle2006planning}, which this book does not cover. A quadrotor, at the level of position, is holonomic: it can accelerate in any direction by tilting, and it can hover. That is why a drone can be abstracted as a point mass at all, while a fixed-wing aircraft, which must keep flying forward, cannot.
+A car is the textbook non-holonomic system: it cannot slide sideways, yet it can reach any parking spot by maneuvering. Planning for such systems needs the tools of \textcite{lavalle2006planning}, which this book does not cover. A quadrotor, at the level of position, is holonomic: it can accelerate in any direction by tilting, and it can hover. That is why a drone can be abstracted as a point mass at all, while a fixed-wing aircraft, which must keep flying forward, cannot.
 
 \paragraph{Why a quadrotor is a double integrator, and when it is not.}
-A quadrotor produces one thrust force along its body axis and controls its direction by tilting. Its centre of mass therefore obeys $m\ddot{\pos}=\vect{f}_{\text{thrust}}-m g\,\vect{e}_z$: given a desired acceleration $\acc$, the flight controller solves for the thrust magnitude and the attitude that produce it. Because the attitude loop of a small quadrotor settles in a fraction of a second, the position dynamics seen by a planner that replans every $\dt=0.1$~s or slower are very nearly the double integrator, with $a_{\max}$ set by the thrust-to-weight ratio and the maximum tilt. The theory of differential flatness makes this precise: any sufficiently smooth position trajectory can be tracked by a quadrotor \cite{mellinger2011minimum}. The caveats are that the acceleration cannot jump (the attitude must first rotate), and that the limits are not symmetric (gravity helps descending and hinders climbing). Choose $a_{\max}$ and $v_{\max}$ with a margin below the physical limits, and the abstraction holds.
+A quadrotor produces one thrust force along its body axis and controls its direction by tilting. Its center of mass therefore obeys $m\ddot{\pos}=\vect{f}_{\text{thrust}}-m g\,\vect{e}_z$: given a desired acceleration $\acc$, the flight controller solves for the thrust magnitude and the attitude that produce it. Because the attitude loop of a small quadrotor settles in a fraction of a second, the position dynamics seen by a planner that replans every $\dt=0.1$~s or slower are very nearly the double integrator, with $a_{\max}$ set by the thrust-to-weight ratio and the maximum tilt. The theory of differential flatness makes this precise: any sufficiently smooth position trajectory can be tracked by a quadrotor \cite{mellinger2011minimum}. The caveats are that the acceleration cannot jump (the attitude must first rotate), and that the limits are not symmetric (gravity helps descending and hinders climbing). Choose $a_{\max}$ and $v_{\max}$ with a margin below the physical limits, and the abstraction holds.
 
 \begin{proposition}[Stopping distance]
 \label[proposition]{thm:ch02-stopping-distance}
@@ -405,7 +405,7 @@ Full quadrotor & $\pos,\vel$, attitude, rates & thrust, torques & motor limits &
 \end{table}
 
 \begin{pitfall}[Clipping breaks linearity]
-The limits $\norm{\acc}\le a_{\max}$ and $\norm{\vel}\le v_{\max}$ are not part of the linear model \cref{eq:ch02-double-integrator}; they are constraints on top of it. Code that first applies $\mat{A}$ and $\mat{B}$ and then clips the velocity has silently changed the position update too, because the position moved with the unclipped velocity for half a step. The toolbox function \code{double\_integrator\_step} avoids the inconsistency by clipping the input, computing the new velocity, and then advancing the position with the average of the old and the new velocity, which coincides with $\mat{A}\state+\mat{B}\acc$ whenever no limit is active. Model predictive control (\cref{ch:ch21}) handles the limits properly, as constraints of an optimisation problem.
+The limits $\norm{\acc}\le a_{\max}$ and $\norm{\vel}\le v_{\max}$ are not part of the linear model \cref{eq:ch02-double-integrator}; they are constraints on top of it. Code that first applies $\mat{A}$ and $\mat{B}$ and then clips the velocity has silently changed the position update too, because the position moved with the unclipped velocity for half a step. The toolbox function \code{double\_integrator\_step} avoids the inconsistency by clipping the input, computing the new velocity, and then advancing the position with the average of the old and the new velocity, which coincides with $\mat{A}\state+\mat{B}\acc$ whenever no limit is active. Model predictive control (\cref{ch:ch21}) handles the limits properly, as constraints of an optimization problem.
 \end{pitfall}
 
 % ---------------------------------------------------------------------
@@ -416,7 +416,7 @@ The local safety layer of the book is built from a handful of geometric primitiv
 
 \begin{definition}[Vectors, dot product, 2D cross product]
 \label{def:ch02-dot-cross}
-For $\vect{a},\vect{b}\in\R^n$ the \textbf{dot product}\index{dot product} is $\vect{a}\cdot\vect{b}=\sum_i a_ib_i=\norm{\vect{a}}\,\norm{\vect{b}}\cos\phi$, where $\phi$ is the angle between the vectors and $\norm{\vect{a}}=\sqrt{\vect{a}\cdot\vect{a}}$. The \textbf{projection} of $\vect{p}$ onto a unit vector $\vect{u}$ is $(\vect{p}\cdot\vect{u})\,\vect{u}$, and $\vect{p}-(\vect{p}\cdot\vect{u})\,\vect{u}$ is the part of $\vect{p}$ perpendicular to $\vect{u}$. In the plane, the \textbf{2D cross product}\index{cross product!2D} $\vect{a}\times\vect{b}=a_xb_y-a_yb_x=\norm{\vect{a}}\,\norm{\vect{b}}\sin\phi$ is the signed area of the parallelogram spanned by the two vectors; it is positive when $\vect{b}$ lies counter-clockwise from $\vect{a}$ (a left turn). The vector $\vect{a}^{\perp}=(-a_y,a_x)$ is $\vect{a}$ rotated by $90^\circ$ counter-clockwise. In three dimensions $\vect{a}\times\vect{b}$ is the vector perpendicular to both with length $\norm{\vect{a}}\,\norm{\vect{b}}\,\abs{\sin\phi}$.
+For $\vect{a},\vect{b}\in\R^n$ the \textbf{dot product}\index{dot product} is $\vect{a}\cdot\vect{b}=\sum_i a_ib_i=\norm{\vect{a}}\,\norm{\vect{b}}\cos\phi$, where $\phi$ is the angle between the vectors and $\norm{\vect{a}}=\sqrt{\vect{a}\cdot\vect{a}}$. The \textbf{projection} of $\vect{p}$ onto a unit vector $\vect{u}$ is $(\vect{p}\cdot\vect{u})\,\vect{u}$, and $\vect{p}-(\vect{p}\cdot\vect{u})\,\vect{u}$ is the part of $\vect{p}$ perpendicular to $\vect{u}$. In the plane, the \textbf{2D cross product}\index{cross product!2D} $\vect{a}\times\vect{b}=a_xb_y-a_yb_x=\norm{\vect{a}}\,\norm{\vect{b}}\sin\phi$ is the signed area of the parallelogram spanned by the two vectors; it is positive when $\vect{b}$ lies counterclockwise from $\vect{a}$ (a left turn). The vector $\vect{a}^{\perp}=(-a_y,a_x)$ is $\vect{a}$ rotated by $90^\circ$ counterclockwise. In three dimensions $\vect{a}\times\vect{b}$ is the vector perpendicular to both with length $\norm{\vect{a}}\,\norm{\vect{b}}\,\abs{\sin\phi}$.
 \end{definition}
 
 \begin{definition}[Distance from a point to a segment]
@@ -430,7 +430,7 @@ s=\min\Bigl(1,\ \max\Bigl(0,\ \frac{(\vect{p}-\vect{a})\cdot(\vect{b}-\vect{a})}
 the point $\vect{q}$ is the \textbf{closest point}\index{point--segment distance} of the segment to $\vect{p}$ and $\dist(\vect{p},\overline{\vect{a}\vect{b}})=\norm{\vect{p}-\vect{q}}$. When $\vect{a}=\vect{b}$ we set $s=0$.
 \end{definition}
 
-The unclamped fraction in \cref{eq:ch02-point-segment} is the projection of $\vect{p}$ onto the line through $\vect{a}$ and $\vect{b}$, expressed as a multiple of $\vect{b}-\vect{a}$. Clamping it to $[0,1]$ handles the three cases: the foot of the perpendicular lies inside the segment ($0<s<1$), or before $\vect{a}$ ($s=0$), or beyond $\vect{b}$ ($s=1$). This one function is the collision checker of the book: a disc obstacle of radius $r$ blocks a straight motion from $\vect{a}$ to $\vect{b}$ if and only if the distance from its centre to the segment is at most $r$, and the clearance of a candidate motion in \cref{ch:ch14} is the smallest such distance over all obstacles.
+The unclamped fraction in \cref{eq:ch02-point-segment} is the projection of $\vect{p}$ onto the line through $\vect{a}$ and $\vect{b}$, expressed as a multiple of $\vect{b}-\vect{a}$. Clamping it to $[0,1]$ handles the three cases: the foot of the perpendicular lies inside the segment ($0<s<1$), or before $\vect{a}$ ($s=0$), or beyond $\vect{b}$ ($s=1$). This one function is the collision checker of the book: a disk obstacle of radius $r$ blocks a straight motion from $\vect{a}$ to $\vect{b}$ if and only if the distance from its center to the segment is at most $r$, and the clearance of a candidate motion in \cref{ch:ch14} is the smallest such distance over all obstacles.
 
 \begin{proposition}[Ray--circle and segment--circle intersection]
 \label[proposition]{thm:ch02-ray-circle}
@@ -443,7 +443,7 @@ t_{1,2}=\frac{-(\vect{f}\cdot\vect{d})\mp\sqrt{\Delta}}{\vect{d}\cdot\vect{d}},
 \end{gathered}
 \label{eq:ch02-ray-circle}
 \end{equation}
-If $\Delta<0$ the ray misses the circle; otherwise the first contact is at the smaller root $t_1$, provided $t_1\ge0$. If $\vect{f}\cdot\vect{f}\le r^2$ the ray starts inside the disc and the contact time is $0$. The segment from $\vect{a}$ to $\vect{b}$ meets the disc $\disc{\vect{c}}{r}$ if and only if $\dist(\vect{c},\overline{\vect{a}\vect{b}})\le r$; it crosses the circle at the roots of \cref{eq:ch02-ray-circle} with $\vect{o}=\vect{a}$, $\vect{d}=\vect{b}-\vect{a}$ that lie in $[0,1]$.
+If $\Delta<0$ the ray misses the circle; otherwise the first contact is at the smaller root $t_1$, provided $t_1\ge0$. If $\vect{f}\cdot\vect{f}\le r^2$ the ray starts inside the disk and the contact time is $0$. The segment from $\vect{a}$ to $\vect{b}$ meets the disk $\disc{\vect{c}}{r}$ if and only if $\dist(\vect{c},\overline{\vect{a}\vect{b}})\le r$; it crosses the circle at the roots of \cref{eq:ch02-ray-circle} with $\vect{o}=\vect{a}$, $\vect{d}=\vect{b}-\vect{a}$ that lie in $[0,1]$.
 \end{proposition}
 \begin{proof}
 Substitute $\vect{x}=\vect{o}+t\vect{d}$ into $\norm{\vect{x}-\vect{c}}^2=r^2$ and expand $\norm{\vect{f}+t\vect{d}}^2$; the quadratic formula gives the roots. The segment statement restates the definition of the distance to a segment. \qedhere
@@ -452,19 +452,19 @@ Substitute $\vect{x}=\vect{o}+t\vect{d}$ into $\norm{\vect{x}-\vect{c}}^2=r^2$ a
 \begin{figure}[tb]
   \centering
   \inputfigure{ch02/segment-circle}
-  \caption{(a)~The segment $\overline{\vect{a}\vect{b}}$ meets the disc around $\vect{c}$ because the closest point $\vect{q}$ is at the point-to-segment distance $d_1=\dist(\vect{c},\overline{\vect{a}\vect{b}})\le r$; the ray $\vect{a}+t(\vect{b}-\vect{a})$ crosses the circle at $t_1$ and $t_2$. The disc around $\vect{c}'$ is missed because its distance $d_2$ to the segment exceeds $r$. (b)~Here $d=\norm{\vect{p}-\vect{c}}$ is the distance to the \emph{centre}, the quantity of \cref{thm:ch02-tangents}. The two tangents from $\vect{p}$ to a circle touch it at $\vect{t}_{\pm}$; the radius is perpendicular to the tangent, so $\cos\alpha=r/d$ and $\sin\theta=r/d$. Every ray from $\vect{p}$ inside the shaded cone hits the disc; this cone is the velocity obstacle of \cref{ch:ch12}.}
+  \caption{(a)~The segment $\overline{\vect{a}\vect{b}}$ meets the disk around $\vect{c}$ because the closest point $\vect{q}$ is at the point-to-segment distance $d_1=\dist(\vect{c},\overline{\vect{a}\vect{b}})\le r$; the ray $\vect{a}+t(\vect{b}-\vect{a})$ crosses the circle at $t_1$ and $t_2$. The disk around $\vect{c}'$ is missed because its distance $d_2$ to the segment exceeds $r$. (b)~Here $d=\norm{\vect{p}-\vect{c}}$ is the distance to the \emph{center}, the quantity of \cref{thm:ch02-tangents}. The two tangents from $\vect{p}$ to a circle touch it at $\vect{t}_{\pm}$; the radius is perpendicular to the tangent, so $\cos\alpha=r/d$ and $\sin\theta=r/d$. Every ray from $\vect{p}$ inside the shaded cone hits the disk; this cone is the velocity obstacle of \cref{ch:ch12}.}
   \label{fig:ch02-segment-circle}
 \end{figure}
 
-\begin{proposition}[Minkowski sum of two discs]
+\begin{proposition}[Minkowski sum of two disks]
 \label[proposition]{thm:ch02-disc-minkowski}
-$\disc{\vect{c}_1}{r_1}\oplus\disc{\vect{c}_2}{r_2}=\disc{\vect{c}_1+\vect{c}_2}{r_1+r_2}$. In particular, two discs $\disc{\pos_A}{r_A}$ and $\disc{\pos_B}{r_B}$ overlap if and only if $\norm{\pos_B-\pos_A}\le r_A+r_B$, i.e.\ if and only if the point $\pos_B-\pos_A$ lies in $\disc{\vect{0}}{r_A+r_B}$.
+$\disc{\vect{c}_1}{r_1}\oplus\disc{\vect{c}_2}{r_2}=\disc{\vect{c}_1+\vect{c}_2}{r_1+r_2}$. In particular, two disks $\disc{\pos_A}{r_A}$ and $\disc{\pos_B}{r_B}$ overlap if and only if $\norm{\pos_B-\pos_A}\le r_A+r_B$, i.e., if and only if the point $\pos_B-\pos_A$ lies in $\disc{\vect{0}}{r_A+r_B}$.
 \end{proposition}
 \begin{proof}
-If $\vect{x}=\vect{a}+\vect{b}$ with $\norm{\vect{a}-\vect{c}_1}\le r_1$ and $\norm{\vect{b}-\vect{c}_2}\le r_2$, the triangle inequality gives $\norm{\vect{x}-\vect{c}_1-\vect{c}_2}\le r_1+r_2$. Conversely, assume $r_1+r_2>0$ (if both radii vanish the two sides are the single point $\vect{c}_1+\vect{c}_2$ and the claim is trivial); if $\vect{w}=\vect{x}-\vect{c}_1-\vect{c}_2$ has $\norm{\vect{w}}\le r_1+r_2$, take $\vect{a}=\vect{c}_1+\frac{r_1}{r_1+r_2}\vect{w}$ and $\vect{b}=\vect{c}_2+\frac{r_2}{r_1+r_2}\vect{w}$; then $\vect{a}+\vect{b}=\vect{x}$ and both points lie in their discs. The overlap statement is \cref{thm:ch02-inflation} applied with $\mathcal{O}=\disc{\pos_B}{r_B}$ and the robot $\disc{\pos_A}{r_A}$. \qedhere
+If $\vect{x}=\vect{a}+\vect{b}$ with $\norm{\vect{a}-\vect{c}_1}\le r_1$ and $\norm{\vect{b}-\vect{c}_2}\le r_2$, the triangle inequality gives $\norm{\vect{x}-\vect{c}_1-\vect{c}_2}\le r_1+r_2$. Conversely, assume $r_1+r_2>0$ (if both radii vanish the two sides are the single point $\vect{c}_1+\vect{c}_2$ and the claim is trivial); if $\vect{w}=\vect{x}-\vect{c}_1-\vect{c}_2$ has $\norm{\vect{w}}\le r_1+r_2$, take $\vect{a}=\vect{c}_1+\frac{r_1}{r_1+r_2}\vect{w}$ and $\vect{b}=\vect{c}_2+\frac{r_2}{r_1+r_2}\vect{w}$; then $\vect{a}+\vect{b}=\vect{x}$ and both points lie in their disks. The overlap statement is \cref{thm:ch02-inflation} applied with $\mathcal{O}=\disc{\pos_B}{r_B}$ and the robot $\disc{\pos_A}{r_A}$. \qedhere
 \end{proof}
 
-This is the \emph{relative frame} that \cref{ch:ch12,ch:ch13} use throughout: put drone $A$ at the origin as a point, and replace drone $B$ by a disc of radius $r_A+r_B$ at the relative position $\pos_B-\pos_A$. The next primitive describes the directions in which that disc is visible from the origin.
+This is the \emph{relative frame} that \cref{ch:ch12,ch:ch13} use throughout: put drone $A$ at the origin as a point, and replace drone $B$ by a disk of radius $r_A+r_B$ at the relative position $\pos_B-\pos_A$. The next primitive describes the directions in which that disk is visible from the origin.
 
 \begin{proposition}[Tangent lines from a point to a circle]
 \label[proposition]{thm:ch02-tangents}
@@ -474,13 +474,13 @@ Let $d=\norm{\vect{p}-\vect{c}}>r$ and $\vect{u}=(\vect{p}-\vect{c})/d$. The two
 \qquad \cos\alpha=\frac{r}{d},\quad \sin\alpha=\sqrt{1-\frac{r^2}{d^2}} .
 \label{eq:ch02-tangent-points}
 \end{equation}
-Both tangents have length $\ell=\sqrt{d^2-r^2}$ and make the half-angle $\theta=\arcsin(r/d)$ with the line from $\vect{p}$ to $\vect{c}$; a ray from $\vect{p}$ meets the disc if and only if its direction is within $\theta$ of $\vect{c}-\vect{p}$.
+Both tangents have length $\ell=\sqrt{d^2-r^2}$ and make the half-angle $\theta=\arcsin(r/d)$ with the line from $\vect{p}$ to $\vect{c}$; a ray from $\vect{p}$ meets the disk if and only if its direction is within $\theta$ of $\vect{c}-\vect{p}$.
 \end{proposition}
 \begin{proof}
-A radius is perpendicular to the tangent at its endpoint, so $\vect{p}$, $\vect{c}$ and $\vect{t}_{\pm}$ form a right triangle with the right angle at $\vect{t}_{\pm}$, hypotenuse $d$ and legs $r$ and $\ell$. Hence $\cos\alpha=r/d$ for the angle $\alpha$ at $\vect{c}$, $\ell=\sqrt{d^2-r^2}$, and $\sin\theta=r/d$ for the angle $\theta$ at $\vect{p}$. Rotating $\vect{u}$ by $\pm\alpha$ and scaling by $r$ gives the two tangent points relative to $\vect{c}$. The rays that hit the disc are exactly those between the two tangents. \qedhere
+A radius is perpendicular to the tangent at its endpoint, so $\vect{p}$, $\vect{c}$ and $\vect{t}_{\pm}$ form a right triangle with the right angle at $\vect{t}_{\pm}$, hypotenuse $d$ and legs $r$ and $\ell$. Hence $\cos\alpha=r/d$ for the angle $\alpha$ at $\vect{c}$, $\ell=\sqrt{d^2-r^2}$, and $\sin\theta=r/d$ for the angle $\theta$ at $\vect{p}$. Rotating $\vect{u}$ by $\pm\alpha$ and scaling by $r$ gives the two tangent points relative to $\vect{c}$. The rays that hit the disk are exactly those between the two tangents. \qedhere
 \end{proof}
 
-\Cref{fig:ch02-segment-circle}(b) shows the geometry for $\vect{p}=(0,0)$, $\vect{c}=(4,0)$ and $r=2$: the tangent points are $(3,\pm\sqrt3)$, the tangent length is $\sqrt{12}$ and the half-angle is $30^\circ$ (\cref{exr:ch02-tangents}). When $\vect{p}$ approaches the circle, $\theta$ grows towards $90^\circ$ and the cone opens into a half-plane; when $\vect{p}$ is inside, there are no tangents, and the toolbox returns \code{None}.
+\Cref{fig:ch02-segment-circle}(b) shows the geometry for $\vect{p}=(0,0)$, $\vect{c}=(4,0)$ and $r=2$: the tangent points are $(3,\pm\sqrt3)$, the tangent length is $\sqrt{12}$ and the half-angle is $30^\circ$ (\cref{exr:ch02-tangents}). When $\vect{p}$ approaches the circle, $\theta$ grows toward $90^\circ$ and the cone opens into a half-plane; when $\vect{p}$ is inside, there are no tangents, and the toolbox returns \code{None}.
 
 \begin{definition}[Closest approach and time to collision]
 \label{def:ch02-closest-approach}
@@ -489,7 +489,7 @@ Let two objects move with constant velocities, $\pos_A(t)=\pos_A+t\,\vel_A$ and 
 \pos_{\mathrm{rel}}=\pos_B-\pos_A,\qquad \vel_{\mathrm{rel}}=\vel_A-\vel_B
 \label{eq:ch02-relative}
 \end{equation}
-for the \textbf{relative position}\index{relative position} of $B$ with respect to $A$ and the \textbf{relative velocity}\index{relative velocity} of $A$ with respect to $B$. These are the signs that \cref{ch:ch12,ch:ch13} use to build the velocity obstacle, and this book uses no others. Their distance is $D(t)=\norm{\pos_{\mathrm{rel}}-t\,\vel_{\mathrm{rel}}}$. The \textbf{time of closest approach}\index{closest approach!time of} is $t^*=\argmin_{t\ge0}D(t)$, the \textbf{minimum distance} is $d_{\min}=D(t^*)$, and, for a collision distance $R$, the \textbf{time to collision}\index{time to collision} is $t_c=\min\set{t\ge0 : D(t)\le R}$, or $\infty$ if no such time exists (the toolbox function \code{time\_to\_collision} returns \code{None} in that case). With a horizon $\ttc$ the minimisation is restricted to $t\in[0,\ttc]$.
+for the \textbf{relative position}\index{relative position} of $B$ with respect to $A$ and the \textbf{relative velocity}\index{relative velocity} of $A$ with respect to $B$. These are the signs that \cref{ch:ch12,ch:ch13} use to build the velocity obstacle, and this book uses no others. Their distance is $D(t)=\norm{\pos_{\mathrm{rel}}-t\,\vel_{\mathrm{rel}}}$. The \textbf{time of closest approach}\index{closest approach!time of} is $t^*=\argmin_{t\ge0}D(t)$, the \textbf{minimum distance} is $d_{\min}=D(t^*)$, and, for a collision distance $R$, the \textbf{time to collision}\index{time to collision} is $t_c=\min\set{t\ge0 : D(t)\le R}$, or $\infty$ if no such time exists (the toolbox function \code{time\_to\_collision} returns \code{None} in that case). With a horizon $\ttc$ the minimization is restricted to $t\in[0,\ttc]$.
 \end{definition}
 
 \begin{proposition}[Closest approach of two constant-velocity objects]
@@ -509,13 +509,13 @@ t_c=\max\Bigl(0,\ t^*-\frac{\sqrt{R^2-d_{\min}^2}}{\norm{\vel_{\mathrm{rel}}}}\B
 If $\vel_{\mathrm{rel}}=\vect{0}$ the distance is constant, $t^*=0$ and $t_c$ is $0$ if $\norm{\pos_{\mathrm{rel}}}\le R$ and $\infty$ otherwise.
 \end{proposition}
 \begin{proof}
-$D(t)^2=\norm{\pos_{\mathrm{rel}}}^2-2t\,(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})+t^2\norm{\vel_{\mathrm{rel}}}^2$ is a parabola in $t$ with positive leading coefficient; its derivative $-2(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})+2t\norm{\vel_{\mathrm{rel}}}^2$ vanishes at $t=(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})/\norm{\vel_{\mathrm{rel}}}^2$. If this value is negative, the objects are already separating and the closest approach on $t\ge0$ is at $t=0$, which the maximum expresses. At the unclamped minimum, $D^2=\norm{\pos_{\mathrm{rel}}}^2-(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})^2/\norm{\vel_{\mathrm{rel}}}^2=\bigl(\norm{\pos_{\mathrm{rel}}}^2\norm{\vel_{\mathrm{rel}}}^2-(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})^2\bigr)/\norm{\vel_{\mathrm{rel}}}^2=(\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}})^2/\norm{\vel_{\mathrm{rel}}}^2$ by Lagrange's identity. For the time to collision, $D(t)^2=R^2$ is the quadratic of \cref{thm:ch02-ray-circle} with $\vect{o}=\pos_{\mathrm{rel}}$, $\vect{d}=-\vel_{\mathrm{rel}}$, $\vect{c}=\vect{0}$; it has real roots exactly when $d_{\min}\le R$, symmetric about $t^*$ at distance $\sqrt{R^2-d_{\min}^2}/\norm{\vel_{\mathrm{rel}}}$, and the smaller root is the first contact, clamped at $0$ when the discs already overlap. \qedhere
+$D(t)^2=\norm{\pos_{\mathrm{rel}}}^2-2t\,(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})+t^2\norm{\vel_{\mathrm{rel}}}^2$ is a parabola in $t$ with positive leading coefficient; its derivative $-2(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})+2t\norm{\vel_{\mathrm{rel}}}^2$ vanishes at $t=(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})/\norm{\vel_{\mathrm{rel}}}^2$. If this value is negative, the objects are already separating and the closest approach on $t\ge0$ is at $t=0$, which the maximum expresses. At the unclamped minimum, $D^2=\norm{\pos_{\mathrm{rel}}}^2-(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})^2/\norm{\vel_{\mathrm{rel}}}^2=\bigl(\norm{\pos_{\mathrm{rel}}}^2\norm{\vel_{\mathrm{rel}}}^2-(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})^2\bigr)/\norm{\vel_{\mathrm{rel}}}^2=(\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}})^2/\norm{\vel_{\mathrm{rel}}}^2$ by Lagrange's identity. For the time to collision, $D(t)^2=R^2$ is the quadratic of \cref{thm:ch02-ray-circle} with $\vect{o}=\pos_{\mathrm{rel}}$, $\vect{d}=-\vel_{\mathrm{rel}}$, $\vect{c}=\vect{0}$; it has real roots exactly when $d_{\min}\le R$, symmetric about $t^*$ at distance $\sqrt{R^2-d_{\min}^2}/\norm{\vel_{\mathrm{rel}}}$, and the smaller root is the first contact, clamped at $0$ when the disks already overlap. \qedhere
 \end{proof}
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch02/closest-approach}
-  \caption{Closest approach in the relative frame of \cref{ex:ch02-closest-approach}. Drone $A$ sits at the origin as a point; drone $B$ starts at $\pos_{\mathrm{rel}}=(4,2)$ and closes on $A$ along $-\vel_{\mathrm{rel}}=(-1,-1)$, the relative velocity being $\vel_{\mathrm{rel}}=\vel_A-\vel_B=(1,1)$. The perpendicular from the origin to the line of motion gives $d_{\min}=\sqrt2$ at $t^*=3$. With collision distance $R=1.5$ the relative motion enters the disc at $t_c\approx2.65$.}
+  \caption{Closest approach in the relative frame of \cref{ex:ch02-closest-approach}. Drone $A$ sits at the origin as a point; drone $B$ starts at $\pos_{\mathrm{rel}}=(4,2)$ and closes on $A$ along $-\vel_{\mathrm{rel}}=(-1,-1)$, the relative velocity being $\vel_{\mathrm{rel}}=\vel_A-\vel_B=(1,1)$. The perpendicular from the origin to the line of motion gives $d_{\min}=\sqrt2$ at $t^*=3$. With collision distance $R=1.5$ the relative motion enters the disk at $t_c\approx2.65$.}
   \label{fig:ch02-closest-approach}
 \end{figure}
 
@@ -543,15 +543,15 @@ The \textbf{$k\sigma$ covariance ellipse}\index{covariance ellipse} (in 3D: elli
 
 \begin{proposition}[Axes of the covariance ellipse]
 \label[proposition]{thm:ch02-ellipse-axes}
-Let $\mat{\Sigma}=\mat{E}\mat{\Lambda}\mat{E}\T$ be the eigen-decomposition of a $2\times2$ covariance, with orthonormal eigenvectors $\vect{e}_1,\vect{e}_2$ as the columns of $\mat{E}$ and eigenvalues $\lambda_1\ge\lambda_2>0$. Then $\mathcal{E}_k$ is the ellipse centred at $\vect{\mu}$ with semi-axis $k\sqrt{\lambda_1}$ along $\vect{e}_1$ and $k\sqrt{\lambda_2}$ along $\vect{e}_2$,
+Let $\mat{\Sigma}=\mat{E}\mat{\Lambda}\mat{E}\T$ be the eigen-decomposition of a $2\times2$ covariance, with orthonormal eigenvectors $\vect{e}_1,\vect{e}_2$ as the columns of $\mat{E}$ and eigenvalues $\lambda_1\ge\lambda_2>0$. Then $\mathcal{E}_k$ is the ellipse centerd at $\vect{\mu}$ with semi-axis $k\sqrt{\lambda_1}$ along $\vect{e}_1$ and $k\sqrt{\lambda_2}$ along $\vect{e}_2$,
 \begin{equation}
 \state(\varphi)=\vect{\mu}+k\bigl(\sqrt{\lambda_1}\cos\varphi\;\vect{e}_1+\sqrt{\lambda_2}\sin\varphi\;\vect{e}_2\bigr),\qquad \varphi\in[0,2\pi),
 \label{eq:ch02-ellipse-param}
 \end{equation}
-and the major axis makes the angle $\operatorname{atan2}(e_{1,y},e_{1,x})$ with the $x$-axis, with $\vect{e}_1$ normalised so that $e_{1,x}\ge0$ (an eigenvector has no canonical sign, and this is the choice \code{covariance\_ellipse} makes). In two dimensions the probability mass inside $\mathcal{E}_k$ is $1-e^{-k^2/2}$: $39.3\%$ for $k=1$, $86.5\%$ for $k=2$ and $98.9\%$ for $k=3$.
+and the major axis makes the angle $\operatorname{atan2}(e_{1,y},e_{1,x})$ with the $x$-axis, with $\vect{e}_1$ normalized so that $e_{1,x}\ge0$ (an eigenvector has no canonical sign, and this is the choice \code{covariance\_ellipse} makes). In two dimensions the probability mass inside $\mathcal{E}_k$ is $1-e^{-k^2/2}$: $39.3\%$ for $k=1$, $86.5\%$ for $k=2$ and $98.9\%$ for $k=3$.
 \end{proposition}
 \begin{proof}
-Substitute $\vect{y}=\mat{E}\T(\state-\vect{\mu})$. Since $\mat{E}$ is orthogonal, $\mat{\Sigma}\inv=\mat{E}\mat{\Lambda}\inv\mat{E}\T$ and the quadratic form becomes $y_1^2/\lambda_1+y_2^2/\lambda_2=k^2$, an axis-aligned ellipse with semi-axes $k\sqrt{\lambda_i}$, which \cref{eq:ch02-ellipse-param} parametrises; $\state=\vect{\mu}+\mat{E}\vect{y}$ rotates it back onto the eigenvectors. For the mass, note that $\vect{y}$ scaled by $\mat{\Lambda}^{-1/2}$ is a standard Gaussian in $\R^2$, whose squared norm is $\chi^2$-distributed with two degrees of freedom (\cref{thm:appB-chi2}), i.e.\ exponential with mean $2$; hence $\Prob(\text{inside }\mathcal{E}_k)=1-e^{-k^2/2}$. \qedhere
+Substitute $\vect{y}=\mat{E}\T(\state-\vect{\mu})$. Since $\mat{E}$ is orthogonal, $\mat{\Sigma}\inv=\mat{E}\mat{\Lambda}\inv\mat{E}\T$ and the quadratic form becomes $y_1^2/\lambda_1+y_2^2/\lambda_2=k^2$, an axis-aligned ellipse with semi-axes $k\sqrt{\lambda_i}$, which \cref{eq:ch02-ellipse-param} parametrizes; $\state=\vect{\mu}+\mat{E}\vect{y}$ rotates it back onto the eigenvectors. For the mass, note that $\vect{y}$ scaled by $\mat{\Lambda}^{-1/2}$ is a standard Gaussian in $\R^2$, whose squared norm is $\chi^2$-distributed with two degrees of freedom (\cref{thm:appB-chi2}), i.e., exponential with mean $2$; hence $\Prob(\text{inside }\mathcal{E}_k)=1-e^{-k^2/2}$. \qedhere
 \end{proof}
 
 To draw the ellipse, call \code{numpy.linalg.eigh} on $\mat{\Sigma}$ (its eigenvalues come in ascending order, so reverse them), take the square roots and evaluate \cref{eq:ch02-ellipse-param} at, say, $72$ angles; the toolbox does this in \code{covariance\_ellipse} and \code{ellipse\_points}.
@@ -605,13 +605,13 @@ Dijkstra's algorithm and \astar (\cref{ch:ch03,ch:ch04}) must lower the key of a
 }
 \end{algorithm}
 
-Line~\ref{alg:ch02-lazypq:best} of \cref{alg:ch02-lazypq} records the best key of each item, which is what makes a stale entry recognisable at line~\ref{alg:ch02-lazypq:pop}: an entry is stale exactly when its key differs from the recorded best key. Each push costs $\bigO{\log n}$, each pop costs $\bigO{\log n}$ plus one extra pop per stale entry it skips; since every entry is popped at most once, the total cost of a search with $P$ pushes is $\bigO{P\log P}$. A search that relaxes every edge once pushes at most $\abs{E}$ entries, so the heap can hold $\abs{E}$ rather than $\abs{V}$ entries; because $\log\abs{E}\le2\log\abs{V}$, the asymptotic bound of the search is unchanged. Two variants appear in the literature: comparing the popped key with the vertex's current $\gcost$ instead of keeping a separate dictionary, which is equivalent to the version above, and skipping a popped vertex that is already in a closed set, which never re-opens a node while \cref{alg:ch02-lazypq} does. The two coincide whenever the heuristic is consistent, and \cref{ch:ch04} is where reopening is analysed. Where \cref{alg:ch02-lazypq} returns ``empty'', \code{LazyPQ.pop} raises \code{IndexError}, so a search loop tests \code{len(pq)} before popping. The toolbox version also counts pushes and stale pops so that you can watch the overhead in the exercises.
+Line~\ref{alg:ch02-lazypq:best} of \cref{alg:ch02-lazypq} records the best key of each item, which is what makes a stale entry recognizable at line~\ref{alg:ch02-lazypq:pop}: an entry is stale exactly when its key differs from the recorded best key. Each push costs $\bigO{\log n}$, each pop costs $\bigO{\log n}$ plus one extra pop per stale entry it skips; since every entry is popped at most once, the total cost of a search with $P$ pushes is $\bigO{P\log P}$. A search that relaxes every edge once pushes at most $\abs{E}$ entries, so the heap can hold $\abs{E}$ rather than $\abs{V}$ entries; because $\log\abs{E}\le2\log\abs{V}$, the asymptotic bound of the search is unchanged. Two variants appear in the literature: comparing the popped key with the vertex's current $\gcost$ instead of keeping a separate dictionary, which is equivalent to the version above, and skipping a popped vertex that is already in a closed set, which never re-opens a node while \cref{alg:ch02-lazypq} does. The two coincide whenever the heuristic is consistent, and \cref{ch:ch04} is where reopening is analyzed. Where \cref{alg:ch02-lazypq} returns ``empty'', \code{LazyPQ.pop} raises \code{IndexError}, so a search loop tests \code{len(pq)} before popping. The toolbox version also counts pushes and stale pops so that you can watch the overhead in the exercises.
 
 \paragraph{Encoding a state.}
 The dictionaries of a search ($\gcost$-values, parents, the closed set, the best keys of the queue) need hashable keys, and \cref{sec:appB-complexity} explains why floating-point keys are legal but dangerous. The book's convention follows from that warning: a state is always a tuple of integers, \code{(x, y)} for a grid cell, \code{((x, y), t)} for a space-time state, \code{(x, y, z)} for a lattice cell. Such tuples hash in constant time, compare quickly and cost about a hundred bytes each, and---unlike a rounded float---two physically identical states always produce the same key, so the closed set of \cref{ch:ch03,ch:ch04} cannot silently stop working. Continuous states, as in \cref{ch:ch16,ch:ch17}, are \emph{not} hashed at all; they live in arrays and are searched with a KD-tree.
 
 \paragraph{Why dictionaries are enough.}
-The largest instances in this book are grids of about $100\times100$ cells with horizons of about $100$ steps, i.e.\ $10^6$ space-time states, and a \python dictionary holding $10^6$ tuple keys occupies about $150$~MB and is filled in a few seconds. A search touches far fewer states than that, so no chapter uses a specialised data structure for its closed set; \cref{ch:ch25} is where faster encodings are discussed.
+The largest instances in this book are grids of about $100\times100$ cells with horizons of about $100$ steps, i.e., $10^6$ space-time states, and a \python dictionary holding $10^6$ tuple keys occupies about $150$~MB and is filled in a few seconds. A search touches far fewer states than that, so no chapter uses a specialized data structure for its closed set; \cref{ch:ch25} is where faster encodings are discussed.
 
 % ---------------------------------------------------------------------
 \section{The Python stack and the code of the book}
@@ -641,7 +641,7 @@ The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, lis
 
 \begin{lstlisting}[caption={The successor function of the grid (from \code{code/ch02\_toolbox.py}).},label={lst:ch02-grid-neighbors}]
     def neighbors(self, cell):
-        """Return [(neighbour, cost)] for the free neighbours of ``cell``."""
+        """Return [(neighbor, cost)] for the free neighbors of ``cell``."""
         x, y = cell
         moves = MOVES4 if self.connectivity == 4 else MOVES8
         result = []
@@ -664,7 +664,7 @@ The training plan behind this book (\cref{ch:appA}) prescribes a lean stack, lis
 \label{sec:ch02-drone}
 
 \begin{dronebox}
-Each of the four layers of the hybrid architecture in \cref{ch:ch24} is built from tools of this chapter. The \emph{global planner} searches a grid or lattice (\cref{def:ch02-grid,def:ch02-lattice}) of inflated obstacles (\cref{thm:ch02-inflation}) in space-time (\cref{def:ch02-space-time-state}), compares plans by makespan and sum of costs (\cref{def:ch02-makespan,def:ch02-sum-of-costs}), and runs on the lazy priority queue (\cref{alg:ch02-lazypq}). The \emph{prediction layer} describes an intruder by a Gaussian (\cref{def:appB-gaussian}), read as the covariance ellipse of \cref{def:ch02-covariance-ellipse} and propagated through the double-integrator model (\cref{def:ch02-double-integrator}) with Bayes' rule (\cref{eq:appB-bayes}). The \emph{local safety layer} works in the relative frame of two discs (\cref{thm:ch02-disc-minkowski}), decides with the time to collision (\cref{thm:ch02-closest-approach}) whether an intruder is inside the safety horizon, avoids it with the tangent cone (\cref{thm:ch02-tangents}), and respects the stopping distance (\cref{thm:ch02-stopping-distance}). The \emph{replanning layer} re-searches the grid from the current space-time state with hashed states. In the twelve-week study plan of \cref{ch:appA} this chapter accompanies Week~1, the foundations week, and is the reference to return to in every later week.
+Each of the four layers of the hybrid architecture in \cref{ch:ch24} is built from tools of this chapter. The \emph{global planner} searches a grid or lattice (\cref{def:ch02-grid,def:ch02-lattice}) of inflated obstacles (\cref{thm:ch02-inflation}) in space-time (\cref{def:ch02-space-time-state}), compares plans by makespan and sum of costs (\cref{def:ch02-makespan,def:ch02-sum-of-costs}), and runs on the lazy priority queue (\cref{alg:ch02-lazypq}). The \emph{prediction layer} describes an intruder by a Gaussian (\cref{def:appB-gaussian}), read as the covariance ellipse of \cref{def:ch02-covariance-ellipse} and propagated through the double-integrator model (\cref{def:ch02-double-integrator}) with Bayes' rule (\cref{eq:appB-bayes}). The \emph{local safety layer} works in the relative frame of two disks (\cref{thm:ch02-disc-minkowski}), decides with the time to collision (\cref{thm:ch02-closest-approach}) whether an intruder is inside the safety horizon, avoids it with the tangent cone (\cref{thm:ch02-tangents}), and respects the stopping distance (\cref{thm:ch02-stopping-distance}). The \emph{replanning layer} re-searches the grid from the current space-time state with hashed states. In the twelve-week study plan of \cref{ch:appA} this chapter accompanies Week~1, the foundations week, and is the reference to return to in every later week.
 \end{dronebox}
 
 % ---------------------------------------------------------------------
@@ -672,11 +672,11 @@ Each of the four layers of the hybrid architecture in \cref{ch:ch24} is built fr
 \begin{summary}
 \begin{itemize}
   \item A planner searches a weighted graph through a successor function; grids and lattices are implicit graphs with move costs $1$, $\sqrt2$, $\sqrt3$ and a corner-cutting rule (\cref{def:ch02-graph,def:ch02-grid,def:ch02-lattice}).
-  \item A disc or ball robot becomes a point when the obstacles are inflated by its radius: $\Cobs=\mathcal{O}\oplus\disc{\vect{0}}{r}$ (\cref{thm:ch02-inflation}); a drone is such a ball, radius plus margin.
+  \item A disk or ball robot becomes a point when the obstacles are inflated by its radius: $\Cobs=\mathcal{O}\oplus\disc{\vect{0}}{r}$ (\cref{thm:ch02-inflation}); a drone is such a ball, radius plus margin.
   \item Discrete time adds the wait action and turns the map into the time-expanded graph; a time-indexed path fixes where and when, a plan is one such path per agent, a trajectory is continuous motion (\cref{def:ch02-time-indexed-path,def:ch02-plan,def:ch02-trajectory}).
   \item Path length, travel time, makespan $\makespan=\max_i T_i$, sum of costs $\sumcost=\sum_i T_i$ and minimum separation are the cost measures of the book; a plan without grid conflicts can still bring physical agents too close.
   \item The single integrator chooses velocities, the double integrator chooses accelerations with exact discrete matrices $\mat{A},\mat{B}$; a quadrotor is nearly the latter; the stopping distance is $v^2/(2a_{\max})$.
-  \item Distance to a segment, ray--circle intersection, the Minkowski disc, tangent lines and the time of closest approach $t^*=(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})/\norm{\vel_{\mathrm{rel}}}^2$ with $d_{\min}=\abs{\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}}}/\norm{\vel_{\mathrm{rel}}}$ are the geometry of collision avoidance.
+  \item Distance to a segment, ray--circle intersection, the Minkowski disk, tangent lines and the time of closest approach $t^*=(\pos_{\mathrm{rel}}\cdot\vel_{\mathrm{rel}})/\norm{\vel_{\mathrm{rel}}}^2$ with $d_{\min}=\abs{\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}}}/\norm{\vel_{\mathrm{rel}}}$ are the geometry of collision avoidance.
   \item A covariance is an ellipse with axes $\sqrt{\lambda_i}\,\vect{e}_i$ (\cref{thm:ch02-ellipse-axes}); in 2D the $1\sigma$ ellipse holds only $39\%$ of the mass; Bayes' rule turns a prior and a measurement into a posterior.
   \item Searches use a binary heap with lazy deletion (push duplicates, skip stale pops) and dictionaries keyed by integer tuples; \python and NumPy are enough for every instance in this book.
 \end{itemize}
@@ -696,12 +696,12 @@ Write the adjacency list of the 8-connected grid graph of the $4\times3$ map \co
 
 \begin{exercise}[\difficulty{1}]
 \label{exr:ch02-diagonal-cost}
-Suppose a diagonal move cost $1$ instead of $\sqrt2$. Give a start and goal on an empty 8-connected grid for which the cheapest grid path is then not the shortest polyline through cell centres, and explain what this would do to a heuristic that estimates the straight-line distance (\cref{ch:ch04}).
+Suppose a diagonal move cost $1$ instead of $\sqrt2$. Give a start and goal on an empty 8-connected grid for which the cheapest grid path is then not the shortest polyline through cell centers, and explain what this would do to a heuristic that estimates the straight-line distance (\cref{ch:ch04}).
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch02-inflation}
-A single cell of a large grid is blocked. Using the cell-centre rule of \code{Grid.inflate}, determine by hand which cells are blocked after inflating by $r=0.6$, $r=1.0$ and $r=1.6$, and count them in each case. At which values of $r$ does the count change next? Compare the blocked-cell count with the area $1+4r+\pi r^2$ of the exact Minkowski sum of the unit square with the disc of radius $r$, and check that the ratio tends to $1$.
+A single cell of a large grid is blocked. Using the cell-center rule of \code{Grid.inflate}, determine by hand which cells are blocked after inflating by $r=0.6$, $r=1.0$ and $r=1.6$, and count them in each case. At which values of $r$ does the count change next? Compare the blocked-cell count with the area $1+4r+\pi r^2$ of the exact Minkowski sum of the unit square with the disk of radius $r$, and check that the ratio tends to $1$.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3}]
@@ -721,7 +721,7 @@ A drone flies at $v=2$~m/s with $a_{\max}=1$~m/s$^2$ and $\dt=0.1$~s. How many s
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch02-closest-approach}
-Derive \cref{eq:ch02-tca} by minimising $D(t)^2$, show that $d_{\min}=\abs{\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}}}/\norm{\vel_{\mathrm{rel}}}$ when the minimum is not clamped, and derive the time to collision \cref{eq:ch02-ttc}. Evaluate all three for $\pos_{\mathrm{rel}}=(4,2)$, $\vel_{\mathrm{rel}}=(1,1)$ and collision distances $R=1.5$ and $R=1$.
+Derive \cref{eq:ch02-tca} by minimizing $D(t)^2$, show that $d_{\min}=\abs{\pos_{\mathrm{rel}}\times\vel_{\mathrm{rel}}}/\norm{\vel_{\mathrm{rel}}}$ when the minimum is not clamped, and derive the time to collision \cref{eq:ch02-ttc}. Evaluate all three for $\pos_{\mathrm{rel}}=(4,2)$, $\vel_{\mathrm{rel}}=(1,1)$ and collision distances $R=1.5$ and $R=1$.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]

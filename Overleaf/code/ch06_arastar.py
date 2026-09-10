@@ -54,7 +54,7 @@ class Grid:
                 and cell not in self.obstacles)
 
     def successors(self, cell):
-        """Return the (neighbour, cost) pairs of a free cell."""
+        """Return the (neighbor, cost) pairs of a free cell."""
         x, y = cell
         result = []
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -140,7 +140,7 @@ class ARAStar:
     def _push(self, s):
         """Insert s into OPEN with its current key (or update the key).
 
-        Ties on fvalue are broken towards the smaller h, then first-in
+        Ties on fvalue are broken toward the smaller h, then first-in
         first-out.  Old heap entries of s become stale and are skipped.
         """
         self.open_set.add(s)

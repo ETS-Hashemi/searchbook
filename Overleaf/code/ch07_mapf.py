@@ -55,7 +55,7 @@ class MAPFInstance:
                 and self.grid[r][c] in FREE_CHARS)
 
     def neighbors(self, cell: Cell) -> List[Cell]:
-        """Free 4-neighbours of a cell (the move actions); waiting is separate."""
+        """Free 4-neighbors of a cell (the move actions); waiting is separate."""
         r, c = cell
         return [(r + dr, c + dc) for dr, dc in MOVES if self.is_free((r + dr, c + dc))]
 

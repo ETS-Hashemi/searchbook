@@ -313,7 +313,7 @@ def focal_space_time_astar(inst: Instance, agent: int,
     it pops a goal state (cell = goal and t later than every vertex
     constraint on the goal) and returns the path together with f_min,
     a lower bound on the optimal cost under the constraints.  With w = 1
-    it is A* that breaks ties towards fewer conflicts.
+    it is A* that breaks ties toward fewer conflicts.
     """
     start, goal = inst.starts[agent], inst.goals[agent]
     h = inst.distances_to(goal)
@@ -560,7 +560,7 @@ def cbs(inst: Instance, node_limit: int = 10 ** 6, time_limit: float = INF,
         keep_trace: bool = False) -> Result:
     """Optimal CBS: best-first on the cost of the CT nodes, low level w = 1.
 
-    Ties in cost are broken towards fewer conflicts, then towards the
+    Ties in cost are broken toward fewer conflicts, then toward the
     older node.  The low level is the focal search with w = 1, that is,
     A* that prefers, among equally short paths, one with fewer conflicts.
     """

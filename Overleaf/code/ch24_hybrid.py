@@ -25,7 +25,7 @@ earlier chapters so that this file stands alone:
                   and the conflict re-check with a local CBS repair.
 
 Units: cells are 1 m squares, the grid time step is 1 s (cruise speed
-1 m/s), the control cycle is DT = 0.1 s.  Cell (x, y) has its centre at
+1 m/s), the control cycle is DT = 0.1 s.  Cell (x, y) has its center at
 (x + 0.5, y + 0.5).  A time-indexed path is a list of cells; path[j] is the
 cell occupied at absolute time t0 + j, and the drone parks at path[-1].
 
@@ -63,7 +63,7 @@ class Grid:
         x, y = c
         return 0 <= x < self.cols and 0 <= y < self.rows and c not in self.obstacles
 
-    def neighbours(self, c: Cell) -> List[Cell]:
+    def neighbors(self, c: Cell) -> List[Cell]:
         x, y = c
         return [n for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))
                 if self.free(n)]
@@ -73,7 +73,7 @@ class Grid:
         dist = {goal: 0}
         queue = [goal]
         for c in queue:
-            for n in self.neighbours(c):
+            for n in self.neighbors(c):
                 if n not in dist:
                     dist[n] = dist[c] + 1
                     queue.append(n)
@@ -89,8 +89,8 @@ class Grid:
         return best
 
 
-def centre(c: Cell):
-    """Continuous position of the centre of a cell (grid -> world)."""
+def center(c: Cell):
+    """Continuous position of the center of a cell (grid -> world)."""
     return np.array([c[0] + 0.5, c[1] + 0.5])
 
 
@@ -104,11 +104,11 @@ def path_position(path: Sequence[Cell], t0: float, t: float):
     linear interpolation between the cells of steps floor and ceil."""
     s = t - t0
     if s <= 0:
-        return centre(path[0])
+        return center(path[0])
     j = int(math.floor(s))
     if j >= len(path) - 1:
-        return centre(path[-1])
-    a, b = centre(path[j]), centre(path[j + 1])
+        return center(path[-1])
+    a, b = center(path[j]), center(path[j + 1])
     return a + (s - j) * (b - a)
 
 
@@ -217,7 +217,7 @@ def space_time_astar(grid: Grid, start: Cell, goal: Cell, t0: int = 0,
             return path[::-1]
         if t >= horizon:
             continue
-        for w in grid.neighbours(v) + [v]:
+        for w in grid.neighbors(v) + [v]:
             nxt = (w, t + 1)
             if nxt in closed or nxt in cons.vertex or (v, w, t) in cons.edge:
                 continue
@@ -348,7 +348,7 @@ class IntruderTracker:
 
     def update(self, z) -> None:
         z = np.asarray(z, dtype=float)
-        if self.x is None:                       # initialise from the first fix
+        if self.x is None:                       # initialize from the first fix
             self.x = np.array([z[0], z[1], 0.0, 0.0])
             self.P = np.diag([self.sigma_z ** 2, self.sigma_z ** 2, 1.0, 1.0])
             self.n_updates = 1
@@ -420,7 +420,7 @@ def vo_closest_boundary_point(p, v_rel, r, tau, dt):
         rho = r / tau
         w = (v_rel[0] - c[0], v_rel[1] - c[1])
         w2, wp = _dot(w, w), _dot(w, p)
-        if wp < 0.0 and wp * wp > r2 * w2:                # truncating disc
+        if wp < 0.0 and wp * wp > r2 * w2:                # truncating disk
             w_len = math.sqrt(w2)
             n = (w[0] / w_len, w[1] / w_len)
             return (n[0] * (rho - w_len), n[1] * (rho - w_len)), n
@@ -460,10 +460,10 @@ def _lp_on_line(lines, i, v_max, v_opt, direction_opt):
     line = lines[i]
     d, q = line.direction, line.point
     b = _dot(q, d)
-    disc = b * b + v_max * v_max - _dot(q, q)
-    if disc < 0.0:
+    disk = b * b + v_max * v_max - _dot(q, q)
+    if disk < 0.0:
         return None
-    root = math.sqrt(disc)
+    root = math.sqrt(disk)
     t_left, t_right = -b - root, -b + root
     for j in range(i):
         dj = lines[j].direction
@@ -489,7 +489,7 @@ def _lp_on_line(lines, i, v_max, v_opt, direction_opt):
 
 def lp_incremental(lines, v_max, v_opt, direction_opt=False):
     """Incremental 2D linear program of RVO2 (ch13): the point of the
-    intersection of the half-planes and the speed disc closest to v_opt."""
+    intersection of the half-planes and the speed disk closest to v_opt."""
     if direction_opt:
         v = (v_opt[0] * v_max, v_opt[1] * v_max)
     elif _dot(v_opt, v_opt) > v_max * v_max:
@@ -507,7 +507,7 @@ def lp_incremental(lines, v_max, v_opt, direction_opt=False):
 
 
 def lp_dense(lines, begin, v_max, v):
-    """Dense fallback: minimise the largest penetration (RVO2 linearProgram3)."""
+    """Dense fallback: minimize the largest penetration (RVO2 linearProgram3)."""
     depth = 0.0
     for i in range(begin, len(lines)):
         if lines[i].violation(v) <= depth:
@@ -550,7 +550,7 @@ PARAMS = dict(
     v_cruise=1.0, v_max=1.5, a_max=1.0,     # drone limits, m/s and m/s^2
     r_drone=0.3, r_intruder=0.3, margin=0.1,  # radii and safety margin, m
     tau_h=3.0,                # safety horizon, s (= ORCA tau)
-    kappa=2.45,               # inflation: sqrt(-2 ln 0.05), the 95 % disc in 2D
+    kappa=2.45,               # inflation: sqrt(-2 ln 0.05), the 95 % disk in 2D
     t_pred=5.0,               # prediction horizon of the tracker, s
     sense_range=6.0,          # detection range for the intruder, m
     n_warm=10,                # filter updates before its prediction is trusted
@@ -612,7 +612,7 @@ class Drone:
 
     def arrived(self, t: float) -> bool:
         return (t >= self.t0 + len(self.path) - 1
-                and np.linalg.norm(self.pos - centre(self.goal)) < 0.15)
+                and np.linalg.norm(self.pos - center(self.goal)) < 0.15)
 
 
 class HybridSimulation:
@@ -631,7 +631,7 @@ class HybridSimulation:
         paths, self.cbs_expansions = cbs(grid, starts, goals)
         assert paths is not None, "CBS found no nominal plan"
         self.nominal = [list(p) for p in paths]
-        self.drones = [Drone(n, g, centre(s), path=list(p))
+        self.drones = [Drone(n, g, center(s), path=list(p))
                        for n, s, g, p in zip(names, starts, goals, paths)]
         # intruder: true motion and tracker
         self.intr_p0, self.intr_v = intr["p0"].astype(float), intr["v"].astype(float)
@@ -675,7 +675,7 @@ class HybridSimulation:
             k = d.target_index + 1
         else:
             k = max(0, int(math.ceil(self.t - d.t0 + 1e-9)))
-        poly.extend(centre(c) for c in d.path[k:])
+        poly.extend(center(c) for c in d.path[k:])
         seg = [(poly[i], poly[i + 1], float(np.linalg.norm(poly[i + 1] - poly[i])))
                for i in range(len(poly) - 1)]
         out = []
@@ -716,7 +716,7 @@ class HybridSimulation:
 
     # -- local layer ---------------------------------------------------------
     def preferred_velocity(self, d: Drone, with_formation: bool):
-        """Towards the next waypoint at cruise speed, with the formation and
+        """Toward the next waypoint at cruise speed, with the formation and
         communication corrections when they are not relaxed."""
         if d.state == RECONNECTING and d.target is not None:
             remaining = max(d.target_time - self.t, DT)
@@ -732,7 +732,7 @@ class HybridSimulation:
                 if d.name == b:
                     leader = next(o for o in self.drones if o.name == a)
                     v = v + self.p["k_form"] * ((leader.pos + off) - d.pos)
-        # communication: pull towards the nearest teammate if the link stretches
+        # communication: pull toward the nearest teammate if the link stretches
         mates = self.others(d)
         if mates:
             nearest = min(mates, key=lambda o: np.linalg.norm(o.pos - d.pos))
@@ -808,7 +808,7 @@ class HybridSimulation:
         for delay in range(self.p["delay_max"] + 1):
             for k in range(k0, min(k0 + self.p["k_look"], last) + 1):
                 t_b = d.t0 + k + delay                # arrive at waypoint k, delayed
-                w = centre(d.path[k])
+                w = center(d.path[k])
                 need = float(np.linalg.norm(w - d.pos))
                 if t_b - self.t < DT or need / (t_b - self.t) > self.p["v_max"]:
                     tried.append((k, delay, "too fast"))
@@ -845,8 +845,8 @@ class HybridSimulation:
         t_start = int(math.ceil(self.t + 0.5))
         c0 = nearest_cell(d.pos)
         if not self.grid.free(c0):
-            c0 = min(self.grid.neighbours(c0) or [c0],
-                     key=lambda c: np.linalg.norm(centre(c) - d.pos))
+            c0 = min(self.grid.neighbors(c0) or [c0],
+                     key=lambda c: np.linalg.norm(center(c) - d.pos))
         res = self.reservation_of_others(d, pred, t_start)
         for o in self.others(d):                   # keep clear of where they are now
             res.block(nearest_cell(o.pos), t_start)
@@ -854,7 +854,7 @@ class HybridSimulation:
         if path is None:
             return False
         d.path, d.t0 = [c0] + path, t_start - 1
-        d.target, d.target_time, d.target_index = centre(c0), float(t_start), 0
+        d.target, d.target_time, d.target_index = center(c0), float(t_start), 0
         d.replans += 1
         self.last_replan = dict(t=self.t, drone=d.name, t_start=t_start, c0=c0,
                                 path=list(d.path), blocked=sum(len(v) for v in res.layers.values()),
@@ -886,7 +886,7 @@ class HybridSimulation:
             if new_paths is not None:
                 for o, p in zip(subset, new_paths):
                     o.path, o.t0 = p, t_start
-                    o.target, o.target_time, o.target_index = centre(p[0]), float(t_start), 0
+                    o.target, o.target_time, o.target_index = center(p[0]), float(t_start), 0
                     if o.state == NOMINAL:
                         self.transition(o, RECONNECTING, "repaired by local CBS")
         entry["after"] = [(o.name, list(o.path), o.t0) for o in self.drones]
@@ -952,7 +952,7 @@ class HybridSimulation:
                                        reason=reason, pos=d.pos.copy(), tried=tried))
         if k is None:
             return reason
-        d.target, d.target_index = centre(d.path[k]), k
+        d.target, d.target_index = center(d.path[k]), k
         d.target_time = float(d.t0 + k + delay)
         d.reconnections += 1
         if delay > 0:                              # shift the remainder of the plan

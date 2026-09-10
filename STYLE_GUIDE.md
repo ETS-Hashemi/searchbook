@@ -15,7 +15,8 @@ from it. The LaTeX project lives in `Overleaf/`; the chapter template is
 * **Reader.** A graduate student or engineer starting research on drone swarms. Comfortable
   with Python, basic linear algebra, calculus and probability. No prior knowledge of
   robotics planning is assumed. Reads the book alone, without a lecturer.
-* **Voice.** A patient tutor. Plain American English, short sentences, active voice,
+* **Voice.** A patient tutor. Plain American English (`-ize`, `-or`, `-er`; *toward*, *gray*,
+  *disk*, *maneuver*; bibliography titles keep their original spelling), short sentences, active voice,
   second person is welcome ("you can now..."). Intuition first, formalism second, code third.
   Never write "obviously", "clearly", "trivially" or "it is easy to see".
 * **Promise to the reader.** Every algorithm gets: a motivation, a plain-words idea, exact

@@ -13,11 +13,11 @@ The file is self-contained:
                          time-indexed paths (agents stay at their goals).
 * ``cbs``             -- the high level: best-first search on the sum of costs
                          over the binary constraint tree, with optional
-                         ICBS-style cardinal-conflict prioritisation and bypass.
+                         ICBS-style cardinal-conflict prioritization and bypass.
 * ``joint_optimal_cost`` -- Dijkstra on the joint state space (tiny instances
                          only), used by the self-test to certify optimality.
 
-Cells are (x, y) with x the column and y the row, y growing upwards, as in
+Cells are (x, y) with x the column and y the row, y growing upward, as in
 the figures of the book.  A path is a list of cells, one per time step; its
 cost is len(path) - 1, the time of the final arrival at the goal, after
 which the agent stays there for ever.
@@ -61,7 +61,7 @@ class Grid:
         x, y = c
         return 0 <= x < self.cols and 0 <= y < self.rows and c not in self.obstacles
 
-    def neighbours(self, c: Cell) -> List[Cell]:
+    def neighbors(self, c: Cell) -> List[Cell]:
         x, y = c
         cand = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
         return [n for n in cand if self.free(n)]
@@ -76,7 +76,7 @@ class Grid:
         queue = deque([goal])
         while queue:
             c = queue.popleft()
-            for n in self.neighbours(c):
+            for n in self.neighbors(c):
                 if n not in dist:
                     dist[n] = dist[c] + 1
                     queue.append(n)
@@ -153,7 +153,7 @@ def low_level(grid: Grid, start: Cell, goal: Cell, cons: Constraints,
             return path[::-1]
         if t >= horizon:
             continue
-        for w in grid.neighbours(v) + [v]:           # moves and the wait action
+        for w in grid.neighbors(v) + [v]:           # moves and the wait action
             nxt = (w, t + 1)
             if nxt in closed or nxt in cons.vertex or (v, w, t) in cons.edge:
                 continue
@@ -227,7 +227,7 @@ def validate(paths: Sequence[Path], grid: Grid, starts: Sequence[Cell],
     for p, s, g in zip(paths, starts, goals):
         if p[0] != s or p[-1] != g or not all(grid.free(c) for c in p):
             return False
-        if any(b != a and b not in grid.neighbours(a) for a, b in zip(p, p[1:])):
+        if any(b != a and b not in grid.neighbors(a) for a, b in zip(p, p[1:])):
             return False
     return not all_conflicts(paths)
 
@@ -410,7 +410,7 @@ def joint_optimal_cost(grid: Grid, starts: Sequence[Cell],
             if done[i]:
                 options.append([(pos[i], True, 0)])
             else:
-                opts = [(w, False, 1) for w in grid.neighbours(pos[i]) + [pos[i]]]
+                opts = [(w, False, 1) for w in grid.neighbors(pos[i]) + [pos[i]]]
                 if pos[i] == goals[i]:
                     opts.append((pos[i], True, 0))
                 options.append(opts)
@@ -582,7 +582,7 @@ def _test_rectangle_symmetry() -> None:
             if c == g:
                 out.append(path)
                 return
-            for n in grid.neighbours(c):
+            for n in grid.neighbors(c):
                 if d[n] == d[c] - 1:
                     rec(n, path + [n])
         rec(s, [s])

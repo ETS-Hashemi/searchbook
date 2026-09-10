@@ -30,7 +30,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from ch14_dwa import (Box, Disc, DwaParams, UTRAP_WAYPOINTS, WEIGHT_SETTINGS,  # noqa: E402
+from ch14_dwa import (Box, Disk, DwaParams, UTRAP_WAYPOINTS, WEIGHT_SETTINGS,  # noqa: E402
                       admissible_speed, corridor_scene, dwa_command, evaluate,
                       free_distance, simulate, utrap_scene, worked_example)
 
@@ -69,7 +69,7 @@ def obstacle_plots(obstacles):
         if isinstance(ob, Box):
             pts = [(ob.lo[0], ob.lo[1]), (ob.hi[0], ob.lo[1]), (ob.hi[0], ob.hi[1]), (ob.lo[0], ob.hi[1])]
         else:
-            pts = circle_points(ob.centre, ob.radius)
+            pts = circle_points(ob.center, ob.radius)
         out.append("\\addplot[fill=sbObstacle,draw=black!40,thin,forget plot] coordinates {%s} -- cycle;"
                    % polygon(pts))
     return "\n".join(out)
@@ -189,8 +189,8 @@ def write_example_figures():
     S.append("\\draw[black!15,very thin] (-0.5,-1.2) grid[step=1] (5.5,1.3);")
     S.append("\\draw[->,black!50] (-0.5,0) -- (5.6,0) node[right,sbannot] {$x$};")
     S.append("\\draw[->,black!50] (0,-1.2) -- (0,1.4) node[above,sbannot] {$y$};")
-    S.append("\\fill[sbobstacle] (%.2f,%.2f) circle (%.2f);" % (ob.centre[0], ob.centre[1], ob.radius))
-    S.append("\\draw[black!50,dashed] (%.2f,%.2f) circle (%.2f);" % (ob.centre[0], ob.centre[1], ob.radius + prm.radius))
+    S.append("\\fill[sbobstacle] (%.2f,%.2f) circle (%.2f);" % (ob.center[0], ob.center[1], ob.radius))
+    S.append("\\draw[black!50,dashed] (%.2f,%.2f) circle (%.2f);" % (ob.center[0], ob.center[1], ob.radius + prm.radius))
     for c in cands:
         end = p + c.v * prm.horizon
         style = "sbBlue!60,thin" if c.admissible else "sbRed!70,thin,densely dotted"
@@ -203,7 +203,7 @@ def write_example_figures():
     S.append("\\node[sbannot,anchor=north east] at (-0.05,-0.25) {drone};")
     S.append("\\node[sbannot,text=sbOrange,anchor=south west] at (%.2f,%.2f) {chosen rollout};" % (end[0] + 0.05, end[1] + 0.05))
     S.append("\\node[sbannot,text=sbBlue,anchor=west] at (2.3,-0.55) {closed-loop path, 13 steps};")
-    S.append("\\node[sbannot,anchor=north] at (%.2f,%.2f) {obstacle};" % (ob.centre[0], ob.centre[1] - ob.radius - prm.radius - 0.05))
+    S.append("\\node[sbannot,anchor=north] at (%.2f,%.2f) {obstacle};" % (ob.center[0], ob.center[1] - ob.radius - prm.radius - 0.05))
     S.append("\\end{tikzpicture}")
     with open(os.path.join(FIGS, "example-scene.tex"), "w") as fh:
         fh.write("\n".join(S) + "\n")

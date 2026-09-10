@@ -5,7 +5,7 @@ A complete DWA controller for a velocity-controlled drone (holonomic, 2D or
 original differential-drive formulation (Fox, Burgard and Thrun, 1997).
 
 Contents
-    Disc, Box, free_distance          obstacles and analytic ray casting
+    Disk, Box, free_distance          obstacles and analytic ray casting
     DwaParams                         all parameters of the controller
     dynamic_window, window_candidates the velocity grid over the window
     admissible_speed, evaluate        braking test and the three-term score
@@ -16,7 +16,7 @@ Contents
     worked_example, scenes            the instances used in the chapter
 
 Coordinates: positions and velocities are NumPy arrays of length 2 or 3.
-Distances in metres, speeds in m/s, accelerations in m/s^2, times in s.
+Distances in meters, speeds in m/s, accelerations in m/s^2, times in s.
 
 Run:  python3 code/ch14_dwa.py     (self-test, takes about a second)
 """
@@ -33,9 +33,9 @@ import numpy as np
 # Obstacles and ray casting in the inflated configuration space
 # ----------------------------------------------------------------------
 @dataclass
-class Disc:
-    """A disc (2D) or ball (3D); `velocity` is set for moving obstacles."""
-    centre: np.ndarray
+class Disk:
+    """A disk (2D) or ball (3D); `velocity` is set for moving obstacles."""
+    center: np.ndarray
     radius: float
     velocity: np.ndarray | None = None
 
@@ -47,17 +47,17 @@ class Box:
     hi: np.ndarray
 
 
-def ray_disc(p, d, centre, radius):
-    """Distance along the unit ray p + t*d to the disc surface, or inf."""
-    m = p - centre
+def ray_disk(p, d, center, radius):
+    """Distance along the unit ray p + t*d to the disk surface, or inf."""
+    m = p - center
     b = float(np.dot(m, d))
     c = float(np.dot(m, m)) - radius * radius
     if c <= 0.0:
-        return 0.0  # the ray starts inside the disc
-    disc = b * b - c
-    if b > 0.0 or disc < 0.0:
+        return 0.0  # the ray starts inside the disk
+    disk = b * b - c
+    if b > 0.0 or disk < 0.0:
         return math.inf
-    return -b - math.sqrt(disc)
+    return -b - math.sqrt(disk)
 
 
 def ray_box(p, d, lo, hi):
@@ -81,7 +81,7 @@ def free_distance(p, d, obstacles, radius, d_max, v=None):
 
     Obstacles are inflated by the robot radius (boxes are inflated as
     boxes, a conservative approximation of the Minkowski sum).  If the
-    robot velocity v is given, moving discs are handled in the relative
+    robot velocity v is given, moving disks are handled in the relative
     frame: the collision time follows from the relative velocity v - u
     and the free distance is the robot's own travel until that time.
     """
@@ -90,13 +90,13 @@ def free_distance(p, d, obstacles, radius, d_max, v=None):
         if isinstance(ob, Box):
             t = ray_box(p, d, ob.lo - radius, ob.hi + radius)
         elif v is None or ob.velocity is None:
-            t = ray_disc(p, d, ob.centre, ob.radius + radius)
+            t = ray_disk(p, d, ob.center, ob.radius + radius)
         else:
             rel = v - ob.velocity
             speed_rel = float(np.linalg.norm(rel))
             if speed_rel < 1e-9:
                 continue
-            t_rel = ray_disc(p, rel / speed_rel, ob.centre, ob.radius + radius)
+            t_rel = ray_disk(p, rel / speed_rel, ob.center, ob.radius + radius)
             t = float(np.linalg.norm(v)) * t_rel / speed_rel
         best = min(best, t)
     return best
@@ -106,8 +106,8 @@ def clearance_at(p, obstacles, radius):
     """Signed distance from p to the nearest inflated obstacle surface."""
     best = math.inf
     for ob in obstacles:
-        if isinstance(ob, Disc):
-            best = min(best, float(np.linalg.norm(p - ob.centre)) - ob.radius - radius)
+        if isinstance(ob, Disk):
+            best = min(best, float(np.linalg.norm(p - ob.center)) - ob.radius - radius)
         else:
             gap = np.maximum(np.maximum(ob.lo - p, p - ob.hi), 0.0)
             best = min(best, float(np.linalg.norm(gap)) - radius)
@@ -132,7 +132,7 @@ class DwaParams:
     goal_tol: float = 0.2     # the goal counts as reached inside this radius
     brake_for_goal: bool = True   # also brake for the goal, not only for obstacles
     hysteresis: float = 0.0   # keep the old command unless the best beats it by this
-    smooth: bool = False      # the sigma of Fox et al.: average G over neighbours
+    smooth: bool = False      # the sigma of Fox et al.: average G over neighbors
     brake_delay: float = None  # delay before braking can start, used by the
                                # admissibility test: None = dt, 0 = continuous test
 
@@ -177,7 +177,7 @@ def window_candidates(v_a, prm):
 
 
 def braking_distance(speed, a_brake, dt=0.0):
-    """Distance travelled before standing still: the command is held for
+    """Distance traveled before standing still: the command is held for
     dt (dt = 0 gives the continuous formula v^2 / (2 a) of Fox et al.),
     then the robot decelerates with a_brake."""
     return speed * dt + speed * speed / (2.0 * a_brake)
@@ -217,7 +217,7 @@ class Candidate:
 
 def _smooth_scores(cands, prm):
     """The sigma of Fox et al.: replace G by its mean over the grid
-    neighbours (inadmissible neighbours count as zero)."""
+    neighbors (inadmissible neighbors count as zero)."""
     vs = np.array([c.v for c in cands])
     raw = np.array([c.score for c in cands])
     for i, c in enumerate(cands):
@@ -322,7 +322,7 @@ def diffdrive_window(v, omega, dv_max, dw_max, dt, v_max, w_max):
 
 
 def diffdrive_free_distance(pose, v, omega, obstacles, radius, d_max, ds=0.02):
-    """Distance travelled on the arc of (v, omega) before the first contact."""
+    """Distance traveled on the arc of (v, omega) before the first contact."""
     if v < 1e-9:
         return d_max
     n = int(math.ceil(d_max / ds))
@@ -363,7 +363,7 @@ def lookahead_point(p, waypoints, lookahead):
 def simulate(p0, v0, goal, obstacles, prm, max_steps=200, waypoints=None,
              lookahead=1.0):
     """Run DWA in closed loop until the goal is reached, a collision occurs
-    or max_steps elapse.  Moving discs advance by their velocity each step.
+    or max_steps elapse.  Moving disks advance by their velocity each step.
 
     Returns a dict with the trajectory (positions), the commands, and the
     metrics used in the chapter: reached, collided, steps, path_length,
@@ -379,8 +379,8 @@ def simulate(p0, v0, goal, obstacles, prm, max_steps=200, waypoints=None,
         v, _ = dwa_command(p, v, obstacles, target, prm, goal)
         p = p + v * prm.dt
         for ob in obstacles:
-            if isinstance(ob, Disc) and ob.velocity is not None:
-                ob.centre = ob.centre + ob.velocity * prm.dt
+            if isinstance(ob, Disk) and ob.velocity is not None:
+                ob.center = ob.center + ob.velocity * prm.dt
         traj.append(p.copy())
         cmds.append(v.copy())
         min_clear = min(min_clear, clearance_at(p, obstacles, prm.radius))
@@ -404,12 +404,12 @@ def simulate(p0, v0, goal, obstacles, prm, max_steps=200, waypoints=None,
 # ----------------------------------------------------------------------
 def worked_example():
     """The instance of the worked example: a drone at the origin flying at
-    (1, 0) m/s towards the goal (5, 0) with a disc obstacle ahead."""
+    (1, 0) m/s toward the goal (5, 0) with a disk obstacle ahead."""
     prm = DwaParams()
     p = np.array([0.0, 0.0])
     v_a = np.array([1.0, 0.0])
     goal = np.array([5.0, 0.0])
-    obstacles = [Disc(np.array([1.2, -0.1]), 0.4)]
+    obstacles = [Disk(np.array([1.2, -0.1]), 0.4)]
     return p, v_a, goal, obstacles, prm
 
 
@@ -417,12 +417,12 @@ def corridor_scene():
     """A 4 m corridor of half-width 1 m with a pillar in it."""
     obstacles = [Box(np.array([1.0, 1.0]), np.array([5.0, 1.4])),
                  Box(np.array([1.0, -1.4]), np.array([5.0, -1.0])),
-                 Disc(np.array([3.0, 0.2]), 0.2)]
+                 Disk(np.array([3.0, 0.2]), 0.2)]
     return np.array([0.0, 0.0]), np.array([0.0, 0.0]), np.array([6.0, 0.0]), obstacles
 
 
 def utrap_scene():
-    """A U-shaped obstacle opening towards the drone; the goal is behind it."""
+    """A U-shaped obstacle opening toward the drone; the goal is behind it."""
     obstacles = [Box(np.array([5.0, -2.0]), np.array([5.4, 2.0])),
                  Box(np.array([3.0, 1.6]), np.array([5.4, 2.0])),
                  Box(np.array([3.0, -2.0]), np.array([5.4, -1.6]))]
@@ -440,7 +440,7 @@ WEIGHT_SETTINGS = {
 
 def moving_obstacle_scene():
     """An intruder crossing the drone's path from the left at 1.5 m/s."""
-    obstacles = [Disc(np.array([3.5, 3.0]), 0.3, np.array([0.0, -1.5]))]
+    obstacles = [Disk(np.array([3.5, 3.0]), 0.3, np.array([0.0, -1.5]))]
     return np.array([0.0, 0.0]), np.array([1.0, 0.0]), np.array([7.0, 0.0]), obstacles
 
 
@@ -461,10 +461,10 @@ def _self_test():
     t0 = time.time()
     rng = np.random.default_rng(14)
 
-    # 1. Ray casting agrees with the sampled rollout on random disc scenes;
+    # 1. Ray casting agrees with the sampled rollout on random disk scenes;
     #    with boxes the ray cast is conservative (inflated corners).
     for _ in range(50):
-        obstacles = [Disc(rng.uniform(-3, 3, 2), rng.uniform(0.2, 0.8)) for _ in range(3)]
+        obstacles = [Disk(rng.uniform(-3, 3, 2), rng.uniform(0.2, 0.8)) for _ in range(3)]
         p = rng.uniform(-3, 3, 2)
         if clearance_at(p, obstacles, 0.2) <= 0.0:
             continue
@@ -488,9 +488,9 @@ def _self_test():
     straight = free_distance(p, np.array([1.0, 0.0]), obstacles, prm.radius, prm.d_max)
     assert abs(straight - (1.2 - math.sqrt(0.6 ** 2 - 0.1 ** 2))) < 1e-9
     assert abs(admissible_speed(straight, prm.a_brake) - 2.0 * math.sqrt(straight)) < 1e-12
-    v_disc = admissible_speed(straight, prm.a_brake, prm.dt)
-    assert abs(braking_distance(v_disc, prm.a_brake, prm.dt) - straight) < 1e-9
-    assert 1.0 <= v_disc < 1.25, v_disc    # (1, 0) admissible, (1.25, 0) not
+    v_disk = admissible_speed(straight, prm.a_brake, prm.dt)
+    assert abs(braking_distance(v_disk, prm.a_brake, prm.dt) - straight) < 1e-9
+    assert 1.0 <= v_disk < 1.25, v_disk    # (1, 0) admissible, (1.25, 0) not
     # the closed loop from the worked example passes the obstacle and arrives
     run = simulate(p, v_a, goal, obstacles, prm, max_steps=60)
     assert run["reached"] and not run["collided"], run["steps"]
@@ -528,7 +528,7 @@ def _self_test():
     for dim in (2, 3):
         prm = DwaParams()
         goal = np.array([6.0, 1.0, -1.0][:dim])
-        obstacles = [Disc(np.array([3.0, 0.6, -0.4][:dim]), 0.5)]
+        obstacles = [Disk(np.array([3.0, 0.6, -0.4][:dim]), 0.5)]
         run = simulate(np.zeros(dim), np.zeros(dim), goal, obstacles, prm, max_steps=100)
         assert run["reached"] and not run["collided"], (dim, run["steps"])
         assert run["min_clearance"] > 0.0
@@ -565,7 +565,7 @@ def _self_test():
     assert np.allclose(np.hypot(arc[:, 0], arc[:, 1] - r), r)
     seg = diffdrive_rollout((1.0, 2.0, math.pi / 2), 1.0, 0.0, 2.0)
     assert np.allclose(seg[-1], [1.0, 4.0, math.pi / 2])
-    obstacles = [Disc(np.array([2.0, 0.0]), 0.3)]
+    obstacles = [Disk(np.array([2.0, 0.0]), 0.3)]
     d_arc = diffdrive_free_distance((0.0, 0.0, 0.0), 1.0, 0.0, obstacles, 0.2, 4.0, ds=0.005)
     assert abs(d_arc - 1.5) <= 0.011, d_arc
     lo, hi = diffdrive_window(0.5, 0.0, 0.5, 1.0, 0.25, 1.0, 2.0)
@@ -574,16 +574,16 @@ def _self_test():
     # 7. Moving obstacle: treating the intruder as static during the
     #    rollout ends in a collision; the relative-velocity rollout does not.
     p, v0, goal, obstacles = moving_obstacle_scene()
-    static_view = [Disc(obstacles[0].centre.copy(), obstacles[0].radius)]
+    static_view = [Disk(obstacles[0].center.copy(), obstacles[0].radius)]
     # A static "view" is refreshed every step but never predicts the motion.
     prm = DwaParams()
     pos, vel = p.copy(), v0.copy()
     collided_static = False
     for _ in range(80):
-        static_view[0].centre = obstacles[0].centre.copy()
+        static_view[0].center = obstacles[0].center.copy()
         vel, _ = dwa_command(pos, vel, static_view, goal, prm, goal)
         pos = pos + vel * prm.dt
-        obstacles[0].centre = obstacles[0].centre + obstacles[0].velocity * prm.dt
+        obstacles[0].center = obstacles[0].center + obstacles[0].velocity * prm.dt
         if clearance_at(pos, obstacles, prm.radius) <= 0.0:
             collided_static = True
             break

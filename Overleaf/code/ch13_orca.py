@@ -1,17 +1,17 @@
 """Chapter 13 -- Reciprocal Avoidance: RVO and ORCA.
 
 Velocity obstacles (VO), reciprocal velocity obstacles (RVO) and optimal
-reciprocal collision avoidance (ORCA) for discs that move in the plane.
+reciprocal collision avoidance (ORCA) for disks that move in the plane.
 
 * ``orca_half_plane(agent, other, tau, dt, reciprocal)`` builds the ORCA
-  half-plane of one agent with respect to one neighbour, with the full
+  half-plane of one agent with respect to one neighbor, with the full
   case analysis of the closest point on the truncated velocity obstacle
-  (truncating disc, left leg, right leg, already overlapping) and either
-  half (reciprocal) or full (non-cooperative neighbour) responsibility.
+  (truncating disk, left leg, right leg, already overlapping) and either
+  half (reciprocal) or full (non-cooperative neighbor) responsibility.
 * ``orca_velocity`` chooses the velocity closest to the preferred one in
-  the intersection of all half-planes and the speed disc with the
+  the intersection of all half-planes and the speed disk with the
   incremental two-dimensional linear program of RVO2, and falls back to
-  the dense formulation (minimise the largest penetration) when the
+  the dense formulation (minimize the largest penetration) when the
   intersection is empty.
 * ``orca_half_space_3d`` is the same construction in three dimensions
   (a half-space), obtained by reducing to the plane spanned by the
@@ -91,15 +91,15 @@ def ray_circle_intersection(o, d, c, r):
         return 0.0
     if a == 0.0:
         return None
-    disc = b * b - a * k
-    if disc < 0.0:
+    disk = b * b - a * k
+    if disk < 0.0:
         return None
-    t = (-b - math.sqrt(disc)) / a
+    t = (-b - math.sqrt(disk)) / a
     return t if t >= 0.0 else None
 
 
 def time_to_collision(p_a, v_a, r_a, p_b, v_b, r_b):
-    """First time t >= 0 at which two constant-velocity discs touch, or
+    """First time t >= 0 at which two constant-velocity disks touch, or
     None.  This is a ray-circle test in the relative frame."""
     return ray_circle_intersection(sub(p_b, p_a), sub(v_b, v_a),
                                    (0.0, 0.0), r_a + r_b)
@@ -109,9 +109,9 @@ def time_to_collision(p_a, v_a, r_a, p_b, v_b, r_b):
 # 2. Agents and half-planes
 # ---------------------------------------------------------------------
 class Agent:
-    """A disc of radius ``radius`` at ``position`` moving with ``velocity``.
+    """A disk of radius ``radius`` at ``position`` moving with ``velocity``.
 
-    ``goal`` and ``speed`` define the preferred velocity (towards the goal
+    ``goal`` and ``speed`` define the preferred velocity (toward the goal
     at the nominal speed, slowing down in the last time step); ``v_max``
     bounds the speed the agent may choose.
     """
@@ -169,7 +169,7 @@ class OrcaLine(NamedTuple):
 # 3. Velocity obstacles: membership and the closest boundary point
 # ---------------------------------------------------------------------
 def in_velocity_obstacle(p, v_rel, r, tau=math.inf):
-    """True if the relative velocity v_rel lies inside VO^tau: two discs
+    """True if the relative velocity v_rel lies inside VO^tau: two disks
     with relative position p and combined radius r would touch before
     time tau.  Velocities on the boundary count as outside."""
     t = ray_circle_intersection((0.0, 0.0), v_rel, p, r)
@@ -183,24 +183,24 @@ def vo_closest_boundary_point(p, v_rel, r, tau, dt):
 
     Returns (u, n, case): u is the vector from v_rel to the closest
     boundary point q = v_rel + u, n is the outward unit normal of VO^tau
-    at q, and case names the part of the boundary that was hit: "disc"
-    (the truncating disc of centre p / tau and radius r / tau), "left
-    leg", "right leg", or "overlap" (the discs already intersect; the
-    disc of one time step dt is used instead so that the agents separate).
+    at q, and case names the part of the boundary that was hit: "disk"
+    (the truncating disk of center p / tau and radius r / tau), "left
+    leg", "right leg", or "overlap" (the disks already intersect; the
+    disk of one time step dt is used instead so that the agents separate).
     """
     dist2 = dot(p, p)
     r2 = r * r
     if dist2 > r2:
-        c = scale(p, 1.0 / tau)              # centre of the truncating disc
+        c = scale(p, 1.0 / tau)              # center of the truncating disk
         rho = r / tau                        # its radius
-        w = sub(v_rel, c)                    # from that centre to v_rel
+        w = sub(v_rel, c)                    # from that center to v_rel
         w2 = dot(w, w)
         wp = dot(w, p)
         if wp < 0.0 and wp * wp > r2 * w2:
             # angle(w, -p) < arccos(r / |p|): the closest point is on the arc
             w_len = math.sqrt(w2)
             n = scale(w, 1.0 / w_len)
-            return scale(n, rho - w_len), n, "disc"
+            return scale(n, rho - w_len), n, "disk"
         leg = math.sqrt(dist2 - r2)          # length of a tangent from 0
         if cross(p, w) > 0.0:
             d = ((p[0] * leg - p[1] * r) / dist2,
@@ -214,7 +214,7 @@ def vo_closest_boundary_point(p, v_rel, r, tau, dt):
             case = "right leg"
         q = scale(d, dot(v_rel, d))              # projection onto the leg
         return sub(q, v_rel), n, case
-    # the discs already overlap: leave the disc of centre p/dt, radius r/dt
+    # the disks already overlap: leave the disk of center p/dt, radius r/dt
     c = scale(p, 1.0 / dt)
     rho = r / dt
     w = sub(v_rel, c)
@@ -303,17 +303,17 @@ def orca_half_space_3d(p_a, v_a, r_a, p_b, v_b, r_b, tau, dt=0.1,
 # ---------------------------------------------------------------------
 def _lp_on_line(lines, i, v_max, v_opt, direction_opt):
     """Best point on the boundary line of lines[i] that satisfies
-    lines[0..i-1] and the speed disc (RVO2 linearProgram1); None if the
+    lines[0..i-1] and the speed disk (RVO2 linearProgram1); None if the
     line carries no such point."""
     line = lines[i]
     d = line.direction
     q = line.point
     b = dot(q, d)
-    disc = b * b + v_max * v_max - dot(q, q)
-    if disc < 0.0:
-        return None                          # the line misses the disc
-    root = math.sqrt(disc)
-    t_left, t_right = -b - root, -b + root   # the chord inside the disc
+    disk = b * b + v_max * v_max - dot(q, q)
+    if disk < 0.0:
+        return None                          # the line misses the disk
+    root = math.sqrt(disk)
+    t_left, t_right = -b - root, -b + root   # the chord inside the disk
     for j in range(i):
         dj = lines[j].direction
         den = cross(d, dj)
@@ -340,7 +340,7 @@ def lp_incremental(lines, v_max, v_opt, direction_opt=False):
     """Incremental two-dimensional linear program (RVO2 linearProgram2).
 
     Finds the point of the intersection of the half-planes ``lines`` and
-    the disc |v| <= v_max that is closest to v_opt (or, with
+    the disk |v| <= v_max that is closest to v_opt (or, with
     ``direction_opt``, furthest along the unit direction v_opt).  Returns
     (v, k): k == len(lines) on success; otherwise lines[k] cannot be
     satisfied together with lines[0..k-1], and v solves lines[0..k-1].
@@ -362,7 +362,7 @@ def lp_incremental(lines, v_max, v_opt, direction_opt=False):
 
 def lp_dense(lines, n_hard, begin, v_max, v):
     """Dense fallback (RVO2 linearProgram3): the half-planes cannot all be
-    satisfied, so return the velocity that minimises the largest
+    satisfied, so return the velocity that minimizes the largest
     penetration of lines[begin..]; the first n_hard lines (static
     obstacles) stay hard.  ``v`` solves lines[0..begin-1]."""
     depth = 0.0
@@ -393,7 +393,7 @@ def lp_dense(lines, n_hard, begin, v_max, v):
 
 def orca_velocity(lines, v_pref, v_max, n_hard=0):
     """Velocity closest to v_pref in the intersection of all ORCA
-    half-planes and the disc |v| <= v_max.  Returns (v, feasible); when
+    half-planes and the disk |v| <= v_max.  Returns (v, feasible); when
     the intersection is empty, v is the dense-fallback velocity."""
     v, k = lp_incremental(lines, v_max, v_pref)
     if k < len(lines):
@@ -405,7 +405,7 @@ def orca_velocity(lines, v_pref, v_max, n_hard=0):
 # 5. Sampled VO and RVO velocity choice (for the comparison)
 # ---------------------------------------------------------------------
 def velocity_samples(v_max, rings=10, directions=72):
-    """Polar grid of candidate velocities inside the speed disc."""
+    """Polar grid of candidate velocities inside the speed disk."""
     pts = [(0.0, 0.0)]
     for k in range(1, rings + 1):
         s = v_max * k / rings
@@ -416,8 +416,8 @@ def velocity_samples(v_max, rings=10, directions=72):
 
 
 def ttc_batch(p, v_rels, r):
-    """Time to collision for many relative velocities at once (vectorised
-    ray-circle test): inf where the discs never touch, 0 if they overlap."""
+    """Time to collision for many relative velocities at once (vectorized
+    ray-circle test): inf where the disks never touch, 0 if they overlap."""
     p = np.asarray(p, dtype=float)
     k = float(p @ p - r * r)
     out = np.full(len(v_rels), np.inf)
@@ -426,10 +426,10 @@ def ttc_batch(p, v_rels, r):
         return out
     a = np.einsum("ij,ij->i", v_rels, v_rels)
     b = -(v_rels @ p)
-    disc = b * b - a * k
-    ok = (disc >= 0.0) & (a > 0.0)
+    disk = b * b - a * k
+    ok = (disk >= 0.0) & (a > 0.0)
     t = np.full(len(v_rels), np.inf)
-    t[ok] = (-b[ok] - np.sqrt(disc[ok])) / a[ok]
+    t[ok] = (-b[ok] - np.sqrt(disk[ok])) / a[ok]
     hit = ok & (t >= 0.0)
     out[hit] = t[hit]
     return out
@@ -440,7 +440,7 @@ def choose_sampled(agent, others, tau, reciprocal=False, samples=None):
     (reciprocal=True) method: among the candidates the one closest to
     v_pref whose (reciprocal) relative velocity stays outside every
     truncated VO; if there is none, the candidate with the latest first
-    collision (ties towards v_pref)."""
+    collision (ties toward v_pref)."""
     if samples is None:
         samples = velocity_samples(agent.v_max)
     cand = np.vstack([samples, [agent.v_pref], [agent.velocity]])
@@ -472,7 +472,7 @@ def choose_sampled(agent, others, tau, reciprocal=False, samples=None):
 # 6. Simulation
 # ---------------------------------------------------------------------
 def preferred_velocity(agent, dt):
-    """Towards the goal at the nominal speed, slowing down so that the
+    """Toward the goal at the nominal speed, slowing down so that the
     goal is reached and not overshot in the last time step."""
     if agent.goal is None:
         return agent.velocity
@@ -491,8 +491,8 @@ def simulate(agents, mode, tau=5.0, dt=0.1, steps=300, perturbation=None,
     others (simultaneous updates), then move for one time step.
     ``perturbation`` (n x 2) is added to every preferred velocity to break
     exact symmetry.  Returns a dictionary with the position and velocity
-    records (steps+1, n, 2), the minimum centre distance over time, the
-    number of time steps and pairs with overlapping discs, the number of
+    records (steps+1, n, 2), the minimum center distance over time, the
+    number of time steps and pairs with overlapping disks, the number of
     steps in which the ORCA program was infeasible, and arrival times.
     """
     n = len(agents)
@@ -548,7 +548,7 @@ def simulate(agents, mode, tau=5.0, dt=0.1, steps=300, perturbation=None,
 
 
 def path_lengths(result):
-    """Length of the polyline travelled by every agent."""
+    """Length of the polyline traveled by every agent."""
     steps = np.diff(result["positions"], axis=0)
     return np.hypot(steps[..., 0], steps[..., 1]).sum(axis=0)
 
@@ -632,8 +632,8 @@ def worked_example(verbose=True):
     theta = math.degrees(math.asin(r / norm(p)))
     phi = math.degrees(math.atan2(p[1], p[0]))
     q = add(v_rel, line_a.u)
-    centre = scale(p, 1.0 / tau)             # centre of the truncating disc
-    w = sub(v_rel, centre)                   # step 3 of the case analysis
+    center = scale(p, 1.0 / tau)             # center of the truncating disk
+    w = sub(v_rel, center)                   # step 3 of the case analysis
     dist2 = dot(p, p)
     ell = math.sqrt(dist2 - r * r)           # tangent length from the apex
     if cross(p, w) > 0.0:
@@ -643,13 +643,13 @@ def worked_example(verbose=True):
         d_leg = ((p[0] * ell + p[1] * r) / dist2,
                  (-p[0] * r + p[1] * ell) / dist2)    # right leg
     new_rel = sub(v_a, v_b)
-    # signed angle from p_rel to the velocity, positive counter-clockwise
+    # signed angle from p_rel to the velocity, positive counterclockwise
     ang_new = math.degrees(math.atan2(new_rel[1], new_rel[0])) - phi
     full_rel = sub(v_full, b.velocity)
     ang_full = math.degrees(math.atan2(full_rel[1], full_rel[0])) - phi
     out = {"tau": tau, "p": p, "r": r, "norm_p": norm(p),
            "phi": phi, "theta": theta,
-           "centre": centre, "rho": r / tau,
+           "center": center, "rho": r / tau,
            "v_rel": v_rel, "w": w, "w_dot_p": dot(w, p),
            "cross_p_w": cross(p, w), "ell": ell, "d_leg": d_leg,
            "case": line_a.case, "q": q, "u": line_a.u,
@@ -706,10 +706,10 @@ def _self_test():
     p, r, tau = (4.0, 0.5), 1.0, 4.0
     cases = {_check_boundary(p, (2.0, 0.0), r, tau),        # right leg
              _check_boundary(p, (1.5, 0.9), r, tau),        # left leg
-             _check_boundary(p, (0.4, 0.05), r, tau),       # disc, outside
-             _check_boundary(p, (1.0, 0.1), r, tau),        # disc, inside
+             _check_boundary(p, (0.4, 0.05), r, tau),       # disk, outside
+             _check_boundary(p, (1.0, 0.1), r, tau),        # disk, inside
              _check_boundary((0.6, 0.2), (0.3, 0.0), r, tau)}  # overlap
-    assert cases == {"right leg", "left leg", "disc", "overlap"}, cases
+    assert cases == {"right leg", "left leg", "disk", "overlap"}, cases
     # -- 2. reciprocity: half vs full responsibility, symmetry -------------
     a = Agent((0.0, 0.0), (1.0, 0.0), 0.5, 1.5)
     b = Agent((4.0, 0.5), (-1.0, 0.0), 0.5, 1.5)
@@ -734,8 +734,8 @@ def _self_test():
     assert _close(ex["d_leg"], (0.9920, -0.1260), 1e-4)
     assert abs(ex["w_dot_p"] - 3.9375) < 1e-9 and ex["cross_p_w"] == -1.0
     assert half.half_plane().contains(ex["v_new_a"])
-    # the new relative velocity lies on the boundary of VO^tau: the discs
-    # graze at most, so the centre distance never drops below r
+    # the new relative velocity lies on the boundary of VO^tau: the disks
+    # graze at most, so the center distance never drops below r
     d_min = min(norm(sub(add(b.position, scale(ex["v_new_b"], t)),
                          add(a.position, scale(ex["v_new_a"], t))))
                 for t in np.linspace(0.0, 2.0 * tau, 4001))
@@ -765,7 +765,7 @@ def _self_test():
         # q = v_rel + u lies on the boundary of the 3D cone-with-ball
         q = tuple(va - vb + uu for va, vb, uu
                   in zip((1.0, 0.0, 0.0), v_b3, base[2]))
-        if base[3] == "disc":
+        if base[3] == "disk":
             d = tuple(qq - pp / tau for qq, pp in zip(q, p_b3))
             assert abs(math.sqrt(_dot3(d, d)) - 1.0 / tau) < 1e-7
         else:

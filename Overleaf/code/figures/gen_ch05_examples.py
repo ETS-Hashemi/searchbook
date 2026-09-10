@@ -58,7 +58,7 @@ def panel(lines, grid, xshift, fills=(), labels=None, paths=(), start=None, goal
         lines.append("\\node[sbagentA,minimum size=7pt,inner sep=0pt] at (%.1f,%.1f) {};"
                      % (robot[0] + 0.5, robot[1] + 0.5))
     if labels:
-        # A label under the robot disc or the obstacle cross gets a white plate so that
+        # A label under the robot disk or the obstacle cross gets a white plate so that
         # it stays readable; everything else is plain text.
         plated = {c for c in (robot, cross) if c is not None}
         for (x, y), text in sorted(labels.items()):

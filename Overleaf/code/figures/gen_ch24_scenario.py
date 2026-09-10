@@ -190,7 +190,7 @@ rc = next(e for e in sim.reconnect_log if e["drone"] == "A")
 i4 = snap_at(sim, rc["t"])
 ex = prediction_extra(i4)
 for (k, delay, reason) in rc["tried"]:
-    w = H.centre(sim.nominal[0][k])
+    w = H.center(sim.nominal[0][k])
     style = "sbGray,dotted" if reason == "too fast" else "sbRed,dashed"
     ex.append("\\draw[%s] (%.2f,%.2f) -- (%.2f,%.2f);" % (style, rc["pos"][0], rc["pos"][1], w[0], w[1]))
 frame(out, i4, 0, 0, "(d) $t=%.1f$: A cannot reconnect" % rc["t"], ex)
@@ -288,5 +288,5 @@ print("ORCA infeasible cycles: %d; replans %s; reconnections %s" % (
     sim.orca_infeasible, [d.replans for d in sim.drones], [d.reconnections for d in sim.drones]))
 link = max(max(min(np.linalg.norm(h["pos"][i] - h["pos"][j]) for j in range(3) if j != i)
                    for i in range(3)) for h in hist)
-print("longest nearest-neighbour link over the run: %.2f m (R_comm %.1f, ell_act %.1f)"
+print("longest nearest-neighbor link over the run: %.2f m (R_comm %.1f, ell_act %.1f)"
       % (link, p["r_comm"], p["ell_act"]))

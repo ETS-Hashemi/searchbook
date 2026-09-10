@@ -9,7 +9,7 @@ brute-force optimum for tiny instances, and the examples of the chapter.
 
 Cells are (row, col) with row 0 at the top, as in Chapter 7.  A path is
 the list of cells occupied at t = 0, 1, ..., T; the agent stays at
-path[-1] afterwards (stay-at-target), and its cost is T.
+path[-1] afterward (stay-at-target), and its cost is T.
 
 Run this file to execute the self-test:  python3 ch08_prioritized.py
 """

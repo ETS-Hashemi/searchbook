@@ -12,7 +12,7 @@ Files written into figures/data/ (whitespace separated, one header row):
     ch15-localmin-traj.dat  x y        start (0, 4): stops at the local minimum
     ch15-localmin-waypoint.dat x y     the same start steered via waypoint (3, 6.5)
     ch15-localmin-profile.dat x Uatt Urep U   potentials along the axis y = 4
-    ch15-gnron-plain.dat    t x y d    goal (5.4, 4) next to the disc, plain repulsion
+    ch15-gnron-plain.dat    t x y d    goal (5.4, 4) next to the disk, plain repulsion
     ch15-gnron-fixed.dat    t x y d    the same with the d^2 factor (n = 2)
     ch15-osc-smooth.dat     x y e      corridor of width 1.0, dt = 0.01, v_max = 1
     ch15-osc-zigzag.dat     x y e      dt = 0.05, no speed limit
@@ -37,7 +37,7 @@ from dataclasses import replace
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from ch15_potential_fields import (  # noqa: E402
-    ApfParams, BASIN_GOAL, BASIN_OBS, CORRIDOR_GOAL, DISC, GOAL, attractive_potential,
+    ApfParams, BASIN_GOAL, BASIN_OBS, CORRIDOR_GOAL, DISK, GOAL, attractive_potential,
     basin_experiment, basin_starts, corridor, corridor_case, gnron_case,
     local_minimum_case, min_clearance, repulsive_potential, simulate, simulate_swarm,
     total_force, total_potential, worked_example)
@@ -75,7 +75,7 @@ def main():
     rows = []
     for y in ys:
         for x in xs:
-            u = min(float(total_potential(np.array([x, y]), GOAL, DISC, prm)), U_CLIP)
+            u = min(float(total_potential(np.array([x, y]), GOAL, DISK, prm)), U_CLIP)
             rows.append((x, y, u))
         rows.append(None)
     write("surface", "x y U", rows)
@@ -85,9 +85,9 @@ def main():
     for y in np.arange(0.5, 7.76, 0.75):
         for x in np.arange(0.0, 9.01, 0.75):
             q = np.array([x, y])
-            if min_clearance(q, DISC) < 0.15 or np.linalg.norm(q - GOAL) < 0.3:
+            if min_clearance(q, DISK) < 0.15 or np.linalg.norm(q - GOAL) < 0.3:
                 continue
-            f = total_force(q, GOAL, DISC, prm)
+            f = total_force(q, GOAL, DISK, prm)
             f = f / max(np.linalg.norm(f), 1e-12)
             rows.append((x, y, f[0], f[1]))
     write("field", "x y u v", rows)
@@ -101,11 +101,11 @@ def main():
     rows = []
     for x in np.linspace(0.0, 8.0, 321):
         q = np.array([x, 4.0])
-        if min_clearance(q, DISC) <= 0.02:
+        if min_clearance(q, DISK) <= 0.02:
             rows.append((x, np.nan, np.nan, np.nan))
             continue
         ua = float(attractive_potential(q, GOAL, prm))
-        ur = min(float(repulsive_potential(q, GOAL, DISC, prm)), U_CLIP)
+        ur = min(float(repulsive_potential(q, GOAL, DISK, prm)), U_CLIP)
         rows.append((x, ua, ur, min(ua + ur, U_CLIP)))
     write("localmin-profile", "x Uatt Urep U", rows)
 
@@ -138,7 +138,7 @@ def main():
         rows.append((x, max(min(fx, 8.0), -8.0), u))
     write("nopassage-profile", "x Fx U", rows)
 
-    # basin experiment: 441 starts, two overlapping discs (one peanut-shaped obstacle)
+    # basin experiment: 441 starts, two overlapping disks (one peanut-shaped obstacle)
     starts = basin_starts()
     plain = basin_experiment(escape=False, prm=prm)
     walk = basin_experiment(escape=True, prm=prm)

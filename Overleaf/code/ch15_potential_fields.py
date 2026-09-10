@@ -4,13 +4,13 @@ Chapter 15 of "Multi-Agent Path Planning and Drone Collision Avoidance".
 
 Contents
     ApfParams                gains and simulation settings
-    Disc                     circular obstacle with a distance query rho, grad rho
+    Disk                     circular obstacle with a distance query rho, grad rho
     attractive_potential     1/2 k_att d^2, or conic (k_att d* d - 1/2 k_att d*^2)
     attractive_force         beyond the switch distance d* (hybrid potential)
     repulsive_potential      Khatib's 1/2 k_rep (1/rho - 1/rho0)^2 for rho <= rho0,
     repulsive_force          optionally multiplied by d^n (Ge & Cui's GNRON fix)
     total_potential, total_force, clip_speed, min_clearance
-    simulate_many            vectorised gradient-descent controller with a
+    simulate_many            vectorized gradient-descent controller with a
                              velocity limit, local-minimum detection and an
                              optional random-walk escape
     simulate                 the same for one start; returns the path
@@ -51,14 +51,14 @@ class ApfParams:
 
 
 @dataclass
-class Disc:
+class Disk:
     """A circular obstacle; the drone is a point (obstacles are inflated)."""
     center: tuple
     radius: float
 
     def distance(self, p):
         """Return rho(p) = distance to the boundary (shape (...,1)) and
-        grad rho (shape (...,2)), the unit vector away from the centre."""
+        grad rho (shape (...,2)), the unit vector away from the center."""
         diff = np.asarray(p, float) - np.asarray(self.center, float)
         r = np.linalg.norm(diff, axis=-1, keepdims=True)
         return r - self.radius, diff / np.maximum(r, EPS)
@@ -254,7 +254,7 @@ def simulate(start, goal, obstacles, prm, escape=False, rng=None):
 
 
 def follow_waypoints(start, waypoints, obstacles, prm, wp_tol=0.3):
-    """APF as a local layer: descend towards each waypoint of a global path in
+    """APF as a local layer: descend toward each waypoint of a global path in
     turn (the last one with the normal goal tolerance).  Returns the joined
     path and the list of per-leg statuses."""
     pieces, statuses, p = [], [], np.asarray(start, float)
@@ -311,7 +311,7 @@ def lateral_reversals(path, x_range=(-np.inf, np.inf)):
 
 # ---------------------------------------------------------------- the scenes
 GOAL = np.array([8.0, 4.0])
-DISC = [Disc((4.0, 4.0), 1.0)]
+DISK = [Disk((4.0, 4.0), 1.0)]
 POINTS = {"A": (0.5, 4.0), "B": (2.5, 4.0), "C": (3.0, 5.3)}
 
 
@@ -340,43 +340,43 @@ def worked_example(prm=None):
     for name, q in POINTS.items():
         q = np.asarray(q, float)
         fa = attractive_force(q, GOAL, prm)
-        fr = repulsive_force(q, GOAL, DISC, prm)
-        rows[name] = dict(p=q, rho=float(DISC[0].distance(q)[0][0]), f_att=fa, f_rep=fr,
-                          f=fa + fr, u=float(total_potential(q, GOAL, DISC, prm)))
-    traj = simulate((0.0, 4.5), GOAL, DISC, prm)
-    traj["trace"] = trace_rows(traj["path"], GOAL, DISC, prm)
+        fr = repulsive_force(q, GOAL, DISK, prm)
+        rows[name] = dict(p=q, rho=float(DISK[0].distance(q)[0][0]), f_att=fa, f_rep=fr,
+                          f=fa + fr, u=float(total_potential(q, GOAL, DISK, prm)))
+    traj = simulate((0.0, 4.5), GOAL, DISK, prm)
+    traj["trace"] = trace_rows(traj["path"], GOAL, DISK, prm)
     return rows, traj
 
 
 def local_minimum_case(prm=None):
     """Obstacle exactly between start (0,4) and goal (8,4): forces cancel."""
     prm = ApfParams() if prm is None else prm
-    res = simulate((0.0, 4.0), GOAL, DISC, prm)
+    res = simulate((0.0, 4.0), GOAL, DISK, prm)
 
     def fx(x):  # x-component of the force on the axis y = 4
-        return float(total_force(np.array([x, 4.0]), GOAL, DISC, prm)[0])
+        return float(total_force(np.array([x, 4.0]), GOAL, DISK, prm)[0])
 
-    lo, hi = 1.5, 2.9                     # fx(lo) > 0 (towards goal), fx(hi) < 0
+    lo, hi = 1.5, 2.9                     # fx(lo) > 0 (toward goal), fx(hi) < 0
     for _ in range(60):
         mid = 0.5 * (lo + hi)
         lo, hi = (mid, hi) if fx(mid) > 0 else (lo, mid)
-    fix = follow_waypoints((0.0, 4.0), [(3.0, 6.5), GOAL], DISC, prm)
+    fix = follow_waypoints((0.0, 4.0), [(3.0, 6.5), GOAL], DISK, prm)
     return dict(result=res, equilibrium_x=0.5 * (lo + hi), waypoint=fix)
 
 
 def gnron_case(prm=None, goal=(5.4, 4.0), start=(8.0, 6.0)):
     """Goal 0.4 from the obstacle boundary: plain APF stops short, n = 2 arrives."""
     prm = ApfParams() if prm is None else prm
-    plain = simulate(start, goal, DISC, prm)
-    fixed = simulate(start, goal, DISC, replace(prm, n_gnron=2))
+    plain = simulate(start, goal, DISK, prm)
+    fixed = simulate(start, goal, DISK, replace(prm, n_gnron=2))
     return dict(plain=plain, fixed=fixed,
                 d_plain=float(np.linalg.norm(plain["final"] - goal)),
                 d_fixed=float(np.linalg.norm(fixed["final"] - goal)))
 
 
 def corridor(gap, radius=1.0):
-    """Two discs whose boundaries leave a vertical passage of width `gap`."""
-    return [Disc((4.0, 4.0 - radius - gap / 2), radius), Disc((4.0, 4.0 + radius + gap / 2), radius)]
+    """Two disks whose boundaries leave a vertical passage of width `gap`."""
+    return [Disk((4.0, 4.0 - radius - gap / 2), radius), Disk((4.0, 4.0 + radius + gap / 2), radius)]
 
 
 CORRIDOR_GOAL = np.array([8.0, 4.2])   # slightly off the axis, as in any real scene
@@ -397,7 +397,7 @@ def corridor_case(gap, dt, prm=None, v_max=1.0, start=(0.0, 4.3)):
                 stiffness=stiffness((4.0, 4.0), CORRIDOR_GOAL, obs, prm))
 
 
-BASIN_OBS = [Disc((4.0, 3.2), 1.0), Disc((4.0, 5.0), 1.0)]
+BASIN_OBS = [Disk((4.0, 3.2), 1.0), Disk((4.0, 5.0), 1.0)]
 BASIN_GOAL = np.array([8.0, 4.1])
 
 
@@ -407,7 +407,7 @@ def basin_starts(nx=21, ny=21):
 
 
 def basin_experiment(escape=False, prm=None, seed=15):
-    """441 starts in front of two overlapping discs (one peanut-shaped obstacle)."""
+    """441 starts in front of two overlapping disks (one peanut-shaped obstacle)."""
     prm = ApfParams() if prm is None else prm
     return simulate_many(basin_starts(), BASIN_GOAL, BASIN_OBS, prm, escape=escape,
                          rng=np.random.default_rng(seed))
@@ -420,7 +420,7 @@ def _self_test():
     rng = np.random.default_rng(1)
 
     # 1. analytic forces equal -grad U (plain, GNRON n=1,2, hybrid attractive)
-    scene = [Disc((4.0, 4.0), 1.0), Disc((6.0, 6.5), 0.7)]
+    scene = [Disk((4.0, 4.0), 1.0), Disk((6.0, 6.5), 0.7)]
     for variant in (prm, replace(prm, n_gnron=1), replace(prm, n_gnron=2),
                     replace(prm, d_star=2.0), replace(prm, d_star=1.0, n_gnron=2)):
         for _ in range(40):
@@ -442,10 +442,10 @@ def _self_test():
     assert np.allclose(rows["A"]["f_att"], [7.5, 0.0]) and np.allclose(rows["A"]["f_rep"], [0.0, 0.0])
     assert np.allclose(rows["B"]["f_att"], [5.5, 0.0]) and np.allclose(rows["B"]["f_rep"], [-6.0, 0.0])
     assert np.allclose(rows["B"]["f"], [-0.5, 0.0])
-    assert rows["C"]["f"][1] > 0.0 and rows["C"]["f"][0] > 0.0   # deflected upwards
+    assert rows["C"]["f"][1] > 0.0 and rows["C"]["f"][0] > 0.0   # deflected upward
     assert traj["status"] == "reached" and traj["min_clearance"] > 0.2, traj["status"]
     # the hybrid attraction (conic beyond d* = 2) keeps a larger clearance
-    hyb_run = simulate((0.0, 4.5), GOAL, DISC, replace(prm, d_star=2.0))
+    hyb_run = simulate((0.0, 4.5), GOAL, DISK, replace(prm, d_star=2.0))
     assert hyb_run["status"] == "reached" and hyb_run["min_clearance"] > traj["min_clearance"]
     # the speed limit binds while the drone is far from the goal and releases near it
     trace = traj["trace"]
@@ -466,14 +466,14 @@ def _self_test():
     # with n = 2 the goal is the global minimum of U and a stationary point
     fixed = replace(prm, n_gnron=2)
     goal = np.array([5.4, 4.0])
-    assert np.allclose(total_force(goal, goal, DISC, fixed), 0.0)
-    assert abs(total_potential(goal, goal, DISC, fixed)) < 1e-12
-    assert np.all(total_potential(rng.uniform(0, 9, (200, 2)), goal, DISC, fixed) >= 0.0)
+    assert np.allclose(total_force(goal, goal, DISK, fixed), 0.0)
+    assert abs(total_potential(goal, goal, DISK, fixed)) < 1e-12
+    assert np.all(total_potential(rng.uniform(0, 9, (200, 2)), goal, DISK, fixed) >= 0.0)
 
     # 4b. below the chatter amplitude dt*v_max the n = 1 correction never settles
     tight = replace(prm, goal_tol=1e-3)
-    chat = simulate((8.0, 6.0), goal, DISC, replace(tight, n_gnron=1))
-    fine = simulate((8.0, 6.0), goal, DISC, replace(tight, n_gnron=2))
+    chat = simulate((8.0, 6.0), goal, DISK, replace(tight, n_gnron=1))
+    fine = simulate((8.0, 6.0), goal, DISK, replace(tight, n_gnron=2))
     assert chat["status"] == "stuck" and fine["status"] == "reached", chat["status"]
     chat_d = np.linalg.norm(chat["path"][-100:] - goal, axis=1)
     assert chat_d.max() < prm.goal_tol and chat_d.max() < 2.0 * prm.dt * prm.v_max, chat_d.max()
@@ -516,7 +516,7 @@ def _self_test():
         assert np.all(np.abs(x[1:]) < np.abs(x[:-1]) + 1e-12)
         assert (np.any(x[1:] < 0) == alternating)
 
-    # 9. swarm: six drones swapping places through the centre of a circle
+    # 9. swarm: six drones swapping places through the center of a circle
     ang = np.linspace(0.0, 2 * np.pi, 6, endpoint=False)
     ring = np.stack([3 * np.cos(ang), 3 * np.sin(ang)], axis=1)
     with_rep = simulate_swarm(ring, -ring, [], replace(prm, dt=0.02), k_agent=1.0)
@@ -527,7 +527,7 @@ def _self_test():
     assert np.all(np.linalg.norm(end + ring, axis=1) < 0.3)
 
     print("self-test passed in %.1f s" % (time.time() - t0))
-    print("worked example (k_att=1, k_rep=1, rho0=2, goal (8,4), disc (4,4) r=1):")
+    print("worked example (k_att=1, k_rep=1, rho0=2, goal (8,4), disk (4,4) r=1):")
     for name, r in rows.items():
         print("  %s p=%s rho=%.3f F_att=%s F_rep=%s F=%s |F|=%.3f U=%.3f" % (
             name, r["p"], r["rho"], np.round(r["f_att"], 3), np.round(r["f_rep"], 3),

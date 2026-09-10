@@ -58,7 +58,7 @@ class Graph:
     def vertices(self):
         return list(self.adj)
 
-    def neighbours(self, u):
+    def neighbors(self, u):
         return self.adj[u]
 
     def degree(self, u):
@@ -73,7 +73,7 @@ class Graph:
 
     @classmethod
     def from_map(cls, rows):
-        """4-connected grid graph of a map; neighbour order E, W, N, S."""
+        """4-connected grid graph of a map; neighbor order E, W, N, S."""
         height = len(rows)
         width = len(rows[0])
         free = {(x, height - 1 - r) for r, row in enumerate(rows)
@@ -95,7 +95,7 @@ def bfs_distances(graph, source):
     queue = deque([source])
     while queue:
         u = queue.popleft()
-        for v in graph.neighbours(u):
+        for v in graph.neighbors(u):
             if v not in dist:
                 dist[v] = dist[u] + 1
                 queue.append(v)
@@ -110,7 +110,7 @@ def bfs_path(graph, source, target, avoid=frozenset()):
     queue = deque([source])
     while queue:
         u = queue.popleft()
-        for v in graph.neighbours(u):
+        for v in graph.neighbors(u):
             if v in parent or v in avoid:
                 continue
             parent[v] = u
@@ -148,7 +148,7 @@ class Policies:
 
     ``dist[i][v]`` is the shortest-path distance of agent i from v to its
     goal; ``step(i, v)`` moves agent i one step closer (ties broken by the
-    neighbour order of the graph) and returns v itself at the goal.
+    neighbor order of the graph) and returns v itself at the goal.
     """
 
     def __init__(self, inst):
@@ -164,7 +164,7 @@ class Policies:
                 nxt = v
             else:
                 nxt = v
-                for u in self.inst.graph.neighbours(v):
+                for u in self.inst.graph.neighbors(v):
                     if d.get(u, INF) == d[v] - 1:
                         nxt = u
                         break
@@ -208,8 +208,8 @@ def collisions(config, nxt):
 
 
 def agent_moves(graph, v):
-    """Wait first, then the neighbours (the wait keeps the order stable)."""
-    return [v] + list(graph.neighbours(v))
+    """Wait first, then the neighbors (the wait keeps the order stable)."""
+    return [v] + list(graph.neighbors(v))
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +269,7 @@ def validate(paths, inst):
         if p[0] != inst.starts[i] or p[-1] != inst.goals[i]:
             return False
         for a, b in zip(p, p[1:]):
-            if a != b and b not in inst.graph.neighbours(a):
+            if a != b and b not in inst.graph.neighbors(a):
                 return False
     joint = joint_from_paths(paths)
     return all(not collisions(joint[t], joint[t + 1]) for t in range(len(joint) - 1))
@@ -442,7 +442,7 @@ class MstarNode:
     in_open: bool = False
 
 
-def limited_neighbours(node, inst, pol):
+def limited_neighbors(node, inst, pol):
     """Agents in the collision set may move anywhere; the rest follow their policy."""
     options = []
     for i, v in enumerate(node.config):
@@ -483,7 +483,7 @@ def mstar(inst, trace=False, max_expansions=None, max_generated=None):
                 continue
             node.collision_set |= cs
             if not node.in_open and node.g < INF:
-                push(node)                    # re-expand with more neighbours
+                push(node)                    # re-expand with more neighbors
             for p in node.back_set:
                 stack.append((p, node.collision_set))
 
@@ -516,7 +516,7 @@ def mstar(inst, trace=False, max_expansions=None, max_generated=None):
         rec = {"step": expansions, "config": cfg, "g": node.g, "h": pol.h(cfg),
                "collision_set": frozenset(node.collision_set), "successors": [],
                "collisions": []}
-        for nxt in limited_neighbours(node, inst, pol):
+        for nxt in limited_neighbors(node, inst, pol):
             generated += 1
             child = nodes.get(nxt)
             if child is None:
@@ -568,7 +568,7 @@ class PushSwapState:
 
     def move(self, agent, to):
         frm = self.pos[agent]
-        assert to in self.graph.neighbours(frm) and self.empty(to), (agent, frm, to)
+        assert to in self.graph.neighbors(frm) and self.empty(to), (agent, frm, to)
         self.pos[agent] = to
         self.moves.append((agent, frm, to))
 
@@ -579,7 +579,7 @@ class PushSwapState:
 
     # -- clear: shift the chain of agents from v to the nearest empty vertex --
     def clear(self, v, avoid):
-        """Make v empty by shifting agents towards the nearest empty vertex
+        """Make v empty by shifting agents toward the nearest empty vertex
         that is reachable without touching ``avoid``; False if impossible."""
         if self.empty(v):
             return True
@@ -589,7 +589,7 @@ class PushSwapState:
         target = None
         while queue and target is None:
             u = queue.popleft()
-            for w in self.graph.neighbours(u):
+            for w in self.graph.neighbors(u):
                 if w in parent or w in forbidden:
                     continue
                 parent[w] = u
@@ -638,7 +638,7 @@ class PushSwapState:
         m = len(cycle)
         assert m >= 3, m
         for u, v in zip(cycle, cycle[1:] + cycle[:1]):
-            assert v in self.graph.neighbours(u), (u, v)
+            assert v in self.graph.neighbors(u), (u, v)
         assert self.empty(cycle[0]), cycle[0]
         assert all(not self.empty(u) for u in cycle[1:]), cycle
         for j in range(1, m):
@@ -650,7 +650,7 @@ class PushSwapState:
         """Exchange the positions of the adjacent agents a and b without
         changing where any other agent stands.  Returns False on failure."""
         pa = self.pos[a]
-        assert self.pos[b] in self.graph.neighbours(pa)
+        assert self.pos[b] in self.graph.neighbors(pa)
         dist = bfs_distances(self.graph, pa)
         junctions = sorted((d, v) for v, d in dist.items() if self.graph.degree(v) >= 3)
         for _, v in junctions:
@@ -682,8 +682,8 @@ class PushSwapState:
             self.move(a, nxt)
             self.move(b, prev_a)
         u = self.pos[b]                        # b is right behind a at v
-        # clear two other neighbours of v
-        others = [n for n in self.graph.neighbours(v) if n != u]
+        # clear two other neighbors of v
+        others = [n for n in self.graph.neighbors(v) if n != u]
         free = []
         for n in others:
             if self.empty(n) or self.clear(n, avoid={v, u} | set(free)):
@@ -711,7 +711,7 @@ def push_and_swap(inst):
 
     Agents are solved in index order; an agent pushes along its shortest
     path and swaps with a locked agent that blocks it.  A locked agent that
-    was displaced by a swap is released and solved again afterwards.  This
+    was displaced by a swap is released and solved again afterward.  This
     driver has no 'resolve' step and no graph decomposition, so it is not
     the complete algorithm of the papers; it returns None when stuck.
     """
@@ -961,7 +961,7 @@ def _self_test():
     assert len(st5.moves) == len(ring) - 1 == 4
     assert st5.pos == {0: "c0", 1: "c1", 2: "c2", 3: "c3"} and st5.empty("c4")
     assert validate(sequential_to_paths(st5), inst_r)
-    # (ii) the manoeuvre of the figure: the cycle is full, so one agent is
+    # (ii) the maneuver of the figure: the cycle is full, so one agent is
     # parked in the cleared vertex first and steps back in behind the others.
     full = MAPFInstance(cyc, ring, ["c1", "c2", "c3", "c4", "c0"])
     st6 = PushSwapState(full)

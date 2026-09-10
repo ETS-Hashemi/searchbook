@@ -9,7 +9,7 @@ The file has five parts.
    communication violations.
 2. Scenarios.  A seeded generator: k controlled drones with crossing
    straight-line missions, a nominal plan that resolves their conflicts
-   by departure delays (a prioritised-planning stand-in for CBS), and m
+   by departure delays (a prioritized-planning stand-in for CBS), and m
    non-cooperative intruders from three trajectory families (straight
    crossing, turning, evasive) aimed at a drone at a chosen crossing angle.
 3. A toy simulator with pluggable strategies: "none", "local" (a sampled
@@ -100,7 +100,7 @@ def segment_min_dist(a0, a1, b0, b1):
 
 
 class Reference:
-    """Piecewise-linear time-parameterised path through knots (t_k, p_k)."""
+    """Piecewise-linear time-parameterized path through knots (t_k, p_k)."""
 
     def __init__(self, times, points):
         self.t = np.asarray(times, float)
@@ -399,7 +399,7 @@ def predict_intruders(sc, n, prediction, kfs, predictor=None):
 PRED_DT = 0.2        # sampling interval of the Chapter 20 predictor (s)
 PRED_OBS = 8         # observed samples it expects (1.6 s of history)
 PRED_STEPS = 12      # steps it returns (12 * 0.2 s = 2.4 s ahead)
-PRED_SCALE = 0.5     # displacement normalisation of Chapter 20
+PRED_SCALE = 0.5     # displacement normalization of Chapter 20
 
 
 def _resample(track, dt_in, dt_out, n):
@@ -429,7 +429,7 @@ def week10_predictor(model=None, horizon=TAU_H, dt=DT):
 
     model is the reader's trained Seq2SeqPredictor of Chapter 20, used as
     model.predict_frame(x, PRED_STEPS) with x of shape (1, PRED_OBS - 1, 2)
-    and returning (positions, per-step std) in the normalised frame.  A
+    and returning (positions, per-step std) in the normalized frame.  A
     Gaussian model therefore also feeds the inflation of the safety radius:
     the adapter then returns the pair (means, inflation) that
     predict_intruders accepts, with the same KAPPA and INFL_MAX as the
@@ -438,7 +438,7 @@ def week10_predictor(model=None, horizon=TAU_H, dt=DT):
     Nothing is imported across chapters: with model=None the adapter falls
     back to the constant-velocity predictor of Chapter 20 (predict_cv), so
     the book's own runs of the "learned" level are constant-velocity runs in
-    the learned level's clothing and are labelled as such.  The stand-in has
+    the learned level's clothing and are labeled as such.  The stand-in has
     no covariance, so those runs get no inflation --- which is exactly what
     an uncalibrated learned predictor costs (Section 25.11).
     """
@@ -518,7 +518,7 @@ def safe_velocity(p, v_pref, obs, rad):
 
 
 def leg_is_safe(p, w, obs, rad):
-    """Is the straight leg from p towards w at V_NOM free of predicted
+    """Is the straight leg from p toward w at V_NOM free of predicted
     conflicts within the horizon?"""
     d = w - p
     length = float(np.linalg.norm(d))
@@ -573,7 +573,7 @@ def formation_edges(k, kind="chain"):
 
 def formation_correction(p, i, edges, nom, gain=K_FORM):
     """The soft formation term of Chapter 24, Eq. (24.6): one consensus
-    correction per formation neighbour j of drone i, pulling i towards the
+    correction per formation neighbor j of drone i, pulling i toward the
     nominal displacement nom[j] - nom[i] it should keep from j.  Returned as
     a velocity to be added to the preferred velocity, not as an override."""
     c = np.zeros(2)
@@ -838,9 +838,9 @@ def wilson(successes, n, z=1.96):
         return {"p": float("nan"), "lo": float("nan"), "hi": float("nan"), "n": 0}
     p = successes / n
     denom = 1 + z * z / n
-    centre = (p + z * z / (2 * n)) / denom
+    center = (p + z * z / (2 * n)) / denom
     half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
-    return {"p": p, "lo": max(0.0, centre - half), "hi": min(1.0, centre + half), "n": n}
+    return {"p": p, "lo": max(0.0, center - half), "hi": min(1.0, center + half), "n": n}
 
 
 def bootstrap_ci(x, stat=np.mean, n_boot=2000, seed=0):
@@ -961,7 +961,7 @@ def holm(pvalues):
     return adj
 
 
-def summarise(rows, keys=("k", "m", "strategy")):
+def summarize(rows, keys=("k", "m", "strategy")):
     """Per-group summary: rates with Wilson intervals, means with t
     intervals, medians with IQR.  Returns {group: summary}."""
     groups = {}
@@ -1156,7 +1156,7 @@ def _selftest_study():
     t0 = time.perf_counter()
     rows = run_mini_study()
     elapsed = time.perf_counter() - t0
-    summary = summarise(rows)
+    summary = summarize(rows)
     print_summary(summary)
     print("mini-study: %d runs in %.1f s" % (len(rows), elapsed))
     assert len(rows) == len(STUDY_CELLS) * len(STUDY_SEEDS) * len(STRATEGIES)

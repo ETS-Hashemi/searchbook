@@ -74,7 +74,7 @@ class Grid:
         return self.in_bounds(cell) and cell not in self.obstacles
 
     def neighbors(self, cell):
-        """Return [(neighbour, cost)] for the free neighbours of ``cell``."""
+        """Return [(neighbor, cost)] for the free neighbors of ``cell``."""
         x, y = cell
         moves = MOVES4 if self.connectivity == 4 else MOVES8
         result = []
@@ -92,11 +92,11 @@ class Grid:
         return result
 
     def inflate(self, radius):
-        """Return a copy in which every cell whose centre lies within
+        """Return a copy in which every cell whose center lies within
         ``radius`` (cell units) of an obstacle square is also blocked.
 
         This samples the Minkowski sum of the obstacle squares with a
-        disc of radius ``radius`` at the cell centres.
+        disk of radius ``radius`` at the cell centers.
         """
         reach = int(math.ceil(radius + 0.5))
         blocked = set(self.obstacles)
@@ -106,7 +106,7 @@ class Grid:
                     cell = (ox + dx, oy + dy)
                     if not self.in_bounds(cell):
                         continue
-                    # distance from the centre of ``cell`` to the unit
+                    # distance from the center of ``cell`` to the unit
                     # square [ox - 1/2, ox + 1/2] x [oy - 1/2, oy + 1/2]
                     ex = max(abs(dx) - 0.5, 0.0)
                     ey = max(abs(dy) - 0.5, 0.0)
@@ -120,7 +120,7 @@ def lattice_stretch(dim, diagonals=True):
     the straight-line distance in an empty ``dim``-dimensional lattice.
 
     With diagonal moves, a displacement with sorted absolute components
-    a_1 >= ... >= a_d >= 0 costs sum_k (a_k - a_{k+1}) sqrt(k); maximising
+    a_1 >= ... >= a_d >= 0 costs sum_k (a_k - a_{k+1}) sqrt(k); maximizing
     the ratio over all directions (Cauchy-Schwarz) gives
     sqrt(sum_k (sqrt(k) - sqrt(k - 1))^2).  Without diagonals it is sqrt(d).
     """
@@ -142,7 +142,7 @@ def lattice_path_cost(displacement):
 # ---------------------------------------------------------------------
 def space_time_successors(grid, state, wait_cost=1.0):
     """Successors of the space-time state (cell, t): wait or move to a
-    neighbour, all at time t + 1.  Moves carry the grid's edge cost."""
+    neighbor, all at time t + 1.  Moves carry the grid's edge cost."""
     cell, t = state
     succ = [((cell, t + 1), wait_cost)]                 # wait action
     for nxt, cost in grid.neighbors(cell):
@@ -151,7 +151,7 @@ def space_time_successors(grid, state, wait_cost=1.0):
 
 
 def path_length(path):
-    """Euclidean length of the polyline through the visited cell centres.
+    """Euclidean length of the polyline through the visited cell centers.
     Waiting adds nothing."""
     return sum(math.dist(a, b) for a, b in zip(path, path[1:]))
 
@@ -182,7 +182,7 @@ def position_at(path, t):
 
 
 def min_separation(plan):
-    """Smallest centre distance between two agents at any integer time."""
+    """Smallest center distance between two agents at any integer time."""
     horizon = max(len(path) for path in plan) - 1
     best = math.inf
     for t in range(horizon + 1):
@@ -261,20 +261,20 @@ def ray_circle_intersection(o, d, c, r):
         return 0.0
     if a == 0.0:
         return None
-    disc = b * b - a * k
-    if disc < 0.0:
+    disk = b * b - a * k
+    if disk < 0.0:
         return None
-    t = (-b - math.sqrt(disc)) / a
+    t = (-b - math.sqrt(disk)) / a
     return t if t >= 0.0 else None
 
 
 def segment_circle_intersects(a, b, c, r):
-    """True if the segment ab meets the disc of centre c and radius r."""
+    """True if the segment ab meets the disk of center c and radius r."""
     return point_segment_distance(c, a, b)[0] <= r
 
 
-def minkowski_disc(c1, r1, c2, r2):
-    """Minkowski sum of two discs: a disc of centre c1 + c2 and radius r1 + r2."""
+def minkowski_disk(c1, r1, c2, r2):
+    """Minkowski sum of two disks: a disk of center c1 + c2 and radius r1 + r2."""
     return add(c1, c2), r1 + r2
 
 
@@ -288,9 +288,9 @@ def tangent_points(p, c, r):
     d = norm(u)
     if d <= r:
         return None
-    u = scale(u, 1.0 / d)                 # unit vector from c towards p
+    u = scale(u, 1.0 / d)                 # unit vector from c toward p
     perp = (-u[1], u[0])                  # u rotated by +90 degrees
-    cos_a = r / d                         # angle at the centre
+    cos_a = r / d                         # angle at the center
     sin_a = math.sqrt(1.0 - cos_a * cos_a)
     t_plus = add(c, scale(add(scale(u, cos_a), scale(perp, sin_a)), r))
     t_minus = add(c, scale(add(scale(u, cos_a), scale(perp, -sin_a)), r))
@@ -309,7 +309,7 @@ def time_of_closest_approach(p_a, v_a, p_b, v_b, horizon=math.inf):
 
 
 def time_to_collision(p_a, v_a, r_a, p_b, v_b, r_b):
-    """First time t >= 0 at which two constant-velocity discs touch, or
+    """First time t >= 0 at which two constant-velocity disks touch, or
     None.  This is a ray-circle test in the relative frame."""
     return ray_circle_intersection(sub(p_b, p_a), sub(v_b, v_a),
                                    (0.0, 0.0), r_a + r_b)
@@ -587,7 +587,7 @@ def _self_test():
     assert _close(ray_circle_intersection((3, 0.5), (1, 0), (3, 0), 1.0), 0.0)
     assert segment_circle_intersects((0, 0), (5, 0), (2, 0.5), 1.0)
     assert not segment_circle_intersects((0, 0), (5, 0), (2, 1.5), 1.0)
-    assert minkowski_disc((1, 1), 0.5, (2, 0), 0.25) == ((3, 1), 0.75)
+    assert minkowski_disk((1, 1), 0.5, (2, 0), 0.25) == ((3, 1), 0.75)
     t_plus, t_minus = tangent_points((0, 0), (4, 0), 2.0)
     assert _close(t_plus[0], 3.0) and _close(t_plus[1], -math.sqrt(3))
     assert _close(t_minus[0], 3.0) and _close(t_minus[1], math.sqrt(3))

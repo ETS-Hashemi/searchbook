@@ -332,7 +332,7 @@ EXAMPLE_POPS = [
 ]
 
 # 5 x 5 grid of the second example: free ring around a slow ring ('w',
-# entering costs 3) with a blocked centre and a blocked cell on the right.
+# entering costs 3) with a blocked center and a blocked cell on the right.
 EXAMPLE_GRID = [
     "S....",
     ".www.",

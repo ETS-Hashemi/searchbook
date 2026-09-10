@@ -1,7 +1,7 @@
 """Generate figures/ch03/wavefront.tex: Dijkstra's wavefront on a grid.
 
 Runs dijkstra() from a single source on an 8-connected grid with a wall and
-a block, then colours every free cell by the band floor(g) of its distance
+a block, then colors every free cell by the band floor(g) of its distance
 and draws the band boundaries as contour lines.  NumPy-free apart from the
 chapter module; deterministic (no randomness).  Run from Overleaf/:
 

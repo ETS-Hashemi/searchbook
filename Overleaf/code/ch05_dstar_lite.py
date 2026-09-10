@@ -49,13 +49,13 @@ class Grid:
         return 0 <= s[0] < self.width and 0 <= s[1] < self.height
 
     def neighbors(self, s):
-        """All in-bounds 4-neighbours, blocked or not (Pred(s) = Succ(s))."""
+        """All in-bounds 4-neighbors, blocked or not (Pred(s) = Succ(s))."""
         x, y = s
         return [n for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1))
                 if self.in_bounds(n)]
 
     def cost(self, u, v):
-        """Edge cost c(u, v): 1 between free neighbours, INF otherwise."""
+        """Edge cost c(u, v): 1 between free neighbors, INF otherwise."""
         if u in self.blocked or v in self.blocked:
             return INF
         return 1.0
@@ -192,7 +192,7 @@ class LPAStar:
 
         Every directed edge touching such a cell changed; LPA* updates the
         head of each edge: the cell itself (edges into it) and each
-        neighbour (edges out of it).
+        neighbor (edges out of it).
         """
         for b in cells:
             self.update_vertex(b)
@@ -288,7 +288,7 @@ class DStarLite:
         return n
 
     def next_step(self):
-        """Successor of the robot's cell minimising c + g; None if no path."""
+        """Successor of the robot's cell minimizing c + g; None if no path."""
         if self.g_of(self.start) == INF:
             return None
         return min(self.grid.neighbors(self.start),
@@ -305,7 +305,7 @@ class DStarLite:
         """Process cells whose blocked status flipped (D* Lite main loop).
 
         Adds h(s_last, s_start) to k_m, updates the tail of every changed
-        edge (the cell and each neighbour) and, if replan, repairs the
+        edge (the cell and each neighbor) and, if replan, repairs the
         search.  Returns the number of expansions.
         """
         if not cells:

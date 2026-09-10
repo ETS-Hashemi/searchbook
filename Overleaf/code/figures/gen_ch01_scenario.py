@@ -27,7 +27,7 @@ AGENT_STYLES = ["sbagentA", "sbagentB", "sbagentC"]
 PREDICTION_STEPS = (2, 4, 6, 8)  # predicted intruder positions to draw
 
 
-def centre(cell):
+def center(cell):
     return f"({cell[0] + 0.5:.2f},{cell[1] + 0.5:.2f})"
 
 
@@ -59,7 +59,7 @@ def tikz(scenario, paths):
             % (x + r + 0.45, y, t))
     # Planned paths of the controlled drones.
     for i, path in enumerate(paths):
-        pts = " -- ".join(centre(c) for c in path)
+        pts = " -- ".join(center(c) for c in path)
         add(r"\draw[%s] %s;" % (PATH_STYLES[i], pts))
     # Markers of the planned conflict and of the predicted encounter.
     for c in conflicts:
@@ -73,15 +73,15 @@ def tikz(scenario, paths):
     if encounters:
         e = min(encounters, key=lambda e: e.distance)
         cell = sc.position_on_path(paths[e.drone], e.time)
-        add(r"\draw[draw=sbRed,line width=1.2pt,dashed] %s circle (0.62);" % centre(cell))
+        add(r"\draw[draw=sbRed,line width=1.2pt,dashed] %s circle (0.62);" % center(cell))
         add(r"\node[sbannot,text=sbRed,anchor=south,font=\scriptsize] "
             r"at (%.2f,%.2f) {%s, $t{=}%d$};"
             % (cell[0] + 0.5, cell[1] + 1.2, NAMES[e.drone], e.time))
     # Starts (circles), goals (squares), intruder and its velocity.
     for i, (s, g) in enumerate(zip(scenario.starts, scenario.goals)):
-        add(r"\node[%s] at %s {%s};" % (AGENT_STYLES[i], centre(s), NAMES[i]))
+        add(r"\node[%s] at %s {%s};" % (AGENT_STYLES[i], center(s), NAMES[i]))
         add(r"\node[%s,rectangle,fill=white] at %s {%s};"
-            % (AGENT_STYLES[i], centre(g), NAMES[i]))
+            % (AGENT_STYLES[i], center(g), NAMES[i]))
     vx, vy = intr.velocity
     add(r"\draw[sbvec,draw=sbIntruder] (%.2f,%.2f) -- ++(%.2f,%.2f);"
         % (*intr.position, 2.0 * vx, 2.0 * vy))
@@ -131,7 +131,7 @@ def trace_rows(scenario, paths):
         cells = [sc.position_on_path(p, t) for p in paths]
         px, py = intr.position_at(t)
         dists = [math.hypot(px - cx, py - cy)
-                 for cx, cy in (sc.cell_centre(c) for c in cells)]
+                 for cx, cy in (sc.cell_center(c) for c in cells)]
         cell_txt = " & ".join("(%d,%d)" % c for c in cells)
         dist_txt = " & ".join("%.2f" % d for d in dists)
         rows.append("%d & %s & (%.2f, %.2f) & %s\\\\" % (t, cell_txt, px, py, dist_txt))

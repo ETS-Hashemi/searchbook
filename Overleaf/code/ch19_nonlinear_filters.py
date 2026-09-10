@@ -6,10 +6,10 @@ Drone Collision Avoidance".
 
 Conventions
 -----------
-* Coordinated-turn state ``x = (px, py, v, psi, omega)``: position in metres,
-  speed in m/s, heading ``psi`` in radians (counter-clockwise from the x axis,
+* Coordinated-turn state ``x = (px, py, v, psi, omega)``: position in meters,
+  speed in m/s, heading ``psi`` in radians (counterclockwise from the x axis,
   kept in (-pi, pi]) and turn rate ``omega`` in rad/s (positive = left turn).
-* Range-bearing measurement ``z = (r, phi)``: range in metres, bearing in
+* Range-bearing measurement ``z = (r, phi)``: range in meters, bearing in
   radians in (-pi, pi], measured from the sensor position.
 * Motion and measurement models accept one state (shape ``(5,)``) or an
   array of N states (shape ``(N, 5)``) and return the matching shape.
@@ -189,7 +189,7 @@ class ExtendedKalmanFilter:
         self.P = np.array(P0, dtype=float)
 
     def predict(self):
-        """Linearise f at the previous estimate, then move mean and covariance."""
+        """Linearize f at the previous estimate, then move mean and covariance."""
         F = self.motion.jacobian(self.x)              # Jacobian at x_{k-1}
         Q = self.motion.Q(self.x)
         self.x = self.motion.f(self.x)                 # true f for the mean
@@ -197,7 +197,7 @@ class ExtendedKalmanFilter:
         return self.x, self.P
 
     def update(self, z):
-        """Linearise h at the prediction and apply the Kalman update."""
+        """Linearize h at the prediction and apply the Kalman update."""
         H = self.sensor.jacobian(self.x)              # Jacobian at x_k^-
         z_pred = self.sensor.h(self.x)                 # true h for the prediction
         y = self.sensor.residual(z, z_pred)            # innovation, bearing wrapped
@@ -226,7 +226,7 @@ def sigma_points(mean, cov, alpha=1.0, beta=2.0, kappa=0.0, jitter=1e-9):
     mean = np.asarray(mean, dtype=float)
     n = mean.size
     lam = alpha ** 2 * (n + kappa) - n
-    P = 0.5 * (cov + cov.T) + jitter * np.eye(n)     # symmetrise, guard the factorisation
+    P = 0.5 * (cov + cov.T) + jitter * np.eye(n)     # symmetrize, guard the factorization
     L = np.linalg.cholesky((n + lam) * P)            # columns l_i: L L^T = (n+lam) P
     X = np.empty((2 * n + 1, n))
     X[0] = mean
@@ -312,7 +312,7 @@ class UnscentedKalmanFilter:
 # Particle filter
 # ---------------------------------------------------------------------------
 def effective_sample_size(weights):
-    """N_eff = 1 / sum(w^2) for normalised weights."""
+    """N_eff = 1 / sum(w^2) for normalized weights."""
     w = np.asarray(weights, dtype=float)
     return 1.0 / np.sum(w * w)
 
@@ -359,7 +359,7 @@ class ParticleFilter:
         return self.X
 
     def update(self, z=None):
-        """Weight by the likelihood, normalise, estimate, resample."""
+        """Weight by the likelihood, normalize, estimate, resample."""
         if z is not None:
             self.logw += self.sensor.log_likelihood(z, self.X)
         if self.constraint is not None:
@@ -368,7 +368,7 @@ class ParticleFilter:
         if not np.isfinite(top):            # every particle died: flat
             self.logw[:] = -math.log(self.n)
             top = self.logw[0]
-        w = np.exp(self.logw - top)         # log-sum-exp normalisation
+        w = np.exp(self.logw - top)         # log-sum-exp normalization
         w /= np.sum(w)
         with np.errstate(divide="ignore"):
             self.logw = np.log(w)
@@ -419,7 +419,7 @@ def simulate_turning_target(x0, segments, dt):
 
 
 def initial_estimate(z0, z1, sensor, dt, v_max=30.0, sigma_omega=0.3):
-    """Track initialisation from two range-bearing measurements.
+    """Track initialization from two range-bearing measurements.
 
     Position from the second measurement, speed and heading from the
     displacement between the two (the speed clipped to [0, v_max]), turn rate

@@ -11,11 +11,11 @@
 
 \begin{objectives}
 \begin{itemize}
-  \item Explain why local collision avoidance is a choice of \emph{velocity} rather than a choice of path, and set up an encounter between two discs in relative coordinates.
-  \item Construct the collision cone and the velocity obstacle of a moving disc by hand: apex, tangent rays and the half-angle $\theta=\arcsin\bigl((r_A+r_B)/\norm{\pos_B-\pos_A}\bigr)$.
+  \item Explain why local collision avoidance is a choice of \emph{velocity} rather than a choice of path, and set up an encounter between two disks in relative coordinates.
+  \item Construct the collision cone and the velocity obstacle of a moving disk by hand: apex, tangent rays and the half-angle $\theta=\arcsin\bigl((r_A+r_B)/\norm{\pos_B-\pos_A}\bigr)$.
   \item Compute the time to collision of a candidate velocity from a quadratic equation, and truncate the velocity obstacle with a time horizon $\ttc$.
   \item Choose a velocity outside the union of all velocity obstacles that stays as close as possible to the preferred velocity, by sampling or by projection.
-  \item Implement a velocity-obstacle simulator in \python, measure minimum separation and path length, and recognise the oscillation that appears when two agents avoid each other at the same time.
+  \item Implement a velocity-obstacle simulator in \python, measure minimum separation and path length, and recognize the oscillation that appears when two agents avoid each other at the same time.
 \end{itemize}
 \end{objectives}
 
@@ -41,12 +41,12 @@ that no collision occurs?}
 
 The velocity obstacle (VO) of Fiorini and Shiller~\cite{fiorini1998motion}
 answers exactly this question. It looks at the encounter from the drone's own
-point of view, in which the intruder is a disc that moves with the
+point of view, in which the intruder is a disk that moves with the
 \emph{relative} velocity of the two aircraft. It then describes, as a single
 cone in the space of velocities, every velocity of the drone that leads to a
 collision if the intruder keeps its current velocity. Avoiding the intruder
 means picking a velocity outside the cone, and picking the one that is closest
-to the velocity the drone wanted to fly anyway makes the manoeuvre small. The
+to the velocity the drone wanted to fly anyway makes the maneuver small. The
 computation is a handful of dot products per obstacle, which is why VO and its
 descendants run at hundreds of hertz on board of small vehicles.
 
@@ -82,25 +82,25 @@ drone system.
 \section{The idea in plain words}
 \label{sec:ch12-intuition}
 
-Two discs move through the plane with constant velocities. Whether they will
+Two disks move through the plane with constant velocities. Whether they will
 collide does not depend on where either of them is going in absolute terms; it
 depends only on how one moves \emph{relative} to the other. So sit on drone
 $A$. From there, drone $B$ is an object at the relative position
 $\pos_B - \pos_A$ that drifts at the rate $\vel_B - \vel_A$, the negative of
 the relative velocity of \cref{def:ch12-relative}.
 Two more simplifications make the picture crisp. First, by the Minkowski-sum
-argument of \cref{thm:ch02-disc-minkowski}, two discs of radii $r_A$ and $r_B$ overlap exactly
-when their centres are closer than $r_A + r_B$; so we may shrink $A$ to a point
-and fatten $B$ to a disc of radius $r_A + r_B$. Second, instead of letting the
-fat disc drift towards the point, let the point move towards the fixed disc
+argument of \cref{thm:ch02-disc-minkowski}, two disks of radii $r_A$ and $r_B$ overlap exactly
+when their centers are closer than $r_A + r_B$; so we may shrink $A$ to a point
+and fatten $B$ to a disk of radius $r_A + r_B$. Second, instead of letting the
+fat disk drift toward the point, let the point move toward the fixed disk
 with the velocity $\vel_A - \vel_B$; the two descriptions are the same motion
 seen from different frames.
 
 The question ``will they collide?'' has now become a question about a ray: the
 point starts at the origin and travels along the ray in the direction of the
-relative velocity. It hits the disc if and only if the ray intersects the disc
-(\cref{fig:ch12-idea}). The directions whose rays hit the disc form a wedge
-between the two tangent lines from the origin to the disc. This wedge is the
+relative velocity. It hits the disk if and only if the ray intersects the disk
+(\cref{fig:ch12-idea}). The directions whose rays hit the disk form a wedge
+between the two tangent lines from the origin to the disk. This wedge is the
 \textbf{collision cone}\index{collision cone}. A relative velocity inside it
 leads to a collision, sooner if the velocity is large and later if it is small;
 a relative velocity outside it never does, however fast.
@@ -109,10 +109,10 @@ a relative velocity outside it never does, however fast.
   \centering
   \inputfigure{ch12/idea}
   \caption{The encounter seen from $A$. Agent $A$ is a point at the origin,
-  agent $B$ is the disc of radius $r_A+r_B$ (its own radius is drawn inside)
+  agent $B$ is the disk of radius $r_A+r_B$ (its own radius is drawn inside)
   at the relative position $\pos_B-\pos_A$. A relative velocity
   $\vel_A-\vel_B$ is dangerous exactly when its ray from the origin meets the
-  disc: the red ray hits, the grey ray grazes the disc along a tangent, the
+  disk: the red ray hits, the gray ray grazes the disk along a tangent, the
   green ray misses. The shaded wedge between the tangents is the collision
   cone.}
   \label{fig:ch12-idea}
@@ -130,9 +130,9 @@ the future need not be avoided yet, so the wedge is cut off by a time horizon.
 And with several obstacles, $A$ avoids the union of their wedges.
 
 \begin{keyidea}
-Look at an encounter from the agent's own frame: the other agent is a disc of
+Look at an encounter from the agent's own frame: the other agent is a disk of
 radius $r_A + r_B$, and the relative velocity $\vel_A - \vel_B$ is dangerous
-exactly when its ray hits that disc. The dangerous relative velocities form a
+exactly when its ray hits that disk. The dangerous relative velocities form a
 cone with half-angle $\arcsin\bigl((r_A+r_B)/\norm{\pos_B-\pos_A}\bigr)$; the
 velocity obstacle is this cone translated to the apex $\vel_B$. Avoiding a
 collision means choosing a velocity outside the velocity obstacle, as close as
@@ -145,10 +145,10 @@ possible to the preferred one.
 
 \subsection{Relative motion}
 
-Throughout, an \textbf{agent}\index{agent!disc model} is a disc that moves as
+Throughout, an \textbf{agent}\index{agent!disk model} is a disk that moves as
 a point mass with a commanded velocity (the point-mass drone model of
-\cref{def:ch02-single-integrator}): its centre obeys $\pos(t) = \pos + t\,\vel$ as long as the
-velocity $\vel$ is held. Agent $A$ has centre $\pos_A$, velocity $\vel_A$ and
+\cref{def:ch02-single-integrator}): its center obeys $\pos(t) = \pos + t\,\vel$ as long as the
+velocity $\vel$ is held. Agent $A$ has center $\pos_A$, velocity $\vel_A$ and
 radius $r_A$; agent $B$ (a drone, a bird, a static pole) has $\pos_B$, $\vel_B$,
 $r_B$. Velocities may be changed instantaneously; acceleration limits are
 discussed in \cref{sec:ch12-variants} and in \cref{ch:ch14}.
@@ -169,16 +169,16 @@ agents are apart now.
 \end{definition}
 
 The sign conventions matter and are chosen so that $A$ is the mover. If both
-agents keep their velocities, the centre of $B$ seen from the centre of $A$ is
+agents keep their velocities, the center of $B$ seen from the center of $A$ is
 \begin{equation}
   \pos_B(t) - \pos_A(t)
   = (\pos_B + t\vel_B) - (\pos_A + t\vel_A)
   = \pos_{\mathrm{rel}} - t\,\vel_{\mathrm{rel}} ,
   \label{eq:ch12-relmotion}
 \end{equation}
-which is the position of a \emph{fixed} disc centre $\pos_{\mathrm{rel}}$ seen
+which is the position of a \emph{fixed} disk center $\pos_{\mathrm{rel}}$ seen
 from a point that has moved to $t\,\vel_{\mathrm{rel}}$. By the Minkowski-sum
-argument for two discs (\cref{thm:ch02-disc-minkowski}), the discs overlap at time $t$ if
+argument for two disks (\cref{thm:ch02-disc-minkowski}), the disks overlap at time $t$ if
 and only if $\norm{\pos_B(t)-\pos_A(t)} \le R$, that is,
 \begin{equation}
   \text{$A$ and $B$ collide at time $t\ge0$}
@@ -186,10 +186,9 @@ and only if $\norm{\pos_B(t)-\pos_A(t)} \le R$, that is,
   \iff t\,\vel_{\mathrm{rel}} \in \disc{\pos_{\mathrm{rel}}}{R},
   \label{eq:ch12-collision}
 \end{equation}
-where $\disc{\vect{c}}{r}$ is the closed disc of radius $r$ around $\vect{c}$.
-The disc $\disc{\pos_{\mathrm{rel}}}{R} = \disc{\pos_{\mathrm{rel}}}{r_B}
-\oplus \disc{\vect{0}}{r_A}$ is the Minkowski sum\index{Minkowski sum!in
-velocity obstacles} of $B$'s disc with $A$'s disc placed at the origin: $A$ has
+where $\disc{\vect{c}}{r}$ is the closed disk of radius $r$ around $\vect{c}$.
+The disk $\disc{\pos_{\mathrm{rel}}}{R} = \disc{\pos_{\mathrm{rel}}}{r_B}
+\oplus \disc{\vect{0}}{r_A}$ is the Minkowski sum\index{Minkowski sum!in velocity obstacles} of $B$'s disk with $A$'s disk placed at the origin: $A$ has
 become a point, $B$ has grown by $r_A$.
 
 \subsection{The collision cone}
@@ -205,13 +204,13 @@ the set of relative velocities that lead to a collision at some future time,
   \label{eq:ch12-cc}
 \end{equation}
 Equivalently, $\vel_{\mathrm{rel}} \in CC_{A|B}$ if and only if the ray
-$\set{t\,\vel_{\mathrm{rel}} : t > 0}$ from the origin intersects the disc
+$\set{t\,\vel_{\mathrm{rel}} : t > 0}$ from the origin intersects the disk
 $\disc{\pos_{\mathrm{rel}}}{R}$.
 \end{definition}
 
 The cone depends on $\pos_{\mathrm{rel}}$ and $R$ only, not on any velocity.
 It contains, with any vector, every positive multiple of that vector: if the
-ray in direction $\vel$ hits the disc, so does the ray in direction $2\vel$,
+ray in direction $\vel$ hits the disk, so does the ray in direction $2\vel$,
 only sooner. This is what makes $CC_{A|B}$ a cone, and it is why the whole set
 is described by an angle.
 
@@ -233,18 +232,18 @@ $\pos_{\mathrm{rel}}/d$ rotated by $+\theta$ and by $-\theta$.
 \begin{proof}
 Let $\vel \ne \vect{0}$, write $\vect{u} = \vel/\norm{\vel}$ and let $\varphi
 \in [0,\pi]$ be the angle between $\vect{u}$ and $\pos_{\mathrm{rel}}$. The ray
-$\set{t\vect{u} : t \ge 0}$ meets the disc if and only if the distance from the
-centre $\pos_{\mathrm{rel}}$ to the ray is at most $R$. If $\varphi \le \pi/2$,
-the point of the line $\set{t\vect{u} : t \in \R}$ closest to the centre is at
+$\set{t\vect{u} : t \ge 0}$ meets the disk if and only if the distance from the
+center $\pos_{\mathrm{rel}}$ to the ray is at most $R$. If $\varphi \le \pi/2$,
+the point of the line $\set{t\vect{u} : t \in \R}$ closest to the center is at
 $t^* = \pos_{\mathrm{rel}}\cdot\vect{u} = d\cos\varphi \ge 0$, hence on the ray,
-and its distance to the centre is $d\sin\varphi$ (the perpendicular from the
-centre to the line; \cref{def:ch02-point-segment-distance}). If
+and its distance to the center is $d\sin\varphi$ (the perpendicular from the
+center to the line; \cref{def:ch02-point-segment-distance}). If
 $\varphi > \pi/2$, the closest point of the ray is the origin itself, at
-distance $d > R$, and the ray misses. Therefore the ray meets the disc if and
-only if $\varphi \le \pi/2$ and $d\sin\varphi \le R$, i.e.\ if and only if
+distance $d > R$, and the ray misses. Therefore the ray meets the disk if and
+only if $\varphi \le \pi/2$ and $d\sin\varphi \le R$, i.e., if and only if
 $\varphi \le \arcsin(R/d) = \theta$, because $\sin$ is increasing on
 $[0,\pi/2]$ and $R/d < 1$. This proves the description of the cone. A ray with
-$\varphi = \theta$ has distance exactly $R$ to the centre, so it touches the
+$\varphi = \theta$ has distance exactly $R$ to the center, so it touches the
 circle at one point $\vect{t}$; the radius to $\vect{t}$ is perpendicular to the
 ray, and the right triangle with vertices $\vect{0}$, $\vect{t}$,
 $\pos_{\mathrm{rel}}$ has hypotenuse $d$ and legs $R$ and
@@ -256,7 +255,7 @@ The theorem is the whole geometry of this chapter, so it is worth reading
 \cref{eq:ch12-halfangle} twice. The cone is narrow when the obstacle is far
 ($R/d$ small) and opens as the obstacle approaches; when $d$ shrinks to $R$ the
 half-angle reaches $90^\circ$ and every velocity that has any component
-towards $B$ is dangerous. Forgetting to add $r_A$ to $r_B$ is the most common
+toward $B$ is dangerous. Forgetting to add $r_A$ to $r_B$ is the most common
 mistake in this construction; it makes the cone too narrow and the agent
 grazes the obstacle (\cref{sec:ch12-implementation}).
 
@@ -280,14 +279,13 @@ $\VO_{A|B}$.
 
 The velocity obstacle lives in the velocity space of $A$: its points are
 velocities that $A$ could command, and $\VO_{A|B}$ is the set of those that
-$A$ must not command. It is a wedge with its \textbf{apex}\index{velocity
-obstacle!apex} at $\vel_B$, its axis parallel to $\pos_{\mathrm{rel}}$ and the
+$A$ must not command. It is a wedge with its \textbf{apex}\index{velocity obstacle!apex} at $\vel_B$, its axis parallel to $\pos_{\mathrm{rel}}$ and the
 half-angle $\theta$ of \cref{thm:ch12-cone}. Unlike the collision cone, it is
 not closed under scaling unless $\vel_B = \vect{0}$, and it changes whenever
 $B$ changes its velocity. \Cref{fig:ch12-geometry} shows both pictures for the
 encounter of the introduction, which is also the worked example of
 \cref{sec:ch12-example}: in the workspace on the left, the cone of dangerous
-relative directions sits at $A$ and the inflated disc around $B$; in the
+relative directions sits at $A$ and the inflated disk around $B$; in the
 velocity space on the right, the same wedge sits at the apex $\vel_B$, and the
 preferred velocity $\vel_A^{\mathrm{pref}}$ of $A$ falls inside it.
 
@@ -297,13 +295,13 @@ preferred velocity $\vel_A^{\mathrm{pref}}$ of $A$ falls inside it.
   \caption{The velocity obstacle of the worked example. (a)~Workspace: $A$ at
   $(-5,0)$ with $r_A=0.5$ flies east at $1\,\mathrm{m/s}$, $B$ at $(0,-5)$
   with $r_B=0.5$ flies north at $0.9\,\mathrm{m/s}$. The dashed circle is the
-  inflated disc of radius $R=1$; the tangents from the centre of $A$ enclose
+  inflated disk of radius $R=1$; the tangents from the center of $A$ enclose
   the collision cone of half-angle $\theta = \arcsin(1/\sqrt{50}) = 8.13^\circ$
   around the direction to $B$. (b)~Velocity space of $A$: the same wedge with
   its apex at $\vel_B=(0,0.9)$ is $\VO_{A|B}$; its legs have the directions
   $(0.8,-0.6)$ and $(0.6,-0.8)$. The preferred velocity
   $\vel_A^{\mathrm{pref}}=(1,0)$ lies inside, so $A$ must deviate. The small
-  circle is the truncation disc for $\ttc=5\,\mathrm{s}$
+  circle is the truncation disk for $\ttc=5\,\mathrm{s}$
   (\cref{sec:ch12-truncated}); only the darker region is forbidden. The
   velocity $\vel^*$ is the point of the boundary closest to
   $\vel_A^{\mathrm{pref}}$ and $\vel_A'$ is the sampled choice of
@@ -322,7 +320,7 @@ to know \emph{when}.
 \begin{definition}[Time to collision]
 \label{def:ch12-ttc}
 The \textbf{time to collision}\index{time to collision|textbf} of a relative
-velocity $\vel_{\mathrm{rel}}$ is the first time at which the discs touch,
+velocity $\vel_{\mathrm{rel}}$ is the first time at which the disks touch,
 \begin{equation}
   t_c(\vel_{\mathrm{rel}}) = \min\set{t \ge 0 :
     \norm{\pos_{\mathrm{rel}} - t\,\vel_{\mathrm{rel}}} \le R},
@@ -341,7 +339,7 @@ gives a quadratic equation in $t$. With the abbreviations $\pos = \pos_{\mathrm{
   \label{eq:ch12-quadratic}
 \end{equation}
 This is the ray--circle intersection of \cref{thm:ch02-ray-circle} with the ray starting at
-the origin in the direction $\vel$ and the circle centred at $\pos$.
+the origin in the direction $\vel$ and the circle centerd at $\pos$.
 
 \begin{proposition}[Time to collision]
 \label[proposition]{thm:ch12-ttc}
@@ -351,13 +349,13 @@ $\Delta \ge 0$ and $\pos\cdot\vel > 0$, and in that case
   t_c(\vel) = \frac{\pos\cdot\vel - \sqrt{\Delta/4}}{\vel\cdot\vel} > 0,
   \label{eq:ch12-ttc}
 \end{equation}
-the smaller root of \cref{eq:ch12-quadratic}. The discs overlap exactly during
+the smaller root of \cref{eq:ch12-quadratic}. The disks overlap exactly during
 the interval between the two roots. If $\vel = \vect{0}$ there is no collision.
 \end{proposition}
 \begin{proof}
 The function $t \mapsto \norm{\pos - t\vel}^2 - R^2$ is a parabola opening
-upwards with the value $d^2 - R^2 > 0$ at $t = 0$. It is non-positive exactly
-between its two real roots, if they exist, so the discs overlap exactly on that
+upward with the value $d^2 - R^2 > 0$ at $t = 0$. It is non-positive exactly
+between its two real roots, if they exist, so the disks overlap exactly on that
 interval, and a future collision exists if and only if the roots are real
 ($\Delta \ge 0$) and the smaller one is positive. The product of the roots is
 $(\pos\cdot\pos - R^2)/(\vel\cdot\vel) > 0$, so the roots have the same sign,
@@ -372,8 +370,8 @@ $\varphi$ the angle between $\vel$ and $\pos$, a short computation gives
 $\Delta/4 = \norm{\vel}^2\bigl(R^2 - d^2\sin^2\varphi\bigr)$, so
 $\Delta \ge 0$ is exactly $d\sin\varphi \le R$ as in the proof of
 \cref{thm:ch12-cone}, and $\pos\cdot\vel > 0$ excludes the mirror-image
-directions that point away from the disc. A velocity with $\Delta = 0$ is
-grazing: the discs touch at a single instant. The worked example of
+directions that point away from the disk. A velocity with $\Delta = 0$ is
+grazing: the disks touch at a single instant. The worked example of
 \cref{sec:ch12-example} evaluates \cref{eq:ch12-ttc} on the encounter of
 \cref{fig:ch12-geometry}.
 
@@ -400,30 +398,30 @@ the set of velocities that collide within the horizon,
 
 \begin{proposition}[Shape of the truncated velocity obstacle]
 \label[proposition]{thm:ch12-truncated}
-In relative-velocity coordinates the truncated cone is a union of discs,
+In relative-velocity coordinates the truncated cone is a union of disks,
 \begin{equation}
   \VO^{\ttc}_{A|B}(\vel_B) - \vel_B
   = \bigcup_{0 < t \le \ttc} \disc{\pos_{\mathrm{rel}}/t}{R/t} .
   \label{eq:ch12-union}
 \end{equation}
-Every disc $\disc{\pos_{\mathrm{rel}}/t}{R/t}$ is inscribed in the collision
-cone (tangent to both legs), and the discs shrink and move towards the apex as
+Every disk $\disc{\pos_{\mathrm{rel}}/t}{R/t}$ is inscribed in the collision
+cone (tangent to both legs), and the disks shrink and move toward the apex as
 $t$ grows. Consequently $\VO^{\ttc}_{A|B}$ is the cone with its tip cut off by
-the disc $\disc{\vel_B + \pos_{\mathrm{rel}}/\ttc}{R/\ttc}$: its boundary consists
-of the two legs beyond their points of tangency with this disc and of the arc
-of the disc that faces the apex.
+the disk $\disc{\vel_B + \pos_{\mathrm{rel}}/\ttc}{R/\ttc}$: its boundary consists
+of the two legs beyond their points of tangency with this disk and of the arc
+of the disk that faces the apex.
 \end{proposition}
 \begin{proof}
 By \cref{eq:ch12-collision}, $\vel$ collides at time $t$ if and only if
-$\norm{\pos_{\mathrm{rel}} - t\vel} \le R$, i.e.\ if and only if
-$\norm{\pos_{\mathrm{rel}}/t - \vel} \le R/t$, i.e.\ $\vel \in
+$\norm{\pos_{\mathrm{rel}} - t\vel} \le R$, i.e., if and only if
+$\norm{\pos_{\mathrm{rel}}/t - \vel} \le R/t$, i.e., $\vel \in
 \disc{\pos_{\mathrm{rel}}/t}{R/t}$. Since $t_c(\vel) \le \ttc$ means that
-$\vel$ collides at some $t \le \ttc$, \cref{eq:ch12-union} follows. The disc for
+$\vel$ collides at some $t \le \ttc$, \cref{eq:ch12-union} follows. The disk for
 $t$ is the image of $\disc{\pos_{\mathrm{rel}}}{R}$ under the scaling
 $\vect{x} \mapsto \vect{x}/t$ about the origin. A scaling about the origin maps
 every ray from the origin onto itself and preserves tangency, so the two
 tangent rays of $\disc{\pos_{\mathrm{rel}}}{R}$ are also the tangent rays of
-every scaled disc. It remains to identify the boundary, and for that we use
+every scaled disk. It remains to identify the boundary, and for that we use
 the scaling identity that \cref{eq:ch12-collision} gives at once: for every
 $s > 0$ the point $t(s\vel)$ is the point $(st)\vel$, so
 \begin{equation}
@@ -440,8 +438,8 @@ $\disc{\pos_{\mathrm{rel}}/\ttc}{R/\ttc}$, because
 $\norm{\pos_{\mathrm{rel}}/\ttc - s\vect{u}} \le R/\ttc$ is the same
 inequality as $\norm{\pos_{\mathrm{rel}} - (\ttc s)\vect{u}} \le R$, whose
 smallest solution is $\ttc s = t_c(\vect{u})$. Hence the truncated obstacle
-is the part of the cone lying at or beyond that disc, and its boundary is the
-near arc of the disc together with the two legs beyond their points of
+is the part of the cone lying at or beyond that disk, and its boundary is the
+near arc of the disk together with the two legs beyond their points of
 tangency with it. \qedhere
 \end{proof}
 
@@ -450,23 +448,23 @@ tangency with it. \qedhere
   \inputfigure{ch12/truncated}
   \caption{Truncation, drawn in relative-velocity coordinates for
   $\pos_{\mathrm{rel}}=(4,0)$ and $R=1$ (half-angle $14.5^\circ$). The relative
-  velocity $\vel$ collides at time $t$ exactly when $\vel$ lies in the disc
-  $\disc{\pos_{\mathrm{rel}}/t}{R/t}$; the discs for $t=1$, $2$ and $4$ are
+  velocity $\vel$ collides at time $t$ exactly when $\vel$ lies in the disk
+  $\disc{\pos_{\mathrm{rel}}/t}{R/t}$; the disks for $t=1$, $2$ and $4$ are
   drawn, each inscribed in the cone. With the horizon $\ttc=2$ only the dark
-  region beyond the disc for $t=2$ is forbidden: the velocity $\vel$, which
+  region beyond the disk for $t=2$ is forbidden: the velocity $\vel$, which
   collides at $t_c=3$, is allowed, $\vel'$ with $t_c=1.5$ is not.}
   \label{fig:ch12-truncated}
 \end{figure}
 
 \Cref{fig:ch12-truncated} shows the construction and \cref{fig:ch12-geometry}(b)
-its instance in the worked example, where the truncation disc for
-$\ttc = 5\,\mathrm{s}$ has centre $\vel_B + \pos_{\mathrm{rel}}/5 = (1,-0.1)$
+its instance in the worked example, where the truncation disk for
+$\ttc = 5\,\mathrm{s}$ has center $\vel_B + \pos_{\mathrm{rel}}/5 = (1,-0.1)$
 and radius $R/5 = 0.2$. The horizon has a clean interpretation: $A$ ignores
 collisions that are more than $\ttc$ seconds away, on the grounds that either
 agent will have changed its velocity before then and a fresh decision will be
 made at the next time step. It also has a cost: a velocity just outside
 $\VO^{\ttc}$ collides in $\ttc + \eps$ seconds, so the horizon must be long
-enough for $A$ to make the manoeuvre that the next decision will demand.
+enough for $A$ to make the maneuver that the next decision will demand.
 Practical values are a few seconds for slow indoor vehicles and tens of seconds
 for fast aircraft; \cref{sec:ch12-implementation} returns to the choice.
 
@@ -479,11 +477,11 @@ instead needs two more ingredients: what $A$ can fly, and what $A$ wants.
 \begin{definition}[Reachable, preferred and feasible velocities]
 \label{def:ch12-feasible}
 The \textbf{reachable velocities}\index{reachable velocities} of $A$ are the
-disc $\mathcal{V}_A = \disc{\vect{0}}{v_{\max}}$ of speeds up to the limit
+disk $\mathcal{V}_A = \disc{\vect{0}}{v_{\max}}$ of speeds up to the limit
 $v_{\max}$ of \cref{def:ch02-single-integrator}. The \textbf{preferred
 velocity}\index{preferred velocity} $\vel_A^{\mathrm{pref}}$ is the velocity
 $A$ would fly if nothing were in the way; in this chapter it points from
-$\pos_A$ towards the goal at the nominal speed. Given the obstacles
+$\pos_A$ toward the goal at the nominal speed. Given the obstacles
 $B_1,\dots,B_k$ with velocities $\vel_{B_j}$, the \textbf{feasible
 velocities}\index{feasible velocities} are
 \begin{equation}
@@ -501,12 +499,12 @@ and $A$ selects the feasible velocity closest to its preferred one,
 \begin{figure}[tb]
   \centering
   \inputfigure{ch12/feasible}
-  \caption{Choosing a velocity with two obstacles. The blue disc is the
+  \caption{Choosing a velocity with two obstacles. The blue disk is the
   reachable set $\norm{\vel}\le v_{\max}$; the dots are the sampled candidate
   velocities of \cref{alg:ch12-choose}. The orange wedge with its apex at
   $\vel_{B_1}$ is the truncated velocity obstacle of a moving agent, the wedge
   with its apex at the origin that of a static obstacle ($\vel_{B_2}=\vect{0}$).
-  The feasible set is what remains of the disc. The preferred velocity
+  The feasible set is what remains of the disk. The preferred velocity
   $\vel^{\mathrm{pref}}$ is forbidden; the chosen velocity $\vel^*$ is the
   feasible point closest to it, here on the truncation arc of the first
   obstacle.}
@@ -525,17 +523,17 @@ the apex at the origin, and a polygonal obstacle is handled by the cone
 spanned by its extreme tangents (\cref{sec:ch12-variants}). Third, the cost in
 \cref{eq:ch12-cost} is the simplest sensible one: it prefers small deviations
 in speed and heading equally. Other costs are possible and easy to use with the
-sampling algorithm below, for example one that penalises changes from the
-\emph{current} velocity to reduce chattering, or one that maximises the speed
-towards the goal, which is the heuristic of the original
+sampling algorithm below, for example one that penalizes changes from the
+\emph{current} velocity to reduce chattering, or one that maximizes the speed
+toward the goal, which is the heuristic of the original
 paper~\cite{fiorini1998motion}.
 
 Two things can go wrong with \cref{eq:ch12-cost}. The feasible set may be
 empty, because a fast obstacle is so close that every reachable velocity
 collides within $\ttc$; then there is no safe choice and $A$ must pick the
-least dangerous velocity, for example the one that maximises $t_c$ or the one
-that minimises $\norm{\vel - \vel^{\mathrm{pref}}} + \kappa/t_c(\vel)$ for a
-weight $\kappa > 0$. And the minimiser may be hard to compute exactly when
+least dangerous velocity, for example the one that maximizes $t_c$ or the one
+that minimizes $\norm{\vel - \vel^{\mathrm{pref}}} + \kappa/t_c(\vel)$ for a
+weight $\kappa > 0$. And the minimizer may be hard to compute exactly when
 several wedges overlap; the practical answer is to evaluate the cost on a
 finite set of candidate velocities, as the algorithm of the next section does,
 or to project onto one wedge at a time as \orca does in \cref{ch:ch13}.
@@ -560,9 +558,9 @@ selection to every agent and advances the simulation (\cref{alg:ch12-simulate}).
   \If{$c \le 0$}{\KwRet{$0$}\tcp*{already overlapping}}
   \If{$a = 0$}{\KwRet{$\infty$}\tcp*{no relative motion}}
   $\Delta' \gets b^2 - a\,c$\label{alg:ch12-ttc:disc}\;
-  \If{$\Delta' < 0$}{\KwRet{$\infty$}\tcp*{the ray misses the disc}}
+  \If{$\Delta' < 0$}{\KwRet{$\infty$}\tcp*{the ray misses the disk}}
   $t \gets (b - \sqrt{\Delta'})/a$\label{alg:ch12-ttc:root}\;
-  \lIf{$t < 0$}{\KwRet{$\infty$}\tcp*[f]{the disc lies behind $A$}}
+  \lIf{$t < 0$}{\KwRet{$\infty$}\tcp*[f]{the disk lies behind $A$}}
   \KwRet{$t$}\;
 }
 \Fn{\VoInside{$\pos_A$, $r_A$, $\pos_B$, $\vel_B$, $r_B$, $\vel_A$, $\ttc$}}{
@@ -574,14 +572,14 @@ selection to every agent and advances the simulation (\cref{alg:ch12-simulate}).
 \paragraph{Walkthrough of \cref{alg:ch12-ttc}.}
 The function \VoTimeToCollision evaluates \cref{eq:ch12-ttc} with the guards
 that a real implementation needs. The constant term $c$ is negative when the
-discs already overlap; then the collision is happening now and the function
+disks already overlap; then the collision is happening now and the function
 returns $0$, leaving it to the caller to decide what to do (the code of
 \cref{sec:ch12-implementation} forbids every velocity that approaches the
 other agent). Line~\ref{alg:ch12-ttc:disc} computes a quarter of the
 discriminant of \cref{eq:ch12-quadratic}; a negative value means the ray misses
-the disc and the velocity is safe for ever. Line~\ref{alg:ch12-ttc:root} takes
+the disk and the velocity is safe for ever. Line~\ref{alg:ch12-ttc:root} takes
 the smaller root; by \cref{thm:ch12-ttc} it is negative exactly when
-$\pos\cdot\vel < 0$, i.e.\ when the velocity points away from $B$ and the
+$\pos\cdot\vel < 0$, i.e., when the velocity points away from $B$ and the
 ``collision'' would have happened in the past, so it is reported as no
 collision. The wrapper \VoInside forms the relative quantities of
 \cref{def:ch12-relative} in line~\ref{alg:ch12-ttc:rel} and compares with the
@@ -598,7 +596,7 @@ dimensions, where $\pos$ and $\vel$ are 3-vectors (\cref{sec:ch12-3d}).
 \KwIn{agent $A$ (position, radius, speed limit $v_{\max}$, goal), the other agents $B_1,\dots,B_k$ with their current positions, radii and velocities, horizon $\ttc$, penalty weight $\kappa$}
 \KwOut{a new velocity $\vel_A$}
 \Fn{\VoChoose{$A$, $\set{B_j}$, $\ttc$}}{
-  $\vel^{\mathrm{pref}} \gets$ \VoPreferred{$A$}\tcp*{towards the goal at nominal speed}
+  $\vel^{\mathrm{pref}} \gets$ \VoPreferred{$A$}\tcp*{toward the goal at nominal speed}
   $S \gets$ \VoSamples{$v_{\max}$} $\cup\, \set{\vel^{\mathrm{pref}}}$\label{alg:ch12-choose:samples}\;
   \ForEach{$\vel \in S$}{
     $t_{\min}(\vel) \gets \min_j$ \VoTimeToCollision{$\pos_{B_j}-\pos_A$, $\vel-\vel_{B_j}$, $r_A+r_{B_j}$}\label{alg:ch12-choose:tmin}\;
@@ -613,7 +611,7 @@ dimensions, where $\pos$ and $\vel$ are 3-vectors (\cref{sec:ch12-3d}).
 
 \paragraph{Walkthrough of \cref{alg:ch12-choose}.}
 Line~\ref{alg:ch12-choose:samples} builds the candidate set: a fixed pattern of
-velocities that covers the reachable disc, in the book's code ten concentric
+velocities that covers the reachable disk, in the book's code ten concentric
 rings of $72$ directions plus the zero velocity ($721$ samples), together with
 the preferred velocity itself so that an unobstructed agent flies exactly
 where it wants. Line~\ref{alg:ch12-choose:tmin} evaluates every candidate
@@ -627,7 +625,7 @@ line~\ref{alg:ch12-choose:fallback} chooses the least dangerous one: the
 penalty $\kappa/t_{\min}$ is small for a collision far away and huge for one
 that is imminent, so the agent buys time. The whole function costs
 $\bigO{\abs{S}\,k}$ evaluations of \cref{alg:ch12-ttc}, a few dot products
-each; with NumPy the loop over $S$ is one vectorised expression.
+each; with NumPy the loop over $S$ is one vectorized expression.
 
 \begin{algorithm}[htb]
 \caption{Synchronous velocity-obstacle simulation}
@@ -675,7 +673,7 @@ Drone $A$ starts at $\pos_A = (-5, 0)$ and wants to reach $(5, 0)$ at its
 nominal speed of $1\,\mathrm{m/s}$; it can fly up to $v_{\max} = 1.5\,\mathrm{m/s}$
 and applies \cref{alg:ch12-choose} with $\ttc = 5\,\mathrm{s}$ every
 $\dt = 0.1\,\mathrm{s}$. Drone $B$ starts at $\pos_B = (0,-5)$, flies north at
-$\vel_B = (0, 0.9)$ towards $(0, 5)$ and does not react to $A$. Both have radius
+$\vel_B = (0, 0.9)$ toward $(0, 5)$ and does not react to $A$. Both have radius
 $0.5\,\mathrm{m}$, so $R = 1$. This is \code{crossing\_scenario()} in
 \code{code/ch12\_velocity\_obstacles.py}; the function \code{worked\_example()}
 prints every number quoted below.
@@ -696,11 +694,11 @@ $\vel = (1,0)-(0,0.9) = (1,-0.9)$. Then $\vel\cdot\vel = 1.81$,
 $\pos\cdot\vel = 9.5$ and $\pos\cdot\pos - R^2 = 49$, so
 $\Delta/4 = 90.25 - 88.69 = 1.56$ and, by \cref{eq:ch12-ttc},
 $t_c = (9.5 - 1.249)/1.81 = 4.559\,\mathrm{s} < \ttc$: the preferred velocity
-is in $\VO^{\ttc}_{A|B}$, and without avoidance the discs would overlap from
+is in $\VO^{\ttc}_{A|B}$, and without avoidance the disks would overlap from
 $t = 4.56$ to $t = 5.94\,\mathrm{s}$.
 Indeed, in \cref{fig:ch12-geometry}(b) the point $(1,0)$ lies inside the
-truncation disc of centre $(1,-0.1)$ and radius $0.2$, at distance $0.1$ from
-its centre.
+truncation disk of center $(1,-0.1)$ and radius $0.2$, at distance $0.1$ from
+its center.
 
 \paragraph{The choice.}
 The nearest point of the boundary of $\VO^{\ttc}_{A|B}$ is straight above
@@ -721,13 +719,13 @@ revisited in $0.1\,\mathrm{s}$.
   \inputfigure{ch12/example}
   \caption{\Cref{ex:ch12-crossing} simulated with \cref{alg:ch12-simulate}.
   (a)~Trajectories; dots mark whole seconds, the dashed line is $A$'s route
-  without avoidance, and the two circles are the discs at $t = 5\,\mathrm{s}$,
+  without avoidance, and the two circles are the disks at $t = 5\,\mathrm{s}$,
   where they come closest. $A$'s detour is barely visible: it passes in front
   of $B$ by flying a little faster and a little to the left. (b)~The velocity
   components of $A$ over time: it speeds up to $1.2\,\mathrm{m/s}$ between
   $t=0.9$ and $t=3.6\,\mathrm{s}$ and returns to its preferred velocity once
-  $B$ has passed. (c)~Centre distance over time with and without avoidance;
-  the dashed line is $R = 1$. Without avoidance the discs overlap from
+  $B$ has passed. (c)~Center distance over time with and without avoidance;
+  the dashed line is $R = 1$. Without avoidance the disks overlap from
   $t=4.6$ to $5.9\,\mathrm{s}$; with VO the distance never drops below
   $1.001$.}
   \label{fig:ch12-example}
@@ -744,13 +742,13 @@ feasible samples falls from $695$ at $t=0$ to $122$ at $t = 5\,\mathrm{s}$. From
 $t = 1\,\mathrm{s}$ the closest feasible sample is $(1.2, 0)$: fly straight but
 faster. This is the typical VO solution to a crossing: it is cheaper to pass in
 front of a slower vehicle than to wait for it, and it turns the collision into
-a miss because the relative velocity $(1.2,-0.9)$ passes above the disc
+a miss because the relative velocity $(1.2,-0.9)$ passes above the disk
 instead of through it (its discriminant is negative); in the workspace this is
 $A$ crossing in front of $B$, as \cref{fig:ch12-example}(a) shows. From $t=3.7\,\mathrm{s}$ the agent adds a
-small northward component, $\vel_A = (1.046, 0.092)$, at $t = 5.0\,\mathrm{s}$ the centres are
+small northward component, $\vel_A = (1.046, 0.092)$, at $t = 5.0\,\mathrm{s}$ the centers are
 $1.001\,\mathrm{m}$ apart, and from $t=5.1\,\mathrm{s}$ the preferred velocity is
 feasible again ($t_c = \infty$): $A$ heads for its goal, arriving after a path
-of length $10.027\,\mathrm{m}$ instead of $10$. Without avoidance the centres
+of length $10.027\,\mathrm{m}$ instead of $10$. Without avoidance the centers
 come within $0.377\,\mathrm{m}$ at $t = 5.2\,\mathrm{s}$; the continuous minimum
 is $0.372\,\mathrm{m}$ at the time of closest approach
 $t^* = \pos\cdot\vel/(\vel\cdot\vel) = 9.5/1.81 = 5.25\,\mathrm{s}$.
@@ -761,7 +759,7 @@ $t^* = \pos\cdot\vel/(\vel\cdot\vel) = 9.5/1.81 = 5.25\,\mathrm{s}$.
   \cref{ex:ch12-crossing}. $t_c(\vel^{\mathrm{pref}})$ is the time to collision
   of the preferred velocity, ``feasible'' the number of feasible candidates
   among the $722$, and $t_c(\vel_A)$ the time to collision of the chosen
-  velocity ($\infty$: the ray misses the disc).}
+  velocity ($\infty$: the ray misses the disk).}
   \label{tab:ch12-trace}
   \begin{tabular}{@{}rrrrrrr@{}}
   \toprule
@@ -782,7 +780,7 @@ $t^* = \pos\cdot\vel/(\vel\cdot\vel) = 9.5/1.81 = 5.25\,\mathrm{s}$.
 \end{table}
 
 Two details of the trace deserve attention. At $t = 5.0\,\mathrm{s}$ the
-preferred velocity has $t_c = 0.013\,\mathrm{s}$: the discs are about to touch,
+preferred velocity has $t_c = 0.013\,\mathrm{s}$: the disks are about to touch,
 and $\vel^{\mathrm{pref}}$ would push $A$ into $B$ right now. The chosen
 velocity $(1.05, 0)$ is nevertheless safe with $t_c = \infty$, because $B$ is
 at that moment slightly south of $A$ and any velocity that does not point at
@@ -791,7 +789,7 @@ half-angle is almost $90^\circ$ ($d = 1.0012\,\mathrm{m} \approx R$), so the
 wedge is nearly a half-plane, yet more than a hundred of the samples still lie
 outside it. Second, the velocity at $t = 6\,\mathrm{s}$
 is $(0.998,-0.064)$, which is not on the sample grid: it is the preferred
-velocity itself, now pointing slightly south from $(1.64, 0.22)$ towards the
+velocity itself, now pointing slightly south from $(1.64, 0.22)$ toward the
 goal, which is why line~\ref{alg:ch12-choose:samples} adds it to the candidates.
 
 % ---------------------------------------------------------------------
@@ -815,7 +813,7 @@ $t \in [0, \ttc]$.
 By \cref{def:ch12-truncated}, $\vel_A \notin \VO^{\ttc}_{A|B}$ means
 $t_c(\vel_A - \vel_B) > \ttc$ (possibly $\infty$). By \cref{def:ch12-ttc},
 $t_c$ is the first time at which $\norm{\pos_{\mathrm{rel}} - t\vel_{\mathrm{rel}}}
-\le R$, and by \cref{eq:ch12-relmotion} this norm is the centre distance at time
+\le R$, and by \cref{eq:ch12-relmotion} this norm is the center distance at time
 $t$ as long as the velocities are held. Hence the distance exceeds $R$ on
 $[0, t_c) \supseteq [0, \ttc]$. \qedhere
 \end{proof}
@@ -831,7 +829,7 @@ At each decision time $k\dt$ the agents are apart (by induction), the chosen
 velocity is outside $\VO^{\ttc}_{A|B}$, and by \cref{thm:ch12-safety} the
 distance stays above $R$ until $k\dt + \ttc \ge (k+1)\dt$, when the next
 decision is made. The theorem may be applied on each interval separately
-because the centre distance on $[k\dt, (k+1)\dt]$ depends only on the
+because the center distance on $[k\dt, (k+1)\dt]$ depends only on the
 velocities held during that interval, and both are constant there. \qedhere
 \end{proof}
 
@@ -856,12 +854,12 @@ $\VO_{A|B}(\vel_B)$ if and only if $s \ge v_{\max}\,d/R$.
 \end{proposition}
 \begin{proof}
 The apex $\vel_B$ lies on the axis of the wedge at distance $s$ from the
-origin, on the side away from $\pos_{\mathrm{rel}}$, so the reachable disc
-$\disc{\vect{0}}{v_{\max}}$ is centred on the axis at distance $s > v_{\max}$
+origin, on the side away from $\pos_{\mathrm{rel}}$, so the reachable disk
+$\disc{\vect{0}}{v_{\max}}$ is centerd on the axis at distance $s > v_{\max}$
 from the apex. Seen from the apex it subtends the half-angle
 $\arcsin(v_{\max}/s)$, by the same right triangle as in \cref{thm:ch12-cone}.
-The disc lies inside the wedge of half-angle $\theta = \arcsin(R/d)$ if and
-only if $\arcsin(v_{\max}/s) \le \theta$, i.e.\ $v_{\max}/s \le R/d$.
+The disk lies inside the wedge of half-angle $\theta = \arcsin(R/d)$ if and
+only if $\arcsin(v_{\max}/s) \le \theta$, i.e., $v_{\max}/s \le R/d$.
 \qedhere
 \end{proof}
 
@@ -886,7 +884,7 @@ candidate velocities and $k$ obstacles, \cref{alg:ch12-choose} costs
 $\bigO{mk}$, and one step of \cref{alg:ch12-simulate} with $n$ avoiding agents
 costs $\bigO{n^2 m}$; for $m = 722$ this is $n(n-1)m \approx 4 \cdot 10^4$
 evaluations per step for $n = 8$, which NumPy handles in a few milliseconds. Restricting
-each agent to its $k$ nearest neighbours, as every real implementation does,
+each agent to its $k$ nearest neighbors, as every real implementation does,
 makes the step linear in $n$.
 
 What the rule does \emph{not} guarantee is as important as what it does.
@@ -896,9 +894,9 @@ What the rule does \emph{not} guarantee is as important as what it does.
   velocity is unsafe later, for instance when an agent flies into the
   narrowing gap between two converging obstacles. Fiorini and Shiller
   addressed this with a tree search over sequences of avoidance
-  manoeuvres~\cite{fiorini1998motion}; the one-step rule is what practical
+  maneuvers~\cite{fiorini1998motion}; the one-step rule is what practical
   systems use, backed by a global planner (\cref{ch:ch24}).
-  \item \textbf{No progress guarantee.} Nothing forces the agent towards its
+  \item \textbf{No progress guarantee.} Nothing forces the agent toward its
   goal. Two agents that must pass each other in a corridor narrower than
   $2R$ stop and stay stopped; the deadlock is a task for the replanning
   layer, not for the local rule.
@@ -906,7 +904,7 @@ What the rule does \emph{not} guarantee is as important as what it does.
   assumes that $B$ holds its velocity. When $B$ is itself avoiding $A$, the
   assumption fails at every step, and safety and smoothness both suffer:
   this is the subject of the next section.
-  \item \textbf{Sampling error.} The sampled minimiser can be off the exact
+  \item \textbf{Sampling error.} The sampled minimizer can be off the exact
   one by the spacing of the sample grid, and a thin feasible corridor between
   two wedges can be missed entirely, so that the algorithm declares the set
   empty although it is not (\cref{sec:ch12-implementation}).
@@ -926,7 +924,7 @@ sees the other coming straight at it and steps aside: $A$ chooses the sample
 $(1.034, -0.182)$, $B$ its mirror image $(-1.034, 0.182)$. Now consider the
 next decision. $A$ assumes that $B$ will keep its new, sideways velocity. With
 $B$ moving up and to the left, the relative velocity of the \emph{preferred}
-velocity $(1,0)$ now clears the disc, so $A$ returns to $(1,0)$, and $B$, by
+velocity $(1,0)$ now clears the disk, so $A$ returns to $(1,0)$, and $B$, by
 symmetry, returns to $(-1,0)$. One step later both are heading straight at
 each other again, step aside again, and so on. \Cref{fig:ch12-oscillation}
 shows the result: the lateral velocity of $A$ changes sign $51$ times in
@@ -934,8 +932,8 @@ $100$ steps, and although the minimum distance stays at $1.002 \ge R$ the
 command alternates at every step between a sidestep of about
 $-0.18\,\mathrm{m/s}$ (peak $0.23$) and a lateral component just above zero,
 so it crosses zero at almost every decision. A real
-drone cannot follow such a command, and the manoeuvre it executes is not the
-one that was analysed.
+drone cannot follow such a command, and the maneuver it executes is not the
+one that was analyzed.
 
 \begin{figure}[tb]
   \centering
@@ -945,7 +943,7 @@ one that was analysed.
   (solid) and when only $A$ applies it (dashed): with two avoiders the drift
   is shared and the paths zigzag. (b)~The lateral velocity of $A$: with two
   avoiders it flips sign at almost every step, because each agent reacts to
-  the other's sidestep by cancelling its own; with one avoider it changes
+  the other's sidestep by canceling its own; with one avoider it changes
   sign once. The vertical axis of (a) is stretched.}
   \label{fig:ch12-oscillation}
 \end{figure}
@@ -972,18 +970,18 @@ picket line of $k$ non-cooperative intruders that fly north at speeds
 $0.8$, $1.1$ and $1.4\,\mathrm{m/s}$, each timed to hit the agent exactly where
 its nominal path crosses theirs. In the \emph{circle} scenario $n$ agents start
 evenly spaced on a circle of radius $6$ and fly to the antipodal points, so
-every pair is on a crossing course through the centre, and \emph{all} of them
+every pair is on a crossing course through the center, and \emph{all} of them
 apply the velocity-obstacle rule (the start positions are perturbed by a
 fixed-seed noise of standard deviation $0.05$ to break the symmetry).
 \Cref{fig:ch12-crossing} and \cref{tab:ch12-crossing} report the minimum
-centre distance over the run and the path length relative to the straight
+center distance over the run and the path length relative to the straight
 line.
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch12/crossing}
   \caption{No avoidance versus velocity obstacles for $n = 2, \dots, 8$
-  crossing agents. (a)~Minimum centre distance; the dashed line is $R = 1$.
+  crossing agents. (a)~Minimum center distance; the dashed line is $R = 1$.
   Without avoidance every scenario collides. One VO agent among
   non-cooperative intruders (stream) keeps the distance at the guaranteed
   minimum $R$ ($1.0003$) for every $k$, as \cref{cor:ch12-intruder} promises. When all agents apply VO
@@ -998,8 +996,8 @@ line.
   \centering\footnotesize
   \setlength{\tabcolsep}{4pt}
   \caption{The experiment of \cref{fig:ch12-crossing}. $d_{\min}$ is the minimum
-  centre distance over the run, ``pairs $<R$'' counts the pairs of agents whose
-  centre distance dropped below $R$ at some step, and ``empty'' the number of
+  center distance over the run, ``pairs $<R$'' counts the pairs of agents whose
+  center distance dropped below $R$ at some step, and ``empty'' the number of
   decisions at which no sampled velocity was feasible.}
   \label{tab:ch12-crossing}
   \begin{tabular}{@{}r rrr rrrrr@{}}
@@ -1024,12 +1022,12 @@ non-cooperative intruders, the velocity-obstacle agent never comes closer
 than $R$ (the recorded minimum is $1.0003$), whatever the number of intruders,
 and pays $1.4$--$2.3\,\%$ extra path, arriving in $11.3$--$11.5\,\mathrm{s}$,
 earlier than the $12\,\mathrm{s}$ of the straight flight, because its
-manoeuvre is mostly ``speed up and pass in front''. Among agents that all
+maneuver is mostly ``speed up and pass in front''. Among agents that all
 apply the rule simultaneously the picture degrades with density: one pair
 grazes at $n = 3$ ($0.990$), and from $n = 5$ on the minimum distance falls
 below $R$ at every density (to $0.914$ at $n = 6$), decisions with an empty
 feasible set appear, and the paths lengthen by up to $14\,\%$ as agents
-oscillate around the crowded centre. None of these are head-on
+oscillate around the crowded center. None of these are head-on
 crashes, and $n = 8$ agents on a circle of radius $6$ with $R = 1$ is a
 crowded scene; but the guarantee of \cref{cor:ch12-intruder} is gone, because
 its assumption is violated at every step. \Cref{ch:ch13} repeats this
@@ -1042,8 +1040,8 @@ experiment with RVO and \orca.
 \paragraph{Static and polygonal obstacles.}
 A static obstacle has $\vel_B = \vect{0}$, so its velocity obstacle is the
 collision cone itself with the apex at the origin, and its truncated version
-is the cone beyond the disc $\disc{\pos_{\mathrm{rel}}/\ttc}{R/\ttc}$. An obstacle
-that is not a disc, such as a building or a wall, is first inflated by $r_A$
+is the cone beyond the disk $\disc{\pos_{\mathrm{rel}}/\ttc}{R/\ttc}$. An obstacle
+that is not a disk, such as a building or a wall, is first inflated by $r_A$
 (\cref{thm:ch02-inflation}; the distance to a wall segment is
 \cref{def:ch02-point-segment-distance}) and then treated point by point: a velocity is dangerous if
 its ray hits any point of the inflated obstacle, so the cone is the union of
@@ -1052,17 +1050,17 @@ between the two extreme tangent rays from $A$ (\cref{exr:ch12-static}). The
 truncated version is again the union of the scaled copies of the obstacle,
 $\bigcup_{t \le \ttc} \mathcal{O}/t$, which for a polygon is easy to draw and
 easy to sample. Truncation matters most for static obstacles: without it a
-long wall forbids every velocity with any component towards it, however far
+long wall forbids every velocity with any component toward it, however far
 away the wall is.
 
 \paragraph{Obstacles that do not fly straight.}
 The velocity obstacle assumes that $B$ keeps its velocity. If the prediction
 layer (\cref{ch:ch20}) supplies a predicted trajectory $\hat{\pos}_B(t)$
-instead, \cref{thm:ch12-truncated} generalises without change of argument: $A$
+instead, \cref{thm:ch12-truncated} generalizes without change of argument: $A$
 flying straight with velocity $\vel$ is within $R$ of $B$ at time $t$ if and
 only if $\norm{\hat{\pos}_B(t) - \pos_A - t\vel} \le R$, i.e.\
 $\vel \in \disc{(\hat{\pos}_B(t) - \pos_A)/t}{R/t}$, so the forbidden set is
-the union of these discs over $t \le \ttc$. It is no longer a cone, but the
+the union of these disks over $t \le \ttc$. It is no longer a cone, but the
 sampled \cref{alg:ch12-choose} handles it with the membership test replaced
 by a scan over the predicted times. This is the non-linear velocity obstacle.
 Uncertainty in the prediction is absorbed by inflating $R$ with the predicted
@@ -1080,17 +1078,17 @@ selection becomes a small linear program. All three are derived in
 \paragraph{Dynamics.}
 \Cref{def:ch12-feasible} takes every speed below $v_{\max}$ to be reachable at
 once. With an acceleration limit $a_{\max}$ the velocities reachable within one
-step form the disc $\disc{\vel_A}{a_{\max}\dt}$ intersected with
+step form the disk $\disc{\vel_A}{a_{\max}\dt}$ intersected with
 $\disc{\vect{0}}{v_{\max}}$, the dynamic window of \cref{ch:ch14}; the sampled
 algorithm accepts any candidate set, so it is enough to sample that window
 instead. What does not carry over is the exactness of \cref{thm:ch12-safety}:
-while the agent accelerates towards its new velocity it flies neither the old
+while the agent accelerates toward its new velocity it flies neither the old
 nor the new one. A margin on $R$ or on the horizon, of the order of the time
 $\norm{\vel_A' - \vel_A}/a_{\max}$ needed to reach the new velocity, restores
 safety in practice.
 
 \paragraph{Exact selection.}
-With a single obstacle, the minimiser of \cref{eq:ch12-cost} is the projection
+With a single obstacle, the minimizer of \cref{eq:ch12-cost} is the projection
 of $\vel^{\mathrm{pref}}$ onto the boundary of $\VO^{\ttc}_{A|B}$: onto one of
 the two legs beyond their tangency points or onto the truncation arc,
 whichever is closest. The method \code{closest\_boundary\_point} of the class
@@ -1105,7 +1103,7 @@ half-plane per obstacle.
 \label{sec:ch12-3d}
 
 Drones fly in three dimensions, and the third dimension is often the cheapest
-way out of a conflict: climbing over an intruder can be a smaller manoeuvre
+way out of a conflict: climbing over an intruder can be a smaller maneuver
 than swerving around it. Nothing in the derivation above used the plane. Let
 $\pos_A, \vel_A, \pos_B, \vel_B \in \R^3$ and let the agents be spheres of
 radii $r_A$, $r_B$. The relative quantities of \cref{def:ch12-relative}, the
@@ -1113,7 +1111,7 @@ collision condition \cref{eq:ch12-collision} and the quadratic
 \cref{eq:ch12-quadratic} are unchanged, with 3-vectors in the dot products,
 because the Minkowski sum of two balls is again a ball. The ray in direction
 $\vel$ meets the ball $\disc{\pos_{\mathrm{rel}}}{R}$ if and only if the
-distance from the centre to the ray, $d\sin\varphi$, is at most $R$, exactly as
+distance from the center to the ray, $d\sin\varphi$, is at most $R$, exactly as
 in the proof of \cref{thm:ch12-cone}, and the angle $\varphi$ between $\vel$
 and $\pos_{\mathrm{rel}}$ is now the angle between two vectors in space.
 
@@ -1139,7 +1137,7 @@ wedge. \Cref{exr:ch12-3d} asks for the details. \qedhere
   \centering
   \inputfigure{ch12/cone3d}
   \caption{The collision cone in three dimensions: a right circular cone
-  with apex at $A$, axis towards the centre of the sphere of radius
+  with apex at $A$, axis toward the center of the sphere of radius
   $R = r_A + r_B$ around $B$ and half-angle $\theta = \arcsin(R/d)$. The cone
   touches the sphere along a circle. Any plane through the axis shows the
   planar picture of \cref{fig:ch12-idea}; a relative velocity $\vel$ is
@@ -1170,13 +1168,13 @@ The file \code{code/ch12\_velocity\_obstacles.py} implements everything in this
 chapter in about 650 lines: the plane-geometry helpers copied from
 \code{code/ch02\_toolbox.py}, the time to collision and membership test
 (\cref{lst:ch12-ttc}), a \code{VelocityObstacle} class that exposes the apex,
-the tangent directions, the truncation disc and the exact projection onto the
+the tangent directions, the truncation disk and the exact projection onto the
 boundary, the sampled selection (\cref{lst:ch12-choose}), the simulator of
 \cref{alg:ch12-simulate} and the scenarios of the figures. Its self-test runs
 in well under a second.
 
 \paragraph{Numerical care when agents nearly touch.}
-Three situations need explicit handling. When $d \le R$ the discs already
+Three situations need explicit handling. When $d \le R$ the disks already
 overlap, the constant term of \cref{eq:ch12-quadratic} is non-positive and
 every velocity ``collides'' at $t = 0$; treating all of them as forbidden would
 freeze the agent inside the other. The code instead forbids the velocities that
@@ -1195,17 +1193,17 @@ distance does not change.
 
 \paragraph{The horizon.}
 $\ttc$ must be longer than the decision interval $\dt$ (\cref{thm:ch12-safety})
-and long enough for the manoeuvre that a velocity just outside
+and long enough for the maneuver that a velocity just outside
 $\VO^{\ttc}$ may require at the next decision: a few times the time needed to
 fly a distance $R$, plus the time to change velocity under the acceleration
-limit. Too short a horizon produces late, sharp manoeuvres and empty feasible
-sets; too long a horizon produces the frozen behaviour of the pitfall below.
+limit. Too short a horizon produces late, sharp maneuvers and empty feasible
+sets; too long a horizon produces the frozen behavior of the pitfall below.
 The chapter's examples use $\ttc = 5\,\mathrm{s}$ for $R = 1\,\mathrm{m}$ and
 speeds around $1\,\mathrm{m/s}$; scale it with $R/v$.
 
 \paragraph{Sampling versus solving exactly.}
 The default candidate set has $721$ velocities on ten rings of $72$
-directions, i.e.\ $5^\circ$ in heading and $0.15\,\mathrm{m/s}$ in speed for
+directions, i.e., $5^\circ$ in heading and $0.15\,\mathrm{m/s}$ in speed for
 $v_{\max} = 1.5$. In your own implementation, always add the preferred
 velocity and, to reduce chattering, the current velocity to the candidates
 (the code of \cref{lst:ch12-choose} adds only $\vel^{\mathrm{pref}}$), and consider a finer ring around
@@ -1213,7 +1211,7 @@ $\vel^{\mathrm{pref}}$. With a single obstacle, prefer the exact projection of
 \cref{sec:ch12-variants}; with many obstacles, sampling is robust and accepts
 other cost functions and reachable sets without any change to the rule (the
 dynamic window of \cref{ch:ch14}). The test of all
-candidates against one obstacle is one vectorised NumPy expression
+candidates against one obstacle is one vectorized NumPy expression
 (\code{ttc\_batch}), which is why the self-test, including a sample of the
 experiments of \cref{sec:ch12-experiment}, finishes in a fraction of a second;
 the full sweep of \cref{tab:ch12-crossing} is produced by
@@ -1222,7 +1220,7 @@ the full sweep of \cref{tab:ch12-crossing} is produced by
 \begin{lstlisting}[caption={Time to collision and membership in the truncated velocity obstacle (from \code{code/ch12\_velocity\_obstacles.py}); this is \cref{alg:ch12-ttc}.},label={lst:ch12-ttc}]
 def time_to_collision(p_rel, v_rel, radius):
     """First time t >= 0 at which |p_rel - t v_rel| <= radius, or math.inf
-    if the discs (spheres) never touch.  Works in 2D and in 3D."""
+    if the disks (spheres) never touch.  Works in 2D and in 3D."""
     p = np.asarray(p_rel, dtype=float)
     v = np.asarray(v_rel, dtype=float)
     pp, pv, vv = p @ p, p @ v, v @ v
@@ -1231,11 +1229,11 @@ def time_to_collision(p_rel, v_rel, radius):
         return 0.0                        # already overlapping
     if vv == 0.0:
         return math.inf                   # no relative motion
-    disc = pv * pv - vv * k               # discriminant / 4
-    if disc < 0.0:
-        return math.inf                   # the ray misses the disc
-    t = (pv - math.sqrt(disc)) / vv       # smaller root = first contact
-    return t if t >= 0.0 else math.inf    # the disc lies behind A
+    disk = pv * pv - vv * k               # discriminant / 4
+    if disk < 0.0:
+        return math.inf                   # the ray misses the disk
+    t = (pv - math.sqrt(disk)) / vv       # smaller root = first contact
+    return t if t >= 0.0 else math.inf    # the disk lies behind A
 
 
 def in_velocity_obstacle(p_rel, v_rel, radius, tau=math.inf):
@@ -1251,7 +1249,7 @@ because two overlapping agents at rest must still be told that they are
 colliding. \Cref{lst:ch12-choose} is \cref{alg:ch12-choose}. The candidates
 are a NumPy array with one row per velocity; for every other agent the
 relative velocities of all candidates are formed at once and passed to the
-vectorised \code{ttc\_batch}, and the running minimum over obstacles is the
+vectorized \code{ttc\_batch}, and the running minimum over obstacles is the
 $t_{\min}$ of line~\ref{alg:ch12-choose:tmin}. The dictionary \code{info}
 returns the numbers reported in \cref{tab:ch12-trace}.
 
@@ -1262,7 +1260,7 @@ def choose_velocity(agent, others, tau, dt, samples=None, penalty=1.0):
     Every candidate is tested against the truncated VO of every other
     agent (others keep their current velocities).  Among the candidates
     that are outside all VO^tau, the one closest to the preferred velocity
-    wins; if there is none, the penalised cost |v - v_pref| + penalty/t_c
+    wins; if there is none, the penalized cost |v - v_pref| + penalty/t_c
     picks the least dangerous candidate.  Returns (velocity, info)."""
     v_pref = agent.preferred_velocity(dt)
     if samples is None:
@@ -1293,7 +1291,7 @@ def choose_velocity(agent, others, tau, dt, samples=None, penalty=1.0):
 \end{lstlisting}
 
 \begin{pitfall}[Forgetting to add the radii]
-The disc in \cref{def:ch12-collision-cone} has radius $r_A + r_B$, not $r_B$.
+The disk in \cref{def:ch12-collision-cone} has radius $r_A + r_B$, not $r_B$.
 Using $B$'s radius alone (or, worse, treating both agents as points) makes the
 cone too narrow by the missing $\arcsin$ term, and the agent then grazes or
 overlaps the obstacle by up to $r_A$ while its own test reports safety. In a
@@ -1316,14 +1314,14 @@ mistake.\index{pitfall!absolute velocity}
 \begin{pitfall}[No truncation]
 With $\ttc = \infty$ the velocity obstacle forbids every velocity that would
 collide at \emph{any} future time. A wall then forbids every velocity with a
-component towards it, and a slow drone a hundred metres away blocks a whole
+component toward it, and a slow drone a hundred meters away blocks a whole
 sector of headings; the agent refuses far-future collisions that a later
 decision would have handled, creeps, or freezes short of its goal. Truncate
 with a horizon (\cref{def:ch12-truncated}) and choose it as described above.
 \index{pitfall!no truncation}
 \end{pitfall}
 
-\begin{pitfall}[Discretisation of the velocity samples]
+\begin{pitfall}[Discretization of the velocity samples]
 A coarse sample set has two failure modes. A thin feasible corridor between
 two wedges, which is common when two obstacles pass on either side, may
 contain no sample at all, and the algorithm declares the feasible set empty
@@ -1350,7 +1348,7 @@ preferred velocity is the velocity along the nominal route, the obstacles are
 the tracked objects with their estimated velocities, and the radius $R$ is
 inflated by a margin that grows with the uncertainty of the estimate. Once no
 collision is predicted within the horizon, control returns to the route, and
-if the manoeuvre has pushed the drone too far off its route the replanning
+if the maneuver has pushed the drone too far off its route the replanning
 layer of \cref{ch:ch05} is invoked.
 
 Which construction the layer uses depends on who the obstacle is. A
@@ -1359,8 +1357,8 @@ this chapter: it does not react, so the drone takes the full responsibility
 and uses $\VO^{\ttc}$ with the apex at the intruder's estimated velocity
 (\cref{cor:ch12-intruder}). Another member of the swarm reacts with the same
 rule, and the reciprocal constructions of \cref{ch:ch13} apply. Mixing them
-up is a real error: a reciprocal manoeuvre against an intruder avoids only half
-of the collision, and a full-responsibility manoeuvre among swarm members
+up is a real error: a reciprocal maneuver against an intruder avoids only half
+of the collision, and a full-responsibility maneuver among swarm members
 produces the oscillation of \cref{sec:ch12-oscillation}. This chapter is the
 first half of Week~6 of the study plan (\cref{ch:appA}); the coding exercise
 \cref{exr:ch12-coding} builds the crossing simulation that the second half,
@@ -1372,13 +1370,13 @@ first half of Week~6 of the study plan (\cref{ch:appA}); the coding exercise
 \begin{summary}
 \begin{itemize}
   \item Local collision avoidance chooses a \emph{velocity} for the next
-  instant instead of a path. In the frame of agent $A$, agent $B$ is a disc of
+  instant instead of a path. In the frame of agent $A$, agent $B$ is a disk of
   radius $R = r_A + r_B$ at $\pos_{\mathrm{rel}} = \pos_B - \pos_A$, and the
   relative velocity $\vel_{\mathrm{rel}} = \vel_A - \vel_B$ collides exactly
-  when its ray hits that disc.
+  when its ray hits that disk.
   \item The collision cone $CC_{A|B}$ is the wedge of half-angle
   $\theta = \arcsin(R/d)$ around $\pos_{\mathrm{rel}}$, bounded by the tangent
-  rays to the disc; the velocity obstacle $\VO_{A|B} = \vel_B \oplus CC_{A|B}$
+  rays to the disk; the velocity obstacle $\VO_{A|B} = \vel_B \oplus CC_{A|B}$
   is the same wedge with its apex at $\vel_B$.
   \item The time to collision is the smaller root of
   $(\vel\cdot\vel)t^2 - 2(\pos\cdot\vel)t + (\pos\cdot\pos - R^2) = 0$; a
@@ -1386,11 +1384,11 @@ first half of Week~6 of the study plan (\cref{ch:appA}); the coding exercise
   $\pos\cdot\vel > 0$.
   \item The truncated velocity obstacle $\VO^{\ttc}_{A|B}$ keeps only the
   velocities that collide within the horizon $\ttc$; it is the wedge with its
-  tip cut off by the inscribed disc $\disc{\vel_B + \pos_{\mathrm{rel}}/\ttc}{R/\ttc}$,
+  tip cut off by the inscribed disk $\disc{\vel_B + \pos_{\mathrm{rel}}/\ttc}{R/\ttc}$,
   and it is what makes the method usable near walls and in traffic.
   \item The agent chooses, among the reachable velocities outside the union of
   all truncated velocity obstacles, the one closest to its preferred velocity;
-  sampling the velocity disc is the simple and robust way to do so. Static
+  sampling the velocity disk is the simple and robust way to do so. Static
   obstacles are the case $\vel_B = \vect{0}$, and the construction is the same
   in three dimensions with a circular cone.
   \item A velocity outside $\VO^{\ttc}$ is safe for $\ttc$ seconds if the
@@ -1405,7 +1403,7 @@ first half of Week~6 of the study plan (\cref{ch:appA}); the coding exercise
 The velocity obstacle was introduced by Fiorini and
 Shiller~\cite{fiorini1998motion}, whose paper also contains the distinction
 between imminent and distant collisions and a tree search over sequences of
-avoidance manoeuvres; the geometric background (Minkowski sums,
+avoidance maneuvers; the geometric background (Minkowski sums,
 configuration space) is covered in the textbook of Choset et
 al.~\cite{choset2005principles}. The reciprocal velocity obstacle
 \cite{vandenberg2008rvo}, the hybrid reciprocal velocity obstacle
@@ -1413,9 +1411,9 @@ al.~\cite{choset2005principles}. The reciprocal velocity obstacle
 \cref{ch:ch13}; the dynamic window approach of \cref{ch:ch14} shares the
 velocity-space view but replaces the collision cone by a stopping-distance
 test. The non-linear velocity obstacle of \cref{sec:ch12-variants}, which
-replaces the cone by the union of the discs swept along a predicted
+replaces the cone by the union of the disks swept along a predicted
 trajectory, is due to Large, Sekhavat, Shiller and
-Laugier~\cite{large2002nonlinear}. Implementations that face many neighbours
+Laugier~\cite{large2002nonlinear}. Implementations that face many neighbors
 restrict the union of \cref{eq:ch12-feasible} to the $k$ nearest ones, the
 choice made by the \orca library~\cite{vandenberg2011orca}.
 
@@ -1438,7 +1436,7 @@ distance approaches $r_A + r_B$?
 (a)~Using only the fact that a tangent to a circle is perpendicular to the
 radius at the point of contact, prove that the two tangent rays from a point
 at distance $d$ to a circle of radius $R < d$ make the angle
-$\theta = \arcsin(R/d)$ with the direction to the centre, and that they touch
+$\theta = \arcsin(R/d)$ with the direction to the center, and that they touch
 the circle at distance $\sqrt{d^2 - R^2}$ from the point. (b)~Show that
 $CC_{A|B}$ is closed under multiplication by positive scalars and that
 $\VO_{A|B}(\vel_B)$ is closed under it if and only if $\vel_B = \vect{0}$.
@@ -1451,9 +1449,9 @@ magnitude, and explain why this is no longer true after truncation.
 \label{exr:ch12-truncation}
 Prove \cref{thm:ch12-truncated} in detail: show that a relative velocity
 $\vel$ collides at time $t$ if and only if $\vel \in \disc{\pos_{\mathrm{rel}}/t}{R/t}$,
-that each of these discs is tangent to both legs of the cone, and that the
+that each of these disks is tangent to both legs of the cone, and that the
 point of the truncated obstacle closest to the apex lies on the axis at
-distance $(d - R)/\ttc$, while the tangency points of the truncation disc lie
+distance $(d - R)/\ttc$, while the tangency points of the truncation disk lie
 at distance $\sqrt{d^2 - R^2}/\ttc$ along the legs. Verify both distances in
 \cref{fig:ch12-geometry}(b), where $d = \sqrt{50}$, $R = 1$ and $\ttc = 5$.
 \end{exercise}
@@ -1462,7 +1460,7 @@ at distance $\sqrt{d^2 - R^2}/\ttc$ along the legs. Verify both distances in
 \label{exr:ch12-ttc}
 Let $\pos_{\mathrm{rel}} = (6, 2)$, $R = 2.5$ and $\vel_{\mathrm{rel}} = (3, 0)$.
 Write down the quadratic \cref{eq:ch12-quadratic}, compute the time to
-collision and the time at which the discs separate again, and compute the
+collision and the time at which the disks separate again, and compute the
 time and distance of closest approach. Repeat for $\vel_{\mathrm{rel}} = (-3, 0)$
 and explain the result with \cref{thm:ch12-ttc}. Check both with
 \code{time\_to\_collision}.
@@ -1472,7 +1470,7 @@ and explain the result with \cref{thm:ch12-ttc}. Check both with
 \label{exr:ch12-empty}
 An intruder $B$ flies straight at $A$ with speed $s$ from distance $d$. Derive
 the condition of \cref{thm:ch12-empty}, $s \ge v_{\max} d/R$, from the tangent
-half-angle of the reachable disc seen from the apex, and evaluate it for
+half-angle of the reachable disk seen from the apex, and evaluate it for
 $v_{\max} = 1.5\,\mathrm{m/s}$, $d = 7.07\,\mathrm{m}$, $R = 1\,\mathrm{m}$. For
 $s$ just above the threshold, which velocity does the fallback of
 \cref{alg:ch12-choose} choose, and why does truncation with $\ttc = 5\,\mathrm{s}$
@@ -1484,13 +1482,13 @@ does this say about the horizon?
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch12-static}
 (a)~Show that for a static obstacle the velocity obstacle equals the
-collision cone and that the truncation disc has centre $\pos_{\mathrm{rel}}/\ttc$.
+collision cone and that the truncation disk has center $\pos_{\mathrm{rel}}/\ttc$.
 (b)~Let $\mathcal{O}$ be a convex obstacle (already inflated by $r_A$) that
 does not contain the origin. Show that the set of velocities whose ray meets
 $\mathcal{O}$ is the wedge between the two extreme tangent rays from the
-origin to $\mathcal{O}$, i.e.\ the union of the collision cones of all points
+origin to $\mathcal{O}$, i.e., the union of the collision cones of all points
 of $\mathcal{O}$ is itself a cone. (c)~A drone flies parallel to a long
-straight wall at distance $2\,\mathrm{m}$ from its centre, with $r_A = 0.5$.
+straight wall at distance $2\,\mathrm{m}$ from its center, with $r_A = 0.5$.
 Which velocities does the untruncated velocity obstacle of the wall forbid?
 Which ones does the truncated obstacle with $\ttc = 4\,\mathrm{s}$ forbid?
 \end{exercise}
@@ -1498,18 +1496,18 @@ Which ones does the truncated obstacle with $\ttc = 4\,\mathrm{s}$ forbid?
 \begin{exercise}[\difficulty{3} Coding]
 \label{exr:ch12-coding}
 This is the first half of the coding exercise of Week~6 of the study plan
-(\cref{ch:appA}). Build a 2D simulation of $n$ disc agents on crossing courses
+(\cref{ch:appA}). Build a 2D simulation of $n$ disk agents on crossing courses
 (the circle and stream scenarios of \cref{sec:ch12-experiment}, or your own),
 either from scratch following \cref{alg:ch12-ttc,alg:ch12-choose,alg:ch12-simulate}
 or by extending \code{code/ch12\_velocity\_obstacles.py}. Compare no avoidance
-with velocity obstacles and report, per run, the minimum centre distance, the
+with velocity obstacles and report, per run, the minimum center distance, the
 path length relative to the straight line, the travel time, the number of
 decisions with an empty feasible set and the number of sign changes of the
 lateral velocity (a measure of oscillation). Then (a)~vary the horizon
 $\ttc \in \set{1, 2, 5, 10, \infty}$ and find the values for which the agents
 freeze or collide; (b)~vary the sample resolution ($36$, $72$ and $180$
 directions) and observe the chattering; (c)~add a static obstacle as a wall of
-discs and check the frozen behaviour without truncation. Keep the harness: in
+disks and check the frozen behavior without truncation. Keep the harness: in
 \cref{ch:ch13} you will add RVO and \orca to the comparison.
 \end{exercise}
 
@@ -1520,7 +1518,7 @@ meets the ball $\disc{\pos_{\mathrm{rel}}}{R}$ is the right circular cone of
 half-angle $\arcsin(R/d)$ about $\pos_{\mathrm{rel}}$, and its intersection
 with any plane through the axis is the planar cone of \cref{thm:ch12-cone}.
 (b)~Show that the cone touches the sphere along a circle and compute its
-centre and radius in terms of $d$ and $R$. (c)~Extend \code{velocity\_samples}
+center and radius in terms of $d$ and $R$. (c)~Extend \code{velocity\_samples}
 to three dimensions (speeds times well-spread directions on the unit sphere)
 and, with \code{time\_to\_collision}, which already accepts 3-vectors, check in
 a head-on encounter that a drone can escape by climbing, and compare the

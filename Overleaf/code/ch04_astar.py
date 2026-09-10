@@ -10,7 +10,7 @@ Conventions
 * A cell is a tuple ``(x, y)``: ``x`` is the column, ``y`` the row, and
   ``(0, 0)`` is the bottom-left cell of the figures in the book.
 * 4-connected moves cost 1; 8-connected diagonal moves cost sqrt(2) and may
-  not cut corners (both orthogonal neighbours must be free).
+  not cut corners (both orthogonal neighbors must be free).
 * Space-time states are ``(cell, t)``; a move or a wait costs one time step.
 
 Run ``python3 ch04_astar.py`` for the self-test (finishes in a few seconds).
@@ -330,7 +330,7 @@ def space_time_astar(grid, start, goal, constraints=(), max_time=None,
     max_time    : time horizon; None uses default_horizon(), which keeps
                   the search complete (no state with t > max_time exists).
     The returned path is indexed by time: path[t] is the cell at step t,
-    and the agent stays at path[-1] for ever afterwards.  Every step (move
+    and the agent stays at path[-1] for ever afterward.  Every step (move
     or wait) costs 1, so g(v, t) = t and the first discovery of a state
     is already its cheapest: duplicate detection replaces relaxation.
     """

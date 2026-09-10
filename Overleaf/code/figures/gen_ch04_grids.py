@@ -3,11 +3,11 @@
 Writes one tikzpicture per file (no figure environment, no label):
     figures/ch04/example.tex   6x6 worked example: A* (Manhattan, larger g
                                first) next to Dijkstra (h = 0); Closed cells
-                               grey with f (resp. g) and the expansion index,
+                               gray with f (resp. g) and the expansion index,
                                Open cells blue, the returned path in blue.
     figures/ch04/tiebreak.tex  empty 20x20 grid, Manhattan heuristic:
-                               Closed cells when ties are broken towards the
-                               larger g (left) and towards the smaller g (right).
+                               Closed cells when ties are broken toward the
+                               larger g (left) and toward the smaller g (right).
 
 Run from Overleaf/:   python3 code/figures/gen_ch04_grids.py
 """

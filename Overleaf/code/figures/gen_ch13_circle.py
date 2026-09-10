@@ -16,7 +16,7 @@ Files written (whitespace separated, one header row):
   figures/data/ch13-circle-<mode>.dat  for mode in none, vo, rvo, orca:
         t x0 y0 ... x7 y7    positions of the eight agents, every 2nd step
   figures/data/ch13-circle-separation.dat
-        t none vo rvo orca   smallest centre distance over all pairs
+        t none vo rvo orca   smallest center distance over all pairs
   figures/data/ch13-dance.dat
         t <m>_ax <m>_ay <m>_bx <m>_by <m>_vy  for m in vo, rvo, orca
         (positions of A and B, lateral velocity of A), and rvo01_vy

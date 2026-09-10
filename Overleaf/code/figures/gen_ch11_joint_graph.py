@@ -29,7 +29,7 @@ def main():
     idx = {v: i for i, v in enumerate(VERTS)}
 
     def moves(v):
-        return [v] + list(graph.neighbours(v))
+        return [v] + list(graph.neighbors(v))
 
     configs = [(p, q) for p in VERTS for q in VERTS]
     edges, swaps = set(), set()

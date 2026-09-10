@@ -13,7 +13,7 @@
   \item Turn the constraints that matter for a swarm (intruder avoidance, formation keeping, communication range) into linear inequalities, and decide when a constraint should be hard and when it should be soft with a slack variable.
   \item Condense the horizon into one quadratic program: derive the prediction matrices, write $\mat{H}$, $\vect{f}$, $\mat{G}$ and the bounds, and solve the program with a small ADMM solver.
   \item Trace the MPC loop on a worked example in which an intruder crosses the reference path, identify the active constraint and explain the resulting deviation.
-  \item State what terminal costs, terminal sets and slack variables buy in terms of stability and feasibility, and recognise the failure modes: infeasible hard constraints, stale linearisations, weights in inconsistent units and horizons too short to stop.
+  \item State what terminal costs, terminal sets and slack variables buy in terms of stability and feasibility, and recognize the failure modes: infeasible hard constraints, stale linearizations, weights in inconsistent units and horizons too short to stop.
   \item Implement an MPC in \python that follows a path while keeping a formation offset and a communication distance, with prediction-aware, uncertainty-inflated avoidance constraints.
 \end{itemize}
 \end{objectives}
@@ -44,12 +44,12 @@ time $\ttc$ ahead, they treat one constraint at a time, and they know nothing
 about a formation. When the corridor narrows, a one-step method notices too
 late that it should have slowed down two seconds ago. \textbf{Model
 predictive control}\index{model predictive control} (MPC) closes this gap.
-At every control step it optimises a whole trajectory over the next $N$ steps,
+At every control step it optimizes a whole trajectory over the next $N$ steps,
 subject to the drone's dynamics and to \emph{every} constraint at once, applies
-only the first input, and repeats from the newly measured state. The optimiser
+only the first input, and repeats from the newly measured state. The optimizer
 sees the narrowing corridor $N$ steps ahead and brakes in time; the formation
 tolerance and the radio range are inequalities in the same problem; and if an
-intruder's predicted disc intersects the plan, the plan bends around it. MPC is
+intruder's predicted disk intersects the plan, the plan bends around it. MPC is
 the standard tool of process control since the 1980s
 \cite{garcia1989model} and of quadrotor control since the 2010s; its theory is
 mature \cite{mayne2000constrained,rawlings2017mpc}, and its computational core,
@@ -75,8 +75,8 @@ backed by \code{code/ch21\_mpc.py}.
 \label{sec:ch21-intuition}
 
 Suppose you drive on a winding road at night. Your headlights show the next
-hundred metres. You do not plan the whole trip; you plan the next hundred
-metres, taking into account the speed you have, the curve you see, the car
+hundred meters. You do not plan the whole trip; you plan the next hundred
+meters, taking into account the speed you have, the curve you see, the car
 ahead and the limits of your brakes, and then you execute the first fraction
 of a second of that plan. A moment later the headlights show a slightly
 different picture, and you plan again. Everything that made the first plan
@@ -87,20 +87,20 @@ braking, the pothole) is corrected as soon as it appears.
   \centering
   \inputfigure{ch21/idea}
   \caption{The receding-horizon principle. At time $t$ the controller predicts
-  the next $N$ positions from the measured state $\state_t$, optimises the $N$
+  the next $N$ positions from the measured state $\state_t$, optimizes the $N$
   inputs so that the plan tracks the reference and stays outside the predicted
-  intruder disc, and applies only $\ctrl_0$. One step later the state is
+  intruder disk, and applies only $\ctrl_0$. One step later the state is
   measured again, the horizon has moved by one step, and a new plan is
-  optimised; the old plan, shifted by one step, serves as the starting guess
+  optimized; the old plan, shifted by one step, serves as the starting guess
   (warm start).}
   \label{fig:ch21-idea}
 \end{figure}
 
-MPC is this behaviour written as an algorithm (\cref{fig:ch21-idea}). The
+MPC is this behavior written as an algorithm (\cref{fig:ch21-idea}). The
 headlights are the \textbf{prediction horizon}\index{prediction horizon} of
 $N$ steps of length $\dt$; the road you see is the reference trajectory and
 the predicted obstacles for the times $t+\dt,\dots,t+N\dt$; the plan is a
-sequence of $N$ inputs $\ctrl_0,\dots,\ctrl_{N-1}$ chosen to minimise a cost
+sequence of $N$ inputs $\ctrl_0,\dots,\ctrl_{N-1}$ chosen to minimize a cost
 (distance to the reference, effort) subject to the dynamics and the
 constraints; ``executing the first fraction'' is applying $\ctrl_0$ and
 discarding the rest; and ``planning again'' is the \textbf{receding
@@ -108,7 +108,7 @@ horizon}\index{receding horizon}: the window moves forward by one step at
 every step. Three points deserve emphasis.
 
 \begin{itemize}
-  \item \emph{The model is inside the optimiser.} The plan is not a curve
+  \item \emph{The model is inside the optimizer.} The plan is not a curve
   drawn on the map; it is a sequence of states that the double integrator can
   actually reach with the chosen inputs. A plan can therefore not ask for more
   acceleration than the drone has.
@@ -120,20 +120,20 @@ every step. Three points deserve emphasis.
   \item \emph{Feedback comes from re-measuring.} Because only the first input
   is applied and the next problem starts from the measured state, model errors,
   wind and a mispredicted intruder are corrected at the next step. MPC is a
-  feedback controller that happens to compute its feedback by optimisation.
+  feedback controller that happens to compute its feedback by optimization.
 \end{itemize}
 
-The reader will recognise the pattern. Windowed prioritized planning
+The reader will recognize the pattern. Windowed prioritized planning
 (\cref{ch:ch08}) plans a window of the path and re-plans as the window moves;
 \dstarlite (\cref{ch:ch05}) repairs a plan when the world changes. MPC does
 the same thing in continuous state space with dynamics, and it does it at the
 control rate, ten to a hundred times per second.
 
 \begin{keyidea}
-At every step, solve a small optimisation problem over the next $N$ steps that
+At every step, solve a small optimization problem over the next $N$ steps that
 contains the dynamics and every constraint you care about; apply the first
 input, throw the rest away, and repeat from the measured state. With a linear
-model, a quadratic cost and linear (or linearised) constraints, that problem
+model, a quadratic cost and linear (or linearized) constraints, that problem
 is a quadratic program that a few dozen matrix--vector products solve.
 \end{keyidea}
 
@@ -155,13 +155,13 @@ In the plane,
 \end{equation}
 and in three dimensions the same blocks appear with $3\times3$ identities. The
 physical limits $\norm{\acc}\le a_{\max}$ and $\norm{\vel}\le v_{\max}$ are
-discs, which are convex but not linear. Throughout this chapter we replace
+disks, which are convex but not linear. Throughout this chapter we replace
 them by the per-axis boxes $\abs{u_{k,i}}\le a_{\max}$ and $\abs{v_{k,i}}\le
 v_{\max}$, which are linear. The box is a \emph{relaxation}: it contains the
-disc and admits $\norm{\acc}\le\sqrt{n}\,a_{\max}$ along a diagonal, so
+disk and admits $\norm{\acc}\le\sqrt{n}\,a_{\max}$ along a diagonal, so
 $a_{\max}$ must be declared per axis and set from what the vehicle can do on
 one axis --- the worked example of \cref{sec:ch21-example} accordingly takes
-$a_{\max}=2$~m/s$^2$ per axis. If you need the disc or ball exactly, use the
+$a_{\max}=2$~m/s$^2$ per axis. If you need the disk or ball exactly, use the
 largest box inside it, of half-width $a_{\max}/\sqrt{n}$ (and
 $v_{\max}/\sqrt{n}$ for the velocity), or the inscribed polygon of
 \cref{thm:ch21-polygon} below. Time is indexed by $k$
@@ -193,13 +193,13 @@ $\mat{Q}$ and the effort with $\mat{R}$; the \textbf{terminal
 cost}\index{terminal cost} $\mat{P}_f$ weighs the last predicted state;
 $\mathcal{X}$ is an optional polytope (a geofence). The \textbf{MPC control
 law}\index{model predictive control!control law} applies the first element
-of the minimiser: $\ctrl_t=\ctrl_0^{*}(\state_t)$.
+of the minimizer: $\ctrl_t=\ctrl_0^{*}(\state_t)$.
 \end{definition}
 
 A warning about letters. The matrices $\mat{Q}$ and $\mat{R}$ here are
-\emph{cost weights} chosen by the designer: $\mat{Q}$ says how much a metre
-of position error or a metre per second of velocity error costs, and
-$\mat{R}$ how much a metre per second squared of acceleration costs. They
+\emph{cost weights} chosen by the designer: $\mat{Q}$ says how much a meter
+of position error or a meter per second of velocity error costs, and
+$\mat{R}$ how much a meter per second squared of acceleration costs. They
 have nothing to do with the process and measurement noise covariances that the
 Kalman filter of \cref{ch:ch18} also calls $\mat{Q}$ and $\mat{R}$; the
 letters coincide by tradition, not by meaning. A natural choice is
@@ -214,7 +214,7 @@ state is. Increasing $\mat{Q}$ relative
 to $\mat{R}$ makes the drone track harder and use more acceleration; the
 absolute scale of the cost is irrelevant.
 
-Why a quadratic cost? Three reasons. It penalises large errors more than small
+Why a quadratic cost? Three reasons. It penalizes large errors more than small
 ones, which matches what we want; with the linear model it makes the problem
 convex, so the solver finds the global minimum every time; and without
 constraints its solution is the classical linear-quadratic regulator (LQR),
@@ -238,7 +238,7 @@ are usually hard or soft. The last column is the recommendation of
 \code{ch21\_mpc.py} attaches slacks to the avoidance rows only and keeps the
 keep-in rows of \cref{eq:ch21-qp-constraints} hard. The predicted positions of others
 ($\hat{\vect{o}}_k$, $\pos_k^{j}$) are data from the prediction layer or from
-the neighbour's communicated plan.}
+the neighbor's communicated plan.}
 \label{tab:ch21-constraints}
 \begin{tabular}{@{}llcll@{}}
 \toprule
@@ -259,20 +259,20 @@ intruder position $\hat{\vect{o}}_k$ (\cref{ch:ch18,ch:ch20}); static
 obstacles are the special case $\hat{\vect{o}}_k=\vect{o}$. With the radii of
 the drone and the intruder and a margin folded into $r_k$ (in the simplest
 case $r_k=r_{\mathrm{safe}}$ for all $k$), the requirement is
-$\norm{\pos_k-\hat{\vect{o}}_k}\ge r_k$. This set, the outside of a disc, is
+$\norm{\pos_k-\hat{\vect{o}}_k}\ge r_k$. This set, the outside of a disk, is
 \emph{not convex}: the midpoint of two safe positions on opposite sides of the
 intruder is the intruder. A quadratic program cannot express it. The standard
-remedy replaces the disc by a half-plane that touches it
+remedy replaces the disk by a half-plane that touches it
 (\cref{fig:ch21-halfplane}).
 
-\begin{definition}[Linearised avoidance constraint]
+\begin{definition}[Linearized avoidance constraint]
 \label{def:ch21-halfplane}
 Let $\bar{\pos}_k$ be a guess of the drone's position at step $k$ (the
-\textbf{linearisation point}\index{linearisation point}) with
+\textbf{linearization point}\index{linearization point}) with
 $\bar{\pos}_k\ne\hat{\vect{o}}_k$, and let
 $\vect{n}_k=(\bar{\pos}_k-\hat{\vect{o}}_k)/\norm{\bar{\pos}_k-\hat{\vect{o}}_k}$
-be the unit vector from the predicted intruder towards the guess. The
-\textbf{linearised avoidance constraint}\index{avoidance constraint!linearised}
+be the unit vector from the predicted intruder toward the guess. The
+\textbf{linearized avoidance constraint}\index{avoidance constraint!linearized}
 at step $k$ is the half-plane
 \begin{equation}
 \vect{n}_k\T(\pos_k-\hat{\vect{o}}_k)\ge r_k .
@@ -284,11 +284,11 @@ at step $k$ is the half-plane
   \centering
   \inputfigure{ch21/halfplane}
   \caption{Convexifying the avoidance constraint at one step $k$. The
-  non-convex requirement is to stay outside the disc of radius $r_k$ around
+  non-convex requirement is to stay outside the disk of radius $r_k$ around
   the predicted intruder position $\hat{\vect{o}}_k$. The unit vector
-  $\vect{n}_k$ points from $\hat{\vect{o}}_k$ towards the previous plan
+  $\vect{n}_k$ points from $\hat{\vect{o}}_k$ toward the previous plan
   $\bar{\pos}_k$; the half-plane $\vect{n}_k\T(\pos_k-\hat{\vect{o}}_k)\ge r_k$
-  (hatched) touches the disc and contains none of it, so every position that
+  (hatched) touches the disk and contains none of it, so every position that
   satisfies it is safe. The price is the region to the left, which is
   collision-free but excluded. The new plan point $\pos_k$ lands on the
   boundary when the constraint is active.}
@@ -305,13 +305,13 @@ By the Cauchy--Schwarz inequality and $\norm{\vect{n}_k}=1$,
 $\norm{\pos_k-\hat{\vect{o}}_k}=\norm{\vect{n}_k}\norm{\pos_k-\hat{\vect{o}}_k}\ge\vect{n}_k\T(\pos_k-\hat{\vect{o}}_k)\ge r_k$. \qedhere
 \end{proof}
 
-The half-plane is the tangent to the disc at the point closest to the guess,
-and it excludes more than the disc: everything ``behind'' the disc as seen from
+The half-plane is the tangent to the disk at the point closest to the guess,
+and it excludes more than the disk: everything ``behind'' the disk as seen from
 $\bar{\pos}_k$. This is harmless when the guess is on the correct side of the
 intruder and harmful when it is not, which is why the choice of $\bar{\pos}_k$
 matters. The MPC loop uses the previous plan shifted by one step
 (\cref{sec:ch21-loop}); at the very first solve, or after a failure, it uses
-the reference. An alternative with the same flavour is a \textbf{convex
+the reference. An alternative with the same flavor is a \textbf{convex
 corridor}\index{convex corridor}: a planner (for instance the path of
 \cref{ch:ch04} inflated as in \cref{ch:ch02}) provides for every step $k$ a
 convex polygon $\mathcal{C}_k$ of free space, and the constraint
@@ -320,16 +320,16 @@ $\mathcal{C}_k$ is one polygon per step of the horizon, not the configuration
 space $\Cspace$ of \cref{ch:ch02} and not the constraint set $\mathcal{C}_i$
 that \cref{ch:ch09} attaches to an agent. Corridors are
 the method of choice for static clutter; half-planes are the method of choice
-for a moving intruder, whose predicted disc moves with $k$.
+for a moving intruder, whose predicted disk moves with $k$.
 
 \paragraph{(2) Formation keeping.}
 Drone $i$ should stay near its slot relative to drone $j$: with the desired
 offset $\vect{d}_{ij}$ and the tolerance $e_{\max}$,
 $\norm{\pos_k^{i}-\pos_k^{j}-\vect{d}_{ij}}\le e_{\max}$. This is the
-\emph{inside} of a disc of radius $e_{\max}$ around the moving centre
+\emph{inside} of a disk of radius $e_{\max}$ around the moving center
 $\vect{c}_k=\pos_k^{j}+\vect{d}_{ij}$ and it is convex; when drone $j$'s plan
 (or its reference) is known and communicated, $\vect{c}_k$ is data and the
-constraint is convex in $\pos_k^{i}$ alone. A disc is still not linear, and
+constraint is convex in $\pos_k^{i}$ alone. A disk is still not linear, and
 we approximate it from inside by a polygon.
 
 \begin{proposition}[Inscribed polygon]
@@ -340,9 +340,9 @@ $\norm{\pos-\vect{c}}\le e$.
 \end{proposition}
 \begin{proof}
 The $M$ inequalities describe the regular $M$-gon whose apothem (distance from
-the centre to a side) is $e\cos(\pi/M)$; its vertices lie at distance $e$ from
+the center to a side) is $e\cos(\pi/M)$; its vertices lie at distance $e$ from
 $\vect{c}$, on the circle. A convex polygon is the convex hull of its
-vertices, all of which lie in the disc, so the polygon lies in the disc. \qedhere
+vertices, all of which lie in the disk, so the polygon lies in the disk. \qedhere
 \end{proof}
 
 With $M=8$ the polygon loses $1-\cos(\pi/8)\approx7.6\,\%$ of the radius at the
@@ -378,7 +378,7 @@ version is feasible and $w_1$ is large enough, the soft version returns the
 same solution with all slacks at zero (\cref{thm:ch21-exact}). When it is
 not, the solver returns the input that violates the constraints \emph{least},
 in the sense of the penalty, which is exactly what a drone should do when a
-collision can no longer be ruled out: minimise the damage rather than give up.
+collision can no longer be ruled out: minimize the damage rather than give up.
 The rule of thumb that follows is in \cref{tab:ch21-constraints}: input and
 velocity bounds are hard, because they are on the drone's own variables and can
 always be met; avoidance, formation and communication constraints are soft,
@@ -480,7 +480,7 @@ is what the book's code does; softening them is the same construction as for
 avoidance (append a $-\mat{I}$ slack column and a non-negativity block, and add
 $w_1s+w_2s^2$ to the cost), and \cref{exr:ch21-coding} asks you to do it. Because $\bar{\mat{R}}\succ\mat{0}$ and $w_2>0$,
 $\mat{H}$ is positive definite, the program is strictly convex, and its
-minimiser is unique.
+minimizer is unique.
 
 The size of the program is what makes MPC practical. For the planar drone
 with $N=15$ and one intruder the hard program has $30$ variables (the inputs)
@@ -518,11 +518,11 @@ constraints, but the algorithm is the same.
 \begin{algorithm}[htb]
 \caption{ADMM for the quadratic program \cref{eq:ch21-qp} (the OSQP iteration)}
 \label{alg:ch21-admm}
-\KwIn{$\mat{H}$, $\vect{f}$, $\mat{G}$, $\vect{l}$, $\vect{u}_{\max}$; warm start $\vect{z}$, $\vect{y}$; penalty $\rho$, regularisation $\sigma$, relaxation $\alpha$, tolerance $\eps$}
-\KwOut{minimiser $\vect{z}$, multipliers $\vect{y}$, status}
+\KwIn{$\mat{H}$, $\vect{f}$, $\mat{G}$, $\vect{l}$, $\vect{u}_{\max}$; warm start $\vect{z}$, $\vect{y}$; penalty $\rho$, regularization $\sigma$, relaxation $\alpha$, tolerance $\eps$}
+\KwOut{minimizer $\vect{z}$, multipliers $\vect{y}$, status}
 \Fn{\MpcAdmm{$\mat{H},\vect{f},\mat{G},\vect{l},\vect{u}_{\max},\vect{z},\vect{y}$}}{
   scale every row of $\mat{G}$ and of $\vect{l},\vect{u}_{\max}$ to unit infinity norm\label{alg:ch21-admm:scale}\;
-  $\vect{w}\gets\Pi_{[\vect{l},\vect{u}_{\max}]}(\mat{G}\vect{z})$; $\mat{M}\gets\mat{H}+\sigma\mat{I}+\rho\mat{G}\T\mat{G}$, factorised once\label{alg:ch21-admm:factor}\;
+  $\vect{w}\gets\Pi_{[\vect{l},\vect{u}_{\max}]}(\mat{G}\vect{z})$; $\mat{M}\gets\mat{H}+\sigma\mat{I}+\rho\mat{G}\T\mat{G}$, factorized once\label{alg:ch21-admm:factor}\;
   \For{$i=1,2,\dots,i_{\max}$}{
     $\tilde{\vect{z}}\gets\mat{M}\inv\bigl(\sigma\vect{z}-\vect{f}+\mat{G}\T(\rho\vect{w}-\vect{y})\bigr)$\label{alg:ch21-admm:linsys}\;
     $\hat{\vect{w}}\gets\alpha\mat{G}\tilde{\vect{z}}+(1-\alpha)\vect{w}$;\quad $\vect{z}\gets\alpha\tilde{\vect{z}}+(1-\alpha)\vect{z}$\label{alg:ch21-admm:relax}\;
@@ -532,7 +532,7 @@ constraints, but the algorithm is the same.
       polish: re-solve the KKT system on the active rows; \KwRet{$(\vect{z},\vect{y},\mathit{solved})$}\label{alg:ch21-admm:polish}\;
     }
     \If{the change of $\vect{y}$ certifies infeasibility}{\KwRet{$(\vect{z},\vect{y},\mathit{infeasible})$}\label{alg:ch21-admm:infeasible}\;}
-    every $30$ iterations: rebalance $\rho$ from the ratio of the two residuals and refactorise $\mat{M}$\label{alg:ch21-admm:rho}\;
+    every $30$ iterations: rebalance $\rho$ from the ratio of the two residuals and refactorize $\mat{M}$\label{alg:ch21-admm:rho}\;
   }
   \KwRet{$(\vect{z},\vect{y},\mathit{max\_iter})$}\;
 }
@@ -543,11 +543,11 @@ is forced into the box $[\vect{l},\vect{u}_{\max}]$ by the componentwise project
 $\Pi_{[\vect{l},\vect{u}_{\max}]}(\vect{a})=\min(\max(\vect{a},\vect{l}),\vect{u}_{\max})$,
 and a vector of
 \textbf{Lagrange multipliers}\index{Lagrange multiplier} $\vect{y}$ that
-pushes the two copies together. Line~\ref{alg:ch21-admm:linsys} minimises
+pushes the two copies together. Line~\ref{alg:ch21-admm:linsys} minimizes
 the cost plus a quadratic penalty for the disagreement between $\mat{G}\vect{z}$
 and $\vect{w}$; this is a linear system with the fixed matrix
 $\mat{M}=\mat{H}+\sigma\mat{I}+\rho\mat{G}\T\mat{G}$, so
-the factorisation (in the book's code, for a matrix with at most a few hundred
+the factorization (in the book's code, for a matrix with at most a few hundred
 rows, simply the inverse: \code{Kinv} in \cref{lst:ch21-admm} is $\mat{M}\inv$)
 is computed once and every iteration costs two
 matrix--vector products. The letter $\mat{M}$ is used here only for this
@@ -568,7 +568,7 @@ $s_{\mathrm{prim}}=\max(\norm{\mat{G}\vect{z}}_\infty,\norm{\vect{w}}_\infty)$ a
 $s_{\mathrm{dual}}=\max(\norm{\mat{H}\vect{z}}_\infty,\norm{\vect{f}}_\infty,\norm{\mat{G}\T\vect{y}}_\infty)$
 are the largest of the terms that make up the residual being tested
 (\code{s\_prim} and \code{s\_dual} in \cref{lst:ch21-admm}); the letter
-$\sigma$ stays with the regularisation of
+$\sigma$ stays with the regularization of
 line~\ref{alg:ch21-admm:factor}. ADMM converges to a
 modest accuracy quickly and to a high accuracy
 slowly, so line~\ref{alg:ch21-admm:polish} \textbf{polishes}\index{polishing}
@@ -588,8 +588,7 @@ that cannot be met is reported rather than iterated on forever.
 
 The multipliers are more than a by-product. The multiplier $y_i$ of a
 constraint row tells you how much the optimal cost would drop if that row were
-relaxed by one unit; a row with $y_i>0$ is \textbf{active}\index{active
-constraint} and shapes the solution, a row with $y_i=0$ could be deleted
+relaxed by one unit; a row with $y_i>0$ is \textbf{active}\index{active constraint} and shapes the solution, a row with $y_i=0$ could be deleted
 without changing anything. In the worked example we read off which avoidance
 step is active from exactly these numbers.
 
@@ -597,28 +596,28 @@ step is active from exactly these numbers.
 \label{sec:ch21-loop}
 
 \begin{algorithm}[htb]
-\caption{Model predictive control loop with linearised avoidance and keep-in constraints}
+\caption{Model predictive control loop with linearized avoidance and keep-in constraints}
 \label{alg:ch21-loop}
-\KwIn{model $(\mat{A},\mat{B})$, weights $(\mat{Q},\mat{R},\mat{P}_f)$, horizon $N$, limits $a_{\max},v_{\max}$, reference $\state^{\mathrm{ref}}(\cdot)$, predicted obstacles $\hat{\vect{o}}_k$ with radii $r_k$, keep-in centres $\vect{c}_k$ with radii $e$}
+\KwIn{model $(\mat{A},\mat{B})$, weights $(\mat{Q},\mat{R},\mat{P}_f)$, horizon $N$, limits $a_{\max},v_{\max}$, reference $\state^{\mathrm{ref}}(\cdot)$, predicted obstacles $\hat{\vect{o}}_k$ with radii $r_k$, keep-in centers $\vect{c}_k$ with radii $e$}
 \KwOut{the input $\ctrl_t$ applied at every step}
 \Fn{\MpcLoop{}}{
   precompute $\mat{S}_x$, $\mat{S}_u$ and $\mat{H}$ of \cref{eq:ch21-qp-cost}; $\mat{U}^{\mathrm{prev}}\gets\vect{0}$\label{alg:ch21-loop:pre}\;
   \For{$t=0,\dt,2\dt,\dots$}{
     measure $\state_t$; fetch $\state_k^{\mathrm{ref}}$, $\hat{\vect{o}}_k$, $\vect{c}_k$ for the times $t+k\dt$, $k=1,\dots,N$\label{alg:ch21-loop:measure}\;
-    $(\ctrl_t,\mat{U}^{\mathrm{prev}})\gets$ \MpcStep{$\state_t$, references, obstacles, keep-in discs, $\mat{U}^{\mathrm{prev}}$}\;
+    $(\ctrl_t,\mat{U}^{\mathrm{prev}})\gets$ \MpcStep{$\state_t$, references, obstacles, keep-in disks, $\mat{U}^{\mathrm{prev}}$}\;
     apply $\ctrl_t$ to the drone for one step\label{alg:ch21-loop:apply}\;
   }
 }
-\Fn{\MpcStep{$\state_0$, references, obstacles, keep-in discs, $\mat{U}^{\mathrm{prev}}$}}{
+\Fn{\MpcStep{$\state_0$, references, obstacles, keep-in disks, $\mat{U}^{\mathrm{prev}}$}}{
   $\bar{\mat{U}}\gets$ $\mat{U}^{\mathrm{prev}}$ without its first input, with the last input repeated\label{alg:ch21-loop:shift}\;
-  $\bar{\mat{X}}\gets\mat{S}_x\state_0+\mat{S}_u\bar{\mat{U}}$\tcp*{linearisation point}
+  $\bar{\mat{X}}\gets\mat{S}_x\state_0+\mat{S}_u\bar{\mat{U}}$\tcp*{linearization point}
   $\vect{f}\gets2\mat{S}_u\T\bar{\mat{Q}}(\mat{S}_x\state_0-\mat{X}^{\mathrm{ref}})$, extended by $w_1\vect{1}$ for the slacks\label{alg:ch21-loop:cost}\;
   add the input and velocity boxes to $(\mat{G},\vect{l},\vect{u}_{\max})$\label{alg:ch21-loop:boxes}\;
   \ForEach{obstacle \KwAnd step $k=1,\dots,N$}{
     $\vect{n}_k\gets(\bar{\pos}_k-\hat{\vect{o}}_k)/\norm{\bar{\pos}_k-\hat{\vect{o}}_k}$ (use $\pos_k^{\mathrm{ref}}$ instead of $\bar{\pos}_k$ if the two coincide)\label{alg:ch21-loop:normal}\;
     add the row $-\vect{n}_k\T\mat{S}_{u,k}^{p}\mat{U}-s_k\le\vect{n}_k\T\bigl((\mat{S}_x\state_0)^{p}_k-\hat{\vect{o}}_k\bigr)-r_k$\label{alg:ch21-loop:avoid}\;
   }
-  \ForEach{keep-in disc, step $k$ \KwAnd direction $m=1,\dots,M$}{
+  \ForEach{keep-in disk, step $k$ \KwAnd direction $m=1,\dots,M$}{
     add the row $\vect{n}_m\T\mat{S}_{u,k}^{p}\mat{U}\le e\cos(\pi/M)-\vect{n}_m\T\bigl((\mat{S}_x\state_0)^{p}_k-\vect{c}_k\bigr)$\label{alg:ch21-loop:keepin}\;
   }
   $(\vect{z},\vect{y},\mathit{status})\gets$ \MpcSolveQp{$\mat{H},\vect{f},\mat{G},\vect{l},\vect{u}_{\max}$, warm start $(\bar{\mat{U}},\vect{0})$ and the shifted multipliers}\label{alg:ch21-loop:solve}\;
@@ -638,11 +637,11 @@ $\mat{H}$, which does not change from step to step because the cost weights do
 not. At every step the loop measures the state and collects the data for the
 $N$ future times (line~\ref{alg:ch21-loop:measure}): the reference from the
 path the drone is following, the intruder predictions from the prediction
-layer, the keep-in centres from the communicated plans of its partners. The
+layer, the keep-in centers from the communicated plans of its partners. The
 step function first builds the \textbf{warm start}\index{warm start}
 (line~\ref{alg:ch21-loop:shift}): the previous plan minus the input that has
 just been applied, with the last input repeated to fill the vacated slot. This
-shifted plan is the linearisation point $\bar{\mat{X}}$ for the avoidance
+shifted plan is the linearization point $\bar{\mat{X}}$ for the avoidance
 half-planes (line~\ref{alg:ch21-loop:normal}) and the initial guess of the
 solver (line~\ref{alg:ch21-loop:solve}). Only the linear term $\vect{f}$ of
 the cost depends on the current state and reference
@@ -682,9 +681,9 @@ and hard avoidance constraints. The simulation runs for $8$~s
 \begin{figure}[tb]
   \centering
   \inputfigure{ch21/example}
-  \caption{\Cref{ex:ch21-crossing}. (a)~The reference (grey), the MPC
+  \caption{\Cref{ex:ch21-crossing}. (a)~The reference (gray), the MPC
   trajectory (blue, dots every second), the intruder's path (red dashed,
-  squares every second) and the safety disc at the moment of closest
+  squares every second) and the safety disk at the moment of closest
   approach, $t=4.2$~s. The dotted curve is the plan computed at $t=3$~s: it
   slows down and dips below the reference line, on the side the intruder
   comes from, so that the intruder passes in front. (b)~Speed, separation and
@@ -723,13 +722,13 @@ $t$ [s] & $x$ & $y$ & $v_x$ & $v_y$ & $a_x$ & $a_y$ & sep. & error & active $k$ 
 \Cref{fig:ch21-example} and \cref{tab:ch21-trace} show what happens. For the
 first two seconds the drone is exactly on the reference and every input is
 zero: the predicted intruder positions are far from every plan point, all
-avoidance rows have zero multipliers, and the unconstrained minimiser of the
+avoidance rows have zero multipliers, and the unconstrained minimizer of the
 cost is ``do nothing''. At $t=2.1$~s the last point of the shifted plan,
 $\pos_{15}$ at time $3.6$~s, is only $0.91$~m from the intruder's predicted
 position $(4.5,-0.12)$~m at that time. The half-plane for $k=15$ becomes
 active (its multiplier is $16.2$ at $t=2.5$~s): from now on the constraint,
 not the cost, shapes the end of the plan. Its normal $\vect{n}_{15}$ points
-from the predicted intruder back towards the drone, and as the predicted
+from the predicted intruder back toward the drone, and as the predicted
 positions of the later steps climb above the line, their normals tilt
 downward; the cheapest way to satisfy them is to arrive later and lower. The
 drone brakes ($a_x=-0.416$~m/s$^2$ at $t=2.5$~s) and starts to move below
@@ -737,7 +736,7 @@ the line ($a_y<0$).
 
 As the horizon slides forward, the active step moves down the horizon: $k=12$
 and $13$ at $t=3.0$~s, $k=7$ and $8$ at $t=3.5$~s, $k=2$ and $3$ at
-$t=4.0$~s. The drone is now at the boundary of the safety disc and follows it:
+$t=4.0$~s. The drone is now at the boundary of the safety disk and follows it:
 the separation is $1.012$~m at $t=4.0$~s, reaches its minimum of exactly
 $1.000$~m at $t=4.2$~s (the polished solution satisfies the active row to
 machine precision, and the plant is the model), and grows again as the
@@ -745,7 +744,7 @@ intruder moves on. The intruder passes in front and above: at closest approach t
 at $(3.84,-0.39)$~m and the intruder at $(4.50,0.36)$~m, and the drone never
 dips below $y=-0.395$~m. It never stops
 ($v_x\ge0.763$~m/s) because it is cheaper, under $\mat{Q}$ and $\mat{R}$, to
-keep moving on the far side of the disc than to wait. After $t=4.2$~s no
+keep moving on the far side of the disk than to wait. After $t=4.2$~s no
 avoidance row is active any more. The drone is now $0.53$~m behind the
 reference and accelerates to $1.277$~m/s at $t=4.8$~s to catch up; the velocity bound
 $v_{\max}=2$~m/s is never reached because the quadratic cost prefers a
@@ -755,11 +754,11 @@ $0.532$~m, both at the price of the intruder.
 
 Two details of the trace are worth a second look. First, two consecutive
 steps are usually active at once ($12$ and $13$, $7$ and $8$): the plan
-touches the disc along a short arc, not at a point, because the half-planes of
-neighbouring steps are nearly parallel and the drone slides along the disc
+touches the disk along a short arc, not at a point, because the half-planes of
+neighboring steps are nearly parallel and the drone slides along the disk
 for two steps. Second, the multipliers stay between $14$ and $19$ while the
 constraint is active, and the largest over the whole run is $18.7$. This
-number is the price, in units of the cost, of one more metre of clearance, and
+number is the price, in units of the cost, of one more meter of clearance, and
 it is the number that decides how large the slack weight $w_1$ of a soft
 constraint must be (\cref{thm:ch21-exact}, \cref{sec:ch21-tuning}).
 
@@ -771,7 +770,7 @@ MPC has a clean theory for the \emph{nominal} case: a fixed reference, a
 correct model, and constraints that do not move. This section states that
 theory at the level of a first course, following \textcite{mayne2000constrained}
 and \textcite{rawlings2017mpc}, and then says honestly which parts survive
-when an intruder moves and a half-plane is linearised around a guess.
+when an intruder moves and a half-plane is linearized around a guess.
 
 \subsection{Terminal cost, terminal set and stability}
 
@@ -784,7 +783,7 @@ from the state $\state$ (the \textbf{value function}\index{value function}).
 For this section we let the stage sum start at $k=0$, that is
 $J=\sum_{k=0}^{N-1}\ell(\state_k,\ctrl_k)+V_f(\state_N)$; because $\state_0$
 is fixed data, the extra term $\state_0\T\mat{Q}\state_0$ is a constant and the
-minimiser of \cref{eq:ch21-ocp} is unchanged, but the bookkeeping of the proof
+minimizer of \cref{eq:ch21-ocp} is unchanged, but the bookkeeping of the proof
 below becomes the familiar one.
 Two \textbf{terminal ingredients}\index{terminal set}\index{model predictive control!terminal ingredients}
 turn MPC into a provably stable controller:
@@ -852,7 +851,7 @@ finite-horizon problem with this terminal cost ``knows'' what happens after
 the horizon, and without active constraints MPC \emph{is} LQR. The terminal set
 is then any invariant set of $\mat{A}-\mat{B}\mat{K}$ inside which the LQR law
 respects the input and velocity bounds; for a double integrator it is a
-sizeable ellipsoid around the origin. Most implementations, including the
+sizable ellipsoid around the origin. Most implementations, including the
 book's code, drop the explicit terminal constraint and rely on the terminal
 cost and a reasonably long horizon; the theory says that for a long enough
 horizon the terminal constraint would be inactive anyway on a large region
@@ -897,7 +896,7 @@ sixties and seventies) is due to \textcite{kerrigan2000soft}; it tells you how t
 slack weight: look at the multipliers of the hard problem in normal operation
 and take $w_1$ safely above the largest one. In the worked example the
 multipliers never exceed $19$, so $w_1=50$ reproduces the hard trajectory
-exactly, whereas $w_1=1$ is below the price of a metre of clearance and the
+exactly, whereas $w_1=1$ is below the price of a meter of clearance and the
 solver buys a violation (\cref{sec:ch21-tuning}). The quadratic term
 $w_2s_k^2$ does not affect the threshold; it only shapes \emph{how} a
 violation is spread when one is unavoidable.
@@ -909,15 +908,15 @@ The honest list, each item taken up in \cref{sec:ch21-implementation}:
   \item \emph{The half-plane is an approximation} built around the previous
   plan, so a plan on the wrong side of the intruder can cost a long detour or
   make the drone alternate between the two sides (\cref{sec:ch21-implementation},
-  pitfall ``Linearising around a stale trajectory'').
+  pitfall ``Linearizing around a stale trajectory'').
   \item \emph{Moving obstacles break the shifted-candidate argument}: a hard
   avoidance constraint can be infeasible at step $k=1$ when an intruder is
   detected late, and then only soft constraints or a fallback produce an input
   at all (\cref{sec:ch21-implementation}, pitfall ``Hard constraints that
   become infeasible'').
   \item \emph{The solver is numerical.} The constraints hold to the solver's
-  tolerance (a fraction of a millimetre after polishing, $10^{-4}$ relative
-  without), at the sample times only, and for the model. Put the discretisation
+  tolerance (a fraction of a millimeter after polishing, $10^{-4}$ relative
+  without), at the sample times only, and for the model. Put the discretization
   error, the model error and the solver tolerance into the margin of $r_k$.
   \item \emph{Stability is nominal.} With a moving reference and moving
   constraints, \cref{thm:ch21-stability} is a statement about the design
@@ -934,10 +933,10 @@ $\mat{S}_u\T\bar{\mat{Q}}\mat{S}_u$ and is negligible. Per step, forming
 $\vect{f}$ and the constraint rows costs $\bigO{(nN)^2}$; each ADMM iteration
 costs one product with $\mat{M}\inv$ and two with $\mat{G}$, i.e.\
 $\bigO{(nN)^2+m\,nN}$ for $m$ rows; and every change of $\rho$ costs a new
-factorisation, $\bigO{(nN)^3}$. The number of iterations does not grow with
+factorization, $\bigO{(nN)^3}$. The number of iterations does not grow with
 $N$ in any simple way; it grows with how far the warm start is from the
 solution and with how ill-conditioned the active constraints are. For a
-horizon of a few hundred steps, or for a centralised problem over many
+horizon of a few hundred steps, or for a centralized problem over many
 drones, the condensed Hessian becomes dense and large, and the \textbf{sparse
 formulation}\index{model predictive control!sparse formulation} that keeps
 the states as variables and the dynamics as equality constraints is
@@ -959,19 +958,19 @@ preferable: its KKT matrix is banded and one iteration costs $\bigO{N}$
 \toprule
 Knob & Effect\\
 \midrule
-Horizon $N$ & Longer: constraints are seen earlier, manoeuvres are gentler, closer to the infinite-horizon optimum; but the dense condensed Hessian grows quadratically with $N$ and a refactorisation cubically, and predictions of others far ahead are unreliable. Must exceed the stopping time $v/a_{\max}$ and the reaction time of the prediction layer.\\
+Horizon $N$ & Longer: constraints are seen earlier, maneuvers are gentler, closer to the infinite-horizon optimum; but the dense condensed Hessian grows quadratically with $N$ and a refactorization cubically, and predictions of others far ahead are unreliable. Must exceed the stopping time $v/a_{\max}$ and the reaction time of the prediction layer.\\
 Time step $\dt$ & Smaller: finer control and constraints checked more often, more steps for the same horizon length; the model stays exact. Bounded below by the solve time and the flight controller's rate.\\
 $q_p$ (position weight) & Larger: tighter tracking, harder accelerations, larger multipliers (raise $w_1$ with it).\\
 $q_v$ (velocity weight) & Larger: the drone matches the reference speed even when its position lags; too large and it never catches up.\\
 $r$ (input weight) & Larger: smoother, lazier; the recovery after a disturbance takes longer.\\
 $\mat{P}_f$ (terminal weight) & Riccati solution: consistent with the infinite horizon, stable design. $\mat{P}_f=\mat{Q}$: myopic, avoid with short horizons.\\
 $w_1,w_2$ (slack weights) & $w_1$ above the largest multiplier makes the penalty exact; $w_2>0$ spreads an unavoidable violation over the horizon.\\
-$r_k$, $e_{\max}$, $M$ & Margins absorb discretisation, model and solver error; more polygon directions $M$ reduce the loss $1-\cos(\pi/M)$.\\
+$r_k$, $e_{\max}$, $M$ & Margins absorb discretization, model and solver error; more polygon directions $M$ reduce the loss $1-\cos(\pi/M)$.\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\Cref{tab:ch21-tuning} summarises the effect of each parameter, and
+\Cref{tab:ch21-tuning} summarizes the effect of each parameter, and
 \cref{fig:ch21-tuning} shows the two that matter most on
 \cref{ex:ch21-crossing}. Panel~(a) varies the horizon with hard constraints.
 With $N=20$ the controller sees the intruder $2$~s ahead and reduces its
@@ -986,7 +985,7 @@ $w_1=w_2=100$ the trajectory is the hard one (minimum separation $1.000$~m);
 with $w=10$ the penalty is slightly below the multipliers of $14$ to $19$ and
 the drone gives up $2$~mm of separation ($0.998$~m); with $w=1$ the penalty is
 cheap, the drone barely deviates (RMS error $0.126$~m) and cuts $0.22$~m into
-the safety disc ($0.777$~m). The lesson is the one of
+the safety disk ($0.777$~m). The lesson is the one of
 \cref{thm:ch21-exact}: the slack weight is not a tuning knob for comfort, it
 must dominate the multipliers, and the trajectory should then be identical to
 the hard one.
@@ -998,17 +997,17 @@ the hard one.
   horizons with hard constraints: a short horizon reacts late and violently, a
   long one early and gently. (b)~Separation over time for three slack weights
   with soft constraints and $N=15$: with $w=1$ the drone cuts into the safety
-  disc (dashed line), with $w=100$ the soft controller reproduces the hard
+  disk (dashed line), with $w=100$ the soft controller reproduces the hard
   solution.}
   \label{fig:ch21-tuning}
 \end{figure}
 
 A word on units, because it is the most common tuning mistake. The entry
-$q_p$ multiplies squared metres, $q_v$ squared metres per second, $r$ squared
-metres per second squared; the numbers $1$, $0.1$ and $0.1$ of the example are
+$q_p$ multiplies squared meters, $q_v$ squared meters per second, $r$ squared
+meters per second squared; the numbers $1$, $0.1$ and $0.1$ of the example are
 therefore not ``ten times more weight on position'' but a statement that a
 position error of $1$~m costs as much as a velocity error of $3.2$~m/s or an
-acceleration of $3.2$~m/s$^2$. If you rescale positions to centimetres, $q_p$
+acceleration of $3.2$~m/s$^2$. If you rescale positions to centimeters, $q_p$
 must shrink by $10^4$ to leave the controller unchanged
 (\cref{exr:ch21-weights}). Choose the weights by asking what error you are
 willing to trade for what effort, and check the answer on a plot such as
@@ -1049,13 +1048,13 @@ where $\Phi$ is the standard normal distribution function
 uncertain obstacles: the same half-plane as before with the radius inflated
 by the standard deviation of the prediction \emph{in the direction of the
 normal}, times a confidence factor (\cref{fig:ch21-chance}). By
-\cref{thm:ch21-halfplane} the disc constraint then holds with at least the
+\cref{thm:ch21-halfplane} the disk constraint then holds with at least the
 same probability. Two remarks. The guarantee is per step and per obstacle; if
 you want the whole horizon safe with probability $1-\delta$, Boole's
 inequality suggests $\delta/N$ per step, which is conservative but simple.
 And the inflation grows with $k$: for a constant-velocity prediction with
 position covariance $\mat{\Sigma}_0$ and velocity covariance $\mat{\Sigma}_v$,
-$\mat{\Sigma}_k=\mat{\Sigma}_0+(k\dt)^2\mat{\Sigma}_v$, so the disc at the end of
+$\mat{\Sigma}_k=\mat{\Sigma}_0+(k\dt)^2\mat{\Sigma}_v$, so the disk at the end of
 the horizon is much larger than the one at its start; the Kalman filter
 propagates $\mat{\Sigma}_k$ exactly with its own $\mat{A}$ and process noise.
 In the code, \code{MPC(delta=0.05)} together with an obstacle that carries
@@ -1073,8 +1072,8 @@ point.
   $\hat{\vect{o}}_k$ carry covariances $\mat{\Sigma}_k$ that grow with $k$;
   the chance constraint \cref{eq:ch21-chance-linear} inflates the safety
   radius by $\kappa_\delta$ standard deviations along the normal (dashed
-  circles), and the plan keeps clear of the inflated discs. The reference,
-  safe against the nominal discs, would violate the chance constraint late in
+  circles), and the plan keeps clear of the inflated disks. The reference,
+  safe against the nominal disks, would violate the chance constraint late in
   the horizon.}
   \label{fig:ch21-chance}
 \end{figure}
@@ -1088,7 +1087,7 @@ for eleven horizons from $N=3$ to $N=30$, with hard and with soft avoidance
 constraints, and in two information regimes. With \emph{full knowledge} the
 intruder's prediction is available from the start. With \emph{late
 detection} the drone learns about the intruder only when it is within
-$1.2$~m, a stand-in for a short sensor range or a late track initialisation
+$1.2$~m, a stand-in for a short sensor range or a late track initialization
 (\cref{ch:ch18}).
 
 \begin{figure}[tb]
@@ -1098,7 +1097,7 @@ $1.2$~m, a stand-in for a short sensor range or a late track initialisation
   the horizon, for hard and soft avoidance constraints, with full knowledge
   of the intruder and with late detection at $1.2$~m. With full knowledge hard
   and soft coincide for $N\ge4$; at $N=3$ the horizon is shorter than the
-  stopping time and both miss the safety disc. With late detection the hard
+  stopping time and both miss the safety disk. With late detection the hard
   problem is infeasible on nine steps for every $N$ and the braking fallback
   loses both separation and tracking, whereas the soft problem returns the
   least-violation input and does better on both counts.}
@@ -1133,7 +1132,7 @@ give the same closed loop for every $N\ge4$, to within the solver tolerance:
 the exact penalty at work. Second, $N=3$ is a horizon of $0.3$~s, shorter
 than the $0.5$~s the drone needs to stop from $1$~m/s; the hard problem is
 infeasible on seven steps, the drone falls back on braking, and both variants
-end up $5$~cm inside the safety disc. Beyond $N\approx10$ nothing improves:
+end up $5$~cm inside the safety disk. Beyond $N\approx10$ nothing improves:
 the intruder's prediction is exact here, but with a real predictor the far
 end of a long horizon would be pure noise. Third, and most important for the
 swarm, late detection makes the hard problem infeasible on nine consecutive
@@ -1157,7 +1156,7 @@ in position space and track with the full model. \emph{Explicit MPC}
 \cite{borrelli2017predictive} precomputes the piecewise-affine control law
 $\ctrl_0^{*}(\state)$ offline for small problems, so that the online work is a
 table lookup. \emph{Robust and stochastic MPC} \cite{rawlings2017mpc} extend
-the chance constraint idea to the drone's own disturbances. \emph{Centralised
+the chance constraint idea to the drone's own disturbances. \emph{Centralized
 multi-drone MPC} stacks the inputs of all $m$ drones into one program; the
 formation and communication constraints then couple variables of different
 drones but stay convex, and the program grows to $mnN$ variables. The
@@ -1166,7 +1165,7 @@ leader--follower pair, solves one QP per drone in priority order with the
 plans of the higher-priority drones as data; it is cheaper and distributed
 but, like prioritized planning (\cref{ch:ch08}), it can fail where a joint
 solution exists. Finally, when a decision is genuinely discrete (pass left or
-right, which corridor), the linearised half-plane is a heuristic, and the
+right, which corridor), the linearized half-plane is a heuristic, and the
 mixed-integer formulation of \cref{ch:ch22} makes the choice explicit at a
 much higher computational price.
 
@@ -1206,12 +1205,12 @@ control to the reactive layer of \cref{ch:ch24}. Whatever the policy, log
 every failure: a controller that fails silently is the classic cause of an
 ``unexplained'' collision in a simulation study (\cref{ch:ch25}).
 
-\paragraph{Per drone or centralised.}
+\paragraph{Per drone or centralized.}
 Running one MPC per drone with communicated plans scales linearly with the
 swarm and matches the architecture of \cref{ch:ch24}, in which each drone
 executes its own \cbs path. It requires that a drone receives its partner's
 plan for the same horizon at every step; if communication is delayed, use the
-partner's reference instead and widen $e_{\max}$. A centralised MPC is
+partner's reference instead and widen $e_{\max}$. A centralized MPC is
 worth it for small tightly coupled groups, or as the ground truth against
 which the sequential scheme is measured.
 
@@ -1220,17 +1219,17 @@ which the sequential scheme is measured.
 chance-constraint inflation, and \cref{lst:ch21-admm} the core of the ADMM
 solver, \cref{alg:ch21-admm} in some twenty lines.
 
-\begin{lstlisting}[caption={Linearised avoidance rows in \code{MPC.step} (from \code{code/ch21\_mpc.py}). \code{X\_guess} is the shifted previous plan, \code{free} the free response $\mat{S}_x\state_0$, \code{pos\_idx[k]} the indices of $\pos_k$ in the stacked state.},label={lst:ch21-avoid},gobble=8]
-        # (3) one linearised half-plane per obstacle and step
+\begin{lstlisting}[caption={Linearized avoidance rows in \code{MPC.step} (from \code{code/ch21\_mpc.py}). \code{X\_guess} is the shifted previous plan, \code{free} the free response $\mat{S}_x\state_0$, \code{pos\_idx[k]} the indices of $\pos_k$ in the stacked state.},label={lst:ch21-avoid},gobble=8]
+        # (3) one linearized half-plane per obstacle and step
         avoid_rows, avoid_lo, avoid_up = [], [], []
         avoid_k, normals = [], []
         for obs in obstacles:
             for k in range(N):
                 pk = self.pos_idx[k]
-                d = X_guess[pk] - obs.centres[k]
+                d = X_guess[pk] - obs.centers[k]
                 dist = float(np.linalg.norm(d))
-                if dist < 1e-9:      # on the centre: use the reference
-                    d = xref[pk] - obs.centres[k]
+                if dist < 1e-9:      # on the center: use the reference
+                    d = xref[pk] - obs.centers[k]
                     dist = float(np.linalg.norm(d))
                 if dist < 1e-9:
                     d = np.eye(n)[-1]
@@ -1241,7 +1240,7 @@ solver, \cref{alg:ch21-admm} in some twenty lines.
                     sig = math.sqrt(float(nk @ obs.covs[k] @ nk))
                     radius += self.kappa * sig
                 # nk'(p_k - o_k) >= radius, written as a row in U
-                bound = float(nk @ (free[pk] - obs.centres[k])) - radius
+                bound = float(nk @ (free[pk] - obs.centers[k])) - radius
                 avoid_rows.append(-nk @ self.Su[pk])
                 avoid_lo.append(-INF)
                 avoid_up.append(bound)
@@ -1274,12 +1273,12 @@ solver, \cref{alg:ch21-admm} in some twenty lines.
             y_check = y.copy()
 \end{lstlisting}
 
-\begin{pitfall}[Linearising around a stale trajectory]
+\begin{pitfall}[Linearizing around a stale trajectory]
 The half-plane normals come from the previous plan. If the intruder's
-prediction jumps (a track re-initialisation, a manoeuvre) or if the drone's own
+prediction jumps (a track re-initialization, a maneuver) or if the drone's own
 plan was rejected and the warm start is old, the normals point the wrong way
 and the QP forbids the very region the drone should move into. Symptoms are a
-detour on the wrong side, or a plan that flips sides every step. Re-linearise
+detour on the wrong side, or a plan that flips sides every step. Re-linearize
 around the reference when the shifted plan is invalid, and consider a second
 QP solve with the normals recomputed from the first solution when a
 prediction changes abruptly.
@@ -1297,8 +1296,8 @@ the slacks: a non-zero slack is the event you want to count in
 
 \begin{pitfall}[Weights in inconsistent units]
 $\mat{Q}$, $\mat{R}$ and the slack weights multiply quantities in different
-units, and a slack weight that was ``large'' when positions were in metres is
-tiny when they are in centimetres. Fix a unit system, derive the weights from
+units, and a slack weight that was ``large'' when positions were in meters is
+tiny when they are in centimeters. Fix a unit system, derive the weights from
 the trade-off you want (\cref{sec:ch21-tuning}), and check the multipliers of
 the hard problem before choosing $w_1$.
 \end{pitfall}
@@ -1353,9 +1352,9 @@ repaired after it, is \cref{exr:ch21-coding}.
   with $\mat{X}=\mat{S}_x\state_0+\mat{S}_u\mat{U}$ gives the condensed form
   \cref{eq:ch21-qp}, whose Hessian is fixed and whose linear term and rows
   change per step.
-  \item Avoidance is non-convex; one half-plane per step, linearised around the
+  \item Avoidance is non-convex; one half-plane per step, linearized around the
   previous plan, is a conservative convex replacement. Formation keeping and
-  communication range are convex discs, approximated from inside by polygons.
+  communication range are convex disks, approximated from inside by polygons.
   \item Constraints on the drone's own variables are hard; constraints that
   depend on others are soft with slack variables. With a linear slack weight
   above the largest multiplier the soft solution equals the hard one whenever
@@ -1378,7 +1377,7 @@ the stability results and the sparse and condensed formulations; the survey
 of \textcite{mayne2000constrained} introduced the terminal ingredients used
 in \cref{thm:ch21-stability}; \textcite{garcia1989model} is the classic
 account of MPC in process control; \textcite{borrelli2017predictive} covers
-constrained systems, invariant sets and explicit MPC; convex optimisation and
+constrained systems, invariant sets and explicit MPC; convex optimization and
 QP solvers are treated by \textcite{boyd2004convex}, ADMM by
 \textcite{boyd2011admm} and the OSQP iteration by \textcite{stellato2020osqp};
 soft constraints and exact penalties are due to \textcite{kerrigan2000soft};
@@ -1424,9 +1423,9 @@ three-dimensional version of the keep-in constraint.
 
 \begin{exercise}[\difficulty{1}]
 \label{exr:ch21-weights}
-Positions are re-expressed in centimetres and velocities in cm/s while
+Positions are re-expressed in centimeters and velocities in cm/s while
 accelerations stay in m/s$^2$. How must $q_p$, $q_v$, $r$, $w_1$ and $w_2$
-change so that the controller's behaviour is unchanged? Which of the
+change so that the controller's behavior is unchanged? Which of the
 multipliers change, and by what factor?
 \end{exercise}
 
@@ -1456,7 +1455,7 @@ and the terminal set $\mathcal{X}_f=\set{\state:\state\T\mat{P}_f\state\le c}$
 with the LQR controller, stating what $c$ must satisfy. (b)~Construct an
 explicit example with a moving intruder in which the hard problem is feasible
 at time $t$ and infeasible at time $t+\dt$ although the intruder moves exactly
-as predicted. Hint: let the linearisation point change sides.
+as predicted. Hint: let the linearization point change sides.
 \end{exercise}
 
 \begin{exercise}[\difficulty{2}]
@@ -1478,7 +1477,7 @@ The Week-11 exercise of the study plan. Build a controller for a leader and
 two followers in a V formation with offsets $\vect{d}_{ij}$, tolerance
 $e_{\max}=0.3$~m and communication range $R_{\mathrm{comm}}=2$~m, in which each
 follower runs \cref{alg:ch21-loop} with the leader's communicated plan as the
-centre of its keep-in constraints (the code's \code{Follower} shows the
+center of its keep-in constraints (the code's \code{Follower} shows the
 interface for one follower). Fly the formation along a path while an intruder
 crosses. Measure the formation error and the number of communication
 violations per step, and compare with a controller that tracks the path and
@@ -1490,10 +1489,10 @@ constrained run and violated in the reactive one.
 
 \begin{exercise}[\difficulty{3}]
 \label{exr:ch21-centralised}
-Write the centralised QP for two drones: stack both input sequences, add the
+Write the centralized QP for two drones: stack both input sequences, add the
 formation constraint as a polygon in the difference of their positions, and
 solve it with \code{solve\_qp}. Compare cost, formation error and solve time
 with the sequential leader--follower scheme on the same scenario, and find a
 scenario in which the sequential scheme violates the formation tolerance while
-the centralised one does not.
+the centralized one does not.
 \end{exercise}

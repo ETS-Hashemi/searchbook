@@ -32,7 +32,7 @@ def panel(lines, cells, cost, start, goal, closed, dist, path=None, values=None,
 
     styles (optional) maps a cell to an explicit TikZ fill style; cells
     without an entry are left white.  Without styles the fill follows the
-    search state: settled cells grey, cells in the queue blue.
+    search state: settled cells gray, cells in the queue blue.
     """
     rows, cols = len(cells), len(cells[0])
 

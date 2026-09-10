@@ -9,8 +9,8 @@ Conventions used throughout the book (see Chapter 2):
 
 * A cell is a pair ``(x, y)`` with ``0 <= x < width`` and
   ``0 <= y < height``.  Cell ``(x, y)`` covers the unit square
-  ``[x, x + 1) x [y, y + 1)``; its centre is ``(x + 0.5, y + 0.5)``.
-* The grid is 4-connected.  A drone moves to a neighbouring free cell or
+  ``[x, x + 1) x [y, y + 1)``; its center is ``(x + 0.5, y + 0.5)``.
+* The grid is 4-connected.  A drone moves to a neighboring free cell or
   waits, one action per time step, and stays at its goal after arriving.
 * The intruder lives in continuous space and continuous time: its
   position at time ``t`` is ``p0 + v * t`` (cells and cells per step).
@@ -31,7 +31,7 @@ from dataclasses import dataclass
 Cell = tuple[int, int]
 Point = tuple[float, float]
 
-# Neighbour order fixes the tie-breaking of breadth-first search.
+# Neighbor order fixes the tie-breaking of breadth-first search.
 MOVES4 = ((1, 0), (0, 1), (-1, 0), (0, -1))
 
 # Seed of the scenario drawn in Figure 1.1 (chosen so that the independent
@@ -79,8 +79,8 @@ class Scenario:
     def is_free(self, cell: Cell) -> bool:
         return self.in_bounds(cell) and cell not in self.obstacles
 
-    def neighbours(self, cell: Cell) -> list:
-        """Free 4-connected neighbours of ``cell`` in a fixed order."""
+    def neighbors(self, cell: Cell) -> list:
+        """Free 4-connected neighbors of ``cell`` in a fixed order."""
         x, y = cell
         out = []
         for dx, dy in MOVES4:
@@ -134,7 +134,7 @@ def bfs_path(scenario: Scenario, start: Cell, goal: Cell):
                 path.append(cell)
                 cell = parent[cell]
             return path[::-1]
-        for nxt in scenario.neighbours(cell):
+        for nxt in scenario.neighbors(cell):
             if nxt not in parent:
                 parent[nxt] = cell
                 queue.append(nxt)
@@ -154,7 +154,7 @@ def generate(width: int, height: int, k: int, density: float,
     free, pairwise distinct (all ``2k`` of them), at Manhattan distance at
     least ``min_distance`` (default: a quarter of ``width + height``), and
     every goal is reachable from its start.  The intruder enters from one
-    side of the grid and flies straight towards the opposite side without
+    side of the grid and flies straight toward the opposite side without
     touching a blocked cell (it flies at the altitude of the swarm).
     """
     if k < 1 or width < 3 or height < 3:
@@ -232,7 +232,7 @@ def plan_independently(scenario: Scenario) -> list:
 
 
 def position_on_path(path: list, t: int) -> Cell:
-    """Cell occupied at step ``t``; the drone stays at its goal afterwards."""
+    """Cell occupied at step ``t``; the drone stays at its goal afterward."""
     return path[min(t, len(path) - 1)]
 
 
@@ -255,7 +255,7 @@ class Encounter:
     distance: float
 
 
-def cell_centre(cell: Cell) -> Point:
+def cell_center(cell: Cell) -> Point:
     return (cell[0] + 0.5, cell[1] + 0.5)
 
 
@@ -287,7 +287,7 @@ def intruder_encounters(scenario: Scenario, paths: list, radius: float = 0.75,
     for t in range(horizon):
         px, py = scenario.intruder.position_at(t)
         for i, path in enumerate(paths):
-            cx, cy = cell_centre(position_on_path(path, t))
+            cx, cy = cell_center(position_on_path(path, t))
             d = math.hypot(px - cx, py - cy)
             if d <= radius:
                 out.append(Encounter(t, i, round(d, 2)))

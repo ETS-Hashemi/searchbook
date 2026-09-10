@@ -1,8 +1,8 @@
-"""Generate the data of the linearisation-error ("banana") figure of Chapter 19.
+"""Generate the data of the linearization-error ("banana") figure of Chapter 19.
 
 A Gaussian in range and bearing, r ~ N(100, 5^2), phi ~ N(pi/2, 0.3^2), is
 pushed through the polar-to-Cartesian map (r, phi) -> (r cos phi, r sin phi)
-in three ways: Monte Carlo (the truth), the EKF linearisation at the mean,
+in three ways: Monte Carlo (the truth), the EKF linearization at the mean,
 and the unscented transform with alpha = 1, beta = 2, kappa = 3 - n = 1.
 
 Writes (whitespace separated, one header row):
@@ -11,7 +11,7 @@ Writes (whitespace separated, one header row):
   figures/data/ch19-banana-sigma.dat      x y                    (images of the 5 sigma points)
   figures/data/ch19-banana-mean-{mc,ekf,ut}.dat   x y          (the three means)
 and prints the numbers quoted in the chapter.  Fixed seed.
-Run from anywhere:   python3 code/figures/gen_ch19_linearisation.py
+Run from anywhere:   python3 code/figures/gen_ch19_linearization.py
 """
 import math
 import os
@@ -56,7 +56,7 @@ def main():
     samples = polar_to_cartesian(polar)
     mc_mean = samples.mean(axis=0)
     mc_cov = np.cov(samples.T)
-    # EKF: linearise at the mean
+    # EKF: linearize at the mean
     r, phi = MEAN
     J = np.array([[math.cos(phi), -r * math.sin(phi)], [math.sin(phi), r * math.cos(phi)]])
     ekf_mean = polar_to_cartesian(MEAN)[0]

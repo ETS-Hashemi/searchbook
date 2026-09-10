@@ -41,7 +41,7 @@ computed by the global planner (\cref{ch:ch09,ch:ch10}) before take-off, on a gr
 $200 \times 200$ cells at ten flight levels. Halfway through the mission the prediction
 layer (\cref{ch:ch18,ch:ch20}) announces that an unknown drone will cross the corridor
 ahead within the next few seconds. The local layer (\cref{ch:ch13,ch:ch14}) can dodge for
-a moment, but the intruder is going to hover in the corridor, and the local manoeuvre
+a moment, but the intruder is going to hover in the corridor, and the local maneuver
 cannot return the drone to its nominal route. Now the replanning layer must deliver a new
 route from the drone's \emph{current} position, and it has one control cycle,
 say $50$~ms, to do so.
@@ -74,7 +74,7 @@ one by one.
 \Cref{fig:ch05-idea} shows the situation of the motivation on a small grid. The drone
 has a shortest path to its goal and has already flown a third of it when the cell two
 steps ahead of it turns out to be blocked. In the left panel, \astar is re-run from
-scratch from the drone's cell: it expands every cell shaded grey, $26$ of them, most of
+scratch from the drone's cell: it expands every cell shaded gray, $26$ of them, most of
 which lie far from the obstacle and whose distance to the goal did not change at all.
 In the right panel, an incremental search touches only the orange cells, four cells in
 six expansions: the ones whose stored distance became stale because the obstacle removed
@@ -87,8 +87,8 @@ first search against the cheap repairs it buys.
   \centering
   \inputfigure{ch05/idea}
   \caption{An obstacle (black, with a cross) appears two cells ahead of the drone (blue
-  disc) on its planned route (faded blue). Left: \astar re-run from scratch from the
-  drone's cell expands all grey cells. Right: \dstarlite expands only the orange cells,
+  disk) on its planned route (faded blue). Left: \astar re-run from scratch from the
+  drone's cell expands all gray cells. Right: \dstarlite expands only the orange cells,
   those whose goal distance was invalidated or is needed for the detour (dashed). The
   number of expansions is printed under each panel. Note that \dstarlite is repairing a
   search it had already run from the drone's original start ($52$ expansions);
@@ -100,15 +100,15 @@ first search against the cheap repairs it buys.
 
 How does the incremental search know which cells are stale? It stores \emph{two}
 numbers per vertex instead of one. The first, $\gcost(s)$, is the distance value from
-the last search, exactly as in \astar. The second, $\rhs(s)$, is what the neighbours of
+the last search, exactly as in \astar. The second, $\rhs(s)$, is what the neighbors of
 $s$ currently say the value \emph{should} be: one step of lookahead, ``the best
-neighbour's $\gcost$ plus the edge cost''. As long as the two numbers agree, nothing at
+neighbor's $\gcost$ plus the edge cost''. As long as the two numbers agree, nothing at
 $s$ needs attention. When an edge cost changes, the $\rhs$-value of the affected vertex
 changes but its $\gcost$-value does not, and the disagreement flags the vertex as
 \emph{locally inconsistent}. Inconsistent vertices go into a priority queue, ordered by
 the same kind of key that \astar uses ($\gcost + \hcost$), and are processed in that
 order. Processing a vertex either makes it consistent or replaces its stale value by a
-larger, honest one, and may make its neighbours inconsistent,
+larger, honest one, and may make its neighbors inconsistent,
 so the repair spreads outward from the change, but only as far as distance values
 actually differ, and only until the goal is consistent and no queued key is smaller than
 the goal's key. Cells far from the change, or cells whose distance happens to stay the
@@ -116,9 +116,9 @@ same, are never touched.
 
 \begin{keyidea}
 Store, for every vertex, the value from the last search ($\gcost$) next to the value its
-neighbours currently imply ($\rhs$). Only vertices where the two disagree need work.
+neighbors currently imply ($\rhs$). Only vertices where the two disagree need work.
 Process them in \astar order, from the change outward, and stop as soon as the query
-vertex agrees with its neighbours and nothing with a smaller key is left. The result
+vertex agrees with its neighbors and nothing with a smaller key is left. The result
 equals what \astar would compute from scratch, at a fraction of the expansions when the
 change is small.
 \end{keyidea}
@@ -151,8 +151,7 @@ repair reaches it.
 
 \begin{definition}[Incremental shortest-path problem]
 \label{def:ch05-problem}
-An \textbf{incremental shortest-path problem}\index{incremental search}\index{shortest
-path!incremental} is a sequence of shortest-path queries between the same two vertices
+An \textbf{incremental shortest-path problem}\index{incremental search}\index{shortest path!incremental} is a sequence of shortest-path queries between the same two vertices
 $s_{\mathrm{start}}$ and $s_{\mathrm{goal}}$ on a graph whose edge costs change between
 queries. An \textbf{incremental search algorithm} answers each query using information
 saved from the previous queries, and it must return a path of cost
@@ -167,10 +166,9 @@ returned by the previous query.
 \cref{sec:ch05-dstarlite,sec:ch05-dstarlite-example} add the moving start (\dstarlite).
 
 The grids of this chapter are 4-connected with unit costs (\cref{ch:ch02}). A cell is
-either \emph{free} or \emph{blocked}. Blocking a cell $b$ is modelled as an edge-cost
+either \emph{free} or \emph{blocked}. Blocking a cell $b$ is modeled as an edge-cost
 change: \emph{every} edge that enters $b$ and every edge that leaves $b$ changes from
-cost $1$ to cost $\infty$. Unblocking reverses the change.\index{obstacle!as infinite
-edge cost} We keep blocked cells as vertices of the graph, with all their edges at
+cost $1$ to cost $\infty$. Unblocking reverses the change.\index{obstacle!as infinite edge cost} We keep blocked cells as vertices of the graph, with all their edges at
 $\infty$, rather than deleting them; that way the graph structure is fixed and only the
 costs vary, which is exactly what the algorithms assume. The heuristic on these grids is
 the Manhattan distance, which is consistent (\cref{ch:ch04}).
@@ -199,12 +197,11 @@ behind. The gap between them is the central concept.
 
 \begin{definition}[Local consistency]
 \label{def:ch05-consistency}
-A vertex $s$ is \textbf{locally consistent}\index{local consistency}\index{LPA*!local
-consistency} if $\gcost(s) = \rhs(s)$, and \textbf{locally inconsistent} otherwise. An
+A vertex $s$ is \textbf{locally consistent}\index{local consistency}\index{LPA*!local consistency} if $\gcost(s) = \rhs(s)$, and \textbf{locally inconsistent} otherwise. An
 inconsistent vertex is \textbf{overconsistent}\index{overconsistent vertex} if
-$\gcost(s) > \rhs(s)$ (its neighbours now offer a cheaper way to reach it than it
+$\gcost(s) > \rhs(s)$ (its neighbors now offer a cheaper way to reach it than it
 knows) and \textbf{underconsistent}\index{underconsistent vertex} if
-$\gcost(s) < \rhs(s)$ (it believes in a cost that its neighbours can no longer
+$\gcost(s) < \rhs(s)$ (it believes in a cost that its neighbors can no longer
 support).
 \end{definition}
 
@@ -227,7 +224,7 @@ If all vertices are consistent, the $\gcost$-values satisfy $\gcost(s_{\mathrm{s
 and $\gcost(s)=\min_{s'\in\Pred(s)}(\gcost(s')+c(s',s))$ for all other $s$: the Bellman
 equations of the shortest-path problem. With positive edge costs, the true distances are
 the unique solution of these equations (\cref{ch:ch03}), so $\gcost \equiv \dist(s_{\mathrm{start}},\cdot)$.
-Following a minimising predecessor decreases $\gcost$ by exactly the edge cost at every
+Following a minimizing predecessor decreases $\gcost$ by exactly the edge cost at every
 step, so the walk terminates at $s_{\mathrm{start}}$ and has cost $\gcost(s)$.
 \end{proof}
 
@@ -383,7 +380,7 @@ $k_1 = \min(\gcost,\rhs) + \hcost$ is a lower bound on the cost of any path to t
 through the queued vertex, so as long as $\IncTopKey{} \ge k(s_{\mathrm{goal}})$ no
 queued vertex can lead to a cheaper path to the goal than the goal's own value, exactly
 the argument that proves \astar optimal with a consistent heuristic (\cref{ch:ch04}).
-The second component breaks ties in favour of \emph{smaller} $\min(\gcost,\rhs)$, which
+The second component breaks ties in favor of \emph{smaller} $\min(\gcost,\rhs)$, which
 matters more here than in \astar: among vertices with equal $k_1$, an underconsistent
 vertex $u$ with a small old $\gcost(u)$ must be processed before a successor $w$ whose
 $\rhs(w)=\gcost(u)+c(u,w)$ was derived from it. If $w$ is overconsistent, then
@@ -421,7 +418,7 @@ path.
 \begin{figure}[tb]
   \centering
   \inputfigure{ch05/lpastar-example}
-  \caption{\lpastar on \cref{ex:ch05-lpastar}. Each cell shows $\gcost/\rhs$; grey cells
+  \caption{\lpastar on \cref{ex:ch05-lpastar}. Each cell shows $\gcost/\rhs$; gray cells
   are locally consistent with finite values (expanded), blue cells are overconsistent
   and orange cells underconsistent (both kinds are in the queue $U$); cells without
   numbers have $\gcost=\rhs=\infty$. Left: after the first search, path of cost $4$.
@@ -465,7 +462,7 @@ Blocking $(3,1)$ changes eight directed edges: the four that enter $(3,1)$ and t
 that leave it. \LpaMain calls \LpaUpdateVertex on the head of each. For the entering
 edges the head is $(3,1)$ itself: all its predecessors are now at cost $\infty$, so
 $\rhs(3,1)=\infty$ while $\gcost(3,1)=3$; the cell is underconsistent and enters the
-queue with key $[3+1;\,3]=[4;3]$. For the leaving edges the heads are the neighbours.
+queue with key $[3+1;\,3]=[4;3]$. For the leaving edges the heads are the neighbors.
 $T=(4,1)$ loses its only finite predecessor, $\rhs(T)=\infty$ against $\gcost(T)=4$:
 underconsistent, key $[4;4]$. $(2,1)$ still has $S$'s side as predecessor and keeps
 $\rhs=2$. $(3,0)$ and $(3,2)$ had $\rhs=4$ through $(3,1)$; now their only finite
@@ -549,12 +546,12 @@ would become inconsistent and the ``repair'' would redo the whole search. Distan
 \emph{to the goal}, on the other hand, are unaffected by where the robot is. \dstarlite
 therefore lets $\gcost(s)$ estimate $\dist(s, s_{\mathrm{goal}})$ and searches from the
 goal toward the robot. Everything in \cref{sec:ch05-lpastar} is mirrored,
-as \cref{tab:ch05-directions} summarises:
+as \cref{tab:ch05-directions} summarizes:
 \begin{itemize}
   \item the $\rhs$-value looks at \emph{successors}:
     $\rhs(s) = \min_{s'\in\Succ(s)} \bigl(c(s,s') + \gcost(s')\bigr)$ for
     $s\ne s_{\mathrm{goal}}$, and $\rhs(s_{\mathrm{goal}})=0$;
-  \item the queue is initialised with $s_{\mathrm{goal}}$, and expanding a vertex
+  \item the queue is initialized with $s_{\mathrm{goal}}$, and expanding a vertex
     updates its \emph{predecessors};
   \item when the cost of edge $(u,v)$ changes, it is the \emph{tail} $u$ whose $\rhs$
     depends on it, so \DslUpdateVertex{$u$} is called;
@@ -562,7 +559,7 @@ as \cref{tab:ch05-directions} summarises:
     $\dist(s_{\mathrm{start}}, s)$, the distance from the robot to $s$, and the
     termination test compares against $k(s_{\mathrm{start}})$;
   \item the path is read off \emph{forward} from the robot: from $s$, move to the
-    successor $s'$ that minimises $c(s,s') + \gcost(s')$.
+    successor $s'$ that minimizes $c(s,s') + \gcost(s')$.
 \end{itemize}
 The heuristic must now be consistent with respect to the \emph{start}: nonnegative,
 $\hcost(s_{\mathrm{start}}, s_{\mathrm{start}}) = 0$ and
@@ -686,7 +683,7 @@ bound, and the reinsert check repairs the rest.
 modifier) as published by Koenig and Likhachev \cite{koenig2002dstarlite}. Compared
 with \lpastar, read $\Succ$ for $\Pred$ and vice versa, note the $k_m$ term in the key,
 the reinsert check, and the main loop that moves the robot. The same paper also gives an
-\emph{optimised} variant\index{D* Lite!optimised version}, which computes the same values
+\emph{optimized} variant\index{D* Lite!optimized version}, which computes the same values
 with the same expansions but maintains $\rhs$ incrementally instead of recomputing the
 minimum over all successors on every \DslUpdateVertex: after an overconsistent expansion
 of $u$ it only relaxes the single edge, $\rhs(s) \gets \min\bigl(\rhs(s),\,c(s,u)+\gcost(u)\bigr)$
@@ -789,7 +786,7 @@ a new goal.
 Line~\ref{alg:ch05-dstarlite:underpred} updates $\Pred(u) \cup \set{u}$, not just
 $\Pred(u)$ (and line~\ref{alg:ch05-lpastar:undersucc} of \lpastar updates
 $\Succ(u)\cup\set{u}$). After $\gcost(u)$ is set to $\infty$, $u$ itself is usually
-overconsistent again, with a finite $\rhs$ through another neighbour, and must go back
+overconsistent again, with a finite $\rhs$ through another neighbor, and must go back
 into the queue to be expanded properly later. Dropping the $\cup\set{u}$ leaves $u$
 inconsistent but absent from the queue, and the vertices behind it never receive the
 corrected value: the robot follows a path through a cost that no longer exists. The
@@ -820,7 +817,7 @@ remaining gap cell $(3,4)$.
   \caption{\dstarlite on \cref{ex:ch05-dstarlite}. Numbers are $\gcost$-values (goal
   distances), written $\gcost/\rhs$ where the two disagree, as in
   \cref{fig:ch05-lpastar-example}; cells without a number still have $\gcost=\infty$. Left: the initial search from $T$ and the
-  planned path. Middle: the robot (blue disc) has moved two steps and $(3,3)$ becomes
+  planned path. Middle: the robot (blue disk) has moved two steps and $(3,3)$ becomes
   blocked; orange cells are the ones \protect\DslUpdateVertex made inconsistent (the
   third changed vertex, the gap cell $(3,4)$, simply leaves the queue), the old path is
   dashed. Right: after the repair, with the cells expanded by the repair shaded and the
@@ -833,7 +830,7 @@ remaining gap cell $(3,4)$.
   \caption{Events of \cref{ex:ch05-dstarlite}. ``Updated'' counts the vertices whose
   $\rhs$-value or queue membership changed in \protect\DslUpdateVertex, ``Exp.'' the vertex
   expansions of \protect\DslComputeShortestPath in that row; $\gcost(s_{\mathrm{start}})$ is the
-  remaining path cost afterwards.}
+  remaining path cost afterward.}
   \label{tab:ch05-dstarlite-trace}
   \begin{tabular}{@{}rllrrrl@{}}
   \toprule
@@ -941,7 +938,7 @@ the search direction (\cref{def:ch05-key} for \lpastar, \cref{sec:ch05-reverse} 
 Every call of \DslComputeShortestPath in \cref{alg:ch05-dstarlite} terminates. When it
 returns, $\gcost(s_{\mathrm{start}}) = \dist(s_{\mathrm{start}}, s_{\mathrm{goal}})$
 under the current edge costs, and if this value is finite, moving from the current
-vertex $s$ to any successor $s'$ that minimises $c(s,s') + \gcost(s')$, starting at
+vertex $s$ to any successor $s'$ that minimizes $c(s,s') + \gcost(s')$, starting at
 $s_{\mathrm{start}}$, reaches $s_{\mathrm{goal}}$ along a shortest path. Consequently
 the robot in \DslMain follows, at every moment, a path whose cost equals the cost that
 \astar would compute from scratch from its current position.
@@ -951,7 +948,7 @@ Three invariants hold throughout. (i) $\rhs$ is always the one-step lookahead of
 current $\gcost$-values and costs, because every change of a $\gcost$-value or a cost is
 followed by \DslUpdateVertex on all vertices whose $\rhs$ could be affected. (ii) $U$
 contains exactly the locally inconsistent vertices, and every stored key is a lower
-bound on the vertex's current key: at insertion the two are equal, and afterwards the
+bound on the vertex's current key: at insertion the two are equal, and afterward the
 current key can only grow, either because $k_m$ grew by $\hcost(s_{\mathrm{last}}, s_{\mathrm{start}})$
 while $\hcost(s_{\mathrm{start}},s)$ fell by at most that much (\cref{eq:ch05-triangle}),
 or because a vertex's key is left untouched between insertions. (iii) Vertices are
@@ -965,7 +962,7 @@ smaller keys have already been made consistent; the underconsistent expansions e
 that no stale finite value survives among those. When the loop stops, $s_{\mathrm{start}}$
 is consistent and every remaining queued vertex has a key at least
 $k(s_{\mathrm{start}})$, so no queued vertex can offer a shorter path to the goal than
-$\gcost(s_{\mathrm{start}})$ itself. Every vertex on a minimising successor chain from
+$\gcost(s_{\mathrm{start}})$ itself. Every vertex on a minimizing successor chain from
 $s_{\mathrm{start}}$ has a key no larger than $k(s_{\mathrm{start}})$ and is therefore
 consistent, so the chain is a shortest path by the argument of
 \cref{thm:ch05-consistent-correct}. Termination follows from
@@ -986,7 +983,7 @@ would, on the reversed graph.
 \begin{proof}[Proof sketch]
 An overconsistent expansion of $u$ sets $\gcost(u)=\rhs(u)$ with key
 $[\gcost(u)+\hcost(s_{\mathrm{start}},u)+k_m;\,\gcost(u)]$. Any vertex $s'$ expanded
-afterwards has a key at least as large, so $\gcost(s') + \hcost(s_{\mathrm{start}},s') \ge
+afterward has a key at least as large, so $\gcost(s') + \hcost(s_{\mathrm{start}},s') \ge
 \gcost(u) + \hcost(s_{\mathrm{start}},u)$. The consistency condition of
 \cref{sec:ch05-reverse}, applied to the edge $(u,s')$ with $u \in \Pred(s')$, reads
 $\hcost(s_{\mathrm{start}},s') \le \hcost(s_{\mathrm{start}},u) + c(u,s')$, hence
@@ -1031,7 +1028,7 @@ case\index{complexity!of D* Lite}, where $\Delta$ is the maximum degree of the g
 a 4-connected grid $\Delta = 4$ is a constant and this is
 $O\bigl((|V|+|E|)\log|V|\bigr)$, the same bound as a search from scratch with \astar.
 Recomputing an $\rhs$-value as a minimum over all successors, rather than relaxing one
-edge as \astar does, is what costs the extra factor $\Delta$; the optimised variant
+edge as \astar does, is what costs the extra factor $\Delta$; the optimized variant
 mentioned in \cref{sec:ch05-dstarlite-pseudocode} relaxes single edges in the
 overconsistent case and pays $\Delta$ only where a value is retracted.
 The saving is not asymptotic: it is that the constant is paid only where stored values
@@ -1072,8 +1069,8 @@ Over the $40$ replanning events, \astar expanded $14\,166$ vertices in total and
 \dstarlite $1\,031$, a ratio of about $14$; the same repairs took $60$~ms and $33$~ms of
 wall-clock time, a much smaller gap, because one \dstarlite expansion costs about
 $28\,\mu$s in this implementation against $4\,\mu$s for an \astar expansion:
-\DslUpdateVertex recomputes the $\rhs$-value of every neighbour from all of its
-neighbours, and the lazy queue does extra bookkeeping. Three features of the curves are
+\DslUpdateVertex recomputes the $\rhs$-value of every neighbor from all of its
+neighbors, and the lazy queue does extra bookkeeping. Three features of the curves are
 worth noticing. First, the initial search (event $0$) costs \dstarlite $1\,285$
 expansions and $32$~ms, against $279$ expansions and $1.3$~ms for \astar. The dotted
 curve shows that \astar with the tie-breaking of the \dstarlite key needs $1\,247$
@@ -1104,7 +1101,7 @@ an \astar search, which is the ``almost everything changed'' case of
 \paragraph{The original \dstar.}
 Stentz's \dstar (``Dynamic \astar'') \cite{stentz1994optimal} was the first algorithm
 to repair a robot's path incrementally as its sensors revealed unknown terrain, and
-its Focussed variant \cite{stentz1995focussed} added a heuristic. It works backward from the goal, like
+its Focused variant \cite{stentz1995focussed} added a heuristic. It works backward from the goal, like
 \dstarlite, but propagates cost changes with \textsc{Raise} and \textsc{Lower} states
 and a set of case distinctions that are hard to get right. \dstarlite computes the same
 paths, expands no more vertices than \dstar in the experiments of
@@ -1146,8 +1143,7 @@ machinery.\index{Moving Target D* Lite}
 \paragraph{The priority queue.}
 The algorithms need \IncInsert, \IncPop, \IncTopKey, membership tests and, in
 \DslUpdateVertex, \IncRemove of an arbitrary element. \python's \code{heapq} offers no
-removal, so \cref{lst:ch05-queue} uses \emph{lazy deletion}\index{priority queue!lazy
-deletion}: a dictionary maps each queued vertex to its current key, and heap entries
+removal, so \cref{lst:ch05-queue} uses \emph{lazy deletion}\index{priority queue!lazy deletion}: a dictionary maps each queued vertex to its current key, and heap entries
 are only trusted if their key equals the dictionary entry. \IncRemove deletes the
 dictionary entry; the stale heap entry is skipped when it surfaces. The heap holds at
 most one \emph{live} entry per vertex, but a stale entry is only discarded when it
@@ -1155,7 +1151,7 @@ reaches the top, so the heap grows with the number of insertions rather than wit
 every operation costs $\bigO{\log m}$ with $m$ the current heap \emph{size}, and on a
 long mission with many changes $m$ can exceed $|U|$ by a wide margin. Rebuild the heap
 from \code{key\_of} whenever $m$ grows past a few times $|U|$; the rebuild is
-$\bigO{|U|}$ and amortises away. An alternative is an
+$\bigO{|U|}$ and amortizes away. An alternative is an
 indexed binary heap with an explicit \code{decrease\_key} and \code{remove}; it is
 faster in compiled languages but longer to write. Store keys as tuples so that
 comparison is lexicographic, and break ties among equal keys deterministically (here by
@@ -1182,7 +1178,7 @@ available.
 The pseudocode ``scans the graph''. In a grid world the environment reports the cells
 whose status flipped; the planner converts each such cell $b$ into its eight directed
 edges and calls \DslUpdateVertex on each tail, that is on $b$ and on each of its four
-neighbours. Doing this once per changed cell is enough; calling \DslUpdateVertex twice
+neighbors. Doing this once per changed cell is enough; calling \DslUpdateVertex twice
 on the same vertex is harmless. Edge-cost \emph{decreases} (an obstacle disappears or a
 region is no longer predicted to be occupied) are handled by the same code and produce
 only overconsistent vertices.
@@ -1198,7 +1194,7 @@ sufficient.
 unreachable; the queue is then empty or holds only keys $\ge [\infty;\infty]$. The main
 loop must check this before taking a step (\cref{alg:ch05-dstarlite},
 line~\ref{alg:ch05-dstarlite:nopath}). When the obstacle disappears later, the same
-queue continues to work: no re-initialisation is needed, ever.
+queue continues to work: no re-initialization is needed, ever.
 
 \begin{lstlisting}[caption={The priority queue with lazy deletion (from \code{code/ch05\_dstar\_lite.py}).},label={lst:ch05-queue}]
 class PriorityQueue:
@@ -1281,7 +1277,7 @@ class PriorityQueue:
         """Process cells whose blocked status flipped (D* Lite main loop).
 
         Adds h(s_last, s_start) to k_m, updates the tail of every changed
-        edge (the cell and each neighbour) and, if replan, repairs the
+        edge (the cell and each neighbor) and, if replan, repairs the
         search.  Returns the number of expansions.
         """
         if not cells:
@@ -1313,9 +1309,9 @@ search expands exactly as many vertices as \astar with the same tie-breaking
 An obstacle that appears at cell $b$ changes the edges \emph{into} $b$ and the edges
 \emph{out of} $b$. Updating only the incoming edges (the natural thought: ``nobody may
 enter $b$'') leaves $\rhs(b)$ and $\gcost(b)$ finite in \dstarlite, so $b$ looks like a
-consistent cell with a valid goal distance; the neighbours' $\rhs$-values still ignore
+consistent cell with a valid goal distance; the neighbors' $\rhs$-values still ignore
 it because their edges into $b$ cost $\infty$, so the robot does not enter $b$ today, but
-when the obstacle later disappears the neighbours are updated from a stale $\gcost(b)$.
+when the obstacle later disappears the neighbors are updated from a stale $\gcost(b)$.
 Updating only the outgoing edges is wrong in the other direction: in \lpastar the
 successors of $b$ are corrected but $b$ keeps a finite $\rhs$ through its unchanged
 incoming edges, and the backward path extraction of \cref{thm:ch05-consistent-correct}
@@ -1328,7 +1324,7 @@ Incremental search pays off when the change is small relative to the search. If 
 environment changes almost everywhere between two queries, for example when a fresh
 occupancy map arrives from a different sensor, or when the start and the goal both jump,
 \dstarlite may expand many vertices twice (once to retract, once to recompute) and
-spends time in \DslUpdateVertex on every affected neighbour. In such cases a fresh \astar
+spends time in \DslUpdateVertex on every affected neighbor. In such cases a fresh \astar
 is faster and simpler. A robust replanning layer measures the fraction of changed cells
 and falls back to \astar above a threshold; \cref{exr:ch05-threshold} asks you to find
 that threshold for your implementation. Remember also that the \emph{first} search of
@@ -1348,8 +1344,8 @@ The global planner (conflict-based search, \cbs, or its bounded-suboptimal varia
 time-indexed route; the prediction layer (\cref{ch:ch18,ch:ch20}) delivers, for each
 unknown vehicle, a predicted trajectory with uncertainty; the local layer (optimal
 reciprocal collision avoidance, \orca, or the dynamic window approach, DWA,
-\cref{ch:ch13,ch:ch14}) executes short avoidance manoeuvres. The replanning layer is
-invoked when the local manoeuvre cannot safely return the drone to its nominal route:
+\cref{ch:ch13,ch:ch14}) executes short avoidance maneuvers. The replanning layer is
+invoked when the local maneuver cannot safely return the drone to its nominal route:
 reconnection is impossible, too costly, or would violate formation or communication
 constraints. It then runs \DslComputeShortestPath from the drone's \emph{current} cell
 and hands the new route back to the executive, which re-checks it for conflicts with
@@ -1373,8 +1369,8 @@ obstacles during execution, and compare with re-running \astar
   \centering
   \inputfigure{ch05/drone-replanning}
   \caption{The replanning layer. A predicted intruder trajectory (red, with its
-  uncertainty tube) is rasterised into blocked cells (hatched). The drone (blue) cannot
-  rejoin its nominal route (dashed) with a local manoeuvre, so \dstarlite is run from
+  uncertainty tube) is rasterized into blocked cells (hatched). The drone (blue) cannot
+  rejoin its nominal route (dashed) with a local maneuver, so \dstarlite is run from
   the drone's current cell; only the cells around the tube are updated and the new
   route (solid blue) is returned to the executive for a conflict re-check: the drone
   slips below the predicted region through the one row the tube does not reach. The
@@ -1396,7 +1392,7 @@ obstacles during execution, and compare with re-running \astar
     processes stale vertices before the vertices that depend on them.
   \item \LpaComputeShortestPath pops until the query vertex is consistent and no key is
     smaller; overconsistent pops accept $\rhs$, underconsistent pops reset $\gcost$ to
-    $\infty$ and update the vertex and its neighbours.
+    $\infty$ and update the vertex and its neighbors.
   \item \dstarlite searches backward from the goal so that the robot may move; $\rhs$
     looks at successors, expansions update predecessors, the heuristic is measured from
     the robot, and paths are read forward.
@@ -1467,7 +1463,7 @@ two-component key of \cref{def:ch05-key} expands every vertex at most twice.
 \label{exr:ch05-kmproof}
 Let the robot have moved from $s_{\mathrm{last}}$ to $s_{\mathrm{start}}$ and let
 \cref{alg:ch05-dstarlite} execute line~\ref{alg:ch05-dstarlite:km}. Prove that
-afterwards every key stored in $U$ is a lower bound on the key that \DslCalculateKey
+afterward every key stored in $U$ is a lower bound on the key that \DslCalculateKey
 would return for that vertex, assuming only that $\hcost$ satisfies the triangle
 inequality $\hcost(a,c)\le\hcost(a,b)+\hcost(b,c)$. Then show by an example with
 concrete numbers that without line~\ref{alg:ch05-dstarlite:km} some stored key can be a

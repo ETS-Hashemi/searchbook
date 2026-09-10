@@ -6,7 +6,7 @@ v_max = 2 m/s) starts at the origin with velocity (1, 0) and tracks the
 reference p_ref(t) = (t, 0) m at 1 m/s.  An intruder starts at (4.5, -3.0)
 and moves with the constant velocity (0, 0.8) m/s; the required separation
 is r_safe = 1 m.  The MPC uses N = 15, Q = diag(1, 1, 0.1, 0.1),
-R = 0.1 I, the DARE terminal weight, and one linearised half-plane per
+R = 0.1 I, the DARE terminal weight, and one linearized half-plane per
 predicted intruder position.
 
 Files written (whitespace separated, one header row):
@@ -31,7 +31,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from ch21_mpc import (MPC, default_scenario, horizon_experiment,  # noqa: E402
-                      simulate, summarise, tuning_runs)
+                      simulate, summarize, tuning_runs)
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(HERE), ".."))
 DATA = os.path.join(ROOT, "figures", "data")
@@ -102,7 +102,7 @@ def main():
     plan = rec["pred"][i3][:, :2]
     save("ch21-example-plan.dat", "k x y",
          np.column_stack([np.arange(1, mpc.N + 1), plan[:, 0], plan[:, 1]]))
-    s = summarise(rec)
+    s = summarize(rec)
     i_min = int(np.argmin(rec["sep"]))
     active = [i for i, a in enumerate(rec["active"]) if a]
     tf, tl = t[active[0]], t[active[-1]]
@@ -130,7 +130,7 @@ def main():
          np.column_stack([tr["N5"]["t"], tr["N5"]["x"][:, 2], tr["N10"]["x"][:, 2], tr["N20"]["x"][:, 2],
                           tr["w1"]["sep"], tr["w10"]["sep"], tr["w100"]["sep"]]))
     for k, r in tr.items():
-        sk = summarise(r)
+        sk = summarize(r)
         print("tuning %-5s min sep %.3f rms err %.3f max err %.3f min vx %.3f max slack %.3f failures %d" % (
             k, sk["min_sep"], sk["rms_err"], sk["max_err"], r["x"][:, 2].min(), sk["max_slack"], sk["failures"]))
 

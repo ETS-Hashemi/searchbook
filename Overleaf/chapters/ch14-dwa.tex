@@ -90,7 +90,7 @@ the drone to a collision even if the very next command were full braking.
 This is the \textbf{admissibility} test.\index{admissible velocity} The
 remaining candidates are all safe for at least one more step, and among them
 DWA simply picks the one with the best score, a weighted sum of three
-ingredients: does the rollout head towards the goal, how much free space does
+ingredients: does the rollout head toward the goal, how much free space does
 it have ahead, and how fast is it. The winner is sent to the motors, the
 drone moves, the sensors deliver a new picture of the obstacles, and the whole
 computation is repeated from the new velocity. \Cref{fig:ch14-pipeline}
@@ -121,7 +121,7 @@ direction'' query can be plugged.
 Search only the velocities you can reach in the next control interval, keep
 only those from which you can still stop before the nearest obstacle, simulate
 each for a short horizon, and execute the one whose rollout best combines
-heading towards the goal, clearance and speed. Safety comes from the braking
+heading toward the goal, clearance and speed. Safety comes from the braking
 test; progress comes from the score; memory comes from nowhere, which is why
 DWA is fast, respects dynamics, and can still get stuck.
 \end{keyidea}
@@ -203,7 +203,7 @@ first inflated obstacle ($\infty$ if there is none).\index{free distance} The
 cap $d_{\max}$ is the
 sensing range, or simply the distance beyond which we stop caring. For
 $\vel = \vect{0}$ we set $\dist(\vect{0}) = d_{\max}$: standing still never
-runs into a static obstacle. For discs the ray cast is the ray--circle
+runs into a static obstacle. For disks the ray cast is the ray--circle
 intersection of \cref{ch:ch02}; for axis-aligned boxes it is a slab test; for
 a point cloud or an occupancy grid it is a march along the ray.
 
@@ -246,7 +246,7 @@ The search set of DWA is the intersection of three sets in velocity space
 The set of \textbf{possible velocities}\index{DWA!possible velocities} $V_s$
 contains the commands the actuators can produce at all. For the differential
 drive, $V_s = [0, v_{\max}] \times [-\omega_{\max}, \omega_{\max}]$ (or
-$[v_{\min}, v_{\max}]$ if driving backwards is allowed). For the drone,
+$[v_{\min}, v_{\max}]$ if driving backward is allowed). For the drone,
 $V_s = \set{\vel : \norm{\vel} \le v_{\max}}$, a ball, or a box if the axes
 have separate limits.
 \end{definition}
@@ -373,7 +373,7 @@ step.
 \subsection{The objective}
 \label{sec:ch14-objective}
 
-Among the velocities in $V_r$, DWA maximises
+Among the velocities in $V_r$, DWA maximizes
 \begin{equation}
   G(\vel) = \sigma\bigl(\alpha \cdot \mathrm{heading}(\vel)
              + \beta \cdot \mathrm{clearance}(\vel)
@@ -563,7 +563,7 @@ actually delivers.
 \begin{example}[A drone approaching an obstacle]
 \label{ex:ch14-approach}
 A drone of radius $r = 0.2$~m is at $\pos = (0, 0)$, flying at
-$\vel_a = (1.0, 0)$~m/s towards the goal $\pos_g = (5, 0)$. A disc obstacle
+$\vel_a = (1.0, 0)$~m/s toward the goal $\pos_g = (5, 0)$. A disk obstacle
 of radius $0.4$~m is centered at $(1.2, -0.1)$, almost on the line to the
 goal and slightly below it. The parameters are those of
 \cref{tab:ch14-parameters}. The instance is \code{worked\_example()} in
@@ -580,15 +580,15 @@ elements (\cref{fig:ch14-example}b).
 
 \paragraph{The admissibility test.}
 The inflated obstacle has radius $0.6$~m. Straight ahead, the ray from the
-origin along $x$ passes at distance $0.1$ from the centre and meets the disc
+origin along $x$ passes at distance $0.1$ from the center and meets the disk
 at $1.2 - \sqrt{0.6^2 - 0.1^2} = 0.608$~m. By \cref{eq:ch14-vadm} the
 largest admissible speed in that direction is
 $-0.5 + \sqrt{0.25 + 4 \cdot 0.608} = 1.138$~m/s: keeping $(1.0, 0)$ is
 admissible (braking distance $0.25 + 0.25 = 0.5 \le 0.608$), but
 $(1.25, 0)$ is not ($0.3125 + 0.39 = 0.70 > 0.608$). All ten candidates with
 $v_x \ge 1.25$ except $(1.25, 0.5)$ are inadmissible: their rays hit the
-disc within $0.6$ to $0.8$~m. Sixteen candidates survive; five of them, those
-that steer clear of the disc at moderate speed, see no obstacle at all
+disk within $0.6$ to $0.8$~m. Sixteen candidates survive; five of them, those
+that steer clear of the disk at moderate speed, see no obstacle at all
 within $d_{\max}$ and have $\dist = 3$.
 
 \begin{figure}[tb]
@@ -620,11 +620,11 @@ within $d_{\max}$ and have $\dist = 3$.
 candidates. Keeping $(1.0, 0)$ heads perfectly at the goal
 ($\mathrm{heading} = 1$) but has only $0.608/3 = 0.203$ of clearance, for
 $G = 0.6 + 0.041 + 0.1 = 0.741$. The winner is $(1.0, 0.5)$: the ray misses
-the inflated disc, so clearance is $1$, and although the heading drops to
+the inflated disk, so clearance is $1$, and although the heading drops to
 $0.844$ (the rollout points $28^\circ$ away from the goal seen from the
 predicted position $(0.25, 0.125)$) the total is $0.818$. The swerve is
-towards $+y$, the side on which the obstacle leaves more room; the mirror
-image $(1.0, -0.5)$ still hits the disc at $0.718$~m and scores only
+toward $+y$, the side on which the obstacle leaves more room; the mirror
+image $(1.0, -0.5)$ still hits the disk at $0.718$~m and scores only
 $0.666$. Slower candidates with full clearance, $(0.75, 0.5)$ and
 $(0.5, 0.25)$, lose on the velocity term. Note what decided the step: the
 braking test removed every fast candidate that pointed at the obstacle, and
@@ -664,7 +664,7 @@ side.
 $[0.5, 1.5] \times [0, 1]$ and the drone accelerates to $(1.5, 0.75)$, in
 step~3 to $(1.75, 0.75)$: with the obstacle no longer in the way, the
 velocity term takes over. From step~4 the heading term bends the flight back
-towards the goal line, $(1.75, 0.25)$ and then $(1.75, -0.25)$ for six
+toward the goal line, $(1.75, 0.25)$ and then $(1.75, -0.25)$ for six
 steps, during which the heading rises to $0.99$. Steps~11--13 are the
 approach to the goal: the goal-braking rule of
 \cref{sec:ch14-algorithm} makes the fast candidates inadmissible and the
@@ -715,7 +715,7 @@ The admissibility test is a promise about the future: whatever the next
 commands are, the robot can still stop in time. The following lemma and
 theorem make the promise precise for the discrete control loop of
 \cref{alg:ch14-loop}. They are stated for the drone; the differential drive
-is discussed afterwards.
+is discussed afterward.
 
 \begin{lemma}[Braking in discrete steps]
 \label{thm:ch14-braking-lemma}
@@ -785,7 +785,7 @@ start of the induction is the assumption on the initial velocity.
 The theorem says what the braking test buys: as long as the world stands
 still and the free-distance queries are right, a DWA drone can be stopped at
 any moment without collision, whatever the weights. Everything the theorem
-excludes is a real failure mode: obstacles moving towards the drone shrink
+excludes is a real failure mode: obstacles moving toward the drone shrink
 $d'$ faster than $\norm{\vel}\dt$ (\cref{sec:ch14-variants} repairs this with
 predicted velocities); overestimated free distances, from sensor noise or a
 coarse grid, break the induction; a velocity controller that lags makes the
@@ -848,7 +848,7 @@ chapter, and the Week~7 coding exercise asks you to build your own.
   \centering
   \inputfigure{ch14/utrap}
   \caption{The U-shaped trap of \code{utrap\_scene()}. The drone has flown
-  into the U towards the goal behind the back wall. Every candidate that
+  into the U toward the goal behind the back wall. Every candidate that
   improves the heading (red, crossed) points at the wall and fails the
   braking test; the admissible candidates (blue) run parallel to the wall
   and score less than the heading-improving ones would, so the drone shuttles
@@ -871,7 +871,7 @@ One step of \cref{alg:ch14-command} evaluates $N_c = (2n+1)^{\dim}$ grid
 points plus one, with $n = a_{\max}\dt/\Delta v$: $25$ candidates in the plane
 and $125$ in space for the parameters of \cref{tab:ch14-parameters}, $121$
 and $1\,331$ for $\Delta v = 0.1$~m/s. Each candidate needs one free-distance
-query, $\bigO{M}$ for $M$ discs or boxes with analytic ray casts, or
+query, $\bigO{M}$ for $M$ disks or boxes with analytic ray casts, or
 $\bigO{d_{\max}/\Delta s}$ steps of $\Delta s$ for a marched rollout, and
 constant work for the three terms. The step therefore costs
 $\bigO{N_c\,M}$ time and $\bigO{N_c}$ memory, with nothing carried over
@@ -1019,9 +1019,9 @@ commands is chosen.
 drone crossing at $1.5$~m/s. The repair is the relative-velocity view of
 \cref{ch:ch12}: if an obstacle moves with velocity $\vect{u}$, the rollout
 of $\vel$ collides with it when the ray in direction $\vel - \vect{u}$ meets
-the inflated disc, and the free distance along the drone's own path is
+the inflated disk, and the free distance along the drone's own path is
 $\norm{\vel}$ times that collision time. \code{free\_distance()} in
-\code{ch14\_dwa.py} does this for discs with a known velocity, which the
+\code{ch14\_dwa.py} does this for disks with a known velocity, which the
 prediction layer of \cref{ch:ch18,ch:ch20} supplies. The self-test contains
 the corresponding pitfall: an intruder that starts at $(3.5, 3.0)$ and flies
 down at $1.5$~m/s across the drone's route from $(0,0)$ to $(7, 0)$. With
@@ -1080,7 +1080,7 @@ pass. Keep $2n+1 \ge 5$ and refine the grid near the boundary of the
 admissible set if narrow passages matter.
 
 \paragraph{Cost of rollouts and free-distance queries.}
-For discs and boxes the ray cast is exact and costs $\bigO{M}$; it is the
+For disks and boxes the ray cast is exact and costs $\bigO{M}$; it is the
 right choice for the obstacle lists of the tracking layer. For an occupancy
 grid or a point cloud, march along the ray in steps smaller than the smallest
 obstacle feature, or read $\dist$ off a distance transform computed once per
@@ -1126,8 +1126,8 @@ admissible speed of \cref{eq:ch14-vadm} is \code{admissible\_speed(dist,
 a\_brake, dt)}, called with the delay \code{prm.brake\_delay}, which equals
 $\dt$ unless it is set to $0$ to reproduce the continuous test of Fox et al.\
 (the self-test does so for the wall of \cref{sec:ch14-restrictions}). The
-free-distance function on line~12 ray-casts against discs and boxes and
-switches to the relative-velocity ray when a disc carries a velocity.
+free-distance function on line~12 ray-casts against disks and boxes and
+switches to the relative-velocity ray when a disk carries a velocity.
 
 \begin{lstlisting}[caption={Scoring and selection (from \code{code/ch14\_dwa.py}).},label={lst:ch14-dist}]
 def evaluate(p, v_a, obstacles, target, prm, goal=None):
@@ -1174,7 +1174,7 @@ def dwa_command(p, v_a, obstacles, target, prm, goal=None):
 \end{lstlisting}
 
 \begin{pitfall}[Forgetting the braking constraint]
-The heading and velocity terms both reward flying fast towards the goal, and
+The heading and velocity terms both reward flying fast toward the goal, and
 an implementation that scores every window candidate without the
 admissibility test flies the drone into the first obstacle on its line: the
 clearance term only lowers a score, it forbids nothing. The braking test is
@@ -1185,7 +1185,7 @@ directly ahead, and use its discrete-time form \cref{eq:ch14-vadm}.
 \begin{pitfall}[Scoring in different units]
 Adding an angle in radians, a distance in meters and a speed in meters per
 second with weights like $(0.6, 0.2, 0.2)$ produces a number whose meaning
-changes with the map units and the vehicle. Normalise each term to $[0, 1]$
+changes with the map units and the vehicle. Normalize each term to $[0, 1]$
 by its maximum ($\pi$, $d_{\max}$, $v_{\max}$) before weighting, and note
 that $d_{\max}$ is part of the tuning: doubling it halves every clearance
 score. \Cref{exr:ch14-units} shows that in centimeters the goal stops mattering
@@ -1356,7 +1356,7 @@ $\lambda$ but leaves $\alpha$ unchanged, and explain why the normalized form
 
 \begin{exercise}[\difficulty{2}]
 \label{exr:ch14-hysteresis}
-A drone flies straight at a disc obstacle centered exactly on the line to
+A drone flies straight at a disk obstacle centered exactly on the line to
 the goal. (a) Explain why the two mirror-image candidates
 $(v_x, \pm v_y)$ have identical scores and why, after the first step breaks
 the tie, small changes of the geometry can make the winner alternate from

@@ -13,8 +13,8 @@ Columns (whitespace separated, one header row, means over the instances):
     dijkstra_full   cells settled by Dijkstra without a target
     dijkstra_early  cells settled by Dijkstra with the early exit at the target
     cost            cost of the optimal path from source to target
-    dijkstra_mid    cells settled with the early exit at the centre cell (n//2, n//2)
-    cost_mid        cost of the optimal path from the source to the centre cell
+    dijkstra_mid    cells settled with the early exit at the center cell (n//2, n//2)
+    cost_mid        cost of the optimal path from the source to the center cell
 
 Chapter 4 reuses this format and appends columns such as astar_octile for
 the same instances (same seed, same generator settings).  Run from Overleaf/:
@@ -74,12 +74,12 @@ def main():
                 continue                       # unreachable: draw again
             early = CountingGraph(grid)
             edist, _ = dijkstra(early, source, target)
-            centre = CountingGraph(grid)
-            mdist, _ = dijkstra(centre, source, mid)
+            center = CountingGraph(grid)
+            mdist, _ = dijkstra(center, source, mid)
             free = sum(row.count(0) for row in cells)
             # with the early exit the target is settled but not expanded
             stats.append((free, full.expanded, early.expanded + 1, edist[target],
-                          centre.expanded + 1, mdist[mid]))
+                          center.expanded + 1, mdist[mid]))
         mean = np.mean(np.array(stats, dtype=float), axis=0)
         rows.append((n, n * n) + tuple(mean))
         print("n=%3d free=%8.1f full=%8.1f early=%8.1f cost=%7.2f mid=%8.1f cost_mid=%7.2f"

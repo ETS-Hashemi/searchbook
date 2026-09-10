@@ -31,12 +31,12 @@ from ch19_nonlinear_filters import (CoordinatedTurnModel, RangeBearingSensor, TU
 DATA = os.path.join(HERE, "..", "..", "figures", "data")
 RUNS = 100
 N_PARTICLES = 2000
-LOST_THRESHOLD = 30.0        # metres of final position error
+LOST_THRESHOLD = 30.0        # meters of final position error
 SCENARIOS = [
     ("baseline ($\\sigma_\\varphi = 2^\\circ$)", dict(sigma_phi=math.radians(2.0))),
     ("wide bearing noise ($\\sigma_\\varphi = 8^\\circ$)", dict(sigma_phi=math.radians(8.0))),
     ("close pass (sensor at $(35, -20)$)", dict(sigma_phi=math.radians(2.0), pos=(35.0, -20.0))),
-    ("poor initialisation ($90^\\circ$ heading error)",
+    ("poor initialization ($90^\\circ$ heading error)",
      dict(sigma_phi=math.radians(2.0), init_error=(0.0, 0.0, 0.0, math.pi / 2, 0.0), init_heading_std=0.3)),
 ]
 

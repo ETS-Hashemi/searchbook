@@ -12,14 +12,14 @@ in NumPy (no SciPy).
 * ``dare(A, B, Q, R)`` computes the terminal weight P of the infinite-horizon
   LQR problem by iterating the discrete algebraic Riccati equation.
 * ``solve_qp(H, f, G, l, u, ...)`` solves  min 1/2 z'Hz + f'z  s.t. l <= Gz <= u
-  with the ADMM iteration of OSQP (Stellato et al. 2020): one factorisation
+  with the ADMM iteration of OSQP (Stellato et al. 2020): one factorization
   per penalty rho, warm starts, a primal-infeasibility certificate and a
   final polishing step that makes the active constraints hold exactly.
 * ``MPC`` assembles the condensed QP at every step: cost from the stacked
-  reference, input and velocity boxes, one linearised half-plane per
+  reference, input and velocity boxes, one linearized half-plane per
   predicted obstacle position (hard, or soft with slack variables and an
-  optional chance-constraint inflation), and polygonal "stay within a disc
-  around a moving centre" constraints for formation keeping and
+  optional chance-constraint inflation), and polygonal "stay within a disk
+  around a moving center" constraints for formation keeping and
   communication range.  ``MPC.step`` returns the first input.
 * ``simulate`` runs a drone that follows a reference path while an intruder
   crosses, optionally with followers that must keep a formation offset and
@@ -228,15 +228,15 @@ def solve_qp(H, f, G, l, u, z0=None, y0=None, rho=0.1, sigma=1e-6, alpha=1.6,
 
 # ------------------------------------------------------------------ MPC
 class Obstacle(NamedTuple):
-    """Predicted obstacle: centres (N, n), radius (scalar), covs (N, n, n) or None."""
-    centres: np.ndarray
+    """Predicted obstacle: centers (N, n), radius (scalar), covs (N, n, n) or None."""
+    centers: np.ndarray
     radius: float
     covs: object = None
 
 
 class KeepIn(NamedTuple):
-    """Stay within `radius` of the moving centre (N, n): formation or communication."""
-    centres: np.ndarray
+    """Stay within `radius` of the moving center (N, n): formation or communication."""
+    centers: np.ndarray
     radius: float
 
 
@@ -285,7 +285,7 @@ class MPC:
         return np.concatenate(out)
 
     def _fallback(self, x0):
-        """Brake towards zero velocity when the QP cannot be solved."""
+        """Brake toward zero velocity when the QP cannot be solved."""
         return np.clip(-x0[self.n:] / self.dt, -self.a_max, self.a_max)
 
     def step(self, x0, Xref, obstacles=(), keep_in=()):
@@ -306,16 +306,16 @@ class MPC:
         rows.append(self.Su[vidx])
         lo.append(-self.v_max - free[vidx])
         up.append(self.v_max - free[vidx])
-        # (3) one linearised half-plane per obstacle and step
+        # (3) one linearized half-plane per obstacle and step
         avoid_rows, avoid_lo, avoid_up = [], [], []
         avoid_k, normals = [], []
         for obs in obstacles:
             for k in range(N):
                 pk = self.pos_idx[k]
-                d = X_guess[pk] - obs.centres[k]
+                d = X_guess[pk] - obs.centers[k]
                 dist = float(np.linalg.norm(d))
-                if dist < 1e-9:      # on the centre: use the reference
-                    d = xref[pk] - obs.centres[k]
+                if dist < 1e-9:      # on the center: use the reference
+                    d = xref[pk] - obs.centers[k]
                     dist = float(np.linalg.norm(d))
                 if dist < 1e-9:
                     d = np.eye(n)[-1]
@@ -326,7 +326,7 @@ class MPC:
                     sig = math.sqrt(float(nk @ obs.covs[k] @ nk))
                     radius += self.kappa * sig
                 # nk'(p_k - o_k) >= radius, written as a row in U
-                bound = float(nk @ (free[pk] - obs.centres[k])) - radius
+                bound = float(nk @ (free[pk] - obs.centers[k])) - radius
                 avoid_rows.append(-nk @ self.Su[pk])
                 avoid_lo.append(-INF)
                 avoid_up.append(bound)
@@ -339,7 +339,7 @@ class MPC:
                 for nm in self.poly:
                     rows.append((nm @ self.Su[pk])[None, :])
                     lo.append(np.array([-INF]))
-                    up.append(np.array([ki.radius * self.apothem - float(nm @ (free[pk] - ki.centres[k]))]))
+                    up.append(np.array([ki.radius * self.apothem - float(nm @ (free[pk] - ki.centers[k]))]))
         n_avoid = len(avoid_rows)
         n_slack = n_avoid if self.soft else 0
         nz = N * nu + n_slack
@@ -444,7 +444,7 @@ def simulate(mpc: MPC, x0, ref, intruder=None, T=8.0, r_safe=1.0, followers=(),
     cov_growth = (Sigma0, Sigma_v): the predicted intruder position at step k
     gets covariance Sigma0 + (k dt)^2 Sigma_v (used with mpc.kappa > 0).
     wind: a constant acceleration (n,) added to the plant but not to the model,
-    i.e. an unmodelled disturbance the receding horizon has to reject
+    i.e. an unmodeled disturbance the receding horizon has to reject
     (exercise 21.1).
     """
     mpc.reset()
@@ -515,7 +515,7 @@ def default_scenario():
     return x0, ref, intr
 
 
-def summarise(rec, r_safe=1.0):
+def summarize(rec, r_safe=1.0):
     ok = np.array([s.startswith("solved") for s in rec["status"]])
     inacc = int(sum(s == "solved_inaccurate" for s in rec["status"]))
     return dict(min_sep=float(np.min(rec["sep"])), t_min=float(rec["t"][int(np.argmin(rec["sep"]))]),
@@ -533,7 +533,7 @@ def worked_example(verbose=True, N=15):
     x0, ref, intr = default_scenario()
     mpc = MPC(N=N, dt=0.1)
     rec = simulate(mpc, x0, ref, intr, T=8.0)
-    s = summarise(rec)
+    s = summarize(rec)
     if verbose:
         print("Worked example: N=%d dt=%.2f a_max=%.1f v_max=%.1f r_safe=1.0" % (N, mpc.dt, mpc.a_max, mpc.v_max))
         print("terminal weight P (DARE) =")
@@ -599,8 +599,8 @@ def horizon_experiment(Ns=(3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30), detect_range=
     intr = Intruder(intr.p0, intr.v, detect_range)
     rows = []
     for N in Ns:
-        rh = summarise(simulate(MPC(N=N, dt=0.1), x0, ref, intr, T=8.0))
-        rs = summarise(simulate(MPC(N=N, dt=0.1, soft=True), x0, ref, intr, T=8.0))
+        rh = summarize(simulate(MPC(N=N, dt=0.1), x0, ref, intr, T=8.0))
+        rs = summarize(simulate(MPC(N=N, dt=0.1, soft=True), x0, ref, intr, T=8.0))
         rows.append((N, rh["rms_err"], rh["min_sep"], rh["failures"],
                      rs["rms_err"], rs["min_sep"], rs["failures"], rs["max_slack"]))
     return np.array(rows)
@@ -629,7 +629,7 @@ def _self_test():
     res = solve_qp(np.array([[1.0]]), np.zeros(1), np.array([[1.0], [1.0]]),
                    np.array([1.0, -INF]), np.array([INF, 0.0]))
     assert res.status == "infeasible", res.status
-    # 3. the half-plane excludes the whole disc
+    # 3. the half-plane excludes the whole disk
     o, r = np.array([1.0, 2.0]), 0.7
     for _ in range(200):
         nk = rng.normal(size=2)
@@ -647,22 +647,22 @@ def _self_test():
     # 5. intruder with hard constraints: separation never below r_safe
     x0, ref, intr = default_scenario()
     rec_h = simulate(MPC(N=15, dt=0.1), x0, ref, intr, T=8.0)
-    s_h = summarise(rec_h)
+    s_h = summarize(rec_h)
     assert s_h["failures"] == 0 and s_h["min_sep"] >= 1.0 - 1e-4, s_h
     assert np.all(np.abs(rec_h["u"]) <= 2.0 + 1e-9) and np.all(np.abs(rec_h["x"][:, 2:]) <= 2.0 + 1e-6)
     assert rec_h["err"][-1] < 0.05                      # back on the reference at the end
     # 6. soft constraints with an exact penalty reproduce the hard solution ...
     rec_s = simulate(MPC(N=15, dt=0.1, soft=True), x0, ref, intr, T=8.0)
-    s_s = summarise(rec_s)
+    s_s = summarize(rec_s)
     assert s_s["failures"] == 0 and s_s["min_sep"] >= 1.0 - 1e-4, s_s
     assert np.max(np.abs(rec_s["x"] - rec_h["x"])) < 1e-3
     # ... and degrade gracefully when the hard problem is infeasible (late detection)
     late = Intruder(intr.p0, intr.v, detect_range=1.2)
-    s_hard_late = summarise(simulate(MPC(N=15, dt=0.1), x0, ref, late, T=8.0))
-    s_soft_late = summarise(simulate(MPC(N=15, dt=0.1, soft=True), x0, ref, late, T=8.0))
+    s_hard_late = summarize(simulate(MPC(N=15, dt=0.1), x0, ref, late, T=8.0))
+    s_soft_late = summarize(simulate(MPC(N=15, dt=0.1, soft=True), x0, ref, late, T=8.0))
     assert s_hard_late["failures"] > 0, s_hard_late
     assert s_soft_late["failures"] == 0 and s_soft_late["min_sep"] > s_hard_late["min_sep"], (s_hard_late, s_soft_late)
-    seps = [summarise(simulate(MPC(N=15, dt=0.1, soft=True, w_lin=w, w_quad=w), x0, ref, intr, T=8.0))["min_sep"]
+    seps = [summarize(simulate(MPC(N=15, dt=0.1, soft=True, w_lin=w, w_quad=w), x0, ref, intr, T=8.0))["min_sep"]
             for w in (1.0, 10.0, 100.0)]
     assert seps[0] <= seps[1] + 1e-6 <= seps[2] + 2e-6 and seps[0] > 0.5, seps
     # 7. leader-follower: formation and communication constraints hold at every step
@@ -673,14 +673,14 @@ def _self_test():
     # 8. chance constraint: inflated radius increases the minimum separation
     S0, Sv = 0.05 ** 2 * np.eye(2), 0.2 ** 2 * np.eye(2)
     rec_c = simulate(MPC(N=15, dt=0.1, delta=0.05), x0, ref, intr, T=8.0, cov_growth=(S0, Sv))
-    assert summarise(rec_c)["min_sep"] > s_h["min_sep"] + 0.05
+    assert summarize(rec_c)["min_sep"] > s_h["min_sep"] + 0.05
     assert abs(normal_quantile(0.95) - 1.6449) < 1e-3
     elapsed = time.perf_counter() - t_start
     assert elapsed < 10.0
     print("self-test passed in %.1f s (hard: min sep %.3f, soft w=1: %.3f, late hard fails %d, "
           "late soft min sep %.3f, chance min sep %.3f)" % (
               elapsed, s_h["min_sep"], seps[0], s_hard_late["failures"], s_soft_late["min_sep"],
-              summarise(rec_c)["min_sep"]))
+              summarize(rec_c)["min_sep"]))
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@
   \item Run focal search by hand: keep \Open ordered by $\fcost$, keep \Focal as the band of open nodes with $\fcost \le w\,\fcost_{\min}$, choose inside the band by a second heuristic, and prove that the result is $w$-suboptimal.
   \item Trace \ecbs on a small instance: a low level that returns a path \emph{and} a lower bound, a high level that runs focal search over the constraint tree, and the lower-bound bookkeeping that ties the two together.
   \item State and prove the theorem $\cost \le w\,C^*$ for \ecbs, and explain why the algorithm terminates on solvable instances.
-  \item Implement \ecbs in \python, benchmark it against \cbs, choose $w$ from the measured speed--quality trade-off, and recognise the three classic implementation mistakes.
+  \item Implement \ecbs in \python, benchmark it against \cbs, choose $w$ from the measured speed--quality trade-off, and recognize the three classic implementation mistakes.
   \item Describe what \emph{EECBS} adds: explicit estimation search and online-learned estimates.
 \end{itemize}
 \end{objectives}
@@ -175,10 +175,8 @@ that respects $N.\mathcal{C}_i$, and the resulting $N.\cost = \sum_i
 
 \begin{definition}[Bounded-suboptimal algorithm]
 \label{def:ch10-bounded}
-Let $w \ge 1$. A solution $\Pi$ is \textbf{$w$-suboptimal}\index{w-suboptimal
-solution@$w$-suboptimal solution} if $\sumcost(\Pi) \le w\,C^*$. An algorithm
-with parameter $w$ is \textbf{bounded-suboptimal}\index{bounded
-suboptimality!definition} if, on every solvable instance, it returns a
+Let $w \ge 1$. A solution $\Pi$ is \textbf{$w$-suboptimal}\index{w-suboptimal solution@$w$-suboptimal solution} if $\sumcost(\Pi) \le w\,C^*$. An algorithm
+with parameter $w$ is \textbf{bounded-suboptimal}\index{bounded suboptimality!definition} if, on every solvable instance, it returns a
 $w$-suboptimal solution. The number $w$ is the \textbf{suboptimality
 factor}\index{suboptimality factor}. For $w = 1$ the algorithm is optimal.
 \end{definition}
@@ -230,8 +228,7 @@ that $a_i$ would have while parked at $\gamma_i$ from time $t$ on are added.
 Let $C_i^*(N)$ be the cost of a cheapest path of agent $a_i$ that respects
 $N.\mathcal{C}_i$ (ignoring the other agents). A \textbf{per-agent lower
 bound}\index{lower bound!per agent} is a number $\mathrm{LB}_i(N) \le
-C_i^*(N)$ stored in $N$. The \textbf{lower bound of the node}\index{lower
-bound!of a CT node} is $\mathrm{LB}(N) = \sum_{i=1}^{k} \mathrm{LB}_i(N)$,
+C_i^*(N)$ stored in $N$. The \textbf{lower bound of the node}\index{lower bound!of a CT node} is $\mathrm{LB}(N) = \sum_{i=1}^{k} \mathrm{LB}_i(N)$,
 and the \textbf{global lower bound}\index{lower bound!global LB} of the high
 level is
 \begin{equation}
@@ -260,7 +257,7 @@ relies on.
 As an algorithm, focal search is the \astar graph search of \cref{ch:ch04} with
 one line changed: instead of the open node with the smallest $\fcost$, it
 expands the node of \Focal with the smallest $\hcost_{\Focal}$, breaking ties
-towards the smaller $\fcost$ and then the larger $\gcost$, so that with $w = 1$
+toward the smaller $\fcost$ and then the larger $\gcost$, so that with $w = 1$
 it degenerates to \astar with the tie-breaking of \cref{ch:ch04}. Everything
 else stays. The goal test happens when a node is \emph{chosen}, never when it
 is generated, because the proof of the bound in \cref{sec:ch10-properties}
@@ -288,7 +285,7 @@ reaching it is $g = t$; the heuristic $\hcost(v)$ is the exact grid distance
 from $v$ to the goal, computed once by a backward breadth-first search and
 cached for all time layers and all constrained re-runs. This heuristic is
 consistent and ignores the other agents, so it never overestimates. Successors
-are the wait action $(v, t+1)$ and the moves $(v', t+1)$ to free neighbours,
+are the wait action $(v, t+1)$ and the moves $(v', t+1)$ to free neighbors,
 minus those forbidden by a vertex or edge constraint. Two details of
 \cref{ch:ch04} carry over. The goal test accepts $(\gamma_i, t)$ only if $t$ is
 later than every vertex constraint on $\gamma_i$, written $t > t_\gamma$, so
@@ -386,7 +383,7 @@ goal state $(1,3)$ at $t = 4$ is taken from the band. The returned path costs
 $4$, has no conflict, and comes with the lower bound $\fcost_{\min} = 3$,
 which is the cost of the dashed path. Run with $w = 1$, the same code expands
 $(1,1)$ at $t = 1$ in step~2 and returns the dashed path with one conflict
-after three expansions. The threshold between the two behaviours is
+after three expansions. The threshold between the two behaviors is
 $w = 4/3$ (\cref{exr:ch10-lowlevel-threshold}).
 \end{example}
 
@@ -431,7 +428,7 @@ another and hand each low-level call the paths planned so far, so that cheap
 conflict avoidance happens already at the root: agent $a_i$ steers around
 $a_1, \dots, a_{i-1}$ where it can within its band, and ignores
 $a_{i+1}, \dots, a_k$, whose paths do not exist yet. This is prioritized
-planning (\cref{ch:ch08}) used as an initialisation, but nothing depends on
+planning (\cref{ch:ch08}) used as an initialization, but nothing depends on
 it: the root of plain \cbs, with independent shortest paths, would do as well.
 Line~\ref{alg:ch10-ecbs:band} computes the global lower bound
 \cref{eq:ch10-LB} and the band \cref{eq:ch10-focal-high};
@@ -914,7 +911,7 @@ on average $1$--$12.5\,\%$ more expensive than optimal
 (\cref{fig:ch10-benchmark}) and, over all instances of that run, never more
 than $28\,\%$, while
 the guarantee allows $100\,\%$, because the conflict count steers the search
-towards solutions and not towards expensive ones; the band permits detours,
+toward solutions and not toward expensive ones; the band permits detours,
 it does not encourage them. The benchmark samples only $w \in \set{1.1, 1.5, 2}$, but between those three
 points the runtime drops steeply first and then flattens, which fits the usual
 picture: a band that admits a couple of extra wait steps already lets the
@@ -1079,7 +1076,7 @@ multiplied by the conflicts still present in a node, give the estimate of the
 cost that resolving them will add. The estimate is inadmissible by design and
 improves as the search proceeds. EECBS combines this with the \cbs
 improvements of \cref{ch:ch09}, adapted to the bounded-suboptimal setting:
-bypassing conflicts, prioritising cardinal conflicts, symmetry reasoning and
+bypassing conflicts, prioritizing cardinal conflicts, symmetry reasoning and
 admissible high-level heuristics that lift $\mathrm{LB}(N)$ above the sum of
 the per-agent bounds. In the experiments of Li et al.\ the combination solves
 instances with hundreds of agents within a minute where \ecbs solves a
@@ -1093,7 +1090,7 @@ factors $w$, in the spirit of \arastar (\cref{ch:ch06}), so that a first plan
 is available quickly and is improved while the drones are still on the ground.
 And because the bound never depended on $\hcost_{\Focal}$, the conflict count
 can be changed freely: counting only conflicts inside a time window, or
-penalising cells near a predicted intruder, keeps the guarantee.
+penalizing cells near a predicted intruder, keeps the guarantee.
 \Cref{ch:ch11} completes the picture of MAPF solvers with \mstar and the
 push-and-swap family and compares all the methods of Part~III.
 
@@ -1202,8 +1199,7 @@ the key reduces to conflicts, depth, age: \astar with conflict-avoiding
 tie-breaking, which is the low level of our \cbs baseline. The high-level
 \Focal key is $(h_c, \cost, \text{id})$: fewest conflicts, then cheapest, then
 oldest. \Open keys carry the id or the tie counter as their last component so
-that \python never compares two nodes directly.\index{tie-breaking!in focal
-search}
+that \python never compares two nodes directly.\index{tie-breaking!in focal search}
 
 \subsection{Bookkeeping of the lower bounds}
 
@@ -1344,13 +1340,13 @@ conflict-free plan for every $w$; the factor affects cost, never safety.
 Safety against \emph{unexpected} moving obstacles is the job of the
 prediction layer (\cref{ch:ch18,ch:ch20}) and of the local avoidance layer
 (\orca or DWA, \cref{ch:ch13,ch:ch14}), which deviates from the nominal path
-when a predicted conflict enters the safety horizon and reconnects afterwards.
+when a predicted conflict enters the safety horizon and reconnects afterward.
 A nominal path that is $10\,\%$ longer than optimal costs flight time and
 battery, but it is neither more nor less safe. Hence a modest $w$ between
 $1.1$ and $1.5$ is enough, because the local layer perturbs the paths anyway;
 after a replanning event the new plan must be re-checked for conflicts with
 the drones that were not replanned, as the decision logic of \cref{ch:ch24}
-prescribes; and mission knowledge belongs in $h_c$: penalising cells near the
+prescribes; and mission knowledge belongs in $h_c$: penalizing cells near the
 predicted trajectory of an intruder in $\hcost_{\Focal}$ steers the nominal
 paths away from it without touching the bound.
 \end{dronebox}

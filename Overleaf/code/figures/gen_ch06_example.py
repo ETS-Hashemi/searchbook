@@ -2,7 +2,7 @@
 
 Writes figures/ch06/example.tex, a single tikzpicture with three panels
 (eps = 3, 2, 1).  Each panel shows the cells expanded in that iteration
-(grey), the cells in OPEN when ImprovePath stopped (blue), the cells that
+(gray), the cells in OPEN when ImprovePath stopped (blue), the cells that
 were moved to INCONS (orange hatching), the published path (solid blue)
 and, dashed, the path of the previous iteration.  The trace of every
 expansion is printed as LaTeX table rows for the chapter's trace table.

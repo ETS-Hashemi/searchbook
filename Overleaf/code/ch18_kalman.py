@@ -10,10 +10,10 @@ Contents
     cv_model          constant-velocity model, state [p, v], white-noise-
                       acceleration Q = q [[dt^3/3, dt^2/2], [dt^2/2, dt]]
     ca_model          constant-acceleration model, state [p, v, a]
-    init_two_point    track initialisation from two position measurements
+    init_two_point    track initialization from two position measurements
     simulate          truth + noisy measurements (misses, outliers)
     run_filter        filter a measurement sequence (None = missing)
-    nearest_neighbour_association   gated data association for several tracks
+    nearest_neighbor_association   gated data association for several tracks
     worked_example    the five-step example of the chapter (Table 18.x)
     nis_bounds, lag1_autocorrelation   innovation diagnostics
 
@@ -114,7 +114,7 @@ class KalmanFilter:
         return y, S
 
     def nis(self, z, R=None):
-        """Normalised innovation squared, the squared Mahalanobis distance
+        """Normalized innovation squared, the squared Mahalanobis distance
         of z from the predicted measurement."""
         y, S = self.innovation(z, R)
         return float(y @ np.linalg.solve(S, y))
@@ -204,10 +204,10 @@ def observability_rank(F, H):
 
 
 # ---------------------------------------------------------------------------
-# Track initialisation, simulation, batch filtering, association
+# Track initialization, simulation, batch filtering, association
 # ---------------------------------------------------------------------------
 def init_two_point(z0, z1, dt, R):
-    """Initialise [p, v] from two position measurements dt apart:
+    """Initialize [p, v] from two position measurements dt apart:
     x0 = [z1, (z1 - z0)/dt],  P0 = [[R, R/dt], [R/dt, 2R/dt^2]]."""
     z0, z1, R = (np.asarray(a, float) for a in (z0, z1, R))
     x0 = np.concatenate([z1, (z1 - z0) / dt])
@@ -255,8 +255,8 @@ def run_filter(kf, measurements, gate_prob=None):
     return np.array(est), np.array(cov), np.array(nis), np.array(acc)
 
 
-def nearest_neighbour_association(filters, zs, gate_prob=0.99):
-    """Greedy global nearest neighbour: repeatedly take the (track, z) pair
+def nearest_neighbor_association(filters, zs, gate_prob=0.99):
+    """Greedy global nearest neighbor: repeatedly take the (track, z) pair
     with the smallest NIS inside the gate.  Returns {track index: z index};
     unmatched measurements are candidates for new tracks."""
     pairs = []
@@ -486,7 +486,7 @@ def _self_test():
     assert not resg.accepted and resu.accepted
     assert resg.nis > chi2_threshold(2, 0.99)
     assert np.allclose(kfg.x, kfp.x) and np.allclose(kfg.P, kfp.P)
-    # the ungated filter moves by K y, a jump of metres towards the outlier
+    # the ungated filter moves by K y, a jump of meters toward the outlier
     assert np.allclose(kfu.x - kfp.x, resu.gain @ resu.innovation)
     assert np.linalg.norm(kfu.x[:2] - kfp.x[:2]) > 1.0
 
@@ -551,7 +551,7 @@ def _self_test():
     fa.predict(); fb.predict()
     zs_assoc = [np.array([50.0, 50.0]), np.array([9.8, 0.3]),
                 np.array([0.2, -0.1])]
-    assert nearest_neighbour_association([fa, fb], zs_assoc) == {0: 2, 1: 1}
+    assert nearest_neighbor_association([fa, fb], zs_assoc) == {0: 2, 1: 1}
 
     # 12. time-varying dt: passing F, Q built for the actual step
     kft = kf.copy()
