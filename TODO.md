@@ -95,7 +95,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 
 - [x] 4.1 Appendix A: the twelve-week study plan (week → chapters → coding exercise → milestone → completion checklist) — written; reviewed and revised (see review log)
 - [x] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics) — written (20 pp), two Opus rounds applied
-- [ ] 4.3 Appendix C: hints and solutions to selected exercises (≥2 per chapter)
+- [x] 4.3 Appendix C: hints and solutions to selected exercises (≥2 per chapter) — per-chapter solutions files (2-4 each) plus 20 coding-exercise hint blocks assembled into Appendix C
 - [x] 4.4 Glossary (every bold term of the book) — assembled automatically (tools/assemble_glossary.py): 336 terms, 25 pages
 - [~] 4.5 Index (≥15 entries per chapter; check for duplicates and synonyms) — every chapter has 23-67 entries; duplicate/synonym check in 7.x
 - [x] 4.6 Bibliography audit: every citation resolves; every entry is a real, correctly described publication — audited by web search: 162 entries, 158 verified, 4 corrected (author order, 2 truncated titles, 1 entry type), 17 missing page ranges added; none fabricated (docs/bib-audit.md)
