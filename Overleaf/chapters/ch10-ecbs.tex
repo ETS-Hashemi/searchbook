@@ -297,28 +297,33 @@ this is the horizon of \cref{ch:ch04}, which keeps the search finite and does
 not exclude any optimal constrained path; the factor $w$ stretches it so that
 the band is cut off by the bound and not by the horizon.
 
+Nothing else is new, so \cref{alg:ch10-lowlevel} lists only the lines in which
+the low level departs from the canonical space-time \astar printed in full as
+\cref{alg:ch04-spacetime}: the pop of line~\ref{alg:ch04-spacetime:pop} becomes
+a choice from the band, the goal test of line~\ref{alg:ch04-spacetime:goal}
+also returns the bound, the horizon of line~\ref{alg:ch04-spacetime:horizon} is
+stretched by $w$, and the push of line~\ref{alg:ch04-spacetime:push} carries a
+conflict count; the filter of line~\ref{alg:ch04-spacetime:filter} reads the
+constraint set $\mathcal{C}_i$ exactly as in \cref{alg:ch09-lowlevel}.
+
 \begin{algorithm}[htb]
-\caption{The \ecbs low level: focal space-time \astar with a lower bound}
+\caption{The \ecbs low level as a delta on space-time \astar: the ten lines by
+which \cref{alg:ch04-spacetime} becomes a focal search that also returns a lower bound}
 \label{alg:ch10-lowlevel}
 \KwIn{agent $a_i$ with start $s_i$ and goal $\gamma_i$, constraint set $\mathcal{C}_i$, current paths $\Pi_{-i}$ of the other agents, factor $w \ge 1$}
 \KwOut{a path $\pi_i$ respecting $\mathcal{C}_i$ and a lower bound $\mathrm{lb}_i$ with $\mathrm{lb}_i \le C_i^*(\mathcal{C}_i)$ and $\cost(\pi_i) \le w\,\mathrm{lb}_i$; or \emph{failure}}
 \Fn{\EcbsLowLevel{$a_i$, $\mathcal{C}_i$, $\Pi_{-i}$, $w$}}{
-  $\hcost(v) \gets$ grid distance from $v$ to $\gamma_i$ for all free cells $v$ (backward BFS, cached)\label{alg:ch10-lowlevel:h}\;
-  $t_\gamma \gets$ largest $t$ with $\langle i, \gamma_i, t\rangle \in \mathcal{C}_i$, or $-1$; $H \gets$ largest $t$ in a constraint of $\mathcal{C}_i$, or $-1$ if $\mathcal{C}_i = \emptyset$; $D \gets \max_v \hcost(v)$ over the free cells; $T_{\max} \gets \lfloor w\,(H + 1 + D)\rfloor$\;
-  $n_0 \gets (s_i, 0)$; $h_c(n_0) \gets$ conflicts of $n_0$ with $\Pi_{-i}$; \Open $\gets \set{n_0}$; \Closed $\gets \emptyset$\;
-  \While{\Open $\ne \emptyset$}{
-    $\fcost_{\min} \gets \min_{n \in \Open} \fcost(n)$; \Focal $\gets \set{n \in \Open : \fcost(n) \le w\,\fcost_{\min}}$\label{alg:ch10-lowlevel:band}\;
-    $(v, t) \gets \argmin_{n \in \Focal} h_c(n)$ (ties: smaller $\fcost$, then larger $t$); move it to \Closed\label{alg:ch10-lowlevel:pop}\;
-    \If{$v = \gamma_i$ \KwAnd $t > t_\gamma$}{\KwRet (path to $(v, t)$, $\fcost_{\min}$)\label{alg:ch10-lowlevel:goal}\;}
-    \If{$t + 1 > T_{\max}$}{\KwContinue}
-    \ForEach{$v' \in \set{v} \cup \Succ(v)$ with $\langle i, v', t+1\rangle \notin \mathcal{C}_i$ and $\langle i, v, v', t\rangle \notin \mathcal{C}_i$}{
-      \If{$(v', t+1)$ was generated before}{\KwContinue\tcp*{same cost $t+1$: first path wins}\label{alg:ch10-lowlevel:dup}}
-      $h_c(v', t+1) \gets h_c(v, t) + \abs{\set{j : \pi_j[t+1] = v'}} + \abs{\set{j : \pi_j[t] = v',\ \pi_j[t+1] = v}}$\label{alg:ch10-lowlevel:hc}\;
-      \If{$v' = \gamma_i$ \KwAnd $t + 1 > t_\gamma$}{$h_c(v', t+1) \gets h_c(v', t+1) + \abs{\set{(j, t') : t' > t+1,\ \pi_j[t'] = \gamma_i}}$\label{alg:ch10-lowlevel:park}\;}
-      $\fcost(v', t+1) \gets t + 1 + \hcost(v')$; parent$(v', t+1) \gets (v, t)$; put $(v', t+1)$ into \Open\label{alg:ch10-lowlevel:push}\;
-    }
-  }
-  \KwRet \emph{failure}\;
+  run \FuncSty{SpaceTimeAStar}$(G, s_i, \gamma_i, \mathcal{C}_i, T_{\max})$ of \cref{alg:ch04-spacetime}, with the constraint filter and the $t_\gamma$ of \cref{alg:ch09-lowlevel} --- states $(v, t)$, $\gcost(v,t) = t$, $\fcost(v,t) = t + \hcost(v)$, wait action first, one entry per generated state --- with the following changes\;
+  $\hcost(v) \gets$ grid distance from $v$ to $\gamma_i$ for all free cells $v$ (backward BFS, cached across every low-level call for $a_i$)\label{alg:ch10-lowlevel:h}\;
+  \emph{horizon:} $T_{\max} \gets \lfloor w\,(H + 1 + D)\rfloor$, with $H$ the largest time in $\mathcal{C}_i$ (or $-1$ if $\mathcal{C}_i = \emptyset$) and $D = \max_v \hcost(v)$ over the free cells\;
+  \emph{conflict count:} $h_c(s_i, 0) \gets$ conflicts of $(s_i, 0)$ with $\Pi_{-i}$; every generated state carries its own $h_c$ alongside its $\fcost$\;
+  \emph{band:} $\fcost_{\min} \gets \min_{n \in \Open} \fcost(n)$; \Focal $\gets \set{n \in \Open : \fcost(n) \le w\,\fcost_{\min}}$\label{alg:ch10-lowlevel:band}\;
+  \emph{pop:} $(v, t) \gets \argmin_{n \in \Focal} h_c(n)$ (ties: smaller $\fcost$, then larger $t$), not the smallest key of \Open\label{alg:ch10-lowlevel:pop}\;
+  \emph{goal test:} \KwRet (path to $(v, t)$, $\fcost_{\min}$) --- the bound leaves with the path\label{alg:ch10-lowlevel:goal}\;
+  \emph{no re-opening, not even for fewer conflicts:} the duplicate test of \cref{alg:ch04-spacetime} stands; the first path to $(v', t+1)$ wins\label{alg:ch10-lowlevel:dup}\;
+  \emph{successor:} $h_c(v', t+1) \gets h_c(v, t) + \abs{\set{j : \pi_j[t+1] = v'}} + \abs{\set{j : \pi_j[t] = v',\ \pi_j[t+1] = v}}$\label{alg:ch10-lowlevel:hc}\;
+  \emph{parked goal:} \lIf{$v' = \gamma_i$ \KwAnd $t + 1 > t_\gamma$}{$h_c(v', t+1) \gets h_c(v', t+1) + \abs{\set{(j, t') : t' > t+1,\ \pi_j[t'] = \gamma_i}}$\label{alg:ch10-lowlevel:park}}
+  \emph{push:} $(v', t+1)$ enters \Open with $\fcost(v', t+1) = t + 1 + \hcost(v')$, its $h_c$ and parent$(v', t+1) \gets (v, t)$\label{alg:ch10-lowlevel:push}\;
 }
 \end{algorithm}
 
@@ -332,7 +337,8 @@ with the path. At that moment the goal state itself is still counted in
 \Open, so $\fcost_{\min} \le \fcost(\gamma_i, t) = t$; \cref{sec:ch10-properties}
 shows that $\fcost_{\min}$ is also a lower bound on the optimal constrained
 cost, and that $t \le w\,\fcost_{\min}$ because the goal was taken from the
-band. The duplicate test at line~\ref{alg:ch10-lowlevel:dup} is the second addition. In space-time
+band. The duplicate test at line~\ref{alg:ch10-lowlevel:dup} is inherited unchanged, and it is
+worth restating here because a focal search invites the opposite. In space-time
 with unit costs, every path to $(v', t+1)$ costs exactly $t+1$, so a second
 visit can never be cheaper and re-opening is never needed; the first path to
 a state wins, even if a later path to the same state would have fewer
@@ -886,6 +892,8 @@ have a number of nodes exponential in the number of conflicts that must be
 resolved, and each node costs one or two low-level searches over at most
 $\abs{V}\,T_{\max}$ space-time states plus a conflict count in
 $\bigO{k^2 T}$ time, or $\bigO{k T}$ with hashing as in \cref{ch:ch07}.
+(\cref{sec:appB-complexity} reviews the asymptotic notation these bounds are
+written in.)
 What changes is not the bound but the typical case. Focal search at the high
 level heads for conflict-free nodes instead of proving that no cheaper node
 exists, and focal search at the low level produces paths with fewer

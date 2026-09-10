@@ -1024,6 +1024,7 @@ def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
                              d_model, n_heads))
 
     # -- metrics ---------------------------------------------------------------
+    n_params_lstm = sum(p.size for p in models["LSTM-MSE"].params().values())
     metrics = {name: {s: evaluate(p, test, s) for s in SUBSETS} for name, p in preds.items()}
     _, _, samples = predict_lstm(models["LSTM-NLL"], test, "frame", n_samples=20,
                                  rng=np.random.default_rng(seed + 3))
@@ -1034,7 +1035,7 @@ def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
                              for name in ("KF (tuned)", "LSTM-NLL")}}
     return {"train": train, "val": val, "test": test, "preds": preds, "metrics": metrics,
             "settings": {"k_cv": k_cv, "k_ca": k_ca, "q_kf": q_kf, "noise": noise,
-                         "n_params_lstm": sum(p.size for p in models["LSTM-MSE"].params().values()),
+                         "n_params_lstm": n_params_lstm,
                          "n_params_transformer": tr.n_params()},
             "histories": histories, "models": models, "covs": covs, "extra": extra,
             "samples": samples}

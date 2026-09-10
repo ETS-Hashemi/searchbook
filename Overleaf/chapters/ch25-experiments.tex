@@ -160,7 +160,7 @@ The \textbf{minimum separation}\index{minimum separation} of a run is
 \end{equation}
 reported separately for drone--drone pairs ($d_{\min}^{\mathrm{dd}}$) and
 drone--intruder pairs ($d_{\min}^{\mathrm{di}}$), in meters. A run is a
-\textbf{near miss}\index{near miss} if $d_{\min} < r_{\mathrm{safe}}$, the
+\textbf{near miss}\index{near miss} if $d_{\min} < R_{\mathrm{safe}}$, the
 safety radius the local safety layer of \cref{ch:ch24} tries to keep.
 \end{definition}
 
@@ -257,7 +257,7 @@ last column is the one to reread before you believe a number.
   \midrule
   \multicolumn{5}{@{}l}{\emph{Safety}}\\
   Collision rate & $X_{\mathrm{coll}} = [\exists\, t, i \ne j:\ d_{ij}(t) < r_i + r_j]$ & -- & proportion \cref{eq:ch25-collrate} with Wilson interval; $n_{\mathrm{coll}}$ alongside & sampling interval (missed contacts), radii, $N$ (granularity $1/N$), which pairs count\\
-  Minimum separation & $d_{\min} = \min_{t,\,i\ne j} d_{ij}(t)$, split dd/di & m & median, IQR, 5th percentile; near-miss rate $[d_{\min} < r_{\mathrm{safe}}]$ & $\dt$, intruder aim and speed, prediction error; one bad run dominates a mean\\
+  Minimum separation & $d_{\min} = \min_{t,\,i\ne j} d_{ij}(t)$, split dd/di & m & median, IQR, 5th percentile; near-miss rate $[d_{\min} < R_{\mathrm{safe}}]$ & $\dt$, intruder aim and speed, prediction error; one bad run dominates a mean\\
   \midrule
   \multicolumn{5}{@{}l}{\emph{Efficiency}}\\
   Path length & $L_i = \sum_t \norm{\pos_i(t{+}1) - \pos_i(t)}$; ratio $\rho_i = L_i/L_i^{\mathrm{nom}}$ & m, -- & mean of $\rho_L$ with $t$ interval; paired difference to a baseline & controller jitter and noise inflate $L_i$; arena size (use the ratio)\\
@@ -615,7 +615,9 @@ simulation studies. Seeds are free; use the same ones.
 
 The number of runs $N$ per cell decides what the study can see. For a mean
 with standard deviation $\sigma$ the half-width of a $95\,\%$ interval is
-about $2\sigma/\sqrt{N}$: halving it costs four times the runs. For a rate
+about $2\sigma/\sqrt{N}$: halving it costs four times the runs.
+(\cref{sec:appB-montecarlo} reviews the Monte Carlo standard error behind this
+$1/\sqrt{N}$ rule.) For a rate
 the situation is harsher, because rare events need many runs to occur at
 all.
 
@@ -762,7 +764,7 @@ skewed metric. Draw one box per strategy for every level of the factor
 under study, as in \cref{fig:ch25-boxplot}, and put the safety threshold in
 as a horizontal line so that the eye can count the boxes that cross it.
 There the local-only and hybrid boxes sit on the safety radius
-$r_{\mathrm{safe}} = 1$~m, because a velocity-obstacle avoider chooses
+$R_{\mathrm{safe}} = 1$~m, because a velocity-obstacle avoider chooses
 velocities on the boundary of the forbidden set. The replan-only boxes
 sit $0.55$--$0.7$~m higher, because its detours are offset by at least
 $2$~m. The path-length panel shows the price.
@@ -773,7 +775,7 @@ $2$~m. The path-length panel shows the price.
   \caption{Box plots from the mini-study of \cref{sec:ch25-study} (one
   intruder, $20$ seeds per box). Left: minimum drone--intruder separation
   $d_{\min}^{\mathrm{di}}$; the dashed line is the safety radius
-  $r_{\mathrm{safe}} = 1$~m and the dotted line the collision distance
+  $R_{\mathrm{safe}} = 1$~m and the dotted line the collision distance
   $0.6$~m; without avoidance every median is at zero. Right: path-length
   ratio $\rho_L$. Replan-only buys its larger separation with the longest
   paths; the hybrid sits between the two.}
@@ -850,7 +852,7 @@ seed (seven straight, seven turning, six evasive per cell), with a random
 crossing angle in $[45^\circ, 135^\circ]$ and a speed in $[1, 2]$~m/s. The
 world is the toy of
 \cref{sec:ch25-scenarios}: drones of radius $0.3$~m at $1.5$~m/s (limit
-$2$~m/s), $\dt = 0.1$~s, safety radius $r_{\mathrm{safe}} = 1$~m, planned
+$2$~m/s), $\dt = 0.1$~s, safety radius $R_{\mathrm{safe}} = 1$~m, planned
 separation $1.5$~m, safety horizon $\tau_h = 3$~s, mission cap $40$~s. The
 local layer is a sampled velocity-obstacle avoider ($97$ sampled velocities
 plus the preferred one, constant over the horizon) and the replanner a
@@ -1032,7 +1034,7 @@ The study supports the following statements, and no more.
         avoider chooses velocities on the boundary of the safe set.
   \item The separation advantage of replan-only comes from a parameter,
         the $2$~m minimum offset of its detours, not from a principle; a
-        local layer with a margin above $r_{\mathrm{safe}}$ would move that
+        local layer with a margin above $R_{\mathrm{safe}}$ would move that
         row, and a fair follow-up study varies the margin for both.
   \item With $N = 20$ the collision rates of the avoidance strategies are
         indistinguishable; only $d_{\min}$ separates them.
@@ -1715,6 +1717,6 @@ one-intruder cell of \cref{ex:ch25-study} with the same $20$ seeds through
 it. Compare $d_{\min}$, $\rho_L$, the makespan and the computation time per
 decision with \cref{tab:ch25-results}, paired by seed. Explain every
 difference by a property of the simulator (tracking lag, acceleration
-limit, physics rate), and state which margin on $r_{\mathrm{safe}}$ would
+limit, physics rate), and state which margin on $R_{\mathrm{safe}}$ would
 restore the toy's near-miss rate.
 \end{exercise}

@@ -299,18 +299,21 @@ def tangent_points(p, c, r):
 
 def time_of_closest_approach(p_a, v_a, p_b, v_b, horizon=math.inf):
     """Time t* in [0, horizon] at which two constant-velocity objects are
-    closest, and their distance at that time."""
-    p = sub(p_b, p_a)                     # relative position
-    v = sub(v_b, v_a)                     # relative velocity
+    closest, and their distance at that time.  Signs follow the book's
+    convention p_rel = p_b - p_a, v_rel = v_a - v_b."""
+    p = sub(p_b, p_a)                     # relative position p_b - p_a
+    v = sub(v_a, v_b)                     # relative velocity v_a - v_b
     vv = dot(v, v)
-    t = 0.0 if vv == 0.0 else -dot(p, v) / vv
+    t = 0.0 if vv == 0.0 else dot(p, v) / vv
     t = max(0.0, min(horizon, t))
-    return t, norm(add(p, scale(v, t)))
+    return t, norm(sub(p, scale(v, t)))
 
 
 def time_to_collision(p_a, v_a, r_a, p_b, v_b, r_b):
     """First time t >= 0 at which two constant-velocity disks touch, or
-    None.  This is a ray-circle test in the relative frame."""
+    None.  This is a ray-circle test in the relative frame: the relative
+    position p_b - p_a travels along -v_rel = v_b - v_a, where
+    v_rel = v_a - v_b is the book's relative velocity."""
     return ray_circle_intersection(sub(p_b, p_a), sub(v_b, v_a),
                                    (0.0, 0.0), r_a + r_b)
 
