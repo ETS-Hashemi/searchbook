@@ -98,7 +98,7 @@ class MilpModel:
                       for i in range(m) for o in range(len(inst.obstacles))}
         self.pairs = list(itertools.combinations(range(m), 2))
         self.c_off = {p: self._alloc(4 * N) for p in self.pairs}
-        self.y_off = ([self._alloc(N) for _ in range(m)]
+        self.w_off = ([self._alloc(N) for _ in range(m)]
                       if inst.objective == "time" else [])
         self.rows, self.cols, self.vals = [], [], []
         self.row_lb, self.row_ub = [], []
@@ -142,9 +142,9 @@ class MilpModel:
         """Separation binary j (0..3) of the pair at step k = 1..N."""
         return self.c_off[pair] + 4 * (k - 1) + j
 
-    def y(self, i, k):
+    def w(self, i, k):
         """Arrival binary of vehicle i for step k = 1..N (objective time)."""
-        return self.y_off[i] + (k - 1)
+        return self.w_off[i] + (k - 1)
 
     # -- rows --------------------------------------------------------------
     def add_row(self, coeffs, lb, ub):
@@ -180,10 +180,10 @@ class MilpModel:
                 self.c[self.s(i, 0, 0)] = 1.0
             if inst.objective == "time":
                 for k in range(1, N + 1):
-                    self.c[self.y(i, k)] = k * inst.dt
+                    self.c[self.w(i, k)] = k * inst.dt
         first_bin = min([self.b_off[key] for key in self.b_off]
                         + [self.c_off[p] for p in self.pairs]
-                        + self.y_off + [self.n_var])
+                        + self.w_off + [self.n_var])
         self.lb[first_bin:] = 0.0
         self.ub[first_bin:] = 1.0
         self.integrality[first_bin:] = 1
@@ -257,15 +257,15 @@ class MilpModel:
                 self.add_row({cq: 1.0 for cq in c}, -np.inf, 3.0)
 
     def _arrival_rows(self):
-        """Minimum time: y_{i,k} = 1 marks the arrival step; then p stays at g."""
+        """Minimum time: w_{i,k} = 1 marks the arrival step; then p stays at g."""
         inst = self.inst
         ws = inst.workspace
         Mg = max(ws[1] - ws[0], ws[3] - ws[2])
         for i, veh in enumerate(inst.vehicles):
-            ys = {self.y(i, k): 1.0 for k in range(1, inst.horizon + 1)}
-            self.add_row(ys, 1.0, 1.0)
+            ws = {self.w(i, k): 1.0 for k in range(1, inst.horizon + 1)}
+            self.add_row(ws, 1.0, 1.0)
             for k in range(1, inst.horizon + 1):
-                arrived = {self.y(i, q): Mg for q in range(1, k + 1)}
+                arrived = {self.w(i, q): Mg for q in range(1, k + 1)}
                 for d in (0, 1):
                     p = self.x(i, k, d)
                     row = dict(arrived)
@@ -529,11 +529,11 @@ def solve_instance(inst, time_limit=None, big_m=None):
 
 
 def arrival_times(model, sol):
-    """Arrival time of every vehicle from the binaries y (objective time)."""
+    """Arrival time of every vehicle from the binaries w (objective time)."""
     inst = model.inst
     out = []
     for i in range(len(inst.vehicles)):
-        ks = [k for k in range(1, inst.horizon + 1) if sol.x[model.y(i, k)] > 0.5]
+        ks = [k for k in range(1, inst.horizon + 1) if sol.x[model.w(i, k)] > 0.5]
         out.append(ks[0] * inst.dt)
     return out
 

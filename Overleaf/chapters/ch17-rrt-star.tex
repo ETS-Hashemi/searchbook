@@ -35,8 +35,8 @@ the path taut inside the corridor the tree happened to find. Worse, more
 samples do not help at all: the parent of every vertex is fixed at the moment
 the vertex is created, so the first path that reaches the goal is, up to the
 random order of insertion, the path you keep. A drone that flies a route
-thirty percent longer than necessary spends thirty percent more battery on
-every mission, and a swarm of them spends it thirty times over.
+thirty percent longer than necessary spends thirty percent more battery,
+and a swarm spends it over and over.
 
 \rrtstar, introduced by Karaman and Frazzoli in 2011
 \cite{karaman2011sampling}, repairs this with two extra steps per
@@ -57,25 +57,23 @@ In the hybrid architecture of \cref{ch:ch24} these planners live in two
 places. The global layer plans the swarm on a grid with conflict-based search
 (\cbs) or its bounded-suboptimal variant \ecbs (\cref{ch:ch09,ch:ch10}); when a drone must leave that grid, because it
 flies through a 3D volume too large or too finely structured to discretise,
-\rrtstar plans the continuous segment, and it does so in \emph{anytime}
-fashion: the first path is available after a few hundred samples, and the
-tree keeps improving it while the drone is already flying. The replanning
+\rrtstar plans the continuous segment, in \emph{anytime} fashion: the first
+path is available after a few hundred samples, and the tree keeps improving
+it while the drone flies. The replanning
 layer can seed \irrtstar with the grid path it already has, so that the
 sampler concentrates on the ellipsoid around that path from the first
-iteration. This is the Week~8 topic of the study plan (\cref{ch:appA}):
-its milestone is that you can choose between graph search and
-sampling-based planning, and its coding exercise is \cref{exr:ch17-coding}.
+iteration. This is Week~8 of the study plan (\cref{ch:appA}): its milestone is choosing
+between graph search and sampling-based planning, and its coding exercise
+is \cref{exr:ch17-coding}.
 
 The chapter proceeds as follows. \Cref{sec:ch17-intuition,sec:ch17-problem}
 give the idea and the definitions; \cref{sec:ch17-algorithm} the three new
-primitives, the pseudocode, the connection radius, its $k$-nearest
-alternative and one iteration by hand; \cref{sec:ch17-example} the worked
-example against \rrt and grid \astar; \cref{sec:ch17-properties} the
-asymptotic-optimality theorem and the cost per iteration;
-\cref{sec:ch17-informed} \irrtstar and \cref{sec:ch17-variants} the family
-up to BIT\textsuperscript{*}; and
+primitives, the pseudocode and the connection radius;
+\cref{sec:ch17-example} the worked example; \cref{sec:ch17-properties} the
+asymptotic-optimality theorem; \cref{sec:ch17-informed} \irrtstar and
+\cref{sec:ch17-variants} the family up to BIT\textsuperscript{*}; and
 \cref{sec:ch17-implementation,sec:ch17-drone} the implementation, its
-pitfalls and the place of both planners in the drone system.
+pitfalls and the drone system.
 
 % ---------------------------------------------------------------------
 \section{The idea in plain words}
@@ -116,24 +114,24 @@ expected number of neighbours logarithmic (\cref{sec:ch17-radius}).
 
 \begin{keyidea}
 \rrtstar is \rrt with a shortest-path-tree discipline: every new vertex takes
-the cheapest parent within radius $r_n$, and it becomes the parent of every
+the cheapest parent within radius $r_n$ and becomes the parent of every
 neighbour it can serve more cheaply. With $r_n\propto(\log n/n)^{1/d}$ and a
 large enough constant, the best path converges to the optimum almost surely.
-\irrtstar keeps the same tree but, once a path of cost $c_{\mathrm{best}}$ exists,
-samples only the ellipsoid $\norm{x-x_{\mathrm{init}}}+\norm{x-x_{\mathrm{goal}}}\le c_{\mathrm{best}}$, the only region in which a better path can pass.
+Once a path of cost $c_{\mathrm{best}}$ exists, \irrtstar keeps the same tree
+but samples only $\norm{x-x_{\mathrm{init}}}+\norm{x-x_{\mathrm{goal}}}\le c_{\mathrm{best}}$, the only region a better path can cross.
 \end{keyidea}
 
 \begin{figure}[tb]
   \centering
-  \begin{subfigure}[b]{0.32\textwidth}\centering
+  \begin{subfigure}[b]{0.333\textwidth}\centering
     \inputfigure{ch17/near}
     \caption{\textsc{Near}}
   \end{subfigure}\hfill
-  \begin{subfigure}[b]{0.32\textwidth}\centering
+  \begin{subfigure}[b]{0.333\textwidth}\centering
     \inputfigure{ch17/choose-parent}
     \caption{\textsc{ChooseParent}}
   \end{subfigure}\hfill
-  \begin{subfigure}[b]{0.32\textwidth}\centering
+  \begin{subfigure}[b]{0.333\textwidth}\centering
     \inputfigure{ch17/rewire}
     \caption{\textsc{Rewire}}
   \end{subfigure}
@@ -190,9 +188,8 @@ $\delta_n$-clearance, $\delta_n>0$, such that $c(\sigma_n)\to c^*$.
 The optimum of the map in \cref{ch:ch16} hugs the corners of the two walls,
 so it has no clearance itself; but pushing it away from the corners by any
 $\delta>0$ costs only $\bigO{\delta}$, so it is robustly optimal. A route
-through a gap of width exactly zero is the kind of optimum that is
-\emph{not} robust: no path with positive clearance approximates it, and no
-sampling-based planner will find it.
+through a gap of zero width is \emph{not} robust: no path with positive
+clearance approximates it, and no sampling-based planner finds it.
 
 \begin{definition}[Tree, cost-to-come, best cost]
 \label{def:ch17-tree}
@@ -209,9 +206,8 @@ $x_{\mathrm{goal}}\in V$ and $c_{\mathrm{best}}=\infty$ otherwise.
 \end{definition}
 
 The primitives $\Nearest(V,x)$, $\Steer(x,y)$ (move from $x$ towards $y$ by
-at most the step size $\eta$) and $\CollisionFree(x,y)$ (the straight
-segment from $x$ to $y$ lies in $\Xfree$) are those of \cref{ch:ch16}.
-\rrtstar adds one more.
+at most the step $\eta$) and $\CollisionFree(x,y)$ (the segment from $x$ to
+$y$ lies in $\Xfree$) are those of \cref{ch:ch16}; \rrtstar adds one more.
 
 \begin{definition}[Near and the connection radius]
 \label{def:ch17-near}
@@ -413,7 +409,8 @@ Every symbol in \cref{eq:ch17-radius} has a job.
 The map of \cref{ch:ch16} is the square $[0,10]^2$ with the walls
 $[3,5]\times[0,6]$ and $[6,8]\times[4,10]$, so $\mu(\Xfree)=100-12-12=76$
 and, with $d=2$ and $\zeta_2=\pi$,
-$\gamma^*_{\rrtstar}=2\sqrt{1.5}\,\sqrt{76/\pi}=12.05$. We use
+$\gamma^*_{\rrtstar}=2\sqrt{1.5}\,\sqrt{76/\pi}=12.05$ (the code's
+Monte-Carlo estimate $\hat\mu=75.9$ gives $12.04$). We use
 $\gamma_{\rrtstar}=13.3$, ten percent above the threshold. With $\eta=1$ the
 cap is active until $13.3\sqrt{\log n/n}<1$, that is until $n=1\,264$
 vertices (between iterations $1\,500$ and $2\,000$ of the run in
@@ -549,13 +546,13 @@ conservative inflation of \cref{ch:ch16}. The only route passes over the
 first wall and under the second, and the optimum, found by Dijkstra on the
 visibility graph of the wall corners pushed out by the checker's inflation
 ($\delta/2=0.025$ for a point robot) plus a margin of $0.005$, has length
-$c^*=16.909$. That number is a statement about the clearance as much as
-about the map: \cref{ch:ch16} quotes $16.72$ for the same corridor in the
+$c^*=16.909$. That number says as much about the clearance as about the
+map: \cref{ch:ch16} quotes $16.72$ for the same corridor in the
 limit of zero clearance and $17.20$ for a clearance of $0.075$. We run \cref{alg:ch17-rrtstar} with
 $\eta=1$, $\gamma_{\rrtstar}=13.3$, $p_{\mathrm{goal}}=0.05$ and seed~$1$ for
 $3\,000$ iterations, recording the tree and the best path at iterations
 $200$, $1\,000$ and $3\,000$ (\cref{fig:ch17-snapshots}) and
-$c_{\mathrm{best}}$ at every iteration (\cref{tab:ch17-convergence}).
+$c_{\mathrm{best}}$ throughout (\cref{tab:ch17-convergence}).
 \end{example}
 
 \begin{figure}[tb]
@@ -659,10 +656,9 @@ $\Nearest$, $\Steer$ and the check of line~\ref{alg:ch17-rrtstar:free} of
 only change edges.
 \end{proof}
 
-Part~(iv) has a pleasant consequence: \rrtstar inherits the probabilistic
-completeness\index{RRT*!probabilistic completeness} of \rrt
-(\cref{ch:ch16}), because it contains the same vertices, and the goal vertex
-appears with probability tending to one.
+Part~(iv) has a consequence: \rrtstar contains the same vertices as \rrt, so
+it inherits its probabilistic
+completeness\index{RRT*!probabilistic completeness} (\cref{ch:ch16}).
 
 \subsection{Asymptotic optimality}
 \label{sec:ch17-ao}
@@ -670,8 +666,9 @@ appears with probability tending to one.
 \begin{theorem}[Asymptotic optimality of \rrtstar; Karaman and Frazzoli 2011]
 \label{thm:ch17-ao}
 Let $d\ge2$, let $\mathcal{X}$ be bounded with $\mu(\Xfree)>0$, let the cost
-be Euclidean length, let the samples be uniform on $\mathcal{X}$, let
-$x_{\mathrm{goal}}$ enter the tree through the goal bias of
+be Euclidean length, let the samples be uniform on $\mathcal{X}$ apart
+from the goal-biased draws, which stop once $x_{\mathrm{goal}}$ is in $V$,
+let $x_{\mathrm{goal}}$ enter the tree through the goal bias of
 \cref{alg:ch17-rrtstar}, and suppose the problem has a robustly optimal solution
 (\cref{def:ch17-clearance}) of cost $c^*<\infty$. If
 $\gamma_{\rrtstar}>\gamma^*_{\rrtstar}$ in \cref{eq:ch17-radius}, then the
@@ -692,8 +689,8 @@ Read the statement carefully; it is easy to hear more in it than it says.
   through a gap of zero width has no clearance and is never found; the same
   holds for any planner that checks collisions at points.
   \item It needs $\gamma_{\rrtstar}$ above a threshold that depends on
-  $\mu(\Xfree)$, which is usually unknown. Any upper bound, such as
-  $\mu(\mathcal{X})$, is safe.
+  $\mu(\Xfree)$, which is usually unknown; any upper bound is safe
+  (\cref{sec:ch17-radius}).
   \item Nothing is said about \rrt: Karaman and Frazzoli also prove that,
   under the same assumptions, the best cost of \rrt converges with
   probability one to a limit \emph{strictly larger} than $c^*$
@@ -834,8 +831,8 @@ the informed set $\mathcal{X}_{\hat f}(c_{\mathrm{best}})$ of
 \cref{def:ch17-informed}. Samples outside that set cannot improve the
 solution, and a planner that keeps drawing them wastes its iterations. You
 have met $\hat f$ before: it is $\gcost+\hcost$ with the straight-line
-heuristic, and the informed set is the region $\fcost\le C^*$ that \astar
-with a consistent heuristic never leaves (\cref{ch:ch04}).
+heuristic, and the informed set is the region $\fcost\le C^*$ outside which
+\astar with a consistent heuristic never expands (\cref{ch:ch04}).
 
 The set $\set{x:\norm{x-x_{\mathrm{init}}}+\norm{x-x_{\mathrm{goal}}}\le c_{\mathrm{best}}}$
 is, by the string-and-two-pins definition, an ellipse in 2D and an
@@ -913,7 +910,9 @@ to verify this and the axes). Two ingredients remain.
   \item \emph{A uniform point of the unit ball.} Draw
   $\vect{u}\sim\Normal(\vect{0},\mat{I})$ and $w\sim U(0,1)$ and return
   $w^{1/d}\vect{u}/\norm{\vect{u}}$: the normalised Gaussian is uniform on
-  the sphere (\cref{ch:ch02}), and the radius $w^{1/d}$ has the density
+  the sphere (the standard Gaussian density depends on $\vect{u}$ only
+  through $\norm{\vect{u}}$ and is therefore rotation-invariant;
+  \cref{exr:ch17-ellipsoid}(c)), and the radius $w^{1/d}$ has the density
   $\propto\rho^{d-1}$ that the volume of a shell demands.
   \item \emph{The rotation to the world frame.}\index{rotation to world frame}
   In 2D, $\mat{C}$ is the rotation by the angle of $\vect{a}_1$,
@@ -946,9 +945,11 @@ to verify this and the axes). Two ingredients remain.
 
 \Cref{alg:ch17-informed} is the complete planner. Before a solution exists,
 $c_{\mathrm{best}}=\infty$ and the sampler falls back to the goal-biased
-uniform sampling of \cref{alg:ch17-rrtstar}; from the first solution on,
-the tree grows only inside the current ellipsoid, which shrinks whenever
-\textsc{Rewire} improves the goal's branch. \textsc{Near},
+uniform sampling of \cref{alg:ch17-rrtstar}; from the first solution on
+every sample is drawn inside the current ellipsoid, so the tree grows
+towards it---a new vertex can still land just outside, because $\Steer$
+starts from a vertex that may predate the solution---and the ellipsoid
+shrinks whenever \textsc{Rewire} improves the goal's branch. \textsc{Near},
 \textsc{ChooseParent} and \textsc{Rewire} are unchanged, and so is the
 theory: the samples remain uniform on a set that contains every point that
 can still improve the solution, so \irrtstar keeps the probabilistic
@@ -993,11 +994,10 @@ rejecting by $\hat f$.
 
 \Cref{fig:ch17-convergence} compares \rrt, \rrtstar and \irrtstar over
 $20$ seeds on both maps; the code is \code{code/figures/gen\_ch17\_convergence.py}.
-On the small map (a) the three planners find their first solution at the
-same iteration, median $252$, because they insert the same vertices
-(\cref{prop:ch17-invariant}); \rrt then stays at $23.51\pm1.67$ for ever,
-while \rrtstar and \irrtstar descend together to $17.33\pm0.08$ after
-$3\,000$ iterations, $2.5\,\%$ above the optimum. On the wide field (b) the difference appears: after $1\,000$ iterations
+On the small map (a) the informed set is essentially the whole map
+(\cref{sec:ch17-informed-set}), so \rrtstar and \irrtstar coincide, both
+reaching the $17.33\pm0.08$ of \cref{sec:ch17-example} while \rrt stays at
+$23.51\pm1.67$. On the wide field (b) the difference appears: after $1\,000$ iterations
 \rrtstar stands at a mean of $21.57$ and \irrtstar at $18.10$; after $3\,000$
 they stand at $16.71\pm1.23$ and $14.09\pm0.12$ against the optimum
 $13.88$. \rrtstar is still converging, just slowly, because most of its
@@ -1007,9 +1007,8 @@ against $7\,399$, because samples inside the ellipsoid see more
 neighbours. \textcite{gammell2014informed} also shrink the connection
 radius with the informed set, replacing $\mu(\Xfree)$ in
 \cref{eq:ch17-radius} by $\mu(\mathcal{X}_{\hat f}\cap\Xfree)$; keeping
-$\mu(\Xfree)$, as the code does, is always admissible, because a larger
-$\gamma$ still satisfies the condition, and those extra checks are what it
-costs.
+$\mu(\Xfree)$ is admissible (\cref{sec:ch17-radius}) and those extra checks
+are what it costs.
 
 \begin{figure}[tb]
   \centering
@@ -1017,10 +1016,10 @@ costs.
   \caption{Best cost against iterations, mean over $20$ seeds, on
   (a)~the map of \cref{ex:ch17-map} and (b)~the same walls, start and goal
   in the $30\times30$ field $[-10,20]^2$. Each curve starts at the first iteration at which
-  all $20$ runs have a solution. \rrt (grey) never improves. On the small
-  map the informed set contains the whole map, and \rrtstar and \irrtstar
-  coincide; on the wide field \irrtstar (dashed) reaches in $1\,000$
-  iterations what \rrtstar has not reached in $3\,000$.}
+  all $20$ runs have a solution. \rrt (grey) never improves; \rrtstar and
+  \irrtstar coincide on the small map, and on the wide field \irrtstar
+  (dashed) reaches in $1\,000$ iterations what \rrtstar has not reached in
+  $3\,000$.}
   \label{fig:ch17-convergence}
 \end{figure}
 
@@ -1061,7 +1060,8 @@ point where sampling-based planning and heuristic graph search, the two
 halves of this book, meet. Later refinements by the same group
 (ABIT\textsuperscript{*}, AIT\textsuperscript{*}) improve the ordering and
 the heuristic, and \textcite{gammell2018informed} generalise informed sets
-to other cost functions.
+to other cost functions; \cref{tab:ch17-comparison} lists every
+sampling-based planner of the book.
 
 \begin{table}[tb]
   \centering\small
@@ -1070,6 +1070,7 @@ to other cost functions.
   asymptotically optimal; the work per iteration is for a kd-tree and
   excludes the constant of the collision checker.}
   \label{tab:ch17-comparison}
+  \setlength{\tabcolsep}{4pt}
   \begin{tabular}{@{}lllll@{}}
   \toprule
   Planner & Where & Complete & Optimal & Work per iteration\\
@@ -1077,7 +1078,7 @@ to other cost functions.
   \rrt (with goal bias) & \cref{ch:ch16} & \checkmark & no; limit $>c^*$ a.s. & $\bigO{\log n}$, 1 check\\
   \rrt-Connect & \cref{ch:ch16} & \checkmark & no & $\bigO{\log n}$, greedy checks\\
   Kinodynamic \rrt & \cref{ch:ch16} & \checkmark & no & forward simulation\\
-  PRM & \cref{ch:ch16} & \checkmark & no ($k$ fixed) & multi-query roadmap\\
+  PRM ($k$ fixed) & \cref{ch:ch16} & \checkmark & no & multi-query\\
   \rrtstar & \cref{sec:ch17-algorithm} & \checkmark & \checkmark & $\bigO{\log n}$ neighbours, $\approx3$ checks\\
   $k$-nearest \rrtstar & \cref{sec:ch17-knn} & \checkmark & \checkmark & $k_n=\bigO{\log n}$, no $\mu(\Xfree)$\\
   \irrtstar & \cref{sec:ch17-informed} & \checkmark & \checkmark & as \rrtstar, fewer wasted samples\\
@@ -1086,8 +1087,6 @@ to other cost functions.
   \bottomrule
   \end{tabular}
 \end{table}
-
-\Cref{tab:ch17-comparison} lists every sampling-based planner of the book.
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
@@ -1141,8 +1140,8 @@ same maps. \Cref{lst:ch17-core} is the body of one iteration.
 
 \paragraph{Choosing $\gamma_{\rrtstar}$.} $\mu(\Xfree)$ is rarely known; the
 code estimates it by Monte Carlo for the text but plans with
-$\gamma=1.1\,\gamma^*(\mu(\mathcal{X}))$, the safe upper bound of
-\cref{sec:ch17-radius}: on the 3D scene of \cref{ch:ch16} that is
+$\gamma=1.1\,\gamma^*(\mu(\mathcal{X}))$ (\cref{sec:ch17-radius}): on the
+3D scene of \cref{ch:ch16} that is
 $\gamma=15.0$ against a threshold of $12.2$ for the true free volume of
 about $716$. Overshooting costs work, not optimality
 (\cref{fig:ch17-radius}): doubling $\gamma$ multiplies the expected
@@ -1154,15 +1153,15 @@ stop at the first free segment; in \textsc{Rewire} test the improvement
 before the segment; and reuse the check of the parent segment for the
 edge to the nearest vertex, which is already known to be free.
 
-\paragraph{Propagating costs to a subtree.} The cost-to-come of every
-candidate must be available in $\bigO{1}$, so the implementation stores
-$\mathrm{Cost}(v)$ and keeps it consistent: \cref{lst:ch17-subtree} keeps,
-for every vertex, its parent, the length of its parent edge and a list of
-its children; \code{set\_parent} moves the vertex, then walks its subtree
-with an explicit stack and recomputes $\mathrm{Cost}$ from the parent,
-exactly \textsc{UpdateSubtree}. The lazy alternative, summing edge lengths
-on demand, costs $\bigO{\text{depth}}$ per candidate and is slower in every
-experiment we ran. The self-test asserts the invariant after every run.
+\paragraph{Propagating costs to a subtree.} Every candidate's cost-to-come
+must be available in $\bigO{1}$, so the implementation stores
+$\mathrm{Cost}(v)$ and keeps it consistent: \cref{lst:ch17-subtree} stores,
+per vertex, its parent, its parent-edge length and its children;
+\code{set\_parent} moves the vertex, then walks its subtree
+with a stack and recomputes $\mathrm{Cost}$ from the parent, exactly
+\textsc{UpdateSubtree}. The lazy alternative, summing edge lengths on
+demand, costs $\bigO{\text{depth}}$ per candidate and was slower in every
+experiment; the self-test asserts the invariant after every run.
 
 \begin{lstlisting}[caption={\textsc{UpdateSubtree} (from \code{code/ch17\_rrt\_star.py}): rewiring vertex \code{i} under \code{p} and recomputing the cost of every descendant with an explicit stack.},label={lst:ch17-subtree}]
     def set_parent(self, i, p, edge_len):
@@ -1256,8 +1255,8 @@ when the plan must be time-indexed for the conflict re-check, or when the
 map keeps changing and incremental repair is cheaper than a new tree.
 Three habits make the planner fit the architecture. \emph{Anytime
 operation}: return the first path after a few hundred iterations, hand it
-to the local layer (\orca or the dynamic window approach, DWA,
-\cref{ch:ch13,ch:ch14}), and keep
+to the local layer (optimal reciprocal collision avoidance, \orca, or the
+dynamic window approach, DWA, \cref{ch:ch13,ch:ch14}), and keep
 improving it while the drone flies, re-rooting at every waypoint.
 \emph{Seeding}: string-pull the grid path from \cbs (\cref{ch:ch16}),
 insert its waypoints as the initial tree and set $c_{\mathrm{best}}$ to its
@@ -1288,8 +1287,8 @@ able to say, for a given mission, which planner of
   volume.
   \item With that radius the best cost converges to the optimum almost
   surely (ball covering plus Borel--Cantelli); the theorem gives no rate,
-  needs a robustly optimal solution, and says nothing about the path
-  itself. \rrt converges to a suboptimal limit almost surely.
+  needs a robustly optimal solution and says nothing about the path itself.
+  The limit of \rrt is suboptimal.
   \item An iteration costs $\bigO{\log n}$ expected neighbours and a few
   collision checks; a run costs $\bigO{n\log n}$, a constant factor above
   \rrt.
@@ -1301,7 +1300,7 @@ able to say, for a given mission, which planner of
   and converges much faster in large spaces.
   \item BIT\textsuperscript{*} searches batches of informed samples with
   an \astar-ordered edge queue; anytime \rrtstar re-roots the tree while
-  the drone flies and prunes vertices that cannot improve the solution.
+  the drone flies and prunes vertices that cannot help.
 \end{itemize}
 \end{summary}
 

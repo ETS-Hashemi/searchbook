@@ -200,3 +200,85 @@ answered, and I recomputed the ones that carry numbers - the per-100-expansion i
 rates of `exr:ch06-schedule`(a), the 800- and 1 000-expansion snapshots, and the adaptive
 schedule $3 \to 1.45 \to 1$ with 17, 13 and 2 expansions and $\eps' = 1.65, 1.16, 1.00$ -
 and every one of them is right.
+
+## Response to review (round 2)
+
+All three required changes are applied; the chapter builds with status 0 and no errors, the
+self-test passes, and `figures/data/ch06-anytime.dat` is byte-identical after re-running
+`code/figures/gen_ch06_anytime.py`, so every number in `tab:ch06-experiment`,
+`tab:ch06-iterations`, `tab:ch06-trace` and `fig:ch06-deadline` is unchanged and still matches
+the code.
+
+### Required changes
+
+1. **Section 6.7.2, "Choosing the schedule", and the last row of `tab:ch06-schedule`.**
+   Applied. The false clause ("an inflation factor above $\eps'_k$ ... cannot improve the
+   published guarantee") is gone. The paragraph now reads: the inflation $\eps_{k+1}$ is only
+   the worst case the next iteration *promises*, so a value at or above the certified
+   $\eps'_k$ promises nothing the published path does not already deliver; starting at
+   $\eps_{k+1} = \max(1, \eps'_k - \Delta)$ therefore skips the factors whose promise the
+   incumbent already keeps and makes every iteration aim at a strictly better bound; and a
+   larger $\eps$ *can* still improve the certificate in practice, "as $\gcost(\gamma)$ falls
+   and $L$ rises - the $\eps = 2$ iteration of `ex:ch06-grid` goes from 1.65 to 1.53 - so the
+   rule trades such gains for a faster approach to optimality". The table cell now reads
+   "skips the factors whose promise the incumbent already keeps".
+
+   One deviation from the suggested wording, deliberate. The suggested sentence contained
+   "and $\eps_{k+1} = \eps_k$ provably buys nothing (`thm:ch06-properties`(iv))", and that
+   claim is not true and is not what (iv) says. Property (iv) is conditional: it applies when,
+   *after re-keying*, the goal's key is at most the smallest key in OPEN. With $\eps$ unchanged
+   the states merged in from INCONS can carry keys below the goal's, so the next call can
+   expand and improve. The chapter's own `exr:ch06-incons` is a counter-example: iteration 1 at
+   $\eps = 3$ ends with $\textsc{Incons} = \{c\}$, $\gcost(c) = 2$, $\hcost(c) = 1$, key
+   $2 + 3 \cdot 1 = 5$, against $\gcost(\gamma) = 8$; re-running at the same $\eps = 3$ would
+   expand $c$ and lower $\gcost(\gamma)$ to 7. I therefore wrote the conditional form that (iv)
+   actually proves: "an iteration whose re-keyed OPEN leaves the goal on top expands nothing
+   (`thm:ch06-properties`(iv))". The substance of the required change - removing the false
+   monotonicity claim about the certificate and replacing it with the promise-versus-delivery
+   justification, plus the counter-example - is applied in full.
+
+2. **Pitfall "Decreasing $\eps$ too fast", line 1129.** Applied: "one within $1.1\,\%$ for
+   $518$ more". The chapter now says 1.1 % in both places (Observation 4 of Section 6.7.1 and
+   the pitfall).
+
+3. **Section 6.3, `\lpastar` first use.** Applied: "in the sense of Lifelong Planning \astar
+   (\lpastar) and \dstarlite (\cref{ch:ch05})". This was the only occurrence of the macro in
+   the chapter.
+
+### Suggestions
+
+* **Proof of `thm:ch06-certificate`.** Applied, in the suggested form: the proof now starts
+  from "let $u$ be the first inconsistent state on $P$; it exists, because $\gamma$ is never
+  expanded (`def:ch06-certificate`) and is therefore inconsistent as soon as
+  $\gcost(\gamma) < \infty$", telescopes to $\gcost(u) = \gcost^*(u)$, places
+  $u \in \Open \cup \textsc{Incons}$, derives $L \le C^*$, and then splits on $u = \gamma$.
+  The impossible "every state of $P$ is consistent" branch is gone.
+* **`lst:ch06-improve`.** Applied: the eleven-line `if self.trace is not None:` block is
+  replaced by `# (trace bookkeeping for the trace table omitted)`, and the caption now says
+  "the *elided* `trace` block records the rows of `tab:ch06-trace`". The rest of the listing is
+  still verbatim from `code/ch06_arastar.py`.
+* **Section 6.5, third iteration.** Applied: the five skipped cells "are five of the first six
+  expansions", which is exactly what `tab:ch06-trace` shows (steps 1, 2, 4, 5, 6, with $(4,4)$
+  at step 3).
+* **Caption of `fig:ch06-deadline`.** Applied: "... have zero length, and $\eps = 1.75$ is a
+  single expansion wide".
+* **`exr:ch06-proof`(c).** Applied: the exercise now adds "note whether that certificate is
+  about $\gcost(\gamma)$ or about the cost of the path the pointers record", which matches the
+  wording already in the solution.
+* **`references.bib`, `likhachev2003ara` (NIPS vs NeurIPS).** Not applied: the finisher brief
+  forbids editing `references.bib`, and the reviewer agrees it belongs to a book-wide
+  bibliography pass.
+* **ANA\* clause in Section 6.8.2.** Not applied, as in round 1: I cannot vouch for the
+  bibliographic details, and the style guide forbids adding an entry I am not certain of.
+
+### Length
+
+The chapter is 20 pages. The required expansion in Section 6.7.2 costs about six lines; the
+elided instrumentation block gives back about nine, and I additionally tightened wording in the
+new schedule paragraph, in the rewritten proof and in `exr:ch06-coding`/`exr:ch06-deadline`
+(no content dropped) so that the chapter does not grow. Everything the reviewer listed under
+"what must be kept" is untouched: the worked example and its three tables, `thm:ch06-pointer`,
+the "$\gamma$ is never expanded" clause of `def:ch06-certificate`, the three-case induction of
+`thm:ch06-bound`, `thm:ch06-properties`, the experiment, the three pitfalls, both exercise
+graphs, `def:ch06-inconsistent`, the AD\* subsection, the drone framing and the solutions
+appendix.

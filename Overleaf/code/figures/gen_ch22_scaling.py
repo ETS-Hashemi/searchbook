@@ -1,4 +1,4 @@
-"""Generate figures/data/ch22-scaling.dat and ch22-scaling-horizon.dat:
+"""Generate figures/data/ch22-scaling.dat:
 solve time of the multi-vehicle MILP of Chapter 22 as a function of the
 number of vehicles m and of the horizon length N.
 
@@ -17,7 +17,6 @@ ch22-scaling.dat has one row per m and, for every N in HORIZONS, the columns
     hit{N}    fraction of the runs that hit the time limit
     gap{N}    mean relative MIP gap reported at the end (0 when optimal)
     nodes{N}  mean number of branch-and-bound nodes
-ch22-scaling-horizon.dat has one row per N and the columns t{m}, hit{m}.
 
 Run from Overleaf/:   python3 code/figures/gen_ch22_scaling.py
 """
@@ -70,14 +69,6 @@ def main() -> None:
                     "%.2f" % hit, "%.4f" % gap, "%.1f" % nd]
         lines.append(" ".join(row))
     with open(os.path.join(DATA, "ch22-scaling.dat"), "w") as f:
-        f.write("\n".join(lines) + "\n")
-    header = ["N"] + ["t%d" % m for m in VEHICLES] + ["hit%d" % m for m in VEHICLES]
-    lines = [" ".join(header)]
-    for N in HORIZONS:
-        row = [str(N)] + ["%.3f" % stats[(m, N)][2] for m in VEHICLES]
-        row += ["%.2f" % stats[(m, N)][4] for m in VEHICLES]
-        lines.append(" ".join(row))
-    with open(os.path.join(DATA, "ch22-scaling-horizon.dat"), "w") as f:
         f.write("\n".join(lines) + "\n")
     print("done in %.0f s" % (time.perf_counter() - t_all))
 

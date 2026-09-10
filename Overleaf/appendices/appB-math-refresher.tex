@@ -401,7 +401,7 @@ A radar at the origin measures the range $r$ and the bearing $\varphi$ of a dron
   \vect{h}(\state) = \begin{bmatrix} \sqrt{p_x^2 + p_y^2}\\ \operatorname{atan2}(p_y, p_x)\end{bmatrix},\qquad
   \mat{H} = \mat{J}_{\vect{h}}(\state) = \begin{bmatrix} p_x/r & p_y/r & 0 & 0\\ -p_y/r^2 & p_x/r^2 & 0 & 0\end{bmatrix}.
 \end{equation*}
-At $p_x = 3$, $p_y = 4$ (so $r = 5$) the Jacobian is $\mat{H} = \begin{bsmallmatrix} 0.6 & 0.8 & 0 & 0\\ -0.16 & 0.12 & 0 & 0\end{bsmallmatrix}$ and $\vect{h} = (5, 0.9273)\T$. For the displacement $\vect{\delta} = (0.1, -0.2, 0, 0)\T$ the linear prediction $\vect{h} + \mat{H}\vect{\delta} = (4.9000, 0.8873)\T$ differs from the exact value $(4.9041, 0.8865)\T$ by $(0.0041, -0.0008)\T$: an error of second order in $\norm{\vect{\delta}} = 0.22$, as \cref{eq:appB-taylor1} promises. The zero columns say that the measurement carries no direct information about the velocity; a filter learns the velocity only through the motion model.
+At $p_x = 3$, $p_y = 4$ (so $r = 5$) the Jacobian is $\mat{H} = \begin{bsmallmatrix} 0.6 & 0.8 & 0 & 0\\ -0.16 & 0.12 & 0 & 0\end{bsmallmatrix}$ and $\vect{h} = (5, 0.9273)\T$. For the displacement $\vect{\delta} = (0.1, -0.2, 0, 0)\T$ the linear prediction is $\vect{h} + \mat{H}\vect{\delta} = (4.9000, 0.8873)\T$, and the exact value $(4.9041, 0.8865)\T$ exceeds it by $(0.0041, -0.0008)\T$: an error of second order in $\norm{\vect{\delta}} = 0.22$, as \cref{eq:appB-taylor1} promises. The zero columns say that the measurement carries no direct information about the velocity; a filter learns the velocity only through the motion model.
 \end{example}
 
 \begin{pitfall}[Check every Jacobian numerically]
@@ -706,6 +706,10 @@ probability mass.
 \section{Optimization}
 \label{sec:appB-optimization}
 
+Throughout this section $\vect{z}$ is the vector of decision variables of a
+mathematical programme, not the measurement vector of
+\cref{sec:appB-probability}, which is written with the same bold letter.
+
 \subsection{Convex sets and convex functions}
 
 \begin{definition}[Convex set, convex function]
@@ -734,7 +738,7 @@ line of optimization is the following fact.
 Let $f$ be convex on a convex set $\mathcal{C}$ and let $\vect{x}^*$ be a local minimiser: $f(\vect{x}^*) \le f(\vect{x})$ for all $\vect{x} \in \mathcal{C}$ within some distance $\eps > 0$ of $\vect{x}^*$. Then $f(\vect{x}^*) \le f(\vect{x})$ for all $\vect{x} \in \mathcal{C}$. If moreover $\mathcal{C} = \R^n$ and $f$ is differentiable, then $\vect{x}^*$ is a global minimiser iff $\nabla f(\vect{x}^*) = \vect{0}$; on a general convex $\mathcal{C}$ the first-order condition is instead $\nabla f(\vect{x}^*)\T(\vect{x} - \vect{x}^*) \ge 0$ for all $\vect{x} \in \mathcal{C}$.
 \end{proposition}
 \begin{proof}
-Suppose $f(\vect{y}) < f(\vect{x}^*)$ for some $\vect{y} \in \mathcal{C}$. The points $\vect{x}_\theta = \theta\vect{y} + (1-\theta)\vect{x}^*$ lie in $\mathcal{C}$ and satisfy $f(\vect{x}_\theta) \le \theta f(\vect{y}) + (1-\theta)f(\vect{x}^*) < f(\vect{x}^*)$ for every $\theta \in (0, 1]$; for $\theta$ small enough $\vect{x}_\theta$ is within $\eps$ of $\vect{x}^*$, contradicting local minimality. For the second claim, a differentiable convex function satisfies $f(\vect{y}) \ge f(\vect{x}) + \nabla f(\vect{x})\T(\vect{y} - \vect{x})$ for all $\vect{x}, \vect{y}$, that is, its graph lies above its tangent planes \cite[Section~3.1]{boyd2004convex}. On $\mathcal{C} = \R^n$ a zero gradient therefore makes $\vect{x}$ a global minimiser, and conversely an unconstrained minimiser of a differentiable function has zero gradient. On a general convex $\mathcal{C}$ the same inequality gives $f(\vect{x}) \ge f(\vect{x}^*) + \nabla f(\vect{x}^*)\T(\vect{x} - \vect{x}^*) \ge f(\vect{x}^*)$ whenever the stated condition holds; and if $\nabla f(\vect{x}^*)\T(\vect{x} - \vect{x}^*) < 0$ for some $\vect{x} \in \mathcal{C}$, then $f$ decreases along the segment from $\vect{x}^*$ towards $\vect{x}$, which lies in $\mathcal{C}$, so $\vect{x}^*$ is not optimal \cite[Section~4.2]{boyd2004convex}. The gradient need not vanish at a constrained optimum: $f(x) = x$ on $\mathcal{C} = [0, 1]$ is minimised at $x^* = 0$ with $\nabla f(x^*) = 1$. \Cref{fig:appB-lp} draws the constrained condition for a linear programme, where $-\vect{c}$ lies in the cone of the normals of the active constraints at the optimal vertex, so no feasible direction decreases the objective. \qedhere
+Suppose $f(\vect{y}) < f(\vect{x}^*)$ for some $\vect{y} \in \mathcal{C}$. The points $\vect{x}_\theta = \theta\vect{y} + (1-\theta)\vect{x}^*$ lie in $\mathcal{C}$ and satisfy $f(\vect{x}_\theta) \le \theta f(\vect{y}) + (1-\theta)f(\vect{x}^*) < f(\vect{x}^*)$ for every $\theta \in (0, 1]$; for $\theta$ small enough $\vect{x}_\theta$ is within $\eps$ of $\vect{x}^*$, contradicting local minimality. For the second claim, a differentiable convex function satisfies $f(\vect{y}) \ge f(\vect{x}) + \nabla f(\vect{x})\T(\vect{y} - \vect{x})$ for all $\vect{x}, \vect{y}$, that is, its graph lies above its tangent planes \cite[Section~3.1]{boyd2004convex}. On $\mathcal{C} = \R^n$ a zero gradient therefore makes $\vect{x}$ a global minimiser, and conversely an unconstrained minimiser of a differentiable function has zero gradient. On a general convex $\mathcal{C}$ the same inequality gives $f(\vect{x}) \ge f(\vect{x}^*) + \nabla f(\vect{x}^*)\T(\vect{x} - \vect{x}^*) \ge f(\vect{x}^*)$ whenever the stated condition holds; and if $\nabla f(\vect{x}^*)\T(\vect{x} - \vect{x}^*) < 0$ for some $\vect{x} \in \mathcal{C}$, then $f$ decreases along the segment from $\vect{x}^*$ towards $\vect{x}$, which lies in $\mathcal{C}$, so $\vect{x}^*$ is not optimal \cite[Section~4.2]{boyd2004convex}. The gradient need not vanish at a constrained optimum: $f(x) = x$ on $\mathcal{C} = [0, 1]$ is minimised at $x^* = 0$ with $\nabla f(x^*) = 1$. \Cref{fig:appB-lp} draws the constrained condition for a linear programme: at the optimal vertex $-\vect{c}$ lies in the cone of the normals of the active constraints, so no feasible direction decreases the objective. That example \emph{maximises}, so the arrow shown inside the cone of the active normals is $+\vect{c}$, which is the same statement with the sign of the objective flipped. \qedhere
 \end{proof}
 
 For twice differentiable $f$ the test is the Hessian: $f$ is convex on $\R^n$
@@ -798,7 +802,7 @@ A \textbf{linear program}\index{linear program} (LP) minimises a linear function
   \min_{\vect{z} \in \R^n}\ \vect{c}\T\vect{z}\quad \st \mat{A}\vect{z} \le \vect{b},\qquad P = \set{\vect{z} : \mat{A}\vect{z} \le \vect{b}} \text{ the feasible polyhedron}.
   \label{eq:appB-lp}
 \end{equation}
-Equality constraints, sign constraints $\vect{z} \ge \vect{0}$ and maximisation are all reduced to this form by writing $\vect{a}\T\vect{z} = b$ as two inequalities, $z_j \ge 0$ as $-z_j \le 0$ and $\max \vect{c}\T\vect{z}$ as $\min (-\vect{c})\T\vect{z}$. Simplex solvers and most textbooks use instead the \textbf{standard form}\index{linear program!standard form} $\min \vect{c}\T\vect{z}$ subject to $\mat{A}\vect{z} = \vect{b}$, $\vect{z} \ge \vect{0}$, reached from \cref{eq:appB-lp} by adding a \emph{slack} variable $s_i \ge 0$ to every inequality, $\vect{a}_i\T\vect{z} + s_i = b_i$, and by splitting a free variable into $z_j = z_j^+ - z_j^-$ with $z_j^\pm \ge 0$; \code{scipy.optimize.linprog} accepts inequalities, equalities and bounds directly.
+Equality constraints, sign constraints $\vect{z} \ge \vect{0}$ and maximisation are all reduced to this form by writing $\vect{a}\T\vect{z} = \beta$ as two inequalities, $z_j \ge 0$ as $-z_j \le 0$ and $\max \vect{c}\T\vect{z}$ as $\min (-\vect{c})\T\vect{z}$. Simplex solvers and most textbooks use instead the \textbf{standard form}\index{linear program!standard form} $\min \vect{c}\T\vect{z}$ subject to $\mat{A}\vect{z} = \vect{b}$, $\vect{z} \ge \vect{0}$, reached from \cref{eq:appB-lp} by adding a \emph{slack} variable $s_i \ge 0$ to every inequality, $\vect{a}_i\T\vect{z} + s_i = b_i$, and by splitting a free variable into $z_j = z_j^+ - z_j^-$ with $z_j^\pm \ge 0$; \code{scipy.optimize.linprog} accepts inequalities, equalities and bounds directly.
 \end{definition}
 
 An LP is convex, so \cref{thm:appB-kkt} applies with $\nabla g_i =
@@ -807,11 +811,12 @@ normals of the active constraints. In two dimensions this is a picture
 (\cref{fig:appB-lp}): $P$ is a polygon, the level lines $\vect{c}\T\vect{z} =
 \text{const}$ are parallel, and sliding a level line in the direction
 $-\vect{c}$ as far as $P$ allows ends at a vertex, or along a whole edge when
-the level lines are parallel to it.
+the level lines are parallel to it (\cref{fig:appB-lp} maximises, so there the
+level line slides in the direction $+\vect{c}$).
 
 \begin{theorem}[Vertex optimality]
 \label{thm:appB-vertex}
-Every LP \cref{eq:appB-lp} either is infeasible ($P = \emptyset$), or is unbounded ($\vect{c}\T\vect{z} \to -\infty$ on $P$), or attains its optimum. In the last case, if $P$ has at least one vertex---which holds in particular for the standard form with $\vect{z} \ge \vect{0}$---then some vertex of $P$ is optimal.
+Every LP of the form \cref{eq:appB-lp} either is infeasible ($P = \emptyset$), or is unbounded ($\vect{c}\T\vect{z} \to -\infty$ on $P$), or attains its optimum. In the last case, if $P$ has at least one vertex---which holds in particular for the standard form with $\vect{z} \ge \vect{0}$---then some vertex of $P$ is optimal.
 \end{theorem}
 
 A proof is in \textcite[Chapter~13]{nocedal2006numerical}. The simplex
@@ -875,8 +880,10 @@ which alternate projections onto the constraints with linear solves.
 A \textbf{mixed-integer linear program}\index{mixed-integer linear program}
 (MILP) is an LP in which some variables are restricted to integers, most
 often to the binary values $b \in \set{0, 1}$. The integrality constraint
-destroys convexity: the feasible set is a scatter of points, not a
-polyhedron, and the problem is NP-hard in general. Dropping the integrality
+destroys convexity: the feasible set is a union of polyhedral slices, one for
+every assignment of the integer variables---a scatter of isolated points only
+when \emph{every} variable is integer---and convex in neither case. The
+problem is NP-hard in general. Dropping the integrality
 gives the \textbf{LP relaxation}\index{LP relaxation}, whose optimal value is
 a bound on the MILP optimum (a lower bound for a minimisation, an upper
 bound for a maximisation), because the relaxation optimises over a larger
@@ -975,7 +982,8 @@ adaptive step sizes are remedies for the narrow-valley effect.
 
 Throughout this section $\mat{A}$ is the adjacency matrix and $\mat{L}$ the
 Laplacian of a graph, not the generic matrix of \cref{sec:appB-linalg} or the
-Cholesky factor of \cref{thm:appB-psd-tests}.
+Cholesky factor of \cref{thm:appB-psd-tests}, and Laplacian eigenvalues are
+numbered in \emph{increasing} order, the reverse of \cref{thm:appB-spectral}.
 An undirected graph $G = (V, E)$ with $n$ vertices numbered $1, \dots, n$ is
 the communication network of \cref{ch:ch23}: the vertices are drones and an
 edge $\set{i, j}$ means that $i$ and $j$ can exchange messages. The
@@ -1074,7 +1082,7 @@ T$, with a wait edge from $(v, t)$ to $(v, t+1)$ beside the move edges.
 
 \begin{definition}[Big-O, Omega and Theta]
 \label{def:appB-bigO}
-For functions $f, g\colon \N \to \R_{\ge 0}$, $f(n) = \bigO{g(n)}$ if there are constants $c > 0$ and $n_0$ with $f(n) \le c\,g(n)$ for all $n \ge n_0$; $f(n) = \Omega(g(n))$ if $f(n) \ge c\,g(n)$ for all $n \ge n_0$; and $f(n) = \Theta(g(n))$ if both hold.\index{big-O notation}
+For functions $f, g\colon \N \to \R_{\ge 0}$, $f(n) = \bigO{g(n)}$ if there are constants $c > 0$ and $n_0$ with $f(n) \le c\,g(n)$ for all $n \ge n_0$; $f(n) = \Omega(g(n))$ if there are constants $c > 0$ and $n_0$ with $f(n) \ge c\,g(n)$ for all $n \ge n_0$; and $f(n) = \Theta(g(n))$ if there are constants $c_1, c_2 > 0$ and $n_0$ with $c_1\,g(n) \le f(n) \le c_2\,g(n)$ for all $n \ge n_0$, that is, if both bounds hold.\index{big-O notation}
 \end{definition}
 
 Big-O is an upper bound up to a constant factor for large inputs; $\Theta$
@@ -1162,7 +1170,7 @@ $\bigO{\abs{E}}$ in total, which leaves the asymptotic bounds unchanged.
   \item Linearisation keeps the Jacobian and drops an error of second order in the displacement; the double-integrator step $\pos' = \pos + \vel\dt + \tfrac12\acc\dt^2$, $\vel' = \vel + \acc\dt$ is exact for a piecewise-constant input.
   \item Covariances propagate as $\mat{A}\mat{\Sigma}\mat{A}\T$ under any linear map; Gaussians stay Gaussian under affine maps, marginalisation and conditioning, and the conditioning formula \cref{eq:appB-conditional} is the Kalman update in disguise.
   \item A filter is total probability (predict) followed by Bayes' rule (update); Monte Carlo errors shrink like $1/\sqrt{N}$; the squared Mahalanobis distance of a Gaussian vector is $\chi^2_n$, which sets gates such as $5.991$ for $n = 2$ at $95\,\%$.
-  \item Convexity makes local minima global and the KKT conditions sufficient. An LP attains its optimum at a vertex, a convex QP is an LP with a quadratic cost, a MILP is solved exactly by branch and bound with big-$M$ binaries encoding disjunctions, and gradient descent converges for $\alpha < 2/\lambda_{\max}$ but crawls on ill-conditioned problems.
+  \item Convexity makes local minima global and the KKT conditions sufficient. An LP attains its optimum at a vertex, a convex QP is an LP with a quadratic cost, a MILP is solved exactly by branch and bound with big-$M$ binaries encoding disjunctions, and gradient descent converges for $\alpha < 2/L$ with $L$ the Lipschitz constant of the gradient (that is $2/\lambda_{\max}$ for a quadratic) but crawls on ill-conditioned problems.
   \item The Laplacian $\mat{L} = \mat{D} - \mat{A}$ is PSD with $\mat{L}\vect{1} = \vect{0}$; $\lambda_2 > 0$ iff the graph is connected and sets the speed of consensus, and $\lambda_n \le 2d_{\max}$ bounds the safe step size.
   \item A binary heap gives $\bigO{\log n}$ insertion and extraction; \code{heapq} plus a \code{dict}, lazy deletion and a tie-breaking counter is the priority queue of every search in this book.
 \end{itemize}

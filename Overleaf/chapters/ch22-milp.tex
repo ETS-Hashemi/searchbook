@@ -12,7 +12,8 @@
   \item Derive the big-$M$ encoding of ``stay outside this rectangle'' and of ``stay at least $d_{\min}$ apart'', choose $M$ tightly, and count how many binaries a multi-vehicle problem needs.
   \item Assemble the complete mixed-integer linear program (MILP) for minimum-fuel and minimum-time multi-vehicle trajectories with double-integrator dynamics, and linearise 1-norm and $\infty$-norm objectives with auxiliary variables.
   \item Trace branch-and-bound by hand: LP relaxation, branching on a fractional binary, bounding with the incumbent, and why the tree can grow exponentially.
-  \item Solve a two-vehicle instance with \code{scipy.optimize.milp}, check the solution, formulate MAPF as an integer program, and judge from a scaling experiment when exactness is worth its price.
+  \item Solve a two-vehicle instance with \code{scipy.optimize.milp}, check the solution, formulate multi-agent path finding (MAPF) as an
+    integer program, and judge from a scaling experiment when exactness is worth its price.
 \end{itemize}
 \end{objectives}
 
@@ -26,7 +27,7 @@ their goals six seconds later, may accelerate at no more than $2$~m/s$^2$,
 must never come closer than one metre to each other, and the battery budget
 asks for the plan with the smallest total velocity change. Every planner of
 the earlier chapters answers a version of this question, and every one of
-them compromises somewhere. \cbs (\cref{ch:ch09}) returns optimal paths, but
+them compromises somewhere. \cbs (conflict-based search, \cref{ch:ch09}) returns optimal paths, but
 on a grid with unit moves, not trajectories with accelerations. The model
 predictive controller of \cref{ch:ch21} handles the dynamics and the input
 limits exactly, but a collision constraint is \emph{non-convex}: ``stay out
@@ -214,15 +215,15 @@ relaxation is as tight as possible.
 \begin{table}[tb]
   \centering\small
   \caption{What integer variables buy. Every gadget is linear in the
-  continuous variables $x, u$ and the binaries $b, z$; $M$ is a constant
-  large enough to make a switched-off inequality hold everywhere.}
+  variables of \cref{def:ch22-lp}, of which $b$ and $z_j$ are binary; $M$ is
+  a constant large enough to make a switched-off inequality hold everywhere.}
   \label{tab:ch22-gadgets}
   \begin{tabular}{@{}lll@{}}
   \toprule
   Need & Encoding & Example in this book\\
   \midrule
   choice among $r$ options & $z_1 + \dots + z_r = 1$, $z_j \in \set{0,1}$ & arrival step of a drone\\
-  either $f(x) \le 0$ or $g(x) \le 0$ & $f(x) \le M b$, $g(x) \le M(1-b)$ & pass left or right of a block\\
+  either $f(\vect{z}) \le 0$ or $g(\vect{z}) \le 0$ & $f(\vect{z}) \le M b$, $g(\vect{z}) \le M(1-b)$ & pass left or right of a block\\
   on/off switch & $0 \le u \le u_{\max} z$ & pad in use or not\\
   assignment of $i$ to $j$ & $\sum_j z_{ij} = 1$, $\sum_i z_{ij} \le 1$ & drones to landing slots\\
   implication, at most one & $z_1 \le z_2$, \; $\sum_j z_j \le 1$ & one drone per vertex and time\\
@@ -394,9 +395,10 @@ approximated by a polygon with more binaries per pair.
 rectangular obstacles and $N$ steps there are $4 N m n_O$ obstacle binaries
 and $4 N \binom{m}{2}$ separation binaries; the pair term grows
 quadratically in $m$, and every binary can in principle double the size of
-the search tree. Two drones and twenty steps are a routine problem, ten
-drones and fifty steps are a hard one, and twenty drones are beyond reach
-without further structure. This table is the quantitative reason for the
+the search tree. Two drones and twenty steps are a problem of seconds; three interacting
+drones are already past what thirty seconds can prove optimal
+(\cref{sec:ch22-cost}); ten drones and fifty steps are out of reach without
+further structure. This table is the quantitative reason for the
 verdict of \cref{sec:ch22-cost}.
 
 \subsection{The full multi-vehicle trajectory problem}
@@ -461,17 +463,19 @@ an $\infty$-norm needs one variable where the 1-norm needs one per
 component. (A single $s$ shared by all drones would bound only the largest
 peak and leave the inputs of the other drones undetermined below it.) The \textbf{minimum-time}\index{minimum-time
 objective} cost of \textcite{richards2002aircraft} needs binaries again:
-$y^i_k \in \set{0,1}$ marks the arrival step of drone $i$,
+$w^i_k \in \set{0,1}$ marks the arrival step of drone $i$,
 \begin{equation}
-  J_{\mathrm{time}} = \sum_{i} \sum_{k=1}^{N} k\,\dt\; y^i_k, \qquad
-  \sum_{k=1}^{N} y^i_k = 1, \qquad
+  J_{\mathrm{time}} = \sum_{i} \sum_{k=1}^{N} k\,\dt\; w^i_k, \qquad
+  \sum_{k=1}^{N} w^i_k = 1, \qquad
   \abs{p^i_{k,d} - p^i_{\mathrm{g},d}} \le M_{\mathrm{g}}
-  \Bigl(1 - \sum_{k' \le k} y^i_{k'}\Bigr) \quad \text{for all } k, d,
+  \Bigl(1 - \sum_{k' \le k} w^i_{k'}\Bigr) \quad \text{for all } k, d,
   \label{eq:ch22-time}
 \end{equation}
 with $M_{\mathrm{g}}$ the workspace diameter: once the drone has arrived
-($\sum_{k' \le k} y^i_{k'} = 1$) it must stay at the goal, before that the
-row is switched off. A small multiple of $J_{\mathrm{fuel}}$ is added as a
+($\sum_{k' \le k} w^i_{k'} = 1$) it must stay at the goal, before that the
+row is switched off; the letter $w$ keeps the arrival binary apart from the
+$y$-coordinate of \cref{eq:ch22-sep}. 
+A small multiple of $J_{\mathrm{fuel}}$ is added as a
 tie-breaker among plans with the same arrival times. All three objectives
 are implemented in \code{code/ch22\_milp.py}.
 
@@ -640,8 +644,8 @@ with SciPy~1.17.1 and its bundled HiGHS. Times vary by a few tenths of a
 second between runs of the same instance and by a factor of two between
 machines; the node counts are reproducible.} after $366$
 branch-and-bound nodes. The optimal fuel is $J_{\mathrm{fuel}} = 12.02$~m/s
-of total velocity change, and \cref{tab:ch22-steps} is the resulting pair of
-trajectories. Both drones go over the top; A climbs to $y =
+of total velocity change, and \cref{tab:ch22-steps} lists the resulting pair of
+trajectories step by step. Both drones go over the top; A climbs to $y =
 6.5$ while B stays on the edge $y = 5.5$, and at step $k = 6$ ($t = 3$~s)
 they pass each other with $\norm{\pos^A_6 - \pos^B_6}_\infty = 1.000$: the
 separation constraint is active, and the binary $c_{6,3} = 0$ (``A above B'')
@@ -673,8 +677,10 @@ $2$~m at every sampled instant.
 
 \begin{table}[tb]
   \centering\small
-  \caption{The minimum-fuel plan of \cref{ex:ch22-two}, step by step, as
-  printed by the self-test of \code{code/ch22\_milp.py}. The separation
+  \caption{The minimum-fuel plan of \cref{ex:ch22-two} around the crossing,
+  as printed by the self-test of \code{code/ch22\_milp.py}, which lists all
+  thirteen steps; the omitted ones ($k = 1$--$3$ and $k = 9$--$11$) continue
+  the pattern of the neighbouring rows. The separation
   constraint is tight at $k = 6$, where the two drones pass each other with
   exactly $d_{\min} = 1$~m; everywhere else it is slack.}
   \label{tab:ch22-steps}
@@ -683,17 +689,11 @@ $2$~m at every sampled instant.
   $k$ & $t$ [s] & $\pos^A_k$ [m] & $\pos^B_k$ [m] & $\norm{\pos^A_k - \pos^B_k}_\infty$ [m]\\
   \midrule
   0 & 0.0 & $(1.000, 4.000)$ & $(9.000, 4.500)$ & 8.000\\
-  1 & 0.5 & $(1.250, 4.250)$ & $(8.750, 4.614)$ & 7.500\\
-  2 & 1.0 & $(1.889, 4.750)$ & $(8.091, 4.841)$ & 6.202\\
-  3 & 1.5 & $(2.667, 5.250)$ & $(7.273, 5.068)$ & 4.606\\
   4 & 2.0 & $(3.444, 5.750)$ & $(6.455, 5.295)$ & 3.010\\
   5 & 2.5 & $(4.222, 6.250)$ & $(5.636, 5.500)$ & 1.414\\
   6 & 3.0 & $(5.000, 6.500)$ & $(4.818, 5.500)$ & \textbf{1.000}\\
   7 & 3.5 & $(5.778, 6.250)$ & $(4.000, 5.318)$ & 1.778\\
   8 & 4.0 & $(6.556, 5.750)$ & $(3.182, 5.136)$ & 3.374\\
-  9 & 4.5 & $(7.333, 5.250)$ & $(2.364, 4.955)$ & 4.970\\
-  10 & 5.0 & $(8.111, 4.750)$ & $(1.591, 4.773)$ & 6.520\\
-  11 & 5.5 & $(8.750, 4.250)$ & $(1.114, 4.591)$ & 7.636\\
   12 & 6.0 & $(9.000, 4.000)$ & $(1.000, 4.500)$ & 8.000\\
   \bottomrule
   \end{tabular}
@@ -746,7 +746,7 @@ This section answers them in turn.
 \begin{theorem}[Correctness of branch-and-bound]
 \label{thm:ch22-bnb}
 Let $P$ be a MILP with binaries indexed by $I$ whose LP relaxations are
-solved exactly. \Cref{alg:ch22-bnb} terminates after visiting at most
+bounded and solved exactly. \Cref{alg:ch22-bnb} terminates after visiting at most
 $2^{\abs{I}+1} - 1$ nodes and returns an optimal solution of $P$, or
 \emph{infeasible} if $P$ has no feasible
 solution.\index{branch-and-bound!correctness}
@@ -788,6 +788,10 @@ is cheaper than the incumbent, and the incumbent is itself a feasible
 integral solution: it is optimal. If no incumbent was ever found, $P$ has
 no integral solution at all.
 \end{proof}
+
+The trajectory MILP of \cref{def:ch22-problem} satisfies the hypothesis:
+every variable has finite bounds, so every relaxation is a bounded LP with
+an optimal vertex.
 
 Solvers relax the last step. They stop as soon as the incumbent is within a
 relative \textbf{MIP gap}\index{MIP gap} of the smallest bound in \Open,
@@ -897,8 +901,8 @@ from a mid-step collision. The alternatives, a finer $\dt$ and an
 \subsection{MAPF as an integer program}
 \label{sec:ch22-mapf-ilp}
 
-The MAPF problem of \cref{ch:ch07} lives on a graph rather than in
-continuous space, but it is an integer program too, and a particularly
+The multi-agent path finding (MAPF) problem of \cref{ch:ch07} lives on a
+graph rather than in continuous space, but it is an integer program too, and a particularly
 clean one. Yu and LaValle \cite{yu2016optimal} write it as a
 \textbf{multi-commodity flow}\index{multi-commodity flow}\index{MAPF!as an
 integer program} on the \textbf{time-expanded graph}\index{time-expanded
@@ -970,7 +974,8 @@ branch-and-bound, while \cbs solves such instances routinely when the
 conflicts are few. On small, densely populated graphs the picture reverses:
 the constraint tree of \cbs explodes while the flow program stays small,
 and Yu and LaValle report optimal solutions for a hundred or more robots on
-grids of a few hundred cells. The ILP also inherits everything a MILP
+grids of a few hundred cells, using the splitting heuristics of their paper
+rather than the plain flow ILP. The ILP also inherits everything a MILP
 solver offers: an incumbent with a gap at any time, a warm start, and any
 linear side constraint that \cbs would need a new branching rule for.
 
@@ -1028,7 +1033,7 @@ solver hits the limit with a gap of $30$--$40$\,\%. From three drones on the lim
 every horizon, and the gap left when the solver stops grows with $m$ and
 with $N$: $9$\,\% at $m = 3$, $N = 12$, more than $50$\,\% at $m = 3$,
 $N = 24$, and $81$\,\% at $m = 6$, $N = 24$, where $30$~s buy only two
-nodes because a single LP relaxation, with $2\,000$ binaries and $3\,000$
+nodes because a single LP relaxation, with about $2\,000$ binaries among $3\,200$
 variables, takes seconds. The number of binaries, \cref{tab:ch22-binaries}, is not the whole story; what the
 solver fights is the weak relaxation of the big-$M$ rows and the symmetry
 of a crossing, where the mirror image of every plan is another plan of the
@@ -1061,23 +1066,25 @@ gain an order of magnitude, not a change of shape.
   \end{tabular}
 \end{table}
 
-\Cref{tab:ch22-verdict} states the verdict. MILP is not a competitor of the
-planners in Parts~III and~IV of this book but their judge: for a two- or
-three-drone scenario of \cref{ch:ch25} it computes the exact optimum
-offline, so that the gap of the hybrid planner's plan becomes a measured
-number instead of a guess. What it cannot do is replan fifty drones ten
-times a second.
+\Cref{tab:ch22-verdict} states the verdict: MILP is not a competitor of the
+planners in Parts~III and~IV of this book but their judge, computing the
+exact optimum offline for a two- or three-drone scenario of \cref{ch:ch25},
+so that the gap of the hybrid planner's plan becomes a measured number
+instead of a guess.
 
 % ---------------------------------------------------------------------
 \section{Implementation notes}
 \label{sec:ch22-implementation}
 
 The file \code{code/ch22\_milp.py} builds the MILP of
-\cref{def:ch22-problem} as sparse matrices. The class \code{MilpModel}
+\cref{def:ch22-problem} as sparse matrices. The dataclass \code{Instance}
+carries the geometry, the horizon, the limits and the field
+\code{objective} (\code{"fuel"}, \code{"peak"} or \code{"time"}); the
+class \code{MilpModel}
 allocates blocks of variable indices (states, inputs, slacks, obstacle,
 separation and arrival binaries) behind the index functions
 \code{x(i, k, d)}, \code{u(i, k, d)}, \code{b(i, o, k, j)} and
-\code{cpair(pair, k, q)}, and \code{add\_row} collects a constraint row as
+\code{cpair(pair, k, j)}, and \code{add\_row} collects a constraint row as
 a dictionary of coefficients with two bounds. \Cref{lst:ch22-obstacle} is
 the big-$M$ block of \cref{eq:ch22-bigm} with the tight values
 \cref{eq:ch22-tightM}; the separation rows follow the same pattern.
@@ -1199,21 +1206,16 @@ plan with \code{check\_solution}, never with the status alone: the
 tolerances of the solver are yours to accept or to reject.\index{warm start}\index{incumbent!time limit}
 
 \begin{pitfall}[A huge $M$]
-The textbook ``$M = 10^6$'' costs twice. A binary of $10^{-6}$ already
-switches a constraint off by one metre, so the LP relaxation is the
-unconstrained problem and the tree grows until many binaries are fixed;
-and a binary reported as $0$ within the integrality tolerance may be
-$10^{-6}$, so the ``feasible'' plan flies through the block. Compute $M$
-from the workspace, keep all coefficients within a few orders of magnitude
-of one, and verify the returned plan.
+The textbook ``$M = 10^6$'' costs twice, once in the relaxation and once
+in the tolerances (\cref{sec:ch22-bigm}). Compute $M$ from the workspace,
+keep all coefficients within a few orders of magnitude of one, and verify
+the returned plan.
 \end{pitfall}
 
 \begin{pitfall}[Safe at the samples, unsafe in between]
 The MILP enforces the obstacle and separation constraints at $k = 1,
-\dots, N$ and nowhere else. The minimum-time plan of \cref{ex:ch22-two}
-satisfies every sampled constraint with a margin of $0.25$~m and yet the
-two drones fly through each other between $t = 2$ and $2.5$~s; the
-minimum-fuel plan cuts the corner of the block by $0.15$~m. Inflate the
+\dots, N$ and nowhere else. Both plans of \cref{ex:ch22-two} violate the
+continuous constraint although every sampled constraint holds. Inflate the
 obstacles by $v_{\max}\dt/2$ and the separation by $v_{\max}\dt$
 (\cref{prop:ch22-intersample}), or use a finer $\dt$, and check the
 continuous motion before you fly it.

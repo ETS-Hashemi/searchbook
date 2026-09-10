@@ -94,7 +94,7 @@ Each chapter: outline → draft following the template → figures (≥4, TikZ) 
 ## Phase 4 — Back matter
 
 - [x] 4.1 Appendix A: the twelve-week study plan (week → chapters → coding exercise → milestone → completion checklist) — written; reviewed and revised (see review log)
-- [~] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics) — written on Fable (20 pp, 1168 lines, compiles); Opus review in progress
+- [x] 4.2 Appendix B: mathematical refresher (linear algebra, probability, calculus for kinematics, convex optimization, LP/QP/MILP basics) — written (20 pp), two Opus rounds applied
 - [ ] 4.3 Appendix C: hints and solutions to selected exercises (≥2 per chapter)
 - [x] 4.4 Glossary (every bold term of the book) — assembled automatically (tools/assemble_glossary.py): 336 terms, 25 pages
 - [~] 4.5 Index (≥15 entries per chapter; check for duplicates and synonyms) — every chapter has 23-67 entries; duplicate/synonym check in 7.x
@@ -106,30 +106,30 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 
 - [x] 5.01 Ch 1 — review/revise until Accept — Accept (round 2)
 - [x] 5.02 Ch 2 — four Opus rounds, every required change applied; loop complete
-- [~] 5.03 Ch 3 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [x] 5.03 Ch 3 — two or more Opus rounds, all required changes applied; loop complete
 - [x] 5.04 Ch 4 — four Opus rounds (Major 13 -> Minor 7 -> Minor 3 -> Minor 3), every required change applied; loop complete
 - [x] 5.05 Ch 5 — four Opus rounds (Minor 9 -> Minor 2 -> Minor 6 -> Minor 2), every required change applied; loop complete
-- [~] 5.06 Ch 6 — review/revise until Accept — round 1 (Minor) applied; confirming round scheduled
-- [~] 5.07 Ch 7 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
-- [~] 5.08 Ch 8 — review/revise until Accept — round 1 (Minor) applied; confirming round scheduled
-- [~] 5.09 Ch 9 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [x] 5.06 Ch 6 — Opus rounds (Minor 6 -> Minor 3), all required changes applied; loop complete
+- [x] 5.07 Ch 7 — two or more Opus rounds, all required changes applied; loop complete
+- [x] 5.08 Ch 8 — Opus rounds (Minor 8 -> Minor 6), all required changes applied; loop complete
+- [x] 5.09 Ch 9 — two or more Opus rounds, all required changes applied; loop complete
 - [x] 5.10 Ch 10 — ACCEPT (Opus, after 4 review rounds in total)
-- [~] 5.11 Ch 11 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
-- [~] 5.12 Ch 12 — review/revise until Accept — round 1 (Minor) applied; confirming round scheduled
-- [~] 5.13 Ch 13 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
-- [~] 5.14 Ch 14 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
-- [~] 5.15 Ch 15 — review/revise until Accept — round 1 (Minor) applied; confirming round scheduled
-- [~] 5.16 Ch 16 — review/revise until Accept — round 1 (Minor) applied; confirming round scheduled
-- [~] 5.17 Ch 17 — review/revise until Accept — round 1 (Minor) applied; confirming round scheduled
+- [x] 5.11 Ch 11 — two or more Opus rounds, all required changes applied; loop complete
+- [x] 5.12 Ch 12 — Opus rounds (Minor 7 -> Minor 3 -> Minor 2), all required changes applied; loop complete
+- [x] 5.13 Ch 13 — two or more Opus rounds, all required changes applied; loop complete
+- [x] 5.14 Ch 14 — two or more Opus rounds, all required changes applied; loop complete
+- [x] 5.15 Ch 15 — Opus rounds (Minor 10 -> Minor 5), all required changes applied; loop complete
+- [x] 5.16 Ch 16 — Opus rounds (Minor 7 -> Minor 5), all required changes applied; loop complete
+- [x] 5.17 Ch 17 — Opus rounds (Minor 9 -> Minor 3), all required changes applied; loop complete
 - [x] 5.18 Ch 18 — review/revise until Accept — two Opus rounds (Minor 6 -> Minor 2), all applied; loop complete
-- [~] 5.19 Ch 19 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
-- [~] 5.20 Ch 20 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
-- [~] 5.21 Ch 21 — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
-- [~] 5.22 Ch 22 — review/revise until Accept — round 1 (Minor) applied; confirming round scheduled
-- [~] 5.23 Ch 23 — review/revise until Accept — round 1 (Minor) applied; confirming round scheduled
+- [x] 5.19 Ch 19 — two or more Opus rounds, all required changes applied; loop complete
+- [x] 5.20 Ch 20 — two or more Opus rounds, all required changes applied; loop complete
+- [x] 5.21 Ch 21 — two or more Opus rounds, all required changes applied; loop complete
+- [x] 5.22 Ch 22 — Opus rounds (Minor 8 -> Minor 6), all required changes applied; loop complete
+- [x] 5.23 Ch 23 — Opus rounds (Minor 6 -> Minor 2), all required changes applied; loop complete
 - [x] 5.24 Ch 24 — review/revise until Accept — two Opus rounds (Minor 8 -> Minor 4), all applied; loop complete
 - [x] 5.25 Ch 25 — review/revise until Accept — two Opus rounds (Minor 6 -> Minor 5), all applied; loop complete
-- [~] 5.26 Front matter and appendices — review/revise until Accept — two Opus rounds done, remaining minor items applied; final confirmation pass pending
+- [x] 5.26 Front matter and appendices — App. A two rounds, App. B two rounds, front matter reviewed with Ch 1; loop complete
 
 ## Phase 6 — Book-level review (whole manuscript)
 
@@ -179,6 +179,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | 24 | 13:00-17:40 | first wave: authors finished Ch 7, 9, 11, 13, 19, 20, 21 (20-24 pp each, all compile); then the session limit hit again (reset 17:40 UTC) before any review completed | 17 drafted files |
 | 26 | 09-08 | review loops finished for Ch 1-5, 7, 9-11, 13, 14, 19-21 and App. A (Ch 1 Accept; 14 others: two Opus rounds, minor items applied). All 12 remaining authors (Ch 6, 8, 12, 15-18, 22-25, App. B) stopped by the WEEKLY Fable limit | 15 reviewed |
 | 29 | 09-09 09:00-13:50 | authors finished Ch 6, 8, 12, 15, 16, 22, 23 (19-23 pp each); fresh Opus reviews of Ch 1, 2, 4, 5, 10 found 3-6 minor items each (not yet applied); then the session limit hit again | 23 chapters drafted |
+| 36 | 09-10 00:05 | confirming-round workflow finished, 0 errors. PHASE 5 COMPLETE: every chapter/appendix has >= 2 Opus rounds applied (Ch 1, 10 formally accepted). Part 2 of the consistency pass launched | Phase 5 done |
 | 35 | 09-09 22:56 | the 21:13 cron launch did not happen (session idle); confirming-round workflow launched manually (Ch 6, 8, 15-17, 22, 23, App. B round 2; Ch 12 round-2 items). Phase 3 ticked: all 25 code files pass code/run_all.py | running |
 | 34 | 09-09 20:05 | remaining workflows ended on the session limit (reset 21:10). All chapters have >= 1 full Opus round applied. Confirming rounds for Ch 6, 8, 15-17, 22, 23, App. B and the Ch 12 round-2 items scheduled for 21:12 UTC (docs/workflows/batches/w5-confirming.json) | scheduled |
 | 33 | 09-09 19:10 | first full build with ALL chapters: 710 pages, 0 errors, 0 undefined refs/cites, 0 duplicate labels, 36 overfull boxes (for 7.2). Fixed a pdfLaTeX memory overflow by thinning one 2000-point scatter file (tools/thin_dat.py). Interim PDF + zip packaged | 710-page draft |
@@ -223,6 +224,6 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 | Ch 25 | 1-2 | Minor (6) -> Minor (5), all applied | see reviews/ch25-round*.md | loop complete |
 | Ch 18 | 1-2 | Minor (6) -> Minor (2), all applied | see reviews/ch18-round*.md | loop complete |
 | Ch 18 | 1-2 | Minor (6) -> Minor (2), all applied | see reviews/ch18-round*.md | loop complete |
-| Ch 6, 8, 15, 16, 17, 22, 23, App. B | 1 | Minor (6/8/10/7/9/8/6/5), all applied | see reviews/*-round1.md | confirming round pending |
-| Ch 12 | 1-2 | Minor (7) -> Minor (3) | see reviews/ch12-round*.md | round-2 items to apply |
+| Ch 6, 8, 15, 16, 17, 22, 23, App. B | 1-2 | round 1 Minor (6/8/10/7/9/8/6/5) -> round 2 Minor (3/6/5/5/3/6/2/2), all applied | see reviews/*-round1.md, *-round2.md | loop complete |
+| Ch 12 | 1-3 | Minor (7) -> Minor (3) -> Minor (2), all applied | see reviews/ch12-round*.md | loop complete |
 | App. A | 1-2 | Minor revision (6) -> Minor revision (9), applied | see reviews/appA-round1.md, appA-round2.md | minor items applied, unreviewed |

@@ -215,3 +215,60 @@ box's frank explanation of why the safety layer is ORCA/DWA, and the code as it 
 vectorised over drones, self-testing in 3.3 s, analytic forces checked against central
 differences, and reproducing every quoted number to the last digit. Keep all nine figures
 and their captions, which tell the reader what to notice rather than what is drawn.
+
+## Response to review (round 2)
+
+All five required changes are applied; the chapter builds with status 0, no errors and no
+undefined citations, the self-test of `code/ch15_potential_fields.py` passes unchanged
+(3.3 s), and the chapter is 21 PDF pages. No `.dat` file was regenerated because the code
+was not touched.
+
+**A (§7.3, the clipping equivalence).** Applied. The sentence after
+`def:ch15-attractive` now reads: away from obstacles the clip at $v_{\max}$ gives the same
+command as the hybrid with $d^* = v_{\max}/k_{\mathrm{att}}$ (`exr:ch15-conic`); inside an
+influence region the two differ, because the controller clips the *sum* while the hybrid
+caps the attraction before the repulsion is added -- from $(0,4.5)$ in `ex:ch15-disc` the
+clipped field keeps a clearance of $0.519$, the hybrid one with $d^* = 1$ a clearance of
+$0.840$. Both numbers re-verified against the code (1099 steps / 0.5186 and 1474 /
+0.8405). Exercise 7.2(b) left as it was.
+
+**A (§7.7.1, the 12 %).** Applied. The sentence now reads: "a free path over or under the
+disc exists: the shortest one, two tangents and an arc, is 8.25 units against the
+straight-line 8, only 3 % longer, and even one that keeps the clearance 0.519 of
+`fig:ch15-field` costs 7 %." Recomputed independently: $2\sqrt{15} + \arccos$-arc
+$= 8.2513$ (3.1 %) and, with the offset radius $1.519$, $8.5844$ (7.3 %). The 12 % in §7.5
+is unchanged, where it is correct for the run from $(0,4.5)$.
+
+**F (LaSalle / Lyapunov pointing at `ch:appB`).** Applied, first option. Both
+`\cref{ch:appB}` pointers in the proofs of `thm:ch15-descent` and `thm:ch15-stability` are
+replaced by `\cite{khalil2002nonlinear}`; `khalil2002nonlinear` (Khalil, *Nonlinear
+Systems*, 3rd ed., Prentice Hall, 2002) was added to `bib/ch15-extra.bib` and named once in
+further reading. No theorem numbers are cited. `references.bib` was not touched.
+
+**E (solution of `exr:ch15-gnron`).** Applied, with one number corrected. The two stale
+sentences are replaced by the chatter/tolerance explanation the exercise now asks for:
+chatter amplitude one step, $\dt\,v_{\max} = 0.01$; reached after 508 steps at
+$\eps_{\mathrm{g}} = 0.05$; stuck after 695 steps with `goal_tol=1e-3`, the distance to the
+goal alternating between 0.0027 and 0.0074. **Deviation:** the review's suggested wording
+says $n = 2$ "reports reached after 509 steps at either tolerance"; the run reports 509
+steps only at `goal_tol=1e-3` and 425 steps at $\eps_{\mathrm{g}} = 0.05$ (the code's own
+self-test prints both), so the solution states the two figures separately.
+
+**D (caption of `fig:ch15-oscillation`, off by one).** Applied. The caption now reads:
+"the lateral error changes sign and grows at every step inside the passage, and the third
+step there overshoots the axis by 0.80, more than the half-width 0.5, so the drone ends
+inside the lower disc after 8 steps." **Deviation:** the suggested "doubles at every step"
+is not what `ch15-osc-crash.dat` shows (the lateral error goes $0.182 \to -0.0685 \to
+0.1497 \to -0.8014$, i.e. it shrinks once, then grows by 2.2 and 5.4), so the caption says
+"changes sign and grows at every step inside the passage" instead; the corrected step index,
+the 0.80 overshoot and the 8 steps are exactly as required.
+
+**Suggestions.** 1 (domain clause on `eq:ch15-gapforce`), 2 ($\ge 2 \to > 2$ in summary
+bullet 3), 3a/3b/3c (the $k = 300$ sentence after `tab:ch15-trace`, the $w = 1.6$ rows of
+`tab:ch15-corridor` and the sentence duplicated between §7.8.1 and the `fig:ch15-basin`
+caption -- the round-1 correction about the random escape stays in the body paragraph), 4
+($\rho_{ij}$ reminder at `eq:ch15-interagent`), 5 ($\dt = 0.02$ in §7.9), 6 (a solution
+sketch for `exr:ch15-smoothness`) and 7 (the "s" dropped from the `fig:ch15-oscillation`
+legend) are all applied. On 3 (length): the trims plus some tightening of the new material
+and of the coding exercise's wording hold the chapter at 21 pages with every required
+addition in place; nothing the "what must be kept" list names was removed.

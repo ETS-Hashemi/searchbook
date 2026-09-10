@@ -192,3 +192,80 @@ $p_{\mathrm{goal}}=0.5$ is worse than no bias at all, with its matching pitfall 
 \cref{tab:ch16-gridsizes} and \cref{tab:ch16-comparison}, which between them answer the
 Week-8 milestone; keep the "only the bounds change" 3D section, the kinodynamic section with
 its corrected pseudocode, and the `dronebox` on splicing a local \rrt into a global grid plan.
+
+## Response to review (round 2)
+
+All five required changes are applied. Build: `cd Overleaf && ./build.sh ch16-rrt` exits
+**0**, no `!` errors, zero overfull boxes over 15 pt, the only undefined references are to
+other chapters. `python3 code/ch16_rrt.py` passes (`self-test passed in 3.2 s`); no code
+changed, so no `.dat` file needed regeneration. Chapter body is still 21 printed pages
+(47-67 in the single-chapter build): the additions below and the trims listed at the end
+cancel out.
+
+1. **Self-test runtime (line 1043, sec. 16.8.3), category A.** Replaced "(it prints its own
+   runtime, four to five here)" by "-- it prints its own runtime, three to five seconds on
+   the machines used for this book --". The committed self-test prints 3.2-3.4 s on this
+   machine, which the new range covers.
+2. **Solution to `exr:ch16-trace` (solutions lines 40-45), category A.** The derivation from
+   the two-decimal coordinates of `tab:ch16-trace` is kept unchanged; the false agreement
+   claim is replaced by: "These two lines are computed from the two-decimal coordinates of
+   \cref{tab:ch16-trace}; the trace printed by \code{ch16\_rrt.py}, which carries the full
+   precision of $x_6$, gives $(3.332,3.073)$ and $(3.143,3.327)$ -- the same conclusion, the
+   difference being the rounding of the tabulated vertex." I re-ran the instrumented call
+   `rrt(worked_example_world(), (1,1), (9,9), eta=0.5, p_goal=0.05, r_goal=0.5, seed=1,
+   trace=...)`: iteration 11 gives `(3.3321, 3.0727)`, iteration 12 `(3.1427, 3.3272)`,
+   confirming the reviewer's numbers.
+3. **`exr:ch16-voronoi` (lines 1308-1313), category E.** Restated with the missing
+   hypothesis: "... a single straight chain of $k+1$ vertices spaced $\eta$ apart, centred
+   in a large square map of side $L$ with $L\gg k\eta$, each of the two tips is chosen with
+   probability close to $1/2$ and every interior vertex with probability at most $\eta/L$",
+   followed by the new clause asking the student to explain why a chain starting near a
+   corner, as in `ex:ch16-map`, gives its single tip almost all of the probability. The
+   solution's first sentence now says "centred in a square of side $L\gg k\eta$" and ends
+   with the corner case (probability close to $1$, not $1/2$), so exercise and solution agree
+   with sec. 16.5. The exercise also now `\cref`s `eq:ch16-voronoi`.
+4. **Summary bullet (lines 1208-1211) and glossary, category C.** The bullet now reads "a
+   vertex is *selected* with probability equal to the relative volume of its Voronoi region
+   (`eq:ch16-voronoi`), and extended when the step is collision-free, so the tree is pulled
+   into the largest unexplored regions." The glossary entry *Voronoi bias* reads "selected
+   for extension ... and extended when the step towards the sample is free, so that vertices
+   facing large unexplored regions grow the tree most often."
+5. **Float congestion around `tab:ch16-connect` (line 538, table block), category G.**
+   (a) The forward reference is gone: sec. 16.6.2 now reads "the lengths range from $20.55$
+   to $28.35$, with mean $23.87$ and standard deviation $1.84$" (both numbers are the
+   $p_{\mathrm{goal}}=0.05$ row of the table, produced by the code). (b) The table is now
+   `[!t]`. In the rebuilt PDF `tab:ch16-connect` is first cited on printed page 55, inside
+   sec. 16.7.1, and typeset on page 56 -- the page after, so the rule is satisfied. The other
+   floats are unchanged (`alg:ch16-connect` cited p.55/typeset p.56, `fig:ch16-iterations`
+   p.55->57, `alg:ch16-kino` p.56->58, `alg:ch16-shortcut` p.58->59, `fig:ch16-scene3d`
+   p.59->60), i.e. the accepted residual congestion.
+
+### Suggestions applied
+
+* Sec. 16.6.1 now defines probabilistic completeness "whenever a solution with positive
+  clearance exists -- a *robustly feasible* query, the hypothesis made precise in
+  `thm:ch16-complete`".
+* The $\eta$ bullet now says "A larger $\eta$ does not hurt **this bound**".
+* Sec. 16.7.1 sharpened to "solves every instance within $375$ iterations" (the value in
+  `figures/data/ch16-iterations.dat`, where the `connect` column first reaches $1.000$ at
+  $375$); the $73\,\%$ figure is now explicitly attached to iteration $500$.
+* Unreferenced labels: `eq:ch16-voronoi` is now cited twice (exercise and summary),
+  `def:ch16-primitives` once (summary bullet 2); the line labels `alg:ch16-rrt:fail` and
+  `alg:ch16-shortcut:draw` are deleted.
+* Notation clash: the kinodynamic state metric is renamed $\rho\to d_{w}$ in
+  `eq:ch16-metric` and in `alg:ch16-kino` (four places), so $\rho$ keeps the ch15 meaning
+  from the notation table. No change to `frontmatter/notation.tex` (not this chapter's file).
+* Dronebox: "the global planner (conflict-based search, \cbs, or its bounded-suboptimal
+  variant \ecbs)" and "the incremental \dstarlite or a fresh \astar search".
+* A solution for `exr:ch16-goalbias` was added (U-shaped curve, optimum near $0.05$-$0.1$,
+  and why moving the goal to $(9,1)$ shifts the optimum upwards); solutions now cover 7 of 8
+  exercises.
+* Length: the reviewer's duplicated passages (i), (ii), (iii) and (iv) were trimmed -- the
+  extra ratios in sec. 16.6.2, the repeated thin-wall numbers in the pitfall (now a pointer
+  to sec. 16.3.2), the prose restating the last two rows of `tab:ch16-parameters`, and one
+  repeated sentence after `eq:ch16-voronoi`. This offsets the lines added above; the chapter
+  stays at 21 pages. Nothing in "What must be kept" was touched: both theorems and their
+  proofs, the three bullets after `thm:ch16-complete`, the $r+\delta/2$ inflation and
+  Exercise 16.3(b), the two reference lengths, the $p_{\mathrm{goal}}=0.5$ result with its
+  pitfall, `tab:ch16-gridsizes`, `tab:ch16-comparison`, the 3D, kinodynamic and dronebox
+  sections are unchanged.

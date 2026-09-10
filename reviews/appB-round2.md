@@ -189,3 +189,70 @@ objective gradient inside the cone of the two active normals; the gradient-desce
 true level sets from generated data. Keep the three pitfalls - "do not form the inverse", "check
 every Jacobian numerically" and "heap entries must be comparable" - and the
 `heapq`/`dict`/lazy-deletion paragraph, which is the exact idiom the search chapters use.
+
+## Response to review (round 2)
+
+Both required changes are applied, plus seven of the nine suggestions. Nothing on the
+"what must be kept" list was touched: all proofs, all five figures, all worked examples,
+the three round-1 fixes, the three pitfalls, the `heapq`/`dict` paragraph, the four-move
+`keyidea` framing and the opening are exactly as they were.
+
+### Required changes
+
+1. **`sec:appB-milp` - "a scatter of points" is false for a mixed-integer program.**
+   Applied, in the reviewer's wording. The clause now reads: "The integrality constraint
+   destroys convexity: the feasible set is a union of polyhedral slices, one for every
+   assignment of the integer variables---a scatter of isolated points only when
+   *every* variable is integer---and convex in neither case. The problem is NP-hard in
+   general." (Only the trailing "and in either case not convex" was turned into "and convex
+   in neither case. The problem is NP-hard in general." so that the sentence does not end
+   with two coordinated clauses of opposite polarity.) The rest of the paragraph - LP
+   relaxation, the bound direction, branch and bound - is unchanged.
+
+2. **Sign convention at the two pointers to `fig:appB-lp`.** Applied at both places; the
+   figure, its caption and `ex:appB-lp` were not touched.
+   * Proof of `thm:appB-local-global`: "...`\Cref{fig:appB-lp}` draws the constrained
+     condition for a linear programme: at the optimal vertex `-c` lies in the cone of the
+     normals of the active constraints, so no feasible direction decreases the objective.
+     That example *maximises*, so the arrow shown inside the cone of the active normals is
+     `+c`, which is the same statement with the sign of the objective flipped."
+   * `sec:appB-lp`: "...ends at a vertex, or along a whole edge when the level lines are
+     parallel to it (`\cref{fig:appB-lp}` maximises, so there the level line slides in the
+     direction `+c`)."
+
+### Suggestions
+
+1. *Self-checks.* Declined again, for the reason the reviewer gives: the spec says
+   "No code/solutions" and the appendix is at the page ceiling.
+2. *`ex:appB-jacobian` sign of the linearisation error.* Applied: "the linear prediction is
+   `h + H delta = (4.9000, 0.8873)`, and the exact value `(4.9041, 0.8865)` exceeds it by
+   `(0.0041, -0.0008)`". The numbers are untouched and still match the script.
+3. *`def:appB-bigO`.* Applied: `Omega` now quantifies its own `c > 0`, `n_0`, and `Theta` is
+   stated with `c_1, c_2 > 0` and `n_0` such that `c_1 g(n) <= f(n) <= c_2 g(n)`, as in CLRS.
+4. *Eigenvalue ordering.* Applied: the disambiguation paragraph opening B.5 now ends
+   "...and Laplacian eigenvalues are numbered in *increasing* order, the reverse of
+   `\cref{thm:appB-spectral}`".
+5. *`z` overloading.* Applied: B.4 now opens with "Throughout this section `z` is the vector
+   of decision variables of a mathematical programme, not the measurement vector of
+   `\cref{sec:appB-probability}`, which is written with the same bold letter." (Phrased
+   without printing `\meas`, since it expands to the same glyph.)
+6. *`thm:appB-vertex`.* Applied: "Every LP of the form `\cref{eq:appB-lp}`...".
+7. *Summary bullet 6.* Applied: "gradient descent converges for `alpha < 2/L` with `L` the
+   Lipschitz constant of the gradient (that is `2/lambda_max` for a quadratic)".
+8. *Scalar `b` in `def:appB-lp`.* Applied: the scalar is now `beta`, matching `eq:appB-bigM`.
+9. *`fig:appB-gd` aspect ratio.* Applied: `height` raised from 4.0 cm to 5.0 cm, which brings
+   the drawn ellipses close to the true 10:1 ratio. Checked that this costs no page: the
+   appendix body ends on the same folio with 4.0 cm and with 5.0 cm.
+
+### Verification
+
+* `./build.sh appB-math-refresher` exits **0**, no `!` errors, no undefined citations, no
+  undefined reference inside the appendix. The single overfull box in the run (29.10 pt) is
+  the pre-existing front-matter *List of Algorithms* entry belonging to another chapter.
+  (One intermediate run reported status 12 from a truncated shared `build/*.aux`; deleting
+  that stale file and rebuilding gives 0.)
+* `python3 code/figures/gen_appB_numbers.py` runs in 0.02 s with every `assert` passing, and
+  `figures/data/appB-gradient-descent.dat` was regenerated. No number in the text changed;
+  the only numeric passage edited (suggestion 2) keeps the same four values and only says
+  which of the two the difference points from.
+* Length unchanged: no text was removed, and the additions come to about five printed lines.

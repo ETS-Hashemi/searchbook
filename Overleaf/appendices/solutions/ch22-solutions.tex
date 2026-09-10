@@ -15,6 +15,65 @@ nodes. Both trees prove that the integer optimum is $9$, one below the LP
 bound $10$.
 \end{solution}
 
+\begin{solution}{exr:ch22-tightm}
+The block of \cref{ex:ch22-two} is $[4,6] \times [1.5,5.5]$ inside the
+workspace $W = [0,10] \times [0,8]$, so \cref{eq:ch22-tightM} gives
+$M_1 = X_{\max} - x_{\min} = 6$~m, $M_2 = x_{\max} - X_{\min} = 6$~m,
+$M_3 = Y_{\max} - y_{\min} = 6.5$~m and $M_4 = y_{\max} - Y_{\min} =
+5.5$~m. For the separation rows \cref{eq:ch22-sep} with $d_{\min} = 1$~m,
+$M_x = d_{\min} + (X_{\max} - X_{\min}) = 11$~m and
+$M_y = d_{\min} + (Y_{\max} - Y_{\min}) = 9$~m.
+
+Too small an $M$ cuts off legal positions. Take $M_1 = 3$ instead of $6$
+and the point $\pos_k = (9, 6.5)$, which is inside $W$ and above the block,
+hence legal. The first row reads $x_k \le 4 + 3 b_{k,1}$: with
+$b_{k,1} = 0$ it demands $x_k \le 4$, so $b_{k,1} = 1$ is forced, and then
+it demands $x_k \le 7 < 9$. No choice of binaries admits the point, so a
+feasible position has become infeasible. With the tight $M_1 = 6$ the
+switched-off row reads $x_k \le 10$ and holds everywhere in $W$, which is
+all it should do.
+
+With $M_1 = 0$ the first row is $x_k \le x_{\min} = 4$ whatever $b_{k,1}$
+is: the row can no longer be switched off, and the drone is pinned to the
+strip left of the block at every step. The model of \cref{ex:ch22-two} is
+then infeasible, because drone~A must reach $x = 9$ and drone~B starts
+there.
+\end{solution}
+
+\begin{solution}{exr:ch22-separation}
+Apply \cref{prop:ch22-bigm} to the square
+$S = [x^j_k - d_{\min}, x^j_k + d_{\min}] \times [y^j_k - d_{\min},
+y^j_k + d_{\min}]$ of side $2 d_{\min}$ centred on drone $j$: the
+condition $\norm{\pos^i_k - \pos^j_k}_\infty \ge d_{\min}$ says exactly
+that $\pos^i_k$ lies outside $S$, and \cref{eq:ch22-sep} is
+\cref{eq:ch22-bigm} for that square, written with the differences
+$x^i_k - x^j_k$ and $y^i_k - y^j_k$ so that every row stays linear in both
+positions. If binaries satisfy \cref{eq:ch22-sep}, the sum row forces some
+$c^{ij}_{k,q} = 0$ and the corresponding side condition of
+\cref{eq:ch22-sep-sides} holds, so the drones are separated. Conversely,
+if one side condition holds, set its binary to $0$ and the other three to
+$1$; those rows then read $x^i_k - x^j_k \ge d_{\min} - M_x$ and
+$y^i_k - y^j_k \ge d_{\min} - M_y$, which hold for every pair of positions
+in $W$ because $M_x$ and $M_y$ are the largest violations possible inside
+$W$. The square contains the disc of radius $d_{\min}$, so the encoding is
+conservative, never optimistic.
+
+A convex polygon $P = \set{\vect{p} : \vect{a}_l^\top \vect{p} \le c_l,\;
+l = 1, \dots, r}$ with $r$ edges needs $r$ binaries per step,
+$\vect{a}_l^\top \pos_k \ge c_l - M_l b_{k,l}$ with
+$M_l = c_l - \min_{\vect{p} \in W} \vect{a}_l^\top \vect{p}$, and
+$\sum_{l=1}^{r} b_{k,l} \le r - 1$: outside a convex set means on the far
+side of at least one of its supporting half-planes. A box in three
+dimensions is the same with $r = 6$ faces, six binaries and
+$\sum_j b_{k,j} \le 5$.
+
+Four drones, two hexagonal obstacles and $N = 20$ therefore need
+$6 \cdot 4 \cdot 2 \cdot 20 = 960$ obstacle binaries and
+$4 \binom{4}{2} \cdot 20 = 480$ separation binaries, $1\,440$ in all --
+about three times the $480$ of four drones with one rectangle, and the
+reason a polygonal approximation of a round obstacle is expensive.
+\end{solution}
+
 \begin{solution}{exr:ch22-margin}
 With $v_{\max} = 3$~m/s and $\dt = 0.5$~s, $\delta = v_{\max}\dt/2 =
 0.75$~m and the sampled separation must be $d_{\min} + v_{\max}\dt =
@@ -30,6 +89,73 @@ $1$~m because the margins assume top speed in the worst direction at every
 step. Inflating the block only, with $d_{\min} = 1$~m at the samples, gives
 a plan whose separation between samples drops to $0.06$~m: both margins
 are needed.
+\end{solution}
+
+\begin{solution}{exr:ch22-time}
+Let $k_i$ be the step with $w^i_{k_i} = 1$; the choice row
+$\sum_k w^i_k = 1$ makes it unique. For $k \ge k_i$ the sum
+$\sum_{k' \le k} w^i_{k'}$ equals $1$, the right-hand side of the last row
+of \cref{eq:ch22-time} is $M_{\mathrm{g}} \cdot 0 = 0$, and
+$\abs{p^i_{k,d} - p^i_{\mathrm{g},d}} \le 0$ forces $\pos^i_k =
+\pos^i_{\mathrm{g}}$ in both coordinates: the drone is at its goal at every
+sampled instant from its arrival step on. For $k < k_i$ the sum is $0$, the
+right-hand side is $M_{\mathrm{g}}$, and with $M_{\mathrm{g}}$ the
+workspace diameter the row holds for every position in $W$: it is vacuous.
+
+Two plans can share the arrival step and differ in fuel. In
+\cref{ex:ch22-two} both drones can arrive at $k = 9$ by accelerating hard
+for one step, coasting and decelerating hard once, or by wandering left and
+right first and still arriving at $k = 9$; $J_{\mathrm{time}}$ is
+identical, $J_{\mathrm{fuel}}$ is not, and the solver may return either.
+The tie-breaker $10^{-3} J_{\mathrm{fuel}}$ picks the cheaper one and makes
+the optimum well defined. The multiple must be small enough never to buy an
+arrival step: one step costs $\dt = 0.5$~s of $J_{\mathrm{time}}$ while
+$10^{-3} J_{\mathrm{fuel}}$ is a few hundredths of a second's worth here.
+
+A time window $[t^i_{\mathrm{a}}, t^i_{\mathrm{b}}]$ needs no new variable,
+only a narrower choice row,
+\begin{equation*}
+  \sum_{k \,:\, k\dt \in [t^i_{\mathrm{a}}, t^i_{\mathrm{b}}]} w^i_k = 1,
+\end{equation*}
+which sets every binary outside the window to zero. Forbidding two drones
+in one arrival step is the ``at most one'' gadget of
+\cref{tab:ch22-gadgets}, $\sum_i w^i_k \le 1$ for every $k$, one row per
+step (feasible only when $N \ge m$).
+\end{solution}
+
+\begin{solution}{exr:ch22-schedule}
+Let $z_{i,p,q} \in \set{0,1}$ mean ``drone $i$ lands on pad $p$ in slot
+$q$'', with $p = 1, 2$ and $q = 1, \dots, Q$; slot $q$ ends at $30q$
+seconds, which is also the waiting time it charges. The program is
+\begin{align*}
+  \min \; & \sum_{i} \sum_{p} \sum_{q} 30\, q\, z_{i,p,q}
+    && \text{total waiting time},\\
+  & \sum_{p} \sum_{q} z_{i,p,q} = 1 && \text{for every drone } i,\\
+  & \sum_{i} z_{i,p,q} \le 1 && \text{for every pad } p \text{ and slot } q,\\
+  & \sum_{i} \bigl(z_{i,p,q} + z_{i,p,q+1}\bigr) \le 1
+    && \text{for every pad } p,\; q = 1, \dots, Q-1,\\
+  & z_{i,p,q} = 0 && \text{whenever } 30 q > T_i.
+\end{align*}
+The first family is the choice gadget of \cref{tab:ch22-gadgets} (each
+drone lands exactly once), the second and third are the at-most-one and
+assignment gadgets: the third forbids two landings on one pad in the same
+or in adjacent slots, which is the ``at least two slots apart'' rule, and
+it implies the second for every slot that has a neighbour. The deadline
+rows simply delete the variables that violate $T_i$ (fixing the bound to
+$0$ is equivalent). The pairwise form $z_{i,p,q} + z_{i',p,q'} \le 1$ for
+$i \ne i'$ and $\abs{q - q'} < 2$ is also correct but needs many more rows
+and gives a weaker relaxation.
+
+For $m = 6$ drones, two pads and $Q = 8$ slots there are $6 \cdot 2 \cdot 8
+= 96$ binaries, $6$ assignment rows, $2 \cdot 8 = 16$ pad-slot rows and
+$2 \cdot 7 = 14$ consecutive-slot rows, minus the deadline variables that
+are fixed to zero (the pairwise form would need $2 \cdot 7 \cdot 6 \cdot 5
+= 420$ rows in place of the $14$). Two pads with the two-slot rule take at
+most $2 \lceil Q/2 \rceil = 8$ landings, so six drones fit if their
+deadlines allow. The relaxation of this program is tight -- the constraint
+matrix is close to an assignment matrix -- which is why scheduling is the
+one place in this chapter where a MILP of this size is solved in
+milliseconds.
 \end{solution}
 
 \begin{solution}{exr:ch22-mapfilp}
@@ -57,10 +183,14 @@ having $2 \cdot 32 \cdot 31 = 1984$ edges.
 \end{solution}
 
 \begin{solution}{exr:ch22-coding}
-Hints. (a)~Build \code{Instance(vehicles=[Vehicle((1,1),(9,7)),
-Vehicle((1,4),(9,4)), Vehicle((1,7),(9,1))], obstacles=[(4,6,2,6)],
-horizon=12, dt=0.5, a\_max=2, v\_max=3, d\_min=1, workspace=(0,10,0,8))}
-and pass it to \code{solve\_instance(inst, time\_limit=120)}; the fuel model
+\begin{sloppypar}
+Hints. (a)~Build an \code{Instance} whose three \code{Vehicle} entries are
+$(1,1) \to (9,7)$, $(1,4) \to (9,4)$ and $(1,7) \to (9,1)$, with the
+obstacle $[4,6] \times [2,6]$, the workspace $[0,10] \times [0,8]$,
+\code{horizon=12}, \code{dt=0.5}, \code{a\_max=2}, \code{v\_max=3},
+\code{d\_min=1} and \code{objective="fuel"}; pass it to
+\code{solve\_instance(inst, time\_limit=120)} and repeat the run with
+\code{objective="time"}. The fuel model
 has $3$ obstacle groups and $3$ pair groups per step, hence $4 \cdot 12
 \cdot 6 = 288$ binaries among $588$ variables and $672$ rows. The reference
 run finishes inside the limit with \code{sol.status} $= 0$: the fuel
@@ -88,4 +218,5 @@ directions at every step and the mirror-image subtree disappears; compare
 when an optimal plan that never relies on that direction exists, so check
 the objective against the unconstrained run before trusting the faster
 one.
+\end{sloppypar}
 \end{solution}

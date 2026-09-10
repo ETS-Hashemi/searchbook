@@ -209,3 +209,96 @@ the captions, the exercises and the solutions (including $\mu_1 = 0.178$, the la
 $(4, 16/3, 17/3, 20/3)$, $e_F = 1.19$ m, the spectrum $\{0,2,4,4\}$ of Exercise 23.1 and the
 $e_F = 1/3$ of the non-closing triangle) - that test is the reason this review could verify
 the chapter so quickly, and it should be treated as part of the chapter.
+
+## Response to review (round 2)
+
+Both required changes are applied, plus five of the six cheap suggestions. The
+build is status 0 with no errors, `code/ch23_consensus.py` self-tests pass
+(now including the new numbers), and `code/figures/gen_ch23_formation.py` was
+re-run so the three `.dat` files are current.
+
+### Required change A1 — the modal equation (23.20) and the missing forcing term
+
+* **(i)** `eq:ch23-modes2` is now stated for the disagreement modes only,
+  `k = 2, ..., n`, and the sentence introducing it says "decouple into the
+  disagreement modes".
+* **(ii)** The sentence the reviewer asked for follows the display:
+  "The centroid mode k = 1 (lambda_1 = 0, v_1 = 1/sqrt(n)) carries the whole
+  forcing and obeys qddot_1 + k_d qdot_1 = k_d sqrt(n) rdot instead, where rdot
+  is the component of the reference velocity in the coordinate considered, so
+  the centroid velocity converges to rdot when k_d > 0 and is conserved when
+  k_d = 0." The old (correct but now redundant) last sentence of the
+  proposition was folded into this one, so the statement says it once.
+* **(iii)** "every mode oscillates for ever" is now "every mode with
+  lambda_k > 0 oscillates for ever ..., while the centroid keeps whatever
+  velocity it started with".
+* **(iv)** Both displays of the shifted dynamics now carry the forcing:
+  the proof sketch reads `yddot = -k_p L y - (k_v L + k_d I) ydot + k_d 1 (x) rdot`
+  and continues "the forcing is a multiple of 1 = sqrt(n) v_1, so it appears in
+  the mode k = 1 alone and every mode k >= 2 is homogeneous"; the prose display
+  in Section 6.4.4 (former lines 502-504) was corrected in the same way, with
+  "with rdot constant" stated there, and a following clause explaining that the
+  forcing moves the centroid and leaves the shape alone. The proposition now
+  also assumes a constant rdot explicitly.
+
+### Required change A2 — rdot in the input lists of both algorithms
+
+* Algorithm 23.1 `\KwIn` now reads "... the reference velocity rdot, forwarded
+  from the leader through the graph to every drone (use 0 if unknown); if drone
+  i is pinned (b_i = 1), also the reference r; ...".
+* Algorithm 23.2 `\KwIn` now reads "... the reference velocity rdot on every
+  drone (use 0 if unknown), the reference r if pinned".
+* The one place in the chapter that still implied the opposite — the dronebox
+  sentence "One drone is pinned to it; the others need nothing but their
+  neighbours' positions and offsets" — now says that rdot is forwarded through
+  the graph to the others as well.
+
+### Suggestions
+
+* **Discrete time index (applied).** Theorem 23.2 now reads "the iteration
+  x_{m+1} = (I - eps L) x_m of (6.8), whose time step is written m here because
+  k indexes the modes in the proof, conserves the average ...".
+* **Exercise 23.2(b) (applied, rewritten).** It no longer repeats the pitfall's
+  prediction. It now gives the four positions on a line and asks how large
+  R_comm must be before the drones agree globally, and for lambda_2 and the
+  time constant there and at R_comm = 10 m. The solution answers R_comm >= 9 m
+  (the gap between the inner pair), the path graph with lambda_2 = 2 - sqrt(2)
+  = 0.586 and 1/lambda_2 = 1.71 s, and at 10 m the spectrum {0, 2, 4, 4} with
+  lambda_2 = 2. Both numbers are now pinned by new assertions in
+  `_self_test()` (block 4), including that R_comm = 8.9 m is still
+  disconnected.
+* **Kronecker parse (applied).** Proposition 23.3 (statement and proof) now
+  writes `-(M^{-1} 1) (x) rdot`, Exercise 23.7(b) writes
+  `-v ((k_c L + k_l B)^{-1} 1) (x) e`, and the solution to 23.7(b) uses
+  `1 (x) rdot` for the forcing instead of `rdot 1`.
+* **tau_ORCA (applied).** The flocking section now says "collision-free for the
+  ORCA horizon tau of Chapter 13".
+* **Self-test block 7 (applied, drift test added).** The block is retitled and
+  now integrates the protocol on a path of three drones with a deliberately
+  non-antisymmetric d (both ends of every edge asking for the same offset) and
+  checks that the centroid velocity equals -(1/n) sum_i sum_j d_ij =
+  (-4/3, 0) m/s and that the swarm really drifts away, exactly what the comment
+  promises. The antisymmetry assertion for `displacement_targets` is kept.
+* **Solutions coverage (applied).** `ch23-solutions.tex` now has a solution for
+  the coding exercise 23.8 giving the expected output of every part: the
+  spectrum {0, 1, 3, 4}; the final square at o_i + (0.625, 0.125) m and
+  e_F(0) = 2.500 m below 1% after 4.1 s; e_F(20 s) = 0.0025 m with feed-forward
+  against 1.00 m without; and for the avoidance run the intruder inside 2 m
+  from t = 6.9 s to t = 11.7 s, the peak e_F = 0.36 m at t = 10.5 s, back below
+  0.05 m at t = 13.6 s, closest approach 0.91 m, longest edge 3.04 m, no
+  communication violation and lambda_2 = 4 throughout; at R_comm = 2.5 m the
+  4-cycle with spectrum {0, 2, 2, 4}. Every one of these numbers is printed by
+  `worked_example()` or by `gen_ch23_formation.py`, which were re-run to check
+  them.
+* **Optional trims (partly applied).** The dronebox's first paragraph was
+  shortened by two lines while fixing the rdot sentence above. The rows k = 3, 4
+  of the diverging half of Table 23.2 were kept: they are the rows that show the
+  divergence growing rather than merely starting, and the chapter is not short
+  of space in a way that would justify losing them.
+
+Nothing on the "must keep" list was touched: Proposition 23.1 and its five
+proofs, Theorem 23.1, Corollary 23.1, Theorem 23.3 with the e_c/e_F sandwich,
+Example 23.1 in full, the four pitfall boxes, the seven figures, Table 23.4,
+the connectivity-maintenance section, the index and glossary entries and the
+self-test are all unchanged except where a required change or an applied
+suggestion demanded it.

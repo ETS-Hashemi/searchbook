@@ -176,3 +176,103 @@ and a swarm member (reciprocal) is sharp and correct; the 3D section, with the t
 at `(d^2-R^2)/d` of radius `R sqrt(d^2-R^2)/d` and the `(3,4,12)` self-test, earns its page;
 and the eight solutions in `appendices/solutions/ch12-solutions.tex` are complete, correct and
 worth their length.
+
+## Response to review (round 3)
+
+Verdict addressed: **Minor revision**. Both required changes applied, plus every
+suggestion that was cheap. Nothing on the "must be kept" list was touched: the
+cone theorem and its proof, the discriminant/cone identity, the truncation-as-
+union-of-scaled-discs treatment, `eq:ch12-scaling` and the proof of
+`thm:ch12-truncated`, `fig:ch12-geometry`, the worked example and
+`tab:ch12-trace`, the "what is not guaranteed" list, the oscillation section
+with its 51 sign changes, the n = 2..8 experiment, the four pitfalls, the drone
+box, the 3D section and the eight solutions are all unchanged except where a
+required change or a suggestion named them.
+
+### Required changes
+
+1. **`sec:ch12-oscillation`, head-on scenario stated with the wrong goals
+   (category A).** Confirmed against `Overleaf/code/ch12_velocity_obstacles.py`
+   lines 383--389: `head_on_scenario` is `Agent((-5,0), (5,0))` and
+   `Agent((5,offset), (-5,offset))`, i.e. parallel lines, offset in both the
+   starts and the goals. Applied the reviewer's wording verbatim: the opening
+   clause now reads "Let two identical agents fly head-on along parallel lines
+   offset laterally by $0.2$ --- $A$ from $(-5,0)$ to $(5,0)$ and $B$ from
+   $(5,0.2)$ to $(-5,0.2)$ --- both at speed $1$ with $R = 1$, and let
+   \emph{both} apply \cref{alg:ch12-choose} at every step." The later sentences
+   "so $A$ returns to $(1,0)$, and $B$, by symmetry, returns to $(-1,0)$" are
+   now exactly true of the code (the data file's `avy = 0.0018` at $t = 0.1$ is
+   the $y$-component of the preferred velocity towards $(5,0)$).
+
+2. **`sec:ch12-oscillation`, "chatters between roughly $\pm0.2$ and $0$"
+   (category A).** Confirmed against `figures/data/ch12-oscillation.dat`: of the
+   101 samples of `avy`, 26 are negative (median $-0.1823$, extreme $-0.2329$)
+   and 75 are positive, ranging from $+0.0018$ up to $+0.0832$; the negatives
+   occur at exactly every other sample from $t = 0$ to $t = 5.0$, which is the
+   51 sign changes. `gen_ch12_sim.py` prints `max |v_Ay| 0.233`. The command
+   never approaches $+0.2$. Applied the reviewer's longer wording verbatim: "the
+   command alternates at every step between a sidestep of about
+   $-0.18\,\mathrm{m/s}$ (peak $0.23$) and a lateral component just above zero,
+   so it crosses zero at almost every decision."
+
+### Suggestions
+
+- **`0.3\,\mathrm{s}` in `sec:ch12-implementation`.** Adopted the spirit but not
+  the exact phrase, since "in well under a second" already appears two
+  paragraphs earlier: the sentence now reads "finishes in a fraction of a
+  second". No machine-dependent number is left in the chapter.
+- **Caption of `fig:ch12-oscillation`.** Adopted verbatim: "Two agents pass each
+  other head-on along lines offset by $0.2$." ("swap places" removed.)
+- **"Always add the preferred velocity ... the current velocity".** Adopted:
+  the sentence now opens "In your own implementation, always add ..." and, to
+  remove the ambiguity completely, notes parenthetically that "the code of
+  \cref{lst:ch12-choose} adds only $\vel^{\mathrm{pref}}$".
+- **Residual near-duplication.** Dropped the repeated closing clause "and prefer
+  the exact projection when there is a single obstacle" from the pitfall
+  *Discretisation of the velocity samples*; the clause is kept where it belongs,
+  in "Exact selection" (`sec:ch12-variants`) and in "Sampling versus solving
+  exactly". The horizon discussion was left as it is (the two passages answer
+  different questions: what truncation *is* versus how to *choose* $\tau$).
+  Nothing was cut to reach a page target; the chapter is still 22 pages.
+- **"far side" in `sec:ch12-example`.** Rewritten, but not with the reviewer's
+  exact words, because the side named there is wrong: at $t = 1\,\mathrm{s}$,
+  $\pos_{\mathrm{rel}} = (3.963,-4.254)$ and $\hat{\vel}_{\mathrm{rel}} =
+  (0.8,-0.6)$, so $\hat{\vel}_{\mathrm{rel}} \times \pos_{\mathrm{rel}} =
+  -1.0254$: the ray passes on the $+y$ side of the disc centre, i.e. *towards*
+  the direction $B$ is heading, not away from it. The text now says the relative
+  velocity "passes above the disc instead of through it (its discriminant is
+  negative); in the workspace this is $A$ crossing in front of $B$, as
+  \cref{fig:ch12-example}(a) shows", which is unambiguous in the velocity-space
+  picture and ties the sign of the miss to panel (a) as the reviewer asked.
+  (The miss is by $0.0254\,\mathrm{m}$, so "far side" was also generous.)
+- **`thm:ch12-empty`.** Added after the proof: "The hypothesis $s > v_{\max}$ is
+  not an extra assumption: $d > R$ makes $v_{\max}d/R > v_{\max}$, so the
+  conclusion already forces it. The proposition is therefore a threshold
+  statement about the single quantity $s$."
+- **`exr:ch12-tangent(b)` solution.** The compressed step is now spelled out with
+  the concrete counterexample the reviewer proposed: take any
+  $\vel \in CC_{A|B}$ and let $\lambda \to 0^+$, so
+  $\lambda(\vel_B+\vel) \to \vect{0}$, and
+  $\vect{0} \in \vel_B \oplus CC_{A|B}$ only if $-\vel_B \in CC_{A|B}$; whenever
+  $-\vel_B \notin CC_{A|B}$ the points leave $\VO_{A|B}(\vel_B)$, so the set is
+  not a cone with apex $\vect{0}$.
+
+### Verification
+
+- `cd Overleaf && ./build.sh ch12-velocity-obstacles` -> **build status 0**, no
+  errors. The only overfull box $>15\,\mathrm{pt}$ in the log is in the
+  front-matter list of algorithms (an entry from another chapter), not in
+  Chapter 12. Remaining warnings are the expected undefined cross-chapter
+  references of a single-chapter build.
+- `python3 Overleaf/code/ch12_velocity_obstacles.py` -> self-test passes.
+- `python3 Overleaf/code/figures/gen_ch12_sim.py` re-run; the three `.dat` files
+  are byte-identical to the committed ones (no code changed). It reprints the
+  numbers the text quotes: min separation 1.0012 and path 10.0270 for the worked
+  example, 51 sign changes / min sep 1.0020 / `max |v_Ay| 0.233` for the head-on
+  pair against 1 sign change for the one-avoider run, ratio 1.0003 for the
+  stream and 0.9142 at $n = 6$ for the circle.
+- `./build.sh appC-solutions` was run to check the edited solution: the
+  `ch12-solutions.tex` input produces no errors (the failures in that build all
+  come from `ch05-solutions.tex`, another author's file).
+- Chapter length unchanged at **22 pages** (pp. 19--40 of the single-chapter
+  PDF), inside the 24-page limit.

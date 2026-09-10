@@ -430,7 +430,7 @@ $\mat{L}$.
 \begin{algorithm}[htb]
 \caption{One control period of the displacement-based formation controller on drone $i$}
 \label{alg:ch23-formation}
-\KwIn{own position $\pos_i$ and offset $\vect{o}_i$; messages $(\pos_j, \vect{o}_j)$ from every neighbour $j \in N_i$, i.e.\ every drone within $R_{\mathrm{comm}}$; gains $k_c$, $k_l$; control period $\dt$; speed limit $v_{\max}$; if drone $i$ is pinned ($b_i = 1$), the reference $\vect{r}$ and its velocity $\dot{\vect{r}}$; optional extra velocity $\vel_i^{\mathrm{extra}}$ (avoidance, range keeping)}
+\KwIn{own position $\pos_i$ and offset $\vect{o}_i$; messages $(\pos_j, \vect{o}_j)$ from every neighbour $j \in N_i$, i.e.\ every drone within $R_{\mathrm{comm}}$; gains $k_c$, $k_l$; control period $\dt$; speed limit $v_{\max}$; the reference velocity $\dot{\vect{r}}$, forwarded from the leader through the graph to every drone (use $\vect{0}$ if unknown); if drone $i$ is pinned ($b_i = 1$), also the reference $\vect{r}$; optional extra velocity $\vel_i^{\mathrm{extra}}$ (avoidance, range keeping)}
 \KwOut{the velocity command $\vel_i$ and the new position $\pos_i$}
 \Fn{\ConsensusFormationStep{$i$}}{
   $\vel_i \gets \vect{0}$\;
@@ -499,16 +499,20 @@ local only once every follower has been told $\dot{\vect{r}}$, forwarded from
 the leader through the graph. The last bracket is the pinning of the leader.
 Without any velocity term ($k_v = k_d = 0$) the drones are masses connected by
 springs and oscillate for ever; with $k_v > 0$ or $k_d > 0$ every mode of the
-formation decays (\cref{prop:ch23-second}). In the shifted variables the
-swarm obeys $\ddot{\vect{y}} = -k_p\mat{L}\vect{y} - k_v\mat{L}\dot{\vect{y}}
-- k_d\dot{\vect{y}}$ plus the pinning terms, which is again the Laplacian
-acting on every coordinate. \Cref{alg:ch23-second} is the corresponding
+formation decays (\cref{prop:ch23-second}). In the shifted variables, with
+$\dot{\vect{r}}$ constant, the swarm obeys $\ddot{\vect{y}} =
+-k_p\mat{L}\vect{y} - (k_v\mat{L} + k_d\mat{I})\dot{\vect{y}}
++ k_d\,\vect{1}\otimes\dot{\vect{r}}$ plus the pinning terms, which is again
+the Laplacian acting on every coordinate. The forcing term
+$k_d\,\vect{1}\otimes\dot{\vect{r}}$ is what makes the swarm travel with the
+reference instead of coming to rest; it is the same on every drone, so it
+moves the centroid and leaves the shape alone. \Cref{alg:ch23-second} is the corresponding
 control period.
 
 \begin{algorithm}[htb]
 \caption{One control period of the second-order formation controller on drone $i$}
 \label{alg:ch23-second}
-\KwIn{own $\pos_i$, $\vel_i$, $\vect{o}_i$; messages $(\pos_j, \vel_j, \vect{o}_j)$ from $j \in N_i$; gains $k_p$, $k_v$, $k_d$; period $\dt$; reference $\vect{r}$, $\dot{\vect{r}}$ if pinned}
+\KwIn{own $\pos_i$, $\vel_i$, $\vect{o}_i$; messages $(\pos_j, \vel_j, \vect{o}_j)$ from $j \in N_i$; gains $k_p$, $k_v$, $k_d$; period $\dt$; the reference velocity $\dot{\vect{r}}$ on every drone (use $\vect{0}$ if unknown), the reference $\vect{r}$ if pinned}
 \KwOut{acceleration command $\ctrl_i$; updated $\vel_i$, $\pos_i$}
 \Fn{\ConsensusSecondOrderStep{$i$}}{
   $\ctrl_i \gets -k_d (\vel_i - \dot{\vect{r}})$\;
@@ -768,8 +772,9 @@ rather than hope that it is.
 \begin{theorem}[Discrete-time consensus]
 \label{thm:ch23-discrete}
 Let the graph be undirected and connected and let $0 < \eps < 2/\lambda_n$.
-Then the iteration $\vect{x}_{m+1} = (\mat{I} - \eps\mat{L})\vect{x}_m$
-conserves the average and converges to it geometrically,
+Then the iteration $\vect{x}_{m+1} = (\mat{I} - \eps\mat{L})\vect{x}_m$ of
+\cref{eq:ch23-discrete}, whose time step is written $m$ here because $k$
+indexes the modes in the proof, conserves the average and converges to it geometrically,
 \begin{equation}
   \norm{\vect{\delta}_m} \le \rho^m \norm{\vect{\delta}_0}, \qquad
   \rho = \max\bigl(\abs{1 - \eps\lambda_2}, \abs{1 - \eps\lambda_n}\bigr) < 1 .
@@ -842,7 +847,7 @@ under \cref{eq:ch23-pinned} every state converges to the reference: the
 tracking error obeys $\norm{\vect{e}(t)} \le e^{-\mu_1 t}\norm{\vect{e}(0)}$,
 where $\mu_1 > 0$ is the smallest eigenvalue of $\mat{M}$. Without the
 feed-forward term the followers converge to a lagged reference,
-$\vect{e}(t) \to -\mat{M}\inv\vect{1}\otimes\dot{\vect{r}}$ for a constant
+$\vect{e}(t) \to -(\mat{M}\inv\vect{1})\otimes\dot{\vect{r}}$ for a constant
 $\dot{\vect{r}}$.
 \end{proposition}
 \begin{proof}
@@ -855,7 +860,7 @@ dynamics \cref{eq:ch23-pinnedmatrix} then give $\frac{d}{dt}\norm{\vect{e}}^2 =
 -2\vect{e}\T\mat{M}\vect{e} \le -2\mu_1\norm{\vect{e}}^2$, and Gr\"onwall's
 inequality yields the bound. Without feed-forward, $\dot{\vect{e}} =
 -\mat{M}\vect{e} - \vect{1}\otimes\dot{\vect{r}}$ has the stable equilibrium
-$-\mat{M}\inv\vect{1}\otimes\dot{\vect{r}}$, since $\mat{M}$ is invertible.
+$-(\mat{M}\inv\vect{1})\otimes\dot{\vect{r}}$, since $\mat{M}$ is invertible.
 \end{proof}
 
 For the graph of \cref{ex:ch23-square} with drone~1 pinned and $k_l = 1$,
@@ -930,23 +935,32 @@ converges to $\vect{o}_i + \vect{r}$.
 \begin{proposition}[Second-order formation control]
 \label{prop:ch23-second}
 Let the graph be undirected and connected and let the drones be double
-integrators under \cref{eq:ch23-second} without pinning. In the eigenbasis of
-$\mat{L}$ the shifted dynamics decouple into the modes
+integrators under \cref{eq:ch23-second} without pinning, with a constant
+reference velocity $\dot{\vect{r}}$. In the eigenbasis of $\mat{L}$ the
+shifted dynamics decouple into the disagreement modes
 \begin{equation}
   \ddot{q}_k + (k_v\lambda_k + k_d)\,\dot{q}_k + k_p\lambda_k\, q_k = 0,
-  \qquad k = 1, \dots, n .
+  \qquad k = 2, \dots, n .
   \label{eq:ch23-modes2}
 \end{equation}
+The centroid mode $k = 1$ ($\lambda_1 = 0$, $\vect{v}_1 = \vect{1}/\sqrt{n}$)
+carries the whole forcing and obeys $\ddot{q}_1 + k_d\,\dot{q}_1 =
+k_d\sqrt{n}\,\dot{r}$ instead, where $\dot{r}$ is the component of
+$\dot{\vect{r}}$ in the coordinate considered, so the centroid velocity
+converges to $\dot{r}$ when $k_d > 0$ and is conserved when $k_d = 0$.
 Every mode with $\lambda_k > 0$ decays if and only if $k_p > 0$ and $k_v\lambda_k
 + k_d > 0$, so the formation is reached for any $k_p > 0$ with $k_v > 0$ or
-$k_d > 0$; with $k_v = k_d = 0$ every mode oscillates for ever at the angular
-frequency $\sqrt{k_p\lambda_k}$. The mode $\lambda_1 = 0$ is the centroid: its
-velocity decays to $\dot{\vect{r}}$ if $k_d > 0$ and is otherwise conserved.
+$k_d > 0$; with $k_v = k_d = 0$ every mode with $\lambda_k > 0$ oscillates for
+ever at the angular frequency $\sqrt{k_p\lambda_k}$, while the centroid keeps
+whatever velocity it started with.
 \end{proposition}
 \begin{proof}[Proof sketch]
-$\ddot{\vect{y}} = -k_p\mat{L}\vect{y} - (k_v\mat{L} + k_d\mat{I})\dot{\vect{y}}$
+$\ddot{\vect{y}} = -k_p\mat{L}\vect{y} - (k_v\mat{L} + k_d\mat{I})\dot{\vect{y}}
++ k_d\,\vect{1}\otimes\dot{\vect{r}}$
 is diagonalised by the eigenvectors of $\mat{L}$, which are shared by
-$\mat{I}$; each mode is a damped oscillator with the characteristic polynomial
+$\mat{I}$; the forcing is a multiple of $\vect{1} = \sqrt{n}\,\vect{v}_1$, so
+it appears in the mode $k = 1$ alone and every mode $k \ge 2$ is homogeneous.
+Each such mode is a damped oscillator with the characteristic polynomial
 $s^2 + (k_v\lambda_k + k_d)s + k_p\lambda_k$, which has both roots in the open
 left half-plane exactly when both coefficients are positive
 (\cref{exr:ch23-secondorder}).
@@ -1066,7 +1080,8 @@ overpowered, and it makes no promise about the minimum distance. In the hybrid
 architecture (\cref{ch:ch24}) the separation is therefore delegated to the
 reactive layer: \orca (\cref{ch:ch13}) takes the velocity computed by the
 consensus or formation terms as its \emph{preferred velocity} and returns the
-closest velocity that is collision-free for the horizon $\ttc$, a hard
+closest velocity that is collision-free for the \orca horizon $\ttc$ of
+\cref{ch:ch13}, a hard
 guarantee that a potential cannot give. Consensus decides where the swarm
 wants to go, \orca decides what it may do this instant.
 
@@ -1310,13 +1325,14 @@ architecture of \cref{ch:ch24}, and the communication radius is the last of
 its constraints. It sits between two layers and talks to both.
 
 \textbf{From the global planner.} \cbs or \ecbs (\cref{ch:ch09,ch:ch10}) plan
-a path for the formation as a whole, a virtual leader whose footprint is the
-formation's, and MPC (\cref{ch:ch21}) may smooth it. That path is the reference
-$\vect{r}(t)$, $\dot{\vect{r}}(t)$ of \cref{alg:ch23-formation}, sampled at the
-current time. One drone is pinned to it; the others need nothing but their
-neighbours' positions and offsets. The offsets $\vect{o}_i$ are the shape of
-the mission (a line for a survey, a square for a camera rig), and the formation
-graph is chosen connected with $\lambda_2$ as large as the radio range allows.
+one path for the formation as a whole, which MPC (\cref{ch:ch21}) may smooth;
+sampled at the current time it is the reference $\vect{r}(t)$,
+$\dot{\vect{r}}(t)$ of \cref{alg:ch23-formation}. One drone is pinned to
+$\vect{r}$ and $\dot{\vect{r}}$ is forwarded through the graph to the others,
+which need nothing else but their neighbours' positions and the offsets
+$\vect{o}_i$ --- the shape of the mission (a line for a survey, a square for a
+camera rig), with the graph connected and $\lambda_2$ as large as the radio
+range allows.
 
 \textbf{To and from the reactive layer.} The velocity of
 \cref{alg:ch23-formation} is the \emph{preferred velocity} handed to \orca
@@ -1446,10 +1462,12 @@ $1/d_{\max}$ and $2/\lambda_4$.
 \label{exr:ch23-average}
 (a) Show that the discrete protocol \cref{eq:ch23-discrete} conserves the
 average for every $\eps$, and that the maximum state never grows if
-$\eps \le 1/d_{\max}$. (b) Two pairs of drones sit $10$~m apart with
-$R_{\mathrm{comm}} = 2$~m and the initial states $(1, 3, 10, 14)$; predict the
-limit of the consensus protocol and the final disagreement norm without
-simulating. (c) Prove the identity $\sum_{i<j}\norm{\vect{y}_i - \vect{y}_j}^2 =
+$\eps \le 1/d_{\max}$. (b) Four drones sit on a line at $x = 0$, $1$, $10$
+and $11$~m, so that $R_{\mathrm{comm}} = 2$~m splits them into the two
+components that never agree with each other. How large must
+$R_{\mathrm{comm}}$ be before they agree globally? Give $\lambda_2$ and the
+time constant $1/\lambda_2$ at that radius and at $R_{\mathrm{comm}} = 10$~m,
+and compare them with the $\lambda_2 = 1$ of \cref{ex:ch23-square}. (c) Prove the identity $\sum_{i<j}\norm{\vect{y}_i - \vect{y}_j}^2 =
 n\sum_i\norm{\vect{y}_i - \bar{\vect{y}}}^2$ and deduce
 $e_F^2 = \frac{2n}{n-1}e_c^2$ for the complete formation graph; check it on
 $e_F(0) = 2.5$~m and $e_c(0) = 1.794$~m of \cref{ex:ch23-square}, remembering
@@ -1520,7 +1538,7 @@ edge is about to break, and what to log instead.
 that makes the slowest mode critically damped for $k_d = 0$. (b) For the
 first-order leader--follower controller without feed-forward and a reference
 moving at the constant velocity $v\vect{e}$, derive the steady-state error
-$-v\,(k_c\mat{L} + k_l\mat{B})\inv\vect{1}\otimes\vect{e}$ of
+$-v\,\bigl((k_c\mat{L} + k_l\mat{B})\inv\vect{1}\bigr)\otimes\vect{e}$ of
 \cref{prop:ch23-leader}. Evaluate it for the graph of \cref{ex:ch23-square}
 with drone~1 pinned, $k_c = k_l = 1$ and $v = 1$~m/s: how far does each drone
 trail its slot, and what formation error remains?

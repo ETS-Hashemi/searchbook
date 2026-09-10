@@ -228,3 +228,96 @@ ILP works on the volume" comparison, the three pitfall boxes, the variable-and-r
 accounting of `ex:ch22-two`, the exact tight $M$ values now quoted in the worked example,
 the drone box that positions MILP as the judge rather than a competitor of the hybrid
 planner, and the 36 index entries and 13 glossary terms.
+
+## Response to review (round 2)
+
+All six required changes are applied, plus seven of the eight suggestions. The build is
+status 0 with no errors and no undefined reference or citation of this chapter (the
+remaining warnings are the front-matter cross-chapter ones of a single-chapter build), the
+only overfull box in the log is the pre-existing front-matter one, and
+`python3 code/ch22_milp.py` still passes (exit 0, 29.6 s) with every quoted number
+unchanged.
+
+**Required changes**
+
+1. *Arrival binary vs. y-coordinate* (`eq:ch22-time`). The arrival binary is now $w^i_k$ in
+   all four places of `eq:ch22-time` (objective, choice row, switch, and the sum inside the
+   switch) and in the two surrounding sentences, so $y$ is again only a coordinate. I took
+   the second option offered for the code: `MilpModel.y(i, k)` is renamed to
+   `MilpModel.w(i, k)` in `code/ch22_milp.py` (definition, `y_off` -> `w_off`, the objective
+   row, `_arrival_rows` and `arrival_times`), and a half-clause in the text says why the
+   letter changed ("the letter $w$ keeps the arrival binary apart from the $y$-coordinate of
+   `eq:ch22-sep`"). The self-test was re-run after the rename and passes.
+2. *Claim contradicted by the experiment* (paragraph after `tab:ch22-binaries`). Replaced by
+   "Two drones and twenty steps are a problem of seconds; three interacting drones are
+   already past what thirty seconds can prove optimal (`sec:ch22-cost`); ten drones and
+   fifty steps are out of reach without further structure." I used "past" rather than "at
+   the edge of" because `figures/data/ch22-scaling.dat` shows three drones hitting the limit
+   at *every* horizon.
+3. *Missing solutions*. All four are added, so the file now has 8 of 8:
+   `exr:ch22-tightm` ($M_1 = 6$, $M_2 = 6$, $M_3 = 6.5$, $M_4 = 5.5$ m, $M_x = 11$,
+   $M_y = 9$ m; the legal point $(9,6.5)$ cut off when $M_1 = 3$; the strip $x \le 4$ when
+   $M_1 = 0$ - stated as infeasible here because drone A must reach $x = 9$ and drone B
+   starts there, not "both goals are at $x = 9$", which the instance does not have);
+   `exr:ch22-separation` (both directions of the equivalence, the $r$-binary polygon with
+   $\sum b \le r-1$, the 6-binary 3-D box, and $960 + 480 = 1440$ binaries);
+   `exr:ch22-time` (the switch is $|p - p_g| \le 0$ from the arrival step on and vacuous
+   before it, the accelerate-decelerate versus wander pair for the tie-breaker plus why the
+   multiplier must stay small, the window row and $\sum_i w^i_k \le 1$);
+   `exr:ch22-schedule` (objective and four constraint families, 96 binaries, 6 assignment
+   rows, 16 pad-slot rows and 14 consecutive-slot rows in the aggregated form, with the
+   pairwise variant and its 420 rows named as the weaker alternative).
+4. *`exr:ch22-coding`(a) hint*. The hint now ends with `objective="fuel"` and "repeat the
+   run with `objective="time"`", and `sec:ch22-implementation` gained the sentence "The
+   dataclass `Instance` carries the geometry, the horizon, the limits and the field
+   `objective` (`"fuel"`, `"peak"` or `"time"`)". The hint's geometry moved from one long
+   inline `\code{...}` into math, and the paragraph is wrapped in `sloppypar`, because the
+   fragment overran the margin twice; the solutions file now compiles with no overfull box
+   (`./build.sh --standalone appendices/solutions/ch22-solutions.tex`, 3 pages).
+5. *Length*. (a) The inter-sample pitfall now reads "Both plans of `ex:ch22-two` violate the
+   continuous constraint although every sampled constraint holds". (b) The big-$M$ pitfall
+   keeps the two imperatives and one clause ("costs twice, once in the relaxation and once
+   in the tolerances"), pointing at `sec:ch22-bigm`. (c) The paragraph after
+   `tab:ch22-verdict` is one sentence and no longer repeats the closing of
+   `sec:ch22-motivation`. (d) `tab:ch22-steps` keeps $k = 0, 4, 5, 6, 7, 8, 12$ and its
+   caption says the self-test lists all thirteen steps and that the omitted rows continue
+   the pattern. Nothing else was cut. The body is still 21 pages: the four cuts bought about
+   two thirds of a page, and the required additions of items 1, 4 and 6 and the two accepted
+   suggestions put roughly the same amount back, so the chapter ends about half a page into
+   its twenty-first page - the "few lines past twenty" the review allows.
+6. *Acronyms*. `\cbs (conflict-based search, \cref{ch:ch09})` at its first occurrence in
+   `sec:ch22-motivation`, and "The multi-agent path finding (MAPF) problem of
+   \cref{ch:ch07}" at the head of `sec:ch22-mapf-ilp`. MAPF also occurs earlier, in the
+   objectives box, so that bullet now carries the expansion too; the body expansion is kept
+   as asked, for a reader who skips the box.
+
+**Suggestions**
+
+* `thm:ch22-bnb` now assumes LP relaxations that are "bounded and solved exactly", and the
+  paragraph after the proof notes that `def:ch22-problem` qualifies because every variable
+  has finite bounds. Applied.
+* `cpair(pair, k, q)` -> `cpair(pair, k, j)` in `sec:ch22-implementation`, matching the code.
+  Applied.
+* `figures/ch22/timeexpanded.tex` capacity annotation is now
+  $\sum_i \sum_{e \in \delta^-(b,1)} f^i_e \le 1$. Applied.
+* "`tab:ch22-steps` lists the resulting pair of trajectories step by step". Applied.
+* `figures/data/ch22-scaling-horizon.dat` was dead (only the generator wrote it, no figure
+  read it); the file and the block of `code/figures/gen_ch22_scaling.py` that wrote it are
+  gone. `ch22-scaling.dat` is untouched, so no re-measurement was needed.
+* The Yu and LaValle sentence now says "using the splitting heuristics of their paper rather
+  than the plain flow ILP". Applied.
+* "about $2\,000$ binaries among $3\,200$ variables" in `sec:ch22-cost`. Applied.
+* `tab:ch22-gadgets`: the caption no longer names $x, u$ - it says the gadgets are linear in
+  the variables of `def:ch22-lp`, of which $b$ and $z_j$ are binary - and the either-or row
+  is written $f(\vect{z}) \le Mb$, $g(\vect{z}) \le M(1-b)$. I did not rename the gadget
+  binaries $z_j$ to something else: the paragraph before the table introduces them as the
+  integer components $z_j$ of $\vect{z}$ from `def:ch22-milp`, so $z_j$ is not a competing
+  meaning, and only the caption's $x$ was.
+
+Everything the review asked to keep is untouched: the big-$M$ derivation, `prop:ch22-bigm`
+and `eq:ch22-tightM`, the "hurts twice" paragraph of `sec:ch22-bigm` (only its pitfall-box
+copy was shortened), `ex:ch22-tiny` with `tab:ch22-trace`, `fig:ch22-bnb` and the 256-LP
+cross-check, `prop:ch22-intersample` with its proof and the honest numbers around it,
+`sec:ch22-cost` with its data, `tab:ch22-verdict` and the hardware footnote, the MAPF-ILP
+section with the CBS comparison, the three pitfall boxes, the variable-and-row accounting of
+`ex:ch22-two`, the drone box, and the index and glossary entries.

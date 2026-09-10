@@ -708,18 +708,17 @@ $\eps'$ as in \cref{eq:ch06-certificate}, and $L \le \gcost(\gamma)$, so
 $\eps' \ge 1$.\index{ARA*!suboptimality certificate}\index{lower bound!on the optimal cost}
 \end{proposition}
 \begin{proof}
-Let $P = (s = n_0, \dots, n_k = \gamma)$ be an optimal path and let $u$ be
-the first inconsistent state on $P$. It exists: $\gamma$ is never expanded
-(\cref{def:ch06-certificate}), so $\gamma$ itself is inconsistent as soon as
+Let $P = (s = n_0, \dots, n_k = \gamma)$ be an optimal path and $u$ the first
+inconsistent state on $P$; it exists, because $\gamma$ is never expanded
+(\cref{def:ch06-certificate}) and is therefore inconsistent as soon as
 $\gcost(\gamma) < \infty$. Telescoping \cref{thm:ch06-invariants}(ii) with
-$v = \gcost$ over the consistent states of $P$ before $u$ gives
-$\gcost(n_{i+1}) \le \gcost(n_i) + c(n_i, n_{i+1})$ along that prefix, hence
-$\gcost(u) \le \gcost^*(u)$, so $\gcost(u) = \gcost^*(u)$ by
+$v = \gcost$ over the consistent states before $u$ gives $\gcost(u) \le
+\gcost^*(u)$, hence $\gcost(u) = \gcost^*(u)$ by
 \cref{thm:ch06-invariants}(i), and \cref{thm:ch06-invariants}(iii) puts
 $u \in \Open \cup \textsc{Incons}$. Admissibility of $\hcost$ (implied by
 consistency) gives $\gcost(u) + \hcost(u) \le \gcost^*(u) + \hcost^*(u) =
-C^*$, hence $L \le C^*$. If $u = \gamma$, the same equality reads
-$\gcost(\gamma) = \gcost^*(\gamma) = C^* \le \eps' C^*$; otherwise
+C^*$, hence $L \le C^*$. If $u = \gamma$ that reads
+$\gcost(\gamma) = C^* \le \eps' C^*$; otherwise
 $\gcost(\gamma) = (\gcost(\gamma) / L)\,L \le (\gcost(\gamma)/L)\,C^*$, and
 $\gcost(\gamma) \le \eps\,C^*$ by \cref{thm:ch06-bound}, so the minimum of
 the two factors works. Finally $\gamma$ is never expanded, so it is in
@@ -879,18 +878,17 @@ cost almost nothing, since an iteration that expands nothing costs only the
 re-keying of \Open and one that expands something publishes a path; $0.2$ is a
 common value. And the
 certificate can drive the schedule. The inflation $\eps_{k+1}$ is only the
-worst case that the next iteration promises, so a value at or above the
-$\eps'_k$ already certified promises nothing that the published path does not
-already deliver --- and if the re-keyed \Open leaves the goal at the top, that
-iteration expands nothing at all (\cref{thm:ch06-properties}(iv)). Starting
-the next iteration at $\eps_{k+1} = \max(1, \eps'_k - \Delta)$ therefore skips
-the factors whose promise the incumbent already keeps and forces every
-iteration to aim at a strictly better bound (\cref{exr:ch06-schedule} runs
-this rule on \cref{ex:ch06-grid}). A larger $\eps$ may still improve the
-certificate in practice --- the $\eps = 2$ iteration of \cref{ex:ch06-grid}
-does, from $1.65$ to $1.53$, because $\gcost(\gamma)$ falls or $L$ rises ---
-so the rule trades such cheap improvements for a faster approach to
-optimality. A schedule
+worst case the next iteration promises, so a value at or above the certified
+$\eps'_k$ promises nothing the published path does not already deliver, and an
+iteration whose re-keyed \Open leaves the goal on top expands nothing
+(\cref{thm:ch06-properties}(iv)). Starting at $\eps_{k+1} = \max(1, \eps'_k -
+\Delta)$ therefore skips the factors whose promise the incumbent already keeps
+and makes every iteration aim at a strictly better bound
+(\cref{exr:ch06-schedule} runs the rule on \cref{ex:ch06-grid}). A larger
+$\eps$ can still improve the certificate in practice, as $\gcost(\gamma)$
+falls and $L$ rises --- the $\eps = 2$ iteration of \cref{ex:ch06-grid} goes
+from $1.65$ to $1.53$ --- so the rule trades such gains for a faster approach
+to optimality. A schedule
 that stops before $\eps = 1$ loses nothing the certificate does not report:
 the last path still carries its own $\eps'$, which in
 \cref{tab:ch06-experiment} is already $1.086$ at $\eps = 1.1$ for a path that
@@ -1284,9 +1282,9 @@ with an admissible but inconsistent heuristic: nodes $s, a, b, \gamma$, edges
 $s \to a$ (cost $1$), $s \to b$ ($3$), $a \to b$ ($1$), $b \to \gamma$ ($2$),
 and $\hcost(a) = 3$, $\hcost = 0$ elsewhere. Run \AraImprovePath with
 $\eps = 1$ by hand and show that it returns $\gcost(\gamma) = 5 > C^* = 4$
-and publishes the certificate $\eps' = 1$; compare $\gcost(\gamma)$ with the
-cost of the path that the parent pointers record, and note which of the two
-the certificate is about. Which case of the proof of
+and publishes the certificate $\eps' = 1$; note whether that certificate is
+about $\gcost(\gamma)$ or about the cost of the path the pointers record.
+Which case of the proof of
 \cref{thm:ch06-bound} breaks, and which inequality does that case need?
 \end{exercise}
 
@@ -1338,10 +1336,10 @@ published path against an independent \astar: valid path, cost $\le \eps'
 C^*$, $L \le C^*$, last path optimal. (c) Plot the cost ratio and the
 certificate against \emph{wall-clock time} and against cumulative expansions
 for the schedules $(3, 2, 1)$, $(3, 2.5, \dots, 1)$ and $(5, 4, \dots, 1)$,
-and add restarted weighted \astar and plain \astar to the plot; mark the
-first-solution times. (d) Add a deadline: \code{run(budget\_s=0.02)} must
-return the best path available after $20$~ms, interrupting an iteration if
-necessary, and must never return a path worse than the last published one.
+and add restarted weighted \astar and plain \astar; mark the first-solution
+times. (d) Add a deadline: \code{run(budget\_s=0.02)} must return the best
+path available after $20$~ms, interrupting an iteration if necessary, and
+never a path worse than the last published one.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3}]
@@ -1349,18 +1347,16 @@ necessary, and must never return a path worse than the last published one.
 Anytime replanning under a deadline. The replanning layer of \cref{ch:ch24}
 runs on a flight computer that manages about $20\,000$ expansions per
 second, and a control cycle lasts $50$~ms. (a) How many expansions fit into a
-cycle? On maps like those of \cref{tab:ch06-experiment}, which iteration is
-finished when the cycle ends, and what do \arastar, the restarts and plain
-\astar deliver? Repeat for a $20$~ms cycle. (b) The deadline falls in the
-middle of an iteration. Argue from \cref{thm:ch06-pointer} and
-\cref{thm:ch06-bound} that the pointer path at that moment is a valid path
-within the certificate of the previous iteration. (c) After iteration~2 of
-\cref{ex:ch06-grid} the intruder blocks the cell $(4,3)$. Which cells have a
-parent pointer or a $\gcost$-value that is now invalid, that is, which are
-underconsistent in the sense of \cref{ch:ch05}? What would Anytime \dstar do
-with them and with $\eps$, and what is the best that \arastar alone can do?
-(d) Propose a decision rule for the replanning layer that chooses between
-``keep improving'', ``raise $\eps$ and repair'' and ``restart'', using the
-number of changed edges, the current certificate and the time left in the
-cycle.
+cycle? On maps like those of \cref{tab:ch06-experiment}, which iteration
+finishes within the cycle, and what do \arastar, the restarts and plain
+\astar deliver? Repeat for a $20$~ms cycle. (b) If the deadline falls inside
+an iteration, argue from \cref{thm:ch06-pointer} and \cref{thm:ch06-bound}
+that the pointer path is then a valid path within the previous iteration's
+certificate. (c) After iteration~2 of \cref{ex:ch06-grid} the intruder blocks
+the cell $(4,3)$. Which cells now have an invalid parent pointer or
+$\gcost$-value, that is, are underconsistent in the sense of \cref{ch:ch05}? What would Anytime \dstar do
+with them and with $\eps$, and what is the best \arastar alone can do?
+(d) Propose a rule for the replanning layer that chooses between
+``keep improving'', ``raise $\eps$ and repair'' and ``restart'' from the
+number of changed edges, the certificate and the time left in the cycle.
 \end{exercise}

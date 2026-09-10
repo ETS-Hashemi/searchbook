@@ -222,3 +222,87 @@ every number in the prose, the tables, the captions and the generated figures co
 `code/ch17_rrt_star.py` and `code/figures/gen_ch17_convergence.py`. I re-ran both from
 scratch and, this round, **every single quoted number matches** - including the four new
 ones introduced by the round-1 fixes.
+
+## Response to review (round 2)
+
+All three required changes are applied, plus five of the six in-scope suggestions.
+`cd Overleaf && ./build.sh ch17-rrt-star` returns **status 0**, no `!` errors, no
+undefined ch17 labels or citations; `python3 code/ch17_rrt_star.py` passes its self-test
+in 4.7 s. No code and no `.dat` file changed, so every generated number is the one the
+reviewer re-verified.
+
+### Required changes
+
+1. **(A) "the tree grows only inside the current ellipsoid" (line 950).** Replaced with the
+   wording the review prescribes: "from the first solution on every sample is drawn inside
+   the current ellipsoid, so the tree grows towards it---a new vertex can still land just
+   outside, because $\Steer$ starts from a vertex that may predate the solution---and the
+   ellipsoid shrinks whenever \textsc{Rewire} improves the goal's branch." The paragraph now
+   says exactly what `InformedSampler.sample` and the self-test assertion cover (samples,
+   not vertices).
+2. **(F) `(\cref{ch:ch02})` after "the normalised Gaussian is uniform on the sphere".**
+   Replaced by the one-clause reason plus the internal pointer: "(the standard Gaussian
+   density depends on $\vect{u}$ only through $\norm{\vect{u}}$ and is therefore
+   rotation-invariant; \cref{exr:ch17-ellipsoid}(c))". Checked that the solution to
+   `exr:ch17-ellipsoid`(c) does prove rotation invariance, so the pointer lands on the fact.
+3. **(G) 21 pages, duplications.** The chapter body is now **20 pages** (PDF pages 19--38 of
+   `build/only-ch17-rrt-star.pdf`, printed 68--87), with the last page full.
+   (a) `sec:ch17-informed-results` lines 995--999 compressed to the single sentence the
+   review supplies ("On the small map (a) the informed set is essentially the whole map
+   (\cref{sec:ch17-informed-set}), so \rrtstar and \irrtstar coincide, both reaching the
+   $17.33\pm0.08$ of \cref{sec:ch17-example} while \rrt stays at $23.51\pm1.67$."); the
+   wide-field sentences, the segment-check comparison and the `gammell2014informed` radius
+   remark are untouched. The third statement of the coincidence, in the caption of
+   `fig:ch17-convergence`, is also gone (the caption said the informed set "contains the
+   whole map", which the 99.5 % of `sec:ch17-informed-set` contradicts); the caption now
+   reads "\rrt (grey) never improves; \rrtstar and \irrtstar coincide on the small map, and
+   on the wide field ...".
+   (b) The $\mu(\Xfree)$ upper-bound remark is kept in full at line 401 only. The other
+   three are back-references: "which is usually unknown; any upper bound is safe
+   (\cref{sec:ch17-radius})" after `thm:ch17-ao`; "keeping $\mu(\Xfree)$ is admissible
+   (\cref{sec:ch17-radius}) and those extra checks are what it costs" in
+   `sec:ch17-informed-results`; and a bare "(\cref{sec:ch17-radius})" in "Choosing $\gamma$".
+   Nothing on the keep list was cut: the proof, the radius dissection, the informed-set
+   derivation, the four pitfalls, the tables, the figures, the eight exercises and the five
+   solutions are all intact.
+   The prescribed cuts bought about three printed lines, not the fifteen the page needed, so
+   the rest was bought by copy-fitting that removes wording, not content: the roadmap
+   paragraph of the opening section is shorter, and about ten paragraphs that ended in a
+   one- or two-word line lost a few words each (the intro's battery sentence, the
+   zero-clearance sentence, the primitives sentence, the `keyidea` box, the setup of
+   `ex:ch17-map`, the probabilistic-completeness remark after `prop:ch17-invariant`, the
+   "Propagating costs to a subtree" note, two `summary` bullets, and the one-line sentence
+   referring to `tab:ch17-comparison`, which is now the last clause of the BIT* paragraph).
+   Every claim, number, citation and cross-reference in those paragraphs survives.
+
+### Suggestions
+
+* **\orca:** the drone box now reads "the local layer (optimal reciprocal collision
+  avoidance, \orca, or the dynamic window approach, DWA, \cref{ch:ch13,ch:ch14})".
+* **`thm:ch17-ao`:** "let the samples be uniform on $\mathcal{X}$ apart from the goal-biased
+  draws, which stop once $x_{\mathrm{goal}}$ is in $V$".
+* **$\hat f$ analogy:** "the informed set is the region $\fcost\le C^*$ outside which \astar
+  with a consistent heuristic never expands".
+* **Solution to `exr:ch17-fraction`(b):** now gives the clipped fractions --- "Monte Carlo
+  with $2\times10^6$ points in $[0,10]^3$ puts $100\,\%$ and $98.4\,\%$ of it inside, that
+  is $1.00$ and $1.02$ draws per accepted sample". I reproduced both figures (100.00 % and
+  98.41 %, i.e. 1.00 and 1.02 draws) before writing them down.
+* **`ex:ch17-gamma`:** "$\gamma^*_{\rrtstar}=2\sqrt{1.5}\,\sqrt{76/\pi}=12.05$ (the code's
+  Monte-Carlo estimate $\hat\mu=75.9$ gives $12.04$)"; `gen_ch17_convergence.py` prints
+  exactly `mu(X_free) ~ 75.9, gamma* = 12.04`.
+* **`tab:ch17-comparison` PRM row:** the row is now "PRM ($k$ fixed) ... no ...", so the
+  contrast with PRM\textsuperscript{*} two rows below is visible at a glance. Its last cell
+  is "multi-query" rather than "multi-query roadmap", which keeps the column narrow.
+* **`frontmatter/notation.tex`:** still out of this chapter's scope and still deferred to the
+  book-level pass, with the reviewer's note carried forward: add $r_n$, $\gamma_{\rrtstar}$,
+  $c_{\mathrm{best}}$, $c_{\min}$, $\zeta_d$ and $\Near$, and decide what to say about the
+  bare $\gamma$ that line 72 reserves for the goal vertex.
+
+### Two overfull boxes found while measuring
+
+Both predate this round (the log the review grepped was written before the last figure
+rebuild, so they did not show up there) and both are now smaller or gone:
+`tab:ch17-comparison` was 12.4 pt too wide and is now inside the text block
+(`\tabcolsep` 4 pt, no cell text lost); the three-panel `fig:ch17-primitives` row was
+7.8 pt too wide and is now 2.0 pt (subfigure width $0.32\to0.333$ of the text width). The
+build reports no overfull box above its 15 pt threshold and no underfull box.

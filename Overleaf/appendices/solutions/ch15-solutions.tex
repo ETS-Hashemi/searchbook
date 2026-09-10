@@ -64,12 +64,38 @@ Hint: with the factor $d^n$ the total potential is
 $U'=\tfrac12 k_{\mathrm{att}}d^2+U_{\mathrm{rep}}d^n\ge0$ and $U'(\pos_{\mathrm{g}})=0$,
 so the goal is the global minimum; with $n\ge2$ the force there is zero by the
 formula of \cref{exr:ch15-derivation}(c). The self-test checks both facts for the
-goal $(5.4,4)$. For $n=1$ the goal is still the global minimum but the force does
-not vanish at it; the drone reaches the goal from every side along a straight
-final approach and would chatter around it without a goal tolerance. To see that
+goal $(5.4,4)$. For $n=1$ the goal is still the global minimum, but the force does not vanish
+there: the drone chatters across the goal with an amplitude of one step,
+$\dt\,v_{\max}=0.01$. With the chapter's tolerance $\eps_{\mathrm{g}}=0.05$ the
+chatter is inside the tolerance and the run reports reached after $508$ steps;
+with \code{goal\_tol=1e-3} the same run is declared stuck after $695$ steps, its
+distance to the goal alternating between $0.0027$ and $0.0074$. With $n=2$ the
+force does vanish at the goal, the approach is smooth, and the run reports
+reached -- after $509$ steps with \code{goal\_tol=1e-3} and after $425$ with
+$\eps_{\mathrm{g}}=0.05$. To see that
 the correction does not remove local minima elsewhere, keep $n=2$ and rerun the
 start $(0,4)$ of \cref{sec:ch15-localmin}: the drone still stops on the axis, at a
 slightly different $x$.
+\end{solution}
+
+\begin{solution}{exr:ch15-smoothness}
+(a)~The repulsive force is $k_{\mathrm{rep}}(1/\rho-1/\rho_0)\rho^{-2}\nabla\rho$
+inside the influence region and $\vect{0}$ outside; the bracket vanishes at
+$\rho=\rho_0$, so the force is continuous there, but its derivative in $\rho$
+tends to $k_{\mathrm{rep}}/\rho_0^4$ from inside and is $0$ outside
+(\cref{thm:ch15-continuity}). The force is $C^0$ but not $C^1$ across the
+boundary. A finite-difference estimate of the stiffness
+\cref{eq:ch15-stiffness} whose two probes straddle $\rho=\rho_0$ therefore
+averages two different curvatures and reports a value that belongs to neither
+side; take the probes on one side of the boundary, or keep the step below the
+distance to it.
+(b)~The detector sees only displacement: it fires whenever the drone moves
+less than $\delta$ in $W$ steps, which happens both at a critical point (the
+axis start of \cref{sec:ch15-localmin}) and on a long, nearly flat plateau
+(the same scene with $k_{\mathrm{att}}=10^{-3}$, where the force is small but
+never zero). The caller cannot tell them apart from the path alone, and it
+should not try: in both cases the local layer is not making progress and the
+global layer must supply a new waypoint.
 \end{solution}
 
 \begin{solution}{exr:ch15-conic}

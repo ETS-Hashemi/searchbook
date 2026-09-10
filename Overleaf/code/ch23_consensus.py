@@ -549,6 +549,13 @@ def _self_test():
     assert np.allclose(X[-1], [2.0, 2.0, 12.0, 12.0], atol=1e-6)
     assert disagreement(X[-1]) > 1.0
     assert abs(disagreement(X[-1]) - 10.0) < 1e-6   # quoted in the pitfall
+    # Exercise 23.2(b): the 9 m gap has to be bridged before they agree
+    L_path = laplacian(radius_graph(P, 9.0))
+    assert is_connected(radius_graph(P, 9.0))
+    assert not is_connected(radius_graph(P, 8.9))
+    assert abs(algebraic_connectivity(L_path) - (2.0 - np.sqrt(2.0))) < 1e-9
+    assert np.allclose(np.linalg.eigvalsh(laplacian(radius_graph(P, 10.0))),
+                       [0.0, 2.0, 4.0, 4.0])
 
     # 4. Discrete-time step size: eps < 1/d_max converges, eps > 2/lambda_n
     #    diverges (the 4-cycle has lambda_n = 2 d_max, so both bounds agree)
@@ -619,10 +626,23 @@ def _self_test():
                                            A_fixed=ex["A"], A_form=ex["A"])
     assert sim3["err"][-1] > 0.1
 
-    # 7. Inconsistent displacement vectors (d_ji != -d_ij) make the
-    #    centroid drift instead of settling
+    # 7. Displacements built from offsets are antisymmetric, and an
+    #    inconsistent set (d_ji != -d_ij) makes the centroid drift for ever
+    #    at the velocity -(1/n) sum_i sum_{j in N_i} d_ij (Exercise 23.5)
     D = displacement_targets(O)
     assert np.allclose(D, -np.transpose(D, (1, 0, 2)))
+    A_path = np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
+    D_bad = np.zeros((3, 3, 2))
+    for i, j in [(0, 1), (1, 0), (1, 2), (2, 1)]:
+        D_bad[i, j] = [1.0, 0.0]            # both ends want the same offset
+    Pb = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]])
+    for _ in range(500):
+        Vb = np.array([sum(Pb[j] - Pb[i] - D_bad[i, j]
+                           for j in np.flatnonzero(A_path[i]))
+                       for i in range(3)])
+        Pb = Pb + 0.01 * Vb
+    assert np.allclose(Vb.mean(axis=0), [-4.0 / 3.0, 0.0], atol=1e-9)
+    assert np.linalg.norm(Pb.mean(axis=0)) > 5.0        # it really drifts away
 
     # 8. Range keeping: the barrier keeps a stretched edge below r_comm
     Pk = np.array([[0.0, 0.0], [3.3, 0.0]])

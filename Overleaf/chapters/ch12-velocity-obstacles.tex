@@ -744,8 +744,9 @@ feasible samples falls from $695$ at $t=0$ to $122$ at $t = 5\,\mathrm{s}$. From
 $t = 1\,\mathrm{s}$ the closest feasible sample is $(1.2, 0)$: fly straight but
 faster. This is the typical VO solution to a crossing: it is cheaper to pass in
 front of a slower vehicle than to wait for it, and it turns the collision into
-a miss because the relative velocity $(1.2,-0.9)$ passes the disc on the far
-side (its discriminant is negative). From $t=3.7\,\mathrm{s}$ the agent adds a
+a miss because the relative velocity $(1.2,-0.9)$ passes above the disc
+instead of through it (its discriminant is negative); in the workspace this is
+$A$ crossing in front of $B$, as \cref{fig:ch12-example}(a) shows. From $t=3.7\,\mathrm{s}$ the agent adds a
 small northward component, $\vel_A = (1.046, 0.092)$, at $t = 5.0\,\mathrm{s}$ the centres are
 $1.001\,\mathrm{m}$ apart, and from $t=5.1\,\mathrm{s}$ the preferred velocity is
 feasible again ($t_c = \infty$): $A$ heads for its goal, arriving after a path
@@ -864,6 +865,10 @@ only if $\arcsin(v_{\max}/s) \le \theta$, i.e.\ $v_{\max}/s \le R/d$.
 \qedhere
 \end{proof}
 
+The hypothesis $s > v_{\max}$ is not an extra assumption: $d > R$ makes
+$v_{\max}d/R > v_{\max}$, so the conclusion already forces it. The
+proposition is therefore a threshold statement about the single quantity $s$.
+
 In \cref{ex:ch12-crossing} this threshold is $1.5 \cdot 7.07/1 = 10.6\,\mathrm{m/s}$:
 an intruder that fast, that close and aimed at $A$ cannot be dodged by any
 velocity $A$ can fly. Truncation does not help here, because at that speed
@@ -913,9 +918,10 @@ What the rule does \emph{not} guarantee is as important as what it does.
 
 \subsection{Two agents avoiding each other at the same time}
 
-Let two identical agents fly head-on towards each other's start positions,
-$A$ from $(-5,0)$ and $B$ from $(5, 0.2)$, both at speed $1$ with $R = 1$, and
-let \emph{both} apply \cref{alg:ch12-choose} at every step. At $t = 0$ each
+Let two identical agents fly head-on along parallel lines offset laterally
+by $0.2$ --- $A$ from $(-5,0)$ to $(5,0)$ and $B$ from $(5,0.2)$ to
+$(-5,0.2)$ --- both at speed $1$ with $R = 1$, and let \emph{both} apply
+\cref{alg:ch12-choose} at every step. At $t = 0$ each
 sees the other coming straight at it and steps aside: $A$ chooses the sample
 $(1.034, -0.182)$, $B$ its mirror image $(-1.034, 0.182)$. Now consider the
 next decision. $A$ assumes that $B$ will keep its new, sideways velocity. With
@@ -925,15 +931,17 @@ symmetry, returns to $(-1,0)$. One step later both are heading straight at
 each other again, step aside again, and so on. \Cref{fig:ch12-oscillation}
 shows the result: the lateral velocity of $A$ changes sign $51$ times in
 $100$ steps, and although the minimum distance stays at $1.002 \ge R$ the
-velocity command chatters between roughly $\pm0.2$ and $0$ at every step. A real
+command alternates at every step between a sidestep of about
+$-0.18\,\mathrm{m/s}$ (peak $0.23$) and a lateral component just above zero,
+so it crosses zero at almost every decision. A real
 drone cannot follow such a command, and the manoeuvre it executes is not the
 one that was analysed.
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch12/oscillation}
-  \caption{Oscillation. Two agents swap places head-on with a lateral offset
-  of $0.2$. (a)~Trajectories when both apply the velocity-obstacle rule
+  \caption{Oscillation. Two agents pass each other head-on along lines
+  offset by $0.2$. (a)~Trajectories when both apply the velocity-obstacle rule
   (solid) and when only $A$ applies it (dashed): with two avoiders the drift
   is shared and the paths zigzag. (b)~The lateral velocity of $A$: with two
   avoiders it flips sign at almost every step, because each agent reacts to
@@ -1198,15 +1206,16 @@ speeds around $1\,\mathrm{m/s}$; scale it with $R/v$.
 \paragraph{Sampling versus solving exactly.}
 The default candidate set has $721$ velocities on ten rings of $72$
 directions, i.e.\ $5^\circ$ in heading and $0.15\,\mathrm{m/s}$ in speed for
-$v_{\max} = 1.5$. Always add the preferred velocity and, to reduce chattering,
-the current velocity to the candidates, and consider a finer ring around
+$v_{\max} = 1.5$. In your own implementation, always add the preferred
+velocity and, to reduce chattering, the current velocity to the candidates
+(the code of \cref{lst:ch12-choose} adds only $\vel^{\mathrm{pref}}$), and consider a finer ring around
 $\vel^{\mathrm{pref}}$. With a single obstacle, prefer the exact projection of
 \cref{sec:ch12-variants}; with many obstacles, sampling is robust and accepts
 other cost functions and reachable sets without any change to the rule (the
 dynamic window of \cref{ch:ch14}). The test of all
 candidates against one obstacle is one vectorised NumPy expression
 (\code{ttc\_batch}), which is why the self-test, including a sample of the
-experiments of \cref{sec:ch12-experiment}, runs in about $0.3\,\mathrm{s}$;
+experiments of \cref{sec:ch12-experiment}, finishes in a fraction of a second;
 the full sweep of \cref{tab:ch12-crossing} is produced by
 \code{code/figures/gen\_ch12\_sim.py}.
 
@@ -1320,9 +1329,8 @@ two wedges, which is common when two obstacles pass on either side, may
 contain no sample at all, and the algorithm declares the feasible set empty
 and falls back to a dangerous velocity although a safe one exists. And when
 the best sample changes from step to step by one grid cell, the command
-chatters. Sample finely near the preferred and the current velocity, always
-include both as candidates, and prefer the exact projection when there is a
-single obstacle.\index{pitfall!velocity sampling}
+chatters. Sample finely near the preferred and the current velocity, and
+always include both as candidates.\index{pitfall!velocity sampling}
 \end{pitfall}
 
 % ---------------------------------------------------------------------
