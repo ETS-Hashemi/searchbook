@@ -44,8 +44,10 @@ Follow `docs/chapter-template.tex` in this order:
 13. *Exercises*: 6–10, graded `\difficulty{1..3}`; conceptual, pen-and-paper and coding;
     the coding exercise of the corresponding study-plan week must appear.
 
-**Length.** 12–18 pages per chapter (about 900–1500 lines of LaTeX in the chapter file
-plus figure files). "Essential" topics at the upper end, "Awareness" topics shorter.
+**Length.** 16–22 pages for the training plan's Essential chapters (up to 24 when the material
+needs it), 12–20 pages for the others; completeness and accuracy outrank length, and cuts target
+repetition and padding, never required content. (The first drafts were capped at 12–18 pages; the
+finished chapters average 21.)
 Chapters 1, 2, 24 and 25 may deviate from the algorithm template but keep boxes, figures,
 tables, summary and exercises.
 
