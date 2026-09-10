@@ -15,7 +15,7 @@
   \item Implement and tune the baselines a learned model must beat: constant velocity, constant acceleration and Kalman-filter extrapolation, and explain why constant velocity is so hard to beat at short horizons.
   \item Write down the LSTM cell with its three gates, trace one step by hand, and build a sequence-to-sequence predictor with an agent-centered input frame, a step-by-step decoder, a Gaussian output, Adam and early stopping.
   \item Explain scaled dot-product attention, multi-head attention and positional encodings, and how attention across agents makes a predictor interaction-aware.
-  \item Turn a predicted distribution into a time-indexed occupancy region and feed it to the local, replanning and control layers of the hybrid system.
+  \item Turn a predicted distribution into a time-indexed occupancy region and feed it to the local safety layer, the replanning layer and the controller of the hybrid system.
 \end{itemize}
 \end{objectives}
 
@@ -571,7 +571,8 @@ One epoch draws the training windows in random order, normalizes each
 mini-batch to the agent frame of \cref{eq:ch20-frame}, runs the decoder in
 free-running (or teacher-forcing) mode, and takes one optimizer step per
 batch; the learning rate is interpolated geometrically from $\eta_0$ to
-$\eta_E$ over the run. The gradient is computed by BPTT through the decoder,
+$\eta_E$ over the run. (\cref{sec:appB-gd} reviews gradient descent and what
+the step size does to it.) The gradient is computed by BPTT through the decoder,
 the hand-over of the state and the encoder, and in free-running mode also
 through the fed-back means. The weights are updated with
 Adam~\cite{kingma2015adam}, which rescales every parameter's step by a running
@@ -1495,7 +1496,7 @@ space-time graph of \cref{ch:ch04}, or, in a static graph, the union over the
 horizon does. The prediction is recomputed every cycle, so the costs change
 every cycle: exactly the situation \dstarlite is built for.
 
-\textbf{Control layer} (\cref{ch:ch21}). The MPC plans positions $\pos_{A,h}$
+\textbf{Controller} (\cref{ch:ch21}). The MPC plans positions $\pos_{A,h}$
 over its own horizon; the constraint $\norm{\pos_{A,h} - \hat{\pos}_{T+h}} \ge
 d^{\mathrm{safe}}_h$ with $p = 1 - \delta$ in \cref{eq:ch20-inflated} enforces a collision
 probability of at most $\delta$ per step under a Gaussian prediction, the
