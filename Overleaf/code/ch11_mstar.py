@@ -949,6 +949,31 @@ def _self_test():
           " sum of costs %d" % (len(st4.moves), makespan(jp), sum_of_costs(jp, inst_p.goals)))
     assert makespan(jp) == 4 and sum_of_costs(jp, inst_p.goals) == 10
 
+    # 6b. Rotate: the primitive Push-and-Rotate adds (Figure of the chapter).
+    # A 5-cycle c0..c4 with one cleared vertex e next to c2 and c3.
+    cyc = Graph.from_edges([("c0", "c1"), ("c1", "c2"), ("c2", "c3"),
+                            ("c3", "c4"), ("c4", "c0"), ("c2", "e"), ("e", "c3")])
+    ring = ["c0", "c1", "c2", "c3", "c4"]
+    # (i) the primitive itself: one empty vertex on the cycle, m - 1 moves.
+    inst_r = MAPFInstance(cyc, ["c1", "c2", "c3", "c4"], ["c0", "c1", "c2", "c3"])
+    st5 = PushSwapState(inst_r)
+    assert st5.empty("c0") and st5.rotate(ring)
+    assert len(st5.moves) == len(ring) - 1 == 4
+    assert st5.pos == {0: "c0", 1: "c1", 2: "c2", 3: "c3"} and st5.empty("c4")
+    assert validate(sequential_to_paths(st5), inst_r)
+    # (ii) the manoeuvre of the figure: the cycle is full, so one agent is
+    # parked in the cleared vertex first and steps back in behind the others.
+    full = MAPFInstance(cyc, ring, ["c1", "c2", "c3", "c4", "c0"])
+    st6 = PushSwapState(full)
+    st6.move(2, "e")                                   # agent 3 steps out of c2
+    assert st6.rotate(["c2", "c1", "c0", "c4", "c3"])   # the other four advance
+    st6.move(2, "c3")                                  # and it steps back in
+    assert len(st6.moves) == len(ring) + 1 == 6
+    assert all(st6.pos[i] == g for i, g in enumerate(full.goals))
+    assert st6.empty("e") and validate(sequential_to_paths(st6), full)
+    print("rotate: %d moves on a cycle with one empty vertex, %d for a full cycle"
+          % (len(st5.moves), len(st6.moves)))
+
     # 7. State-space counts used in the table of the chapter.
     assert joint_state_counts(64, 2) == (4096, 4032, 25)
     assert joint_state_counts(64, 5)[0] == 64 ** 5

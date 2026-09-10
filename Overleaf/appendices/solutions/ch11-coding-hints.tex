@@ -1,31 +1,27 @@
 % Hints for the coding exercise(s) of ch11 (assembled into Appendix C)
 
 \begin{solution}{exr:ch11-coding}
-Checkpoints for an optional extension: the study plan asks only that you know what
-\mstar and Push-and-Swap do, so anything you finish is a bonus. The reference is
-\code{ch11\_\allowbreak mstar.py}: \code{joint\_\allowbreak astar} with its operator-decomposition flag,
-\code{independence\_\allowbreak detection}, \code{mstar} with \code{limited\_\allowbreak neighbours}, and the
-\code{PushSwapState} primitives. A joint state is a tuple of $k$ cells, so it hashes and
-keys a dictionary directly; the individual policies of \cref{def:ch11-policy} are one
-backward breadth-first search per agent, computed once and shared; a collision set is a
-\code{frozenset} of agent indices stored \emph{per joint state}. Steps: write the joint
-successor function and the cost of \cref{eq:ch11-cost} first, with a parked agent paying
-nothing, and test two agents against your \cbs of \cref{ch:ch09}; add the heuristic of
-\cref{eq:ch11-heuristic} and check that it never exceeds the true cost; for~(b) plan
-every agent alone, group the agents whose plans conflict, and merge only when re-planning
-one group around the other at \emph{equal} cost fails; for~(c) reverse a completed swap
-by replaying the recorded moves \emph{by position}, not by agent. Expected numbers: on
-the chapter's worked example joint \astar expands $24$ states and generates $612$,
-operator decomposition $100/292$, independence detection $27/162$ with the groups
-$\{a_3\},\{a_1,a_2\}$, and \mstar $31/127$, all four at cost $15$. On random $8\times8$
-maps (\cref{fig:ch11-expansions}) the mean largest group stays near $2.8$ at $k=6$ while
-plain joint \astar generates over a hundred thousand states against about a thousand for
-independence detection at the median. Push-and-Swap solves the swap example in $14$ moves
-at $\sumcost=27$ where the optimum is a makespan of $7$ and $\sumcost=14$ --- complete
-but far from optimal (\cref{thm:ch11-par}). Classic mistakes: a collision set stored per
+Checkpoints for an optional extension: the study plan asks only that you know what \mstar
+and Push-and-Swap do. The reference is \code{ch11\_\allowbreak mstar.py}: \code{joint\_\allowbreak astar} with its
+operator-decomposition flag, \code{independence\_\allowbreak detection}, \code{mstar} with
+\code{limited\_\allowbreak neighbours}, and the \code{PushSwapState} primitives. A joint state is a
+tuple of $k$ cells, so it hashes and keys a dictionary directly; the individual policies
+of \cref{def:ch11-policy} are one backward breadth-first search per agent, computed once
+and shared; a collision set is a set of agent indices stored \emph{per joint state}.
+Steps: write the joint successor function and the cost of \cref{eq:ch11-cost} first, with
+a parked agent paying nothing, and test two agents against your \cbs of \cref{ch:ch09};
+add the heuristic of \cref{eq:ch11-heuristic}; for~(b) merge two groups only when
+re-planning one around the other at \emph{equal} cost fails; for~(c) reverse a completed
+swap by replaying the recorded moves \emph{by position}, not by agent. Expected numbers:
+on the chapter's worked example joint \astar expands $24$ states and generates $612$,
+operator decomposition $100/292$, independence detection $27/162$ and \mstar $31/127$, all
+four at cost $15$. On random $8\times8$ maps (\cref{fig:ch11-expansions}) the mean largest
+group stays near $2.8$ at $k=6$ while joint \astar generates over a hundred thousand
+states against about a thousand for independence detection at the median. Push-and-Swap
+solves the swap example in $14$ moves at $\sumcost=27$ where the optimum is a makespan of
+$7$ and $\sumcost=14$ (\cref{thm:ch11-par}). Classic mistakes: a collision set stored per
 agent instead of per state; back-propagating collisions without re-opening the parent; a
 swap that leaves everyone but the two agents displaced. Done when every plan validates,
 your solvers agree with \code{joint\_\allowbreak astar} on a few dozen random instances, and you can
-say why these methods win on loosely coupled instances and lose on
-\cref{ex:ch11-aisles}.
+say why these methods lose on \cref{ex:ch11-aisles}.
 \end{solution}

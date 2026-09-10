@@ -3,53 +3,50 @@
 \begin{solution}{exr:ch13-coding}
 Checkpoints. The reference is \code{ch13\_\allowbreak orca.py}, where \code{simulate} runs the loop,
 \code{crossing\_\allowbreak scenario} builds the instance, \code{orca\_\allowbreak half\_\allowbreak plane} implements
-\cref{alg:ch13-halfplane}, and \code{orca\_\allowbreak velocity} solves \cref{alg:ch13-lp} with the
-dense fallback of \cref{alg:ch13-dense}; \code{choose\_\allowbreak sampled} gives the VO baseline.
-One \code{Agent} record per drone (position, velocity, radius, $v_{\max}$, goal) and one
+\cref{alg:ch13-halfplane}, \code{orca\_\allowbreak velocity} solves \cref{alg:ch13-lp} with the dense
+fallback of \cref{alg:ch13-dense}, and \code{choose\_\allowbreak sampled} gives the VO baseline. One
+\code{Agent} record per drone (position, velocity, radius, $v_{\max}$, goal) and one
 half-plane per neighbour, stored as a point and an \emph{inward} normal --- get that
 orientation wrong once and the agents fly into each other. Steps: update all agents from
 the same snapshot, computing every new velocity before anybody moves; run the three modes
 on the same scenario and seed; record per mode the colliding pairs, the smallest centre
-distance with its time, the last arrival, the mean path length and the reversals of one
-agent, as in \cref{tab:ch13-circle}; only then sweep $\ttc$ and the spacing. Expected
-numbers on the default crossing (two groups of four, spacing $2$~m, $r=0.5$~m,
-$v_{\max}=1.5$~m/s, $\ttc=5$~s, $\dt=0.1$~s): with no avoidance four pairs overlap and
-the separation reaches $0$ near $t=11$~s; sampled VO still leaves four colliding pairs at
-a smallest separation of $0.05$~m, arrives at $19.8$~s and reverses $101$ times with a
-velocity variation of $83.6$~m/s (the dance of \cref{thm:ch13-dance}); \orca is
-collision-free at exactly $1.000$~m, arrives at $16.4$~s against $16.0$~s for the
-straight line, travels $16.06$~m and reverses twice. At $\ttc=10$ the program is
-infeasible on about a dozen agent-steps and the last arrival slips to $19.5$~s; at
-$\ttc=2$ the perfectly symmetric crossing deadlocks; below $1.5$~m of spacing the group
-is denser than the discs allow and \code{lp\_\allowbreak dense} starts returning least-violating
-velocities. Classic mistakes: updating agents one at a time; building a half-plane from
-$\vel_A-\vel_B$ but applying it to $\vel_A$; giving the intruder a share of the
-avoidance, when full responsibility means all of $\vect{u}$, not half. Done when you can
-draw the cone and the half-plane for one pair and your three modes reproduce collide /
-oscillate / smooth --- the Week~6 milestone of \cref{ch:appA}.
+distance, the last arrival, the mean path length and the reversals of one agent, as in
+\cref{tab:ch13-circle}; only then sweep $\ttc$ and the spacing. Expected numbers on the
+default crossing (spacing $2$~m, $r=0.5$~m, $v_{\max}=1.5$~m/s, $\ttc=5$~s, $\dt=0.1$~s):
+with no avoidance four pairs overlap and the separation reaches $0$ near $t=11$~s; sampled
+VO still leaves four colliding pairs at $0.05$~m, arrives at $19.8$~s and reverses $101$
+times with a velocity variation of $83.6$~m/s (the dance of \cref{thm:ch13-dance}); \orca
+is collision-free at exactly $1.000$~m, arrives at $16.4$~s against $16.0$~s for the
+straight line and reverses twice. At $\ttc=10$ the program is infeasible on about a dozen
+agent-steps; at $\ttc=2$ the perfectly symmetric crossing deadlocks; below $1.5$~m of
+spacing the dense fallback starts returning least-violating velocities. Classic mistakes:
+updating agents one at a time; building a half-plane from $\vel_A-\vel_B$ but applying it
+to $\vel_A$; giving a non-cooperating intruder half the avoidance instead of all of
+$\vect{u}$. Done when you can draw the cone and the half-plane for one pair and your three
+modes reproduce collide / oscillate / smooth --- the Week~6 milestone of \cref{ch:appA}.
 \end{solution}
 
 \begin{solution}{exr:ch13-3d}
 Checkpoints. \code{orca\_\allowbreak half\_\allowbreak space\_\allowbreak 3d} already does the geometry: the truncated
-velocity obstacle is rotationally symmetric about $\pos_B-\pos_A$, so the closest
-boundary point lies in the plane spanned by that axis and $\vel_{\mathrm{rel}}$ and the
-planar case analysis of \cref{thm:ch13-cases} applies inside it. It returns the normal
-and the point $\vel_A+\tfrac12\vect{u}$, so the half-space is
-$\set{\vel : (\vel-\text{point})\cdot\vect{n}\ge0}$, which is \cref{eq:ch13-orca-3d}.
-Steps: place six drones on the octahedron vertices of a sphere of radius $10$ with
-antipodal goals, so all six routes cross the centre; build $k-1$ half-spaces per drone
-per step; solve by brute force first, drawing a few thousand velocities uniformly in the
-ball $\norm{\vel}\le v_{\max}$ with $r=v_{\max}U^{1/3}$ and a uniform direction, keeping
-those that satisfy every half-space and taking the one closest to
-$\vel_{\mathrm{pref}}$, or the least-violating sample when none survives; replace it by
-the recursive incremental algorithm only once the sampled version is right, since in
-$\R^3$ the recursion projects onto a plane and calls \cref{alg:ch13-lp}. Expected
-numbers with $r=0.5$~m, $v_{\max}=1.5$~m/s, $\ttc=5$~s and $\dt=0.1$~s: the run is
-collision-free with a smallest centre distance near $1.02$~m against the threshold
-$r_A+r_B=1$~m, and all six arrive within $20$--$21$~s against the $20$~s of the straight
-line. Classic mistakes: sampling the ball with a uniform radius, which crowds the samples
-near the centre; testing the half-spaces at exactly zero tolerance, so rounding fires the
-fallback every step; forgetting that six antipodal routes are perfectly symmetric and
-need a tie-break. Done when the minimum centre distance never drops below $r_A+r_B$ over
-the whole run and the sampled and incremental solvers agree to within the sample spacing.
+velocity obstacle is rotationally symmetric about $\pos_B-\pos_A$, so the closest boundary
+point lies in the plane spanned by that axis and $\vel_{\mathrm{rel}}$ and the planar case
+analysis of \cref{thm:ch13-cases} applies inside it. It returns the normal and the point
+$\vel_A+\tfrac12\vect{u}$, so the half-space is $\set{\vel :
+(\vel-\text{point})\cdot\vect{n}\ge0}$, which is \cref{eq:ch13-orca-3d}. Steps: place six
+drones on the octahedron vertices of a sphere of radius $10$ with antipodal goals, so all
+six routes cross the centre; build $k-1$ half-spaces per drone per step; solve by brute
+force first, drawing a few thousand velocities uniformly in the ball $\norm{\vel}\le
+v_{\max}$ with $r=v_{\max}U^{1/3}$ and a uniform direction, keeping those that satisfy
+every half-space and taking the one closest to $\vel_{\mathrm{pref}}$, or the
+least-violating sample when none survives; replace it by the recursive incremental
+algorithm only once the sampled version is right, since in $\R^3$ the recursion projects
+onto a plane and calls \cref{alg:ch13-lp}. Expected numbers with $r=0.5$~m,
+$v_{\max}=1.5$~m/s, $\ttc=5$~s and $\dt=0.1$~s: the run is collision-free with a smallest
+centre distance near $1.02$~m against the threshold $r_A+r_B=1$~m, and all six arrive
+within $20$--$21$~s against the $20$~s of the straight line. Classic mistakes: sampling
+the ball with a uniform radius, which crowds the samples near the centre; testing the
+half-spaces at exactly zero tolerance, so rounding fires the fallback every step;
+forgetting that six antipodal routes are perfectly symmetric and need a tie-break. Done
+when the minimum centre distance never drops below $r_A+r_B$ and the sampled and
+incremental solvers agree to within the sample spacing.
 \end{solution}

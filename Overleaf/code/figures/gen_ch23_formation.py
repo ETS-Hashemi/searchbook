@@ -62,15 +62,15 @@ def consensus_figure():
     radii = (2.1, 3.8)
     Ls, lam2s = [], []
     for r in radii:
-        A = cf.radius_graph(P6, r)
-        L = cf.laplacian(A)
+        W = cf.radius_graph(P6, r)
+        L = cf.laplacian(W)
         lam = np.linalg.eigvalsh(L)
         Ls.append(L)
         lam2s.append(lam[1])
         print("consensus: R=%.1f edges=%s lambda_2=%.4f 1/lambda_2=%.3f "
-              "lambda_n=%.4f d_max=%d" % (r, cf.edges_of(A), lam[1],
+              "lambda_n=%.4f d_max=%d" % (r, cf.edges_of(W), lam[1],
                                           1.0 / lam[1], lam[-1],
-                                          int(A.sum(axis=1).max())))
+                                          int(W.sum(axis=1).max())))
     d0 = cf.disagreement(x0)
     rows = []
     for t in np.arange(0.0, 10.0 + 1e-9, 0.05):
@@ -133,9 +133,9 @@ def reference(t):
 
 def leader_figure():
     P0 = np.array([[-1.0, 2.0], [-4.0, 3.0], [-3.0, 0.5], [0.5, -0.5]])
-    A0 = cf.radius_graph(P0, R_COMM)
-    print("leader: initial edges %s connected=%s" % (cf.edges_of(A0),
-                                                     cf.is_connected(A0)))
+    W0 = cf.radius_graph(P0, R_COMM)
+    print("leader: initial edges %s connected=%s" % (cf.edges_of(W0),
+                                                     cf.is_connected(W0)))
     sim = cf.simulate_formation(P0, OFFSETS, 24.0, dt=0.02, gain=1.0,
                                 r_comm=R_COMM, ref_fn=reference, pinned=(0,),
                                 gain_ref=1.5, v_max=3.0)
@@ -224,14 +224,14 @@ def avoidance_figure():
     def ref_straight(t):
         return np.array([t, 0.0]), np.array([1.0, 0.0])
 
-    def extra(t, P, A):
+    def extra(t, P, W):
         v = cf.repulsion_velocity(P, intruder(t), RHO_INTRUDER, K_REP)
         v += cf.mutual_repulsion_velocity(P, 1.5 * D_SAFE, 0.3)
         v += cf.connectivity_velocity(P, Kn, R_AVOID, L_ACT, 0.5)
         return v
 
     sim = cf.simulate_formation(OFFSETS.copy(), OFFSETS, 20.0, dt=0.02,
-                                gain=1.0, r_comm=R_AVOID, A_form=Kn,
+                                gain=1.0, r_comm=R_AVOID, W_form=Kn,
                                 ref_fn=ref_straight, pinned=(0,), gain_ref=1.5,
                                 extra_fn=extra, v_max=2.5)
     rows = []

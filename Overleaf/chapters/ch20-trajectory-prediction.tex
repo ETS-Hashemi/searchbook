@@ -429,11 +429,10 @@ the step; every number is produced by \code{lstm\_cell\_example()} in
 \code{ch20\_prediction.py}. For the first unit the forget pre-activation is
 $0.5 \cdot 1.0 + (-0.5)(-0.5) + 0.3 \cdot 0.2 + 0.1 \cdot (-0.1) + 1 = 1.80$,
 so $f_1 = \sigma(1.80) = 0.8581$: the unit keeps $86\,\%$ of its old memory
-$0.5$ and adds $i_1 \tilde{c}_1 = 0.7465 \cdot 0.8076 = 0.6029$, giving
-$c_1 = 0.4291 + 0.6029 = 1.0319$. The output gate lets half of
-$\tanh(1.0319) = 0.7747$ through, $h_1 = 0.3893$. The second unit has a small
-input gate ($0.2870$) and a negative candidate, so its memory moves only from
-$-0.3$ to $-0.3447$.
+$0.5$ and adds $i_1 \tilde{c}_1 = 0.6029$, giving $c_1 = 1.0319$, of which
+the output gate lets half through as $h_1 = 0.3893$. The second unit has a
+small input gate ($0.2870$) and a negative candidate, so its memory moves
+only from $-0.3$ to $-0.3447$.
 \end{example}
 
 \begin{table}[tb]
@@ -737,19 +736,14 @@ learn to attend ``two steps back'' regardless of $t$.
 
 \paragraph{An encoder-decoder Transformer for one trajectory.}
 Giuliari et al.~\cite{giuliari2021transformer} use the original
-encoder-decoder layout. Each observed displacement is embedded linearly into
-$\R^d$ and added to its positional encoding; a stack of encoder layers with
-self-attention over the $T_{\mathrm{obs}} - 1$ tokens produces one context
-vector per observed step. The decoder produces the future autoregressively:
-at step $k$ it embeds the displacements predicted so far, applies
-\emph{masked} self-attention (a token attends only to earlier tokens, so that
-training processes all $H$ steps in one pass while staying causal), then
-\emph{cross-attention} whose queries come from the decoder and whose keys and
-values are the encoder outputs, and finally a read-out to the next
-displacement or its distribution. Training uses teacher forcing and the
-losses of \cref{sec:ch20-seq2seq}; prediction is free-running. There is no
-recurrence, so every observed step is one attention hop away from every
-predicted step.
+encoder-decoder layout: a stack of encoder layers with self-attention over
+the embedded, positionally encoded observed displacements, and an
+autoregressive decoder that at step $k$ applies \emph{masked} self-attention
+to the displacements predicted so far (a token attends only to earlier ones,
+so that training processes all $H$ steps in one pass while staying causal),
+then \emph{cross-attention} with the encoder outputs as keys and values, and
+a read-out. There is no recurrence, so every observed step is one attention
+hop away from every predicted step.
 
 \paragraph{Attention across agents.}
 Nothing in \cref{eq:ch20-attention} requires the keys to be time steps of
@@ -789,18 +783,131 @@ behind, its speed.
   \label{fig:ch20-attention}
 \end{figure}
 
-\paragraph{What Transformers buy and what they cost.}
+\paragraph{What attention buys.}
 Attention helps at long horizons because the decoder can consult any
 observed step directly instead of a compressed state, and it helps with many
 agents because the same mechanism ranks neighbours by learned relevance
-rather than by a grid. Both advantages come with bills. \emph{Data}: more
-parameters and fewer built-in assumptions than an LSTM means more
-trajectories are needed to fit them, so on a few hundred recorded manoeuvres
-a small LSTM, or constant velocity, is usually the better choice.
-\emph{Compute}: the quadratic term of \cref{thm:ch20-complexity} bites for a
-swarm planner that predicts every $0.1$~s. \emph{Engineering}: the LSTM of
-this chapter is a few hundred lines of NumPy including the backward pass; a
-Transformer wants a framework (\cref{lst:ch20-torch}).
+rather than by a grid. The next subsection builds the smallest predictor
+that uses both ideas and measures what they are worth on the data of this
+chapter.
+
+\subsection{A Transformer predictor end to end}
+\label{sec:ch20-transformer-model}
+
+The primitives above are enough to build a predictor, and
+\code{ch20\_prediction.py} contains one: an encoder-decoder Transformer in
+just under two hundred lines of NumPy, with its gradient written by hand and
+checked against finite differences like the LSTM's. It is trained on the same
+$1\,600$ trajectories of \cref{ex:ch20-dataset}, with the same Adam, the same
+batches and the same budget, so that its row of \cref{tab:ch20-results}
+differs from the LSTM's in the model and in nothing else.
+
+\emph{The encoder} embeds each of the $T_{\mathrm{obs}} - 1 = 7$ observed
+displacements linearly into $\R^{d}$ with $d = 24$, adds the positional
+encoding of \cref{eq:ch20-pe}, and applies one multi-head self-attention
+layer with $n_h = 2$ heads (\cref{eq:ch20-multihead}) and a residual
+connection, followed by a position-wise block
+$\tanh(\cdot\,\mat{W}_1 + \vect{b}_1)\mat{W}_2 + \vect{b}_2$ of width $2d$,
+also residual. It returns one context vector per observed step.
+
+\emph{The decoder} has neither recurrence nor autoregression. The $H = 12$
+future steps are represented by their own positional encodings, mapped by a
+learned matrix into one query per predicted step,
+\begin{equation}
+  \mat{Q}_{\mathrm{dec}} = \bigl[\mathrm{PE}(T_{\mathrm{obs}}), \dots, \mathrm{PE}(T_{\mathrm{obs}} + H - 1)\bigr]\T\,\mat{W}^{Q}_{\mathrm{dec}} \in \R^{H \times d};
+  \label{eq:ch20-decoder-queries}
+\end{equation}
+one cross-attention layer reads the encoder outputs with these queries, and a
+linear head maps each of the $H$ results to one displacement, added to the
+constant-velocity displacement exactly as in \cref{sec:ch20-seq2seq}. All $H$
+displacements leave in a single pass: this is a \textbf{non-autoregressive
+decoder}\index{non-autoregressive decoder}\index{Transformer!non-autoregressive decoder},
+which has no exposure bias to pay but also no way to let step $k$ see what
+step $k-1$ predicted. Two things are left out on purpose: the layer is one
+layer, not a stack, and there is no layer normalisation, which a stack needs
+and a single residual layer can do without.
+
+\begin{lstlisting}[caption={The forward pass of the Transformer predictor (from \code{code/ch20\_prediction.py}): embedding plus positional encoding, one encoder self-attention layer, the feed-forward block, the cross-attention decoder with one query per predicted step, and the linear head. \code{\_split\_heads} reshapes $(B, T, d)$ into $(B, n_h, T, d/n_h)$ and \code{\_merge\_heads} inverts it.},label={lst:ch20-transformer}]
+Z = x @ self.W_emb + self.b_emb + self.pe[:T]     # embed + positional encoding
+Q, K, V = Z @ self.Wq, Z @ self.Wk, Z @ self.Wv   # encoder self-attention
+qh, kh, vh = _split_heads(Q, nh), _split_heads(K, nh), _split_heads(V, nh)
+A = softmax(np.einsum("bhtd,bhsd->bhts", qh, kh) / math.sqrt(dh))
+C = _merge_heads(np.einsum("bhts,bhsd->bhtd", A, vh))
+Z1 = Z + C @ self.Wo                              # residual connection
+Hff = np.tanh(Z1 @ self.Wf1 + self.bf1)
+Z2 = Z1 + Hff @ self.Wf2 + self.bf2               # position-wise feed-forward
+Q2 = self.pe[T_OBS:T_OBS + P] @ self.Wq2          # one query per predicted step
+K2, V2 = Z2 @ self.Wk2, Z2 @ self.Wv2             # decoder cross-attention
+q2h = Q2.reshape(P, nh, dh).transpose(1, 0, 2)
+k2h, v2h = _split_heads(K2, nh), _split_heads(V2, nh)
+A2 = softmax(np.einsum("hpd,bhtd->bhpt", q2h, k2h) / math.sqrt(dh))
+C2 = _merge_heads(np.einsum("bhpt,bhtd->bhpd", A2, v2h))
+Z3 = Q2 + C2 @ self.Wo2
+out = Z3 @ self.W_out.T + self.b_out + self.baseline(x)[:, None]
+\end{lstlisting}
+
+The model has $7\,106$ weights against the LSTM's $9\,026$. Training uses the
+learning rate $5 \cdot 10^{-3}$ decaying to $5 \cdot 10^{-4}$, batches of
+$64$, clipping at norm $5$ and at most $40$ epochs, as for the LSTM; the
+patience of the early stopping is $15$ epochs rather than $10$, because
+without layer normalisation the validation curve is noisy enough that $10$
+stopped this initialisation at epoch~$12$ while it was still improving. The
+run keeps epoch~$24$ of $39$ and takes nine seconds.
+
+The result is the last row of \cref{tab:ch20-results,tab:ch20-horizon} and
+the pentagon curve of \cref{fig:ch20-results}: an ADE of $0.831$~m and an FDE
+of $1.758$~m over the test set, $27\,\%$ below the tuned constant velocity,
+one centimetre above LSTM-NLL's $0.821$~m and four above LSTM-MSE's
+$0.789$~m. The pattern per subset is the LSTM's: it halves the error on turns
+($0.504$ against the tuned CV's $1.125$~m), takes a third off the visible
+evasive manoeuvres ($1.594$ against $2.351$~m), loses to constant velocity on
+straight flight ($0.470$ against $0.335$~m) and is level with everything else
+on the hidden manoeuvres ($1.639$~m). Per horizon it tracks the LSTM within
+three centimetres, and its miss rate of $0.512$ sits between LSTM-NLL's
+$0.520$ and LSTM-MSE's $0.436$.
+
+\paragraph{What this experiment shows, and what it does not.}
+It shows that the attention block, the positional encoding and a linear head
+are already a complete predictor: an exact hand-written gradient, nine
+seconds of training, and a model that beats every physics baseline on the
+manoeuvres it can see. It does \emph{not} show that Transformers predict
+trajectories better than recurrent networks. Three reasons not to read it
+that way.
+\begin{itemize}
+  \item \emph{Measure the spread before believing a gap.}
+  \code{seed\_study()} retrains all three learned models with three
+  initialisations on the same split: LSTM-NLL $0.824 \pm 0.004$~m,
+  Transformer $0.821 \pm 0.012$~m, LSTM-MSE $0.794 \pm 0.005$~m. The
+  Transformer and the Gaussian LSTM are indistinguishable, and the
+  squared-error LSTM is ahead of both by more than twice the largest spread.
+  The single-seed column of \cref{tab:ch20-results} would have supported
+  either conclusion.
+  \item \emph{The bottleneck this architecture removes is not binding here.}
+  Attention pays when the decoder must reach far back into a long history;
+  ours is seven steps, which one LSTM state carries easily.
+  \textcite{giuliari2021transformer} report their advantage with longer
+  histories, thousands of recorded scenes and a stack of layers --- three
+  differences, none of them reproduced here.
+  \item \emph{The model is small on purpose}: one layer, no layer
+  normalisation, a parallel decoder and a squared-error head, so it has no
+  uncertainty to report and its calibration column is empty. Each of those is
+  a small change to the file and each costs data; \cref{exr:ch20-coding}(d)
+  asks you to make them one at a time and to check whether any moves the
+  numbers beyond that spread.
+\end{itemize}
+The general bills are the same. \emph{Data}: more parameters and fewer
+built-in assumptions than an LSTM means more trajectories are needed to fit
+them, so on a few hundred recorded manoeuvres a small LSTM, or constant
+velocity, remains the better choice. \emph{Compute}: the quadratic term of
+\cref{thm:ch20-complexity} is harmless for the $7 \times 7$ and $12 \times 7$
+score matrices here and bites for a planner that attends over all agents and
+all time steps every $0.1$~s. \emph{Engineering}: one layer fits in a
+listing, a stack wants a framework (\cref{sec:ch20-implementation}). What
+attention buys even here is readable weights: averaged over the test set the
+decoder queries put $85\,\%$ of theirs on the first four of the seven
+observed displacements. The last displacements are already in the
+constant-velocity term the head adds, so what the attention has to supply is
+how the heading has \emph{changed} across the window.
 
 % ---------------------------------------------------------------------
 \section{Multimodality and uncertainty}
@@ -907,17 +1014,18 @@ The baselines follow \cref{alg:ch20-baselines}, with parameters tuned on the
 validation set by minimising the ADE over a small grid: CV window $k = 2$
 (the naive $k = 1$ is kept as a second row), CA window $k = 3$, Kalman
 process noise $q = 0.5$ with $r = \sigma = 0.05$~m. The learned predictor is
-\cref{alg:ch20-seq2seq} with $D = 32$ hidden units in each cell, about
-$9\,000$ weights, trained by \cref{alg:ch20-train} for $40$ epochs with
-batches of $64$, learning rate $5 \cdot 10^{-3}$ decaying to $5 \cdot
-10^{-4}$, clipping at norm $5$ and patience $10$; each training takes
-about ten seconds on one processor core. \textbf{LSTM-NLL} has the Gaussian
-read-out of \cref{eq:ch20-nll} and \textbf{LSTM-MSE} the loss of
-\cref{eq:ch20-mse}; both use the agent frame, the residual over constant
-velocity and free-running training. \textbf{LSTM-abs} is LSTM-NLL trained on
-absolute world positions and \textbf{LSTM-TF} is LSTM-NLL trained with
-teacher forcing in every epoch: two pitfalls with numbers. All numbers
-below come from the one fixed seed of \cref{ex:ch20-dataset};
+\cref{alg:ch20-seq2seq} with $D = 32$ hidden units in each cell, $9\,026$
+weights, trained by \cref{alg:ch20-train} for $40$ epochs with batches of
+$64$, learning rate $5 \cdot 10^{-3}$ decaying to $5 \cdot 10^{-4}$, clipping
+at norm $5$ and patience $10$; each training takes about ten seconds on one
+processor core. \textbf{LSTM-NLL} has the Gaussian read-out of
+\cref{eq:ch20-nll} and \textbf{LSTM-MSE} the loss of \cref{eq:ch20-mse}; both
+use the agent frame, the residual over constant velocity and free-running
+training. \textbf{LSTM-abs} is LSTM-NLL trained on absolute world positions
+and \textbf{LSTM-TF} is LSTM-NLL trained with teacher forcing in every epoch:
+two pitfalls with numbers. The last row of each table is the Transformer of
+\cref{sec:ch20-transformer-model}. All numbers below come from the one fixed
+seed of \cref{ex:ch20-dataset};
 \cref{exr:ch20-coding} asks you to repeat the training over seeds and report
 the spread, which rule~5 of \cref{sec:ch20-problem} demands of any published
 comparison.
@@ -931,7 +1039,8 @@ the results; read them subset by subset.
   per column in bold. LSTM-abs is LSTM-NLL trained on absolute coordinates,
   LSTM-TF is LSTM-NLL trained with teacher forcing only. On the $60$
   hidden-manoeuvre trajectories all predictors lie within noise of each
-  other, so the bold entry of that column singles out no winner.}
+  other, so the bold entry of that column singles out no winner. The last row
+  is the Transformer of \cref{sec:ch20-transformer-model}.}
   \label{tab:ch20-results}
   \setlength{\tabcolsep}{4pt}\footnotesize
   \begin{tabular}{@{}lccccc@{}}
@@ -946,6 +1055,8 @@ the results; read them subset by subset.
   LSTM-MSE & $\mathbf{0.789}/\mathbf{1.668}$ & $0.407/0.859$ & $\mathbf{0.487}/\mathbf{0.914}$ & $\mathbf{1.554}/\mathbf{3.168}$ & $1.608/4.238$\\
   LSTM-abs & $1.315/2.921$ & $0.596/1.415$ & $1.289/3.016$ & $2.486/4.972$ & $\mathbf{1.569}/\mathbf{4.113}$\\
   LSTM-TF & $1.069/2.382$ & $0.628/1.257$ & $0.773/1.831$ & $1.984/4.307$ & $1.715/4.491$\\
+  \midrule
+  Transformer & $0.831/1.758$ & $0.470/0.951$ & $0.504/0.968$ & $1.594/3.317$ & $1.639/4.277$\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -970,6 +1081,8 @@ the results; read them subset by subset.
   LSTM-MSE & $0.227$ & $0.481$ & $0.789$ & $0.436$ & --\\
   LSTM-abs & $0.364$ & $0.774$ & $1.315$ & $0.870$ & --\\
   LSTM-TF & $0.281$ & $0.624$ & $1.069$ & $0.681$ & --\\
+  \midrule
+  Transformer & $0.252$ & $0.511$ & $0.831$ & $0.512$ & --\\
   \bottomrule
   \end{tabular}
 \end{table}
@@ -982,7 +1095,8 @@ the results; read them subset by subset.
   step on and the gap widens with $h$, while the same network trained on
   absolute coordinates stays above both constant-velocity baselines and the
   Kalman filter at every horizon (and above constant acceleration until the
-  last step). Right: the tuned CV (dashed) against LSTM-NLL (solid) per
+  last step). The Transformer of \cref{sec:ch20-transformer-model}
+  (pentagons) runs with the two LSTMs. Right: the tuned CV (dashed) against LSTM-NLL (solid) per
   subset. On straight flight the two curves cross between $h = 7$ and
   $h = 8$: the LSTM is marginally ahead over the first $1.4$~s and the tuned
   CV wins from there on, ending $0.09$~m ahead at $2.4$~s. On turns the LSTM
@@ -998,18 +1112,17 @@ the Kalman extrapolation $0.312$~m, against $0.427$~m for LSTM-NLL and
 $0.407$~m for LSTM-MSE. The advantage is a long-horizon one: up to $h = 7$
 ($1.4$~s) the two are within $3.5$~cm of each other and the LSTM is in fact
 slightly ahead, and only from $h = 8$ on does the tuned CV pull away
-(\cref{fig:ch20-results}, right). This is the expected order at the horizons
-that set the safety margin, not an accident of training: under constant-velocity motion the CV prediction is exact and its
-only error is amplified measurement noise (\cref{thm:ch20-cv-noise}), which
-the Kalman filter averages almost optimally; the learned model, which starts
-from the same CV displacement, can only add noise-driven corrections and the
-\emph{hedge} it has learned against manoeuvres that begin after the window.
-The naive $k = 1$ baseline is twice as bad ($0.632$~m): its velocity uses two
-noisy points $0.2$~s apart, and \cref{thm:ch20-cv-noise} predicts a
-root-mean-square final error of $1.25$~m and hence, for an isotropic
-two-dimensional Gaussian error, a mean error of $\sqrt{\pi}/2 \cdot 1.25 =
-1.11$~m, against the measured $1.125$~m. A
-paper that compares against this baseline would report a learned model that
+(\cref{fig:ch20-results}, right). This is the expected order, not an accident
+of training: under constant-velocity motion the CV prediction is exact and
+its only error is amplified measurement noise (\cref{thm:ch20-cv-noise}),
+which the Kalman filter averages almost optimally, while the learned model
+can only add noise-driven corrections and the \emph{hedge} it has learned
+against manoeuvres that begin after the window. The naive $k = 1$ baseline is
+twice as bad ($0.632$~m): its velocity uses two noisy points $0.2$~s apart,
+and \cref{thm:ch20-cv-noise} predicts a root-mean-square final error of
+$1.25$~m, hence a mean error of $\sqrt{\pi}/2 \cdot 1.25 = 1.11$~m for an
+isotropic Gaussian error, against the measured $1.125$~m. A paper that
+compares against \emph{this} baseline would report a learned model that
 ``halves the error on straight flight''.
 
 \paragraph{Turns and evasive manoeuvres: the history reveals the curvature.}
@@ -1032,11 +1145,11 @@ anything there.
 \Cref{tab:ch20-horizon} shows the advantage growing with the horizon: at
 $0.8$~s the LSTM's $\mathrm{ADE}_4$ of $0.227$~m is $25\,\%$ below the tuned
 CV, at $2.4$~s it is $28\,\%$ below and $0.32$~m in absolute terms; the
-$0.82$~m over ``all'' hides a $0.43$~m and a $1.60$~m. LSTM-TF pays the exposure bias of
-\cref{sec:ch20-seq2seq} in full: its free-running validation ADE is best at
-epoch~$3$ and then drifts upwards while its training loss keeps falling, so
-early stopping ends the run after $13$ epochs, and on the test set it is
-barely better than CV. LSTM-MSE is slightly more accurate than
+$0.82$~m over ``all'' hides a $0.43$~m and a $1.60$~m. LSTM-TF pays the
+exposure bias of \cref{sec:ch20-seq2seq} in full: its free-running validation
+ADE is best at epoch~$3$ and then drifts upwards while its training loss
+keeps falling, so early stopping ends the run after $13$ epochs, and on the
+test set it is barely better than CV. LSTM-MSE is slightly more accurate than
 LSTM-NLL ($0.789$ against $0.821$~m) but knows nothing about its own
 uncertainty. LSTM-NLL's $20$ sampled rollouts reach $\mathrm{minADE}_{20} =
 0.695$~m and $\mathrm{minFDE}_{20} = 1.415$~m, below its own ADE and FDE, as
@@ -1047,7 +1160,7 @@ $\vect{\sigma}_h$ has the right shape, growing with $h$ and larger during
 manoeuvres, but the step errors of a free-running rollout are strongly
 correlated, and summing per-step variances as if they were independent
 underestimates the spread. \Cref{fig:ch20-training} shows the exposure bias
-of LSTM-TF as it happens, epoch by epoch.
+epoch by epoch.
 
 \begin{figure}[tb]
   \centering
@@ -1288,17 +1401,19 @@ al.~\cite{rudenko2020human} survey the field along these axes.
 \section{Implementation notes}
 \label{sec:ch20-implementation}
 
-The reference implementation \code{ch20\_prediction.py} is about $1000$
+The reference implementation \code{ch20\_prediction.py} is about $1\,200$
 lines of NumPy: the generator of \cref{ex:ch20-dataset}, the baselines, the
 metrics, the LSTM cell with its backward pass (\cref{lst:ch20-cell} is the
 forward step), the sequence-to-sequence model with BPTT, Adam, the training
-loop, attention, the ellipse helpers of \cref{sec:ch20-drone} and the
-experiment. Its self-test checks that the metrics vanish for a perfect
+loop, attention, the Transformer predictor of
+\cref{sec:ch20-transformer-model} with its own backward pass, the ellipse
+helpers of \cref{sec:ch20-drone} and the experiment. Its self-test checks that the metrics vanish for a perfect
 predictor, that CV is exact on straight flight and CA on a parabola, that
 the Kalman covariance grows with the horizon, that all gate outputs lie in
 $(0, 1)$, that the BPTT gradients agree with finite differences to $10^{-6}$
-in all three decoder modes, that training lowers the loss and beats the
-constant-velocity start, and that attention weights are probability vectors;
+in all three decoder modes and the Transformer's to $10^{-5}$, that training
+lowers the loss and beats the constant-velocity start for both models, and
+that attention weights are probability vectors;
 it then runs the experiment and asserts the claims of \cref{sec:ch20-example}.
 
 \begin{lstlisting}[caption={One step of the LSTM cell (from \code{code/ch20\_prediction.py}); the backward pass follows it in the file.},label={lst:ch20-cell}]
@@ -1322,60 +1437,32 @@ def forward(self, x, h_prev, c_prev):
 The model stores the observed displacements of a batch as an array of shape
 $(B, T_{\mathrm{obs}} - 1, 2)$ and the targets as $(B, T_{\mathrm{pred}}, 2)$,
 both in the agent frame divided by $s = 0.5$~m. Fixed window lengths keep
-the batches rectangular; variable-length histories need padding and a mask,
-or bucketing by length. Shuffle windows, not scenes, within the training
-set, and keep whole scenes in one split. Use one seeded random generator for
-the data and another for the training, so that a change to the model does
-not change the data. Evaluate on held-out manoeuvre types at least once: if
-the test set contains only manoeuvres that also occur in training, you have
-measured interpolation, not prediction. Initialise the forget-gate biases to
-$1$ and the read-out to small values, so that the untrained network starts
-as the constant-velocity model, and clamp the log standard deviations: a
-network that drives $\sigma \to 0$ on a few easy examples produces huge
-gradients on the next hard one. Writing the backward pass by hand is worth
-doing once; the finite-difference check in the self-test is the only way to
-be sure it is right.
+the batches rectangular; variable-length histories need padding and a mask.
+Shuffle windows, not scenes, within the training set, keep whole scenes in
+one split, and use one seeded generator for the data and another for the
+training, so that a change to the model does not change the data. Evaluate on
+held-out manoeuvre types at least once: a test set whose manoeuvres all occur
+in training measures interpolation, not prediction. Initialise the
+forget-gate biases to $1$ and the read-out to small values, so that the
+untrained network starts as the constant-velocity model, and clamp the log
+standard deviations: a network that drives $\sigma \to 0$ on a few easy
+examples produces huge gradients on the next hard one. Writing a backward
+pass by hand is worth doing once, and the finite-difference check in the
+self-test is the only way to be sure it is right.
 
 \paragraph{The PyTorch version.}
-For real data and for a Transformer, use a framework. \Cref{lst:ch20-torch}
-is the same model in PyTorch (\code{ch20\_prediction\_torch.py}, not run by
-the self-test): \code{nn.LSTM} encodes the batch in one call, an
-\code{nn.LSTMCell} is stepped by hand so that the mean can be fed back, and
-autograd replaces the hand-written BPTT. Replacing the encoder and decoder
-by \code{nn.TransformerEncoder} and \code{nn.TransformerDecoder} with the
-positional encoding of \cref{eq:ch20-pe} gives the model of Giuliari et
+For real data, and for a stack of Transformer layers, use a framework. The
+same sequence-to-sequence model is written in PyTorch in
+\code{ch20\_prediction\_torch.py} (not run by the self-test): an
+\code{nn.LSTM} encodes the batch in one call, an \code{nn.LSTMCell} is
+stepped by hand so that the mean can be fed back, an \code{nn.Linear}
+read-out produces $(\vect{\mu}_k, \log\vect{\sigma}_k)$ and autograd replaces
+the hand-written BPTT --- a dozen lines of forward pass against the two
+hundred of the NumPy model, at the price of not seeing the gradient.
+Replacing the encoder and decoder by \code{nn.TransformerEncoder} and
+\code{nn.TransformerDecoder} with the positional encoding of
+\cref{eq:ch20-pe} gives the model of Giuliari et
 al.~\cite{giuliari2021transformer}.
-
-\begin{lstlisting}[caption={The predictor in PyTorch (from \code{code/ch20\_prediction\_torch.py}).},label={lst:ch20-torch}]
-class Seq2SeqLSTM(nn.Module):
-    """Encoder LSTM over the observed displacements, decoder LSTMCell that
-    rolls the future out one step at a time (mean and log-std per step)."""
-
-    def __init__(self, n_hidden=32):
-        super().__init__()
-        self.encoder = nn.LSTM(2, n_hidden, batch_first=True)
-        self.decoder = nn.LSTMCell(2, n_hidden)
-        self.readout = nn.Linear(n_hidden, 4)   # mu (2), log sigma (2)
-
-    def forward(self, x, horizon=T_PRED):
-        _, (h, c) = self.encoder(x)                  # h, c: (1, B, n_hidden)
-        h, c = h[0], c[0]
-        base = x.mean(dim=1)                 # CV displacement (residual)
-        u, outs = x[:, -1], []
-        for _ in range(horizon):
-            h, c = self.decoder(u, (h, c))
-            out = self.readout(h)
-            mu = out[:, :2] + base
-            outs.append(torch.cat([mu, out[:, 2:]], dim=1))
-            u = mu                                   # feed the mean back
-        return torch.stack(outs, dim=1)              # (B, horizon, 4)
-
-
-def gaussian_nll(out, y):
-    """Negative log-likelihood of the displacements y under N(mu, diag(s^2))."""
-    mu, log_s = out[..., :2], out[..., 2:]
-    return (log_s + 0.5 * ((y - mu) * torch.exp(-log_s)) ** 2).sum(-1).mean()
-\end{lstlisting}
 
 \begin{pitfall}[Leakage between training and test]
 Cutting one recording into overlapping windows and splitting the windows at
@@ -1612,9 +1699,16 @@ training with three seeds to report each learned ADE as a mean and a spread; (b)
 measurement noise $\sigma = 0.02$ and $0.15$~m and with $400$ and $6400$
 training trajectories, and describe how the gap between CV and the LSTM
 changes; (c) add a least-squares constant-velocity baseline and a
-scheduled-sampling variant of the trainer; (d) if you have the ETH
+scheduled-sampling variant of the trainer; (d) train the
+\code{TransformerPredictor} of \cref{sec:ch20-transformer-model} on the same
+splits, compare $\mathrm{ADE}_h$ and $\mathrm{FDE}_h$ with the LSTM at every
+horizon and on every subset, and then change one thing at a time --- a second
+encoder layer, an autoregressive masked decoder instead of the parallel one,
+a Gaussian read-out --- and say which of them, if any, moves the numbers
+beyond the seed spread of~(a); (e) if you have the ETH
 recordings~\cite{pellegrini2009you}, run the PyTorch model of
-\cref{lst:ch20-torch} with a leave-one-scene-out split at $\dt = 0.4$~s and
+\code{ch20\_prediction\_torch.py} with a leave-one-scene-out split at
+$\dt = 0.4$~s and
 report whether it beats the tuned CV, per horizon.
 \end{exercise}
 

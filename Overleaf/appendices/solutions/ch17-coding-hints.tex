@@ -2,33 +2,27 @@
 
 \begin{solution}{exr:ch17-coding}
 Checkpoints; read \code{ch17\_\allowbreak rrt\_\allowbreak star.py} only when stuck, but copy its shape.
-\code{StarTree} keeps five parallel arrays --- positions, parents, edge lengths, costs
-and children lists --- and that last one is the trick: without children you cannot
-propagate a rewire, and a tree whose costs silently drift is the classic bug of this
-chapter, which is why \code{costs\_\allowbreak consistent} exists.
-\code{connection\_\allowbreak radius} implements \cref{eq:ch17-radius} with the cap $\eta$,
-\code{knn\_\allowbreak count} the variant of \cref{eq:ch17-knn}, \code{InformedSampler} the transform
-of \cref{eq:ch17-transform}. Steps: add costs to your \rrt of \cref{ch:ch16} and check
-them against a walk to the root; add \textsc{Near} and \textsc{ChooseParent}, sorting the
-candidates by $\mathrm{Cost}(\vect{v})+\norm{\state_{\mathrm{new}}-\vect{v}}$ and
-collision-checking in that order, stopping at the first free one; add \textsc{Rewire}
+\code{StarTree} keeps five parallel arrays --- positions, parents, edge lengths, costs and
+children lists --- and that last one is the trick: without children you cannot propagate a
+rewire, and a tree whose costs silently drift is the classic bug of this chapter.
+\code{connection\_\allowbreak radius} implements \cref{eq:ch17-radius} and \code{InformedSampler} the
+transform of \cref{eq:ch17-transform}. Steps: add costs to your \rrt of \cref{ch:ch16} and
+check them against a walk to the root; add \textsc{Near} and \textsc{ChooseParent},
+sorting the candidates by $\mathrm{Cost}(\vect{v})+\norm{\state_{\mathrm{new}}-\vect{v}}$
+and collision-checking in that order, stopping at the first free one; add \textsc{Rewire}
 with subtree propagation; add informed sampling last; write the self-test of~(d) before
-the experiments. Expected numbers: on the hand example the nearest vertex is
-$\vect{v}_4$ at $0.943$, the sorted candidate costs are $4.578$ (blocked), $5.264$,
-$5.440$, $5.692$, $7.436$, so the parent is $\vect{v}_7$ at $5.264$, and the rewire
-lowers $\vect{v}_8$ from $6.451$ to $6.249$ and $\vect{v}_9$ from $7.583$ to $7.380$. On
-the 2D map with seed~1 the first solution costs $21.00$ at iteration $351$ and improves
-to $19.73$, $18.21$, $17.45$ and $17.32$ at $500$, $1\,000$, $2\,000$ and $3\,000$
-iterations, against an optimum of $16.91$ and a string-pulled grid path of $17.23$ ---
-inside the $5\,\%$ the self-test asks --- while plain \rrt returns $25.72$ and never
-improves. In the 3D field with $\eta=1.5$ expect $23.5$ near iteration $260$ and about
-$21.1$ after $1\,500$, still some $20\,\%$ above the $17.27$ that grid \astar at
-$h=0.25$~m reaches in under two seconds: in three dimensions the sample budget must grow
-a lot before \rrtstar catches the grid, and that is the honest conclusion. Informed
-sampling helps where the ellipsoid shrinks: on the wide map it takes $16.77$ to $14.03$.
-Classic mistakes: rewiring without updating descendants; a radius that never shrinks
-because the cap is applied the wrong way round; a $\gamma$ from a free-volume estimate
-below the true $\mu(\Xfree)$; comparing a raw \rrtstar path with a string-pulled grid
-path. Done when the self-test passes and your convergence plot and grid table support
-the one-paragraph rule of the Week~8 milestone (\cref{ch:appA}).
+the experiments. Expected numbers: on the hand example the sorted candidate costs are
+$4.578$ (blocked), $5.264$, $5.440$, $5.692$, $7.436$, so the parent is $\vect{v}_7$ at
+$5.264$, and the rewire lowers $\vect{v}_8$ from $6.451$ to $6.249$ and $\vect{v}_9$ from
+$7.583$ to $7.380$. On the 2D map with seed~1 the first solution costs $21.00$ at
+iteration $351$ and improves to $18.21$ and $17.32$ at $1\,000$ and $3\,000$ iterations,
+against an optimum of $16.91$ and a string-pulled grid path of $17.23$ --- inside the
+$5\,\%$ the self-test asks --- while plain \rrt returns $25.72$ and never improves. In the
+3D field with $\eta=1.5$ expect about $21.1$ after $1\,500$ iterations, still some
+$20\,\%$ above the $17.27$ that grid \astar at $h=0.25$~m reaches in under two seconds;
+informed sampling helps only where the ellipsoid shrinks. Classic mistakes: rewiring
+without updating descendants; a radius that never shrinks because the cap is applied the
+wrong way round; comparing a raw \rrtstar path with a string-pulled grid path. Done when
+the self-test passes and your convergence plot and grid table support the one-paragraph
+rule of the Week~8 milestone (\cref{ch:appA}).
 \end{solution}

@@ -843,8 +843,8 @@ both cases a swap is needed.\index{push (primitive)}
   with $a$ at a vertex $v$ of degree three, $b$ behind it and two empty
   neighbours $n_1, n_2$, six moves exchange the two agents and leave the
   rest of the graph untouched. (c) A rotation: with one cleared vertex next
-  to a fully occupied cycle, every agent on the cycle advances one position
-  in six moves.}
+  to two consecutive vertices of a fully occupied cycle, every agent on the
+  cycle advances one position in six moves.}
   \label{fig:ch11-push-swap}
 \end{figure}
 
@@ -871,9 +871,13 @@ algorithm.
 are all occupied (\cref{fig:ch11-push-swap}(c)): a vertex next to the cycle
 is cleared, one agent steps out into it, the remaining agents advance one
 position each into the vertex just vacated, and the agent that stepped out
-steps back in behind them. Every agent on the cycle has moved one vertex
-along it, which no push could achieve because no vertex of the cycle was
-empty.\index{rotate (primitive)}
+steps back in behind them --- which needs the cleared vertex to touch two
+consecutive vertices of the cycle, as it does in the figure. Every agent on
+the cycle has then moved one vertex along it, which no push could achieve
+because no vertex of the cycle was empty. The primitive that
+\cref{alg:ch11-par} states is the kernel of this manoeuvre: once one vertex
+of a cycle is empty, the agents on it rotate in as many moves as there are
+agents.\index{rotate (primitive)}
 
 \subsection{The algorithms and their guarantees}
 
@@ -932,29 +936,24 @@ order, and an instance is recognised as unsolvable when an agent cannot be
 brought into the subproblem of its goal; this is where the theory of
 Kornhauser, Miller and Spirakis enters the algorithm.
 
-\Cref{alg:ch11-par} puts the three primitives together at the same level of
-detail as \cref{alg:ch11-pas}. Its first half is the rotation itself, stated for
-the case that costs nothing to state: a cycle $C = (u_0, u_1, \dots, u_{m-1})$
-one of whose vertices, $u_0$, is empty. Line~\ref{alg:ch11-par:shift} lets every
-other agent of $C$ step into the vertex just vacated, so after $m-1$ moves each
-of them has advanced one position along the cycle and the empty vertex has
-travelled to $u_{m-1}$. Nothing outside $C$ is touched. The work that
-\cref{fig:ch11-push-swap}(c) shows is the work of \emph{producing} that empty
-vertex when the cycle is full: line~\ref{alg:ch11-par:out} clears a vertex $e$
-next to $C$ and parks the agent of the adjacent cycle vertex in it, and
-line~\ref{alg:ch11-par:rotate} turns the cycle and lets the parked agent rejoin
-it. This is the permutation that no sequence of pushes can produce, because no
-vertex of $C$ was ever free, and it is the case that defeats plain
-Push-and-Swap: with the cycle full, the swap of \cref{fig:ch11-push-swap}(b)
-cannot clear the two neighbours it needs.
-
-The second half is the loop of \cref{alg:ch11-pas} with two further additions.
-Line~\ref{alg:ch11-par:decompose} computes the subproblems and orders the
-agents, and line~\ref{alg:ch11-par:feasible} is the decision procedure: an agent
-whose goal lies outside its own subproblem can never get there, and the instance
-is reported unsolvable rather than failed. Line~\ref{alg:ch11-par:resolve} is
-the resolve step of \cref{alg:ch11-pas}, unchanged: an agent that a swap or a
-rotation displaced from its goal goes back into the queue.
+\Cref{alg:ch11-par} puts the three primitives together at the level of
+\cref{alg:ch11-pas}. \PasRotate is stated for the case that costs nothing to
+state: a cycle $C = (u_0, \dots, u_{m-1})$ one of whose vertices, $u_0$, is
+empty. Line~\ref{alg:ch11-par:shift} lets every other agent of $C$ step into
+the vertex just vacated, so $m-1$ moves advance each of them one position and
+leave the empty vertex at $u_{m-1}$, with nothing outside $C$ touched. What
+\cref{fig:ch11-push-swap}(c) adds is the work of \emph{producing} that empty
+vertex on a full cycle: line~\ref{alg:ch11-par:out} clears a vertex next to $C$
+and parks a cycle agent in it, and line~\ref{alg:ch11-par:rotate} turns the
+cycle and lets that agent rejoin. No sequence of pushes can do this, because no
+vertex of $C$ is ever free, and no swap can either, since it cannot clear the
+two neighbours of \cref{fig:ch11-push-swap}(b). The loop around the primitives
+is that of \cref{alg:ch11-pas} with two further additions:
+line~\ref{alg:ch11-par:decompose} computes the subproblems and orders the
+agents, and line~\ref{alg:ch11-par:feasible} is the decision procedure --- an
+agent whose goal lies outside its own subproblem can never get there, so the
+instance is reported unsolvable rather than failed. The resolve step
+(line~\ref{alg:ch11-par:resolve}) is unchanged.
 
 \begin{algorithm}[!htb]
 \caption{Push-and-Rotate (conceptual), after de Wilde, ter Mors and Witteveen~\cite{dewilde2014push}}
@@ -1181,13 +1180,20 @@ comparing the cost of \mstar with joint \astar on random instances.
 \end{pitfall}
 
 For the constructive methods, the class \code{PushSwapState} holds the
-positions and a log of single-agent moves; \code{clear}, \code{push} and
-\code{swap} implement the primitives of \cref{sec:ch11-constructive}, and a
+positions and a log of single-agent moves; \code{clear}, \code{push},
+\code{swap} and \code{rotate} implement the primitives of
+\cref{sec:ch11-constructive}, and a
 swap is reversed \emph{by position}: for every logged preparatory move,
 whoever now stands on its target vertex moves back to its source, which is
-exactly the reversal with the agents exchanged. The driver
+exactly the reversal with the agents exchanged. \code{rotate} turns a cycle
+whose first vertex is empty in $m-1$ moves
+(line~\ref{alg:ch11-par:shift} of \cref{alg:ch11-par}), and the self-test runs
+it both that way and as the six-move manoeuvre of
+\cref{fig:ch11-push-swap}(c). The driver
 \code{push\_and\_swap} solves the examples of the chapter but is not the
-complete algorithm: it has no resolve step and no graph decomposition.
+complete algorithm: it has no resolve step, no graph decomposition and no
+call to \code{rotate}, so it is Push-and-Swap and not
+\cref{alg:ch11-par}.
 \FloatBarrier
 
 % ---------------------------------------------------------------------

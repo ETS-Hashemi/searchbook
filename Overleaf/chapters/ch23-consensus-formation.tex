@@ -1251,22 +1251,22 @@ def radius_graph(positions, r_comm):
     """
     P = np.asarray(positions, dtype=float)
     dist = np.linalg.norm(P[:, None, :] - P[None, :, :], axis=2)
-    A = (dist <= r_comm).astype(float)
-    np.fill_diagonal(A, 0.0)
-    return A
+    W = (dist <= r_comm).astype(float)
+    np.fill_diagonal(W, 0.0)
+    return W
 
 
-def laplacian(A):
-    """Graph Laplacian L = D - A; every row of L sums to zero."""
-    A = np.asarray(A, dtype=float)
-    return np.diag(A.sum(axis=1)) - A
+def laplacian(W):
+    """Graph Laplacian L = D - W; every row of L sums to zero."""
+    W = np.asarray(W, dtype=float)
+    return np.diag(W.sum(axis=1)) - W
 
 
-def edges_of(A):
-    """Undirected edges (i, j) with i < j and a_ij > 0."""
-    A = np.asarray(A)
-    n = A.shape[0]
-    return [(i, j) for i in range(n) for j in range(i + 1, n) if A[i, j] > 0]
+def edges_of(W):
+    """Undirected edges (i, j) with i < j and w_ij > 0."""
+    W = np.asarray(W)
+    n = W.shape[0]
+    return [(i, j) for i in range(n) for j in range(i + 1, n) if W[i, j] > 0]
 
 
 def algebraic_connectivity(L):
@@ -1275,18 +1275,18 @@ def algebraic_connectivity(L):
 \end{lstlisting}
 
 \begin{lstlisting}[caption={The first-order displacement-based formation controller with leader pinning and feed-forward: \cref{alg:ch23-formation} for the whole swarm at once, using $\pos_j - \pos_i - \vect{d}_{ij} = \vect{y}_j - \vect{y}_i$ (from \code{code/ch23\_consensus.py}).},label={lst:ch23-velocity}]
-def formation_velocity(P, offsets, A, gain=1.0, ref=None, ref_vel=None,
+def formation_velocity(P, offsets, W, gain=1.0, ref=None, ref_vel=None,
                        pinned=(), gain_ref=1.0):
     """First-order displacement-based formation controller (velocities).
 
-    v_i = gain * sum_j a_ij (p_j - p_i - d_ij)
+    v_i = gain * sum_j w_ij (p_j - p_i - d_ij)
           + b_i gain_ref (r + o_i - p_i)     pinning of the leader(s)
           + rdot                              feed-forward if known
     Because p_j - p_i - d_ij = y_j - y_i with y = p - o, the sum is -L y.
     """
     P = np.asarray(P, dtype=float)
     O = np.asarray(offsets, dtype=float)
-    V = -gain * (laplacian(A) @ (P - O))
+    V = -gain * (laplacian(W) @ (P - O))
     if ref is not None:
         r = np.asarray(ref, dtype=float)
         for i in pinned:
@@ -1297,10 +1297,10 @@ def formation_velocity(P, offsets, A, gain=1.0, ref=None, ref_vel=None,
 \end{lstlisting}
 
 \begin{lstlisting}[caption={The formation error of \cref{def:ch23-error} over the edges of the formation graph, and its centred variant (from \code{code/ch23\_consensus.py}).},label={lst:ch23-error}]
-def formation_error(P, offsets, A_form):
+def formation_error(P, offsets, W_form):
     """RMS of ||(p_j - p_i) - d_ij|| over the edges of the formation graph."""
     Y = np.asarray(P, dtype=float) - np.asarray(offsets, dtype=float)
-    edges = edges_of(A_form)
+    edges = edges_of(W_form)
     if not edges:
         return float("nan")
     sq = [float(np.sum((Y[j] - Y[i]) ** 2)) for i, j in edges]

@@ -1040,6 +1040,43 @@ def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
             "samples": samples}
 
 
+def seed_study(n_seeds=3, seed=20, epochs=40, n_hidden=32, d_model=24, n_heads=2,
+               noise=0.05, verbose=True):
+    """Retrain the three learned predictors with ``n_seeds`` initialisations
+    and training orders on the *same* data split, and report the mean and the
+    standard deviation of their test ADE.
+
+    This is the spread that the coding exercise of the chapter asks for.  It
+    is not part of the self-test because it costs about a minute.
+    """
+    rng = np.random.default_rng(seed)
+    train = generate_dataset(1600, rng, noise)
+    val = generate_dataset(400, rng, noise)
+    test = generate_dataset(800, rng, noise)
+    out = {}
+    for name in ("LSTM-NLL", "LSTM-MSE", "Transformer"):
+        values = []
+        for k in range(n_seeds):
+            r_init, r_train = np.random.default_rng(seed + 1 + 10 * k), \
+                np.random.default_rng(seed + 2 + 10 * k)
+            if name == "Transformer":
+                model = TransformerPredictor(d_model=d_model, n_heads=n_heads, rng=r_init)
+                patience = 15
+            else:
+                model = Seq2SeqPredictor(n_hidden, gaussian=(name == "LSTM-NLL"), rng=r_init)
+                patience = 10
+            train_predictor(model, train, val, epochs=epochs, mode="frame",
+                            patience=patience, rng=r_train)
+            means, _, _ = predict_lstm(model, test, "frame")
+            values.append(ade(means, test["future"]))
+        v = np.array(values)
+        out[name] = (float(v.mean()), float(v.std(ddof=1)), [float(x) for x in v])
+        if verbose:
+            print("%-12s test ADE %.3f +- %.3f m over %d seeds  %s"
+                  % (name, v.mean(), v.std(ddof=1), n_seeds, np.round(v, 3).tolist()))
+    return out
+
+
 def print_results(res):
     """Print the table of the chapter: ADE/FDE at the full horizon per subset."""
     test = res["test"]
@@ -1059,6 +1096,16 @@ def print_results(res):
     for name, cal in ex["calibration"].items():
         print("fraction of true positions inside the 95%% ellipse, %s: h=4 %.3f, h=8 %.3f, h=12 %.3f"
               % (name, cal[3], cal[7], cal[11]))
+    tr = res["models"].get("Transformer")
+    if tr is not None:
+        print("weights: Transformer %d, LSTM %d"
+              % (res["settings"]["n_params_transformer"], res["settings"]["n_params_lstm"]))
+        x, _, _ = prepare_sequences(res["test"], "frame")
+        _, dec_w = tr.attention_maps(x)
+        w = dec_w.mean(axis=(0, 1, 2))
+        print("Transformer decoder attention per observed step: "
+              + " ".join("%.3f" % v for v in w)
+              + "  (first four %.3f, last three %.3f)" % (w[:4].sum(), w[4:].sum()))
 
 
 # ---------------------------------------------------------------------------
@@ -1219,6 +1266,8 @@ def _self_test():
 
 if __name__ == "__main__":
     _self_test()
+    if "--seed-study" in sys.argv:
+        seed_study()
     if "--no-experiment" not in sys.argv:
         t0 = time.time()
         results = run_experiment()

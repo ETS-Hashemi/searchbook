@@ -105,13 +105,14 @@ All metrics are functions of one object, the log of a run.
 \label{def:ch25-log}
 A \textbf{run}\index{run (evaluation)} executes one scenario under one
 strategy for $T+1$ sampling instants $t = 0, 1, \dots, T$ of length $\dt$. Its
-\textbf{execution log}\index{execution log} records, for every $t$, the
-positions $\pos_i(t) \in \R^2$ (or $\R^3$) of the $k$ controlled drones
-$i = 1, \dots, k$, the positions $\vect{q}_j(t)$ of the $m$ intruders
-$j = 1, \dots, m$, the state of each drone's state machine (Nominal, Avoiding,
-Reconnecting or Replanning, \cref{ch:ch24}), the computation time $c_i(t)$
-of the decision taken for drone $i$ at $t$, and the events of the run, in
-particular every replan. It also stores the nominal plan
+\textbf{execution log}\index{execution log} records four things for every
+$t$. The first two are positions: $\pos_i(t) \in \R^2$ (or $\R^3$) of the
+$k$ controlled drones $i = 1, \dots, k$, and $\vect{q}_j(t)$ of the $m$
+intruders $j = 1, \dots, m$. The third is the state of each drone's state
+machine (Nominal, Avoiding, Reconnecting or Replanning, \cref{ch:ch24}) with
+the computation time $c_i(t)$ of the decision taken for drone $i$ at $t$.
+The fourth is the events of the run, in particular every replan.
+It also stores the nominal plan
 $\pos_i^{\mathrm{nom}}(t)$ of every drone, the goals $\vect{g}_i$ and the
 radii $r_i$, so that the metrics can be recomputed later from the log alone.
 \end{definition}
@@ -122,23 +123,23 @@ collide when $d_{ij}(t) < R = r_i + r_j$. Positions are sampled, so a
 collision between two samples can be missed. The code of this chapter
 therefore evaluates the minimum of $d_{ij}$ on every interval $[t, t+1]$
 under the assumption of linear motion, using the closest-approach formula of
-\cref{ch:ch02}: with $\vect{r}_0 = \pos_i(t) - \pos_j(t)$ and
-$\vect{w} = \pos_i(t+1) - \pos_j(t+1) - \vect{r}_0$, the minimum over the
-interval is $\norm{\vect{r}_0 + s^*\vect{w}}$ with
+\cref{ch:ch02}. Write $\vect{r}_0 = \pos_i(t) - \pos_j(t)$ and
+$\vect{w} = \pos_i(t+1) - \pos_j(t+1) - \vect{r}_0$. The minimum over the
+interval is then $\norm{\vect{r}_0 + s^*\vect{w}}$ with
 $s^* = \operatorname{clip}(-\vect{r}_0 \cdot \vect{w} / \norm{\vect{w}}^2,
 0, 1)$. If $\vect{w} = \vect{0}$ the two agents move identically over the
-interval, the quotient is undefined and the minimum is $\norm{\vect{r}_0}$;
-the code takes that branch, and \cref{exr:ch25-metrics-log} needs it. With $\dt = 0.1$~s and relative speeds up to $4$~m/s a sampled
+interval, the quotient is undefined and the minimum is $\norm{\vect{r}_0}$.
+The code takes that branch, and \cref{exr:ch25-metrics-log} needs it. With $\dt = 0.1$~s and relative speeds up to $4$~m/s a sampled
 minimum can be off by $0.2$~m, a third of the collision distance of two
 $0.3$~m drones.
 
 \subsection{Four families of metrics}
 
 The plan lists ten metrics. They answer four different questions, and a
-results table should group them that way: did anything go wrong
-(\textbf{safety}), how much did avoidance cost the mission
-(\textbf{efficiency}), how hard did the planner work (\textbf{effort}) and
-were the swarm constraints respected (\textbf{constraints}).
+results table should group them that way. Did anything go wrong
+(\textbf{safety})? How much did avoidance cost the mission
+(\textbf{efficiency})? How hard did the planner work (\textbf{effort})? Were
+the swarm constraints respected (\textbf{constraints})?
 
 \begin{definition}[Safety metrics]
 \label{def:ch25-safety}
@@ -212,8 +213,8 @@ displacements $\vect{d}_{ij}(t)$ over the edges of the formation graph $G_F$,
     \norm{\pos_j(t) - \pos_i(t) - \vect{d}_{ij}(t)}^2},
   \label{eq:ch25-ef}
 \end{equation}
-where the template may be a fixed formation or, for a coordinated mission,
-the relative geometry of the nominal plan, $\vect{d}_{ij}(t) =
+where the template is either a fixed formation or, for a coordinated
+mission, the relative geometry of the nominal plan, $\vect{d}_{ij}(t) =
 \pos_j^{\mathrm{nom}}(t) - \pos_i^{\mathrm{nom}}(t)$. A run reports the
 time average $\bar e_F$ and the peak $e_F^{\max}$, in metres. The
 \textbf{communication violations}\index{communication violation!as a metric}
@@ -239,8 +240,8 @@ binomial (Wilson) interval. Lengths, times and errors are averaged with a
 $t$ interval when their distribution is roughly symmetric and reported as a
 median with the interquartile range (IQR) when it is skewed. The minimum
 separation is the worst case of a run, so its distribution across runs has a
-heavy left tail: report its median, its 5th percentile and the near-miss
-rate, never only its mean; computation times are skewed to the right and need
+heavy left tail. Report its median, its 5th percentile and the near-miss
+rate, never only its mean. Computation times are skewed to the right and need
 their 99th percentile. \Cref{tab:ch25-metrics} collects the ten metrics; its
 last column is the one to reread before you believe a number.
 
@@ -279,9 +280,9 @@ last column is the one to reread before you believe a number.
 A collision rate of $0/20$ says that the true rate is below about $14\,\%$
 (\cref{thm:ch25-three}; the Wilson interval of \cref{eq:ch25-wilson} gives
 $16\,\%$) and nothing more. Two strategies with $0/20$ each
-can differ enormously in how close they came: in the mini-study of
+can differ enormously in how close they came. In the mini-study of
 \cref{sec:ch25-study} the local-only and the replan-only strategies both
-score $0/20$ collisions with two drones, but their median minimum
+score $0/20$ collisions with two drones. But their median minimum
 separations are $1.10$~m and $1.65$~m, and $40\,\%$ of the local-only runs
 are near misses against $10\,\%$. Always report $d_{\min}$ (median, 5th
 percentile, near-miss rate) next to the collision rate, and use the
@@ -338,6 +339,49 @@ most of the cells answer no question anyone asked.
   \bottomrule
   \end{tabularx}
 \end{table}
+
+\paragraph{Where the two constraint levels are enforced.}
+The last row of \cref{tab:ch25-matrix} holds two independent switches.
+Neither of them is a property of the scenario: both live inside the planner.
+\emph{Formation-preserving} means that the formation term of \cref{ch:ch24},
+\cref{eq:ch24-formation}, is switched on. Each drone then adds to its
+preferred velocity a soft consensus correction: the gain $k_F$ times the
+error between its current displacement from a formation neighbour and the
+nominal one, summed over the neighbours. The formation graph $E_F$ comes
+from the scenario, and the runner takes either the chain of consecutive
+drones or every pair. The term is dropped while a drone is Avoiding and
+restored while it is Reconnecting, exactly as \cref{sec:ch24-constraints}
+prescribes. The level therefore measures how well the shape
+\emph{recovers}, not how rigidly it is held. The second switch, a bounded
+communication range, is a monitor rather than a controller in the toy: a run
+is scored by the number of steps at which the radius graph falls apart or a
+kept link exceeds $R_{\mathrm{comm}}$.
+
+Switching the formation level on changes the numbers, so the level belongs
+in the description of the cell. Take the $(k, m) = (4, 1)$ cell of the
+mini-study, with the hybrid strategy, $E_F$ every pair and the same twenty
+seeds. The mean peak formation error falls from $2.06$ to $1.17$~m; the
+paired difference is $-0.89$~m, with a $95\,\%$ interval of $[-1.41, -0.37]$
+and $d_z = -0.81$. Safety and efficiency barely move: the drone--intruder
+minimum separation changes by $-0.01$~m $[-0.04, +0.02]$ and the
+path-length ratio by $+0.000$ $[-0.013, +0.014]$. The price is paid in
+effort, where the mean number of replans rises from $1.50$ to $1.95$.
+Holding the slot and leaving the conflict pull in opposite directions, which
+is why \cref{ch:ch24} drops the term while Avoiding.
+\Cref{sec:ch25-implementation} names the arguments that switch the level on,
+and \code{code/figures/gen\_ch25\_study.py} writes these rows to
+\code{ch25-study-levels.dat}.
+
+\paragraph{The learned prediction level.}
+Row three of \cref{tab:ch25-matrix} ends with a level the toy cannot supply
+by itself: the trajectory predictor of \cref{ch:ch20}, which is the
+deliverable of Week~10. The runner takes it as a callable, and
+\cref{sec:ch25-week10} is the adapter that turns the reader's trained model
+into that callable. The book's own runs of the level use the
+constant-velocity stand-in built into the same adapter, so that no chapter
+imports another one's code. What this chapter reports under ``learned'' is
+therefore a constant-velocity predictor without a calibrated covariance, and
+it is labelled as such wherever it appears.
 
 A \textbf{fractional design}\index{fractional design} runs a chosen subset.
 The most readable one is \emph{one-factor-at-a-time}: fix a base cell (bold
@@ -406,11 +450,11 @@ baseline that was ``run with default parameters'' is a straw man.
 \begin{definition}[Scenario]
 \label{def:ch25-scenario}
 A \textbf{scenario}\index{scenario} is the complete input of a run except
-the strategy: the map, the starts $\vect{s}_i$ and goals $\vect{g}_i$ of the
-$k$ drones, the nominal plan, the trajectories $\vect{q}_j(t)$ of the $m$
-intruders for the whole horizon, the measurement noise sequence the
-predictor will see, and the constraint data (formation template, kept edges,
-$R_{\mathrm{comm}}$). It is a deterministic function
+the strategy. It holds the map, the starts $\vect{s}_i$ and goals
+$\vect{g}_i$ of the $k$ drones, and the nominal plan. It also holds the
+trajectories $\vect{q}_j(t)$ of the $m$ intruders for the whole horizon, the
+measurement noise sequence the predictor will see, and the constraint data
+(formation template, kept edges, $R_{\mathrm{comm}}$). It is a deterministic function
 $\EvalScenario(\text{cell}, \text{seed})$ of the cell and an integer seed.
 \end{definition}
 
@@ -427,7 +471,7 @@ the same object.
 
 For the grid layer, take maps and start--goal sets from the MAPF benchmark
 in the \code{.map} and \code{.scen} formats of \cref{ch:ch07}, so that the
-global planner is tested on instances others can download, and name the map
+global planner is tested on instances others can download. Name the map
 and scenario file in the report. Random maps with an obstacle density and
 random start--goal pairs are the alternative when you need a difficulty
 knob; then the map is regenerated from the seed. The toy world of this
@@ -442,27 +486,27 @@ shape, and the code says so.
 \subsection{Intruder trajectory families and difficulty}
 
 An intruder that wanders randomly rarely threatens anyone, and a study of
-avoidance then measures nothing. The generator therefore \emph{aims}: it
-picks a target drone $i$ and an instant $t_\times$ in the middle third of its
-mission, reads $\pos_\times = \pos_i^{\mathrm{nom}}(t_\times)$ off the
-nominal plan, and launches the intruder so that it passes through
-$\pos_\times$ at $t_\times$ at a chosen \textbf{crossing
+avoidance then measures nothing. The generator therefore \emph{aims}. It
+picks a target drone $i$ and an instant $t_\times$ in the middle third of
+its mission, and reads $\pos_\times = \pos_i^{\mathrm{nom}}(t_\times)$ off
+the nominal plan. It then launches the intruder so that it passes through
+$\pos_\times$ at $t_\times$, at a chosen \textbf{crossing
 angle}\index{crossing angle} $\theta$ to the drone's heading and a chosen
 speed. Three \textbf{trajectory families}\index{intruder!trajectory families}
-are drawn around this aim (\cref{fig:ch25-intruders}): \textbf{straight
-crossing} at constant velocity, where a constant-velocity predictor is
-exact and the case measures the reaction itself; \textbf{turning} at a
-constant rate $\omega$ of $5$--$15^\circ$/s along an arc anchored at the aim
-point, where a constant-velocity prediction over $3$~s is off by
-$\tfrac12 v\omega\tau_h^2 \approx 1$~m; and \textbf{evasive}, straight
-until $1$--$2.5$~s before $t_\times$ and then a sudden heading change of
-$30$--$70^\circ$ that no predictor foresees and that may take the intruder
-away from its target or into another drone. Two knobs control difficulty:
-the \textbf{density}, the lateral spread of the starts relative to $k$
-(eight drones in $8$~m need long delays and see several neighbours at
-once), and the crossing angle ($90^\circ$ broadside, $180^\circ$ head-on
-with the largest closing speed, $30^\circ$ an overtaking intruder in the
-blind spot of a truncated velocity obstacle). Report which angles and
+are drawn around this aim (\cref{fig:ch25-intruders}). \textbf{Straight
+crossing} flies at constant velocity, where a constant-velocity predictor is
+exact and the case measures the reaction itself. \textbf{Turning} follows an
+arc anchored at the aim point at a constant rate $\omega$ of
+$5$--$15^\circ$/s, where a constant-velocity prediction over $3$~s is off by
+$\tfrac12 v\omega\tau_h^2 \approx 1$~m. \textbf{Evasive} flies straight
+until $1$--$2.5$~s before $t_\times$ and then makes a sudden heading change
+of $30$--$70^\circ$ that no predictor foresees; it may take the intruder
+away from its target or into another drone. Two knobs control difficulty.
+The first is the \textbf{density}, the lateral spread of the starts relative
+to $k$: eight drones in $8$~m need long delays and see several neighbours at
+once. The second is the crossing angle ($90^\circ$ broadside, $180^\circ$
+head-on with the largest closing speed, $30^\circ$ an overtaking intruder in
+the blind spot of a truncated velocity obstacle). Report which angles and
 families a study used; ``random intruders'' is not a description.
 
 \begin{figure}[tb]
@@ -601,16 +645,16 @@ first study and $50$--$100$ for a paper.
 
 The mean and the sample standard deviation
 $s = \sqrt{\frac{1}{N-1}\sum_s (x_s - \bar x)^2}$ describe a symmetric,
-light-tailed distribution well (path-length ratios, formation errors); the
-median and the interquartile range describe skewed ones (minimum
-separations with their tail of near misses, computation times, makespans
-with an occasional very late drone). Plot the distribution first
+light-tailed distribution well: path-length ratios and formation errors are
+such. The median and the interquartile range describe skewed ones: minimum
+separations with their tail of near misses, computation times, and makespans
+with an occasional very late drone. Plot the distribution first
 (\cref{fig:ch25-boxplot}), and if mean and median disagree visibly, report
 the median and say why. In the mini-study the mean makespan of local-only
 with two drones is $14.4$~s with a $t$ interval from $12.3$ to $16.6$~s,
-the hybrid's $14.4$~s within $13.9$ to $15.0$~s: the means agree, but the
+the hybrid's $14.4$~s within $13.9$ to $15.0$~s. The means agree, but the
 wide interval hides one run in which a drone was pushed off its route and
-needed $34$~s, and the paired sign test, which sees only the run-by-run
+needed $34$~s. The paired sign test, which sees only the run-by-run
 order, says the hybrid is faster in one run and slower in ten.
 
 \subsection{Confidence intervals}
@@ -688,13 +732,14 @@ Some runs do not finish: a planner exceeds its time budget, a drone never
 reaches its goal, the simulation hits the cap $T_{\max}$. The MAPF
 literature reports the \textbf{success rate}\index{success rate}, the
 fraction of instances solved within the cap, as a function of the number of
-agents \cite{sharon2015cbs,barer2014ecbs,stern2019mapf}, and averages every
+agents \cite{sharon2015cbs,barer2014ecbs,stern2019mapf}. It averages every
 finished-run metric (path length, makespan) over the successful runs only,
 \emph{with the success rate printed next to it}. Two rules keep this
-honest: compare two strategies on the scenarios that \emph{both} finished,
-or the better one is penalised for finishing the hard cases; and when one
-number is needed, use a penalised average such as PAR-2\index{PAR-2 score},
-in which an unfinished run counts as twice the cap. The cactus plot of
+honest. First, compare two strategies on the scenarios that \emph{both}
+finished, or the better one is penalised for finishing the hard cases.
+Second, when one number is needed, use a penalised average such as
+PAR-2\index{PAR-2 score}, in which an unfinished run counts as twice the
+cap. The cactus plot of
 \cref{fig:ch25-cactus} shows the whole distribution instead.
 
 \begin{pitfall}[Reporting means without spread, and hiding failed runs]
@@ -718,9 +763,9 @@ under study, as in \cref{fig:ch25-boxplot}, and put the safety threshold in
 as a horizontal line so that the eye can count the boxes that cross it.
 There the local-only and hybrid boxes sit on the safety radius
 $r_{\mathrm{safe}} = 1$~m, because a velocity-obstacle avoider chooses
-velocities on the boundary of the forbidden set, while the replan-only boxes
+velocities on the boundary of the forbidden set. The replan-only boxes
 sit $0.55$--$0.7$~m higher, because its detours are offset by at least
-$2$~m; the path-length panel shows the price.
+$2$~m. The path-length panel shows the price.
 
 \begin{figure}[tb]
   \centering
@@ -744,7 +789,7 @@ unsolved runs, and its final height is the success rate. Its mirror image,
 the \textbf{survival plot}\index{survival plot}, shows the fraction still
 unfinished at $x$; both show the whole distribution, including the tail a
 mean hides. In \cref{fig:ch25-cactus} the no-avoidance curve is the cost of
-prediction and tracking alone, the strategies with a reactive layer pay for
+prediction and tracking alone. The strategies with a reactive layer pay for
 their velocity sampling at every Avoiding step, and replanning is cheap here
 because it happens a few times per run.
 
@@ -794,33 +839,34 @@ as a distribution and as a front.
 \begin{example}[Two and four drones, zero or one intruder, three strategies, twenty seeds]
 \label{ex:ch25-study}
 The study occupies the four cells $(k, m) \in \set{2, 4} \times \set{0, 1}$
-of \cref{tab:ch25-matrix} with the other factors fixed: prediction by a
+of \cref{tab:ch25-matrix} with the other factors fixed. Prediction is by a
 constant-velocity Kalman filter on position measurements with
 $\sigma = 0.3$~m of noise, whose covariance inflates the safety radius
-(capped at $1.5$~m); no formation requirement, and a communication range
-$R_{\mathrm{comm}} = 10$~m monitored through $\lambda_2$ only. The
-strategies are no-avoidance, local-only, replan-only and hybrid; the seeds
-are $0$--$19$, and the intruder family cycles with the seed (seven straight,
-seven turning, six evasive per cell) with a random crossing angle in
-$[45^\circ, 135^\circ]$ and a speed in $[1, 2]$~m/s. The world is the toy of
+(capped at $1.5$~m). There is no formation requirement, and the
+communication range $R_{\mathrm{comm}} = 10$~m is monitored through
+$\lambda_2$ only. The strategies are no-avoidance, local-only, replan-only
+and hybrid, and the seeds are $0$--$19$. The intruder family cycles with the
+seed (seven straight, seven turning, six evasive per cell), with a random
+crossing angle in $[45^\circ, 135^\circ]$ and a speed in $[1, 2]$~m/s. The
+world is the toy of
 \cref{sec:ch25-scenarios}: drones of radius $0.3$~m at $1.5$~m/s (limit
 $2$~m/s), $\dt = 0.1$~s, safety radius $r_{\mathrm{safe}} = 1$~m, planned
 separation $1.5$~m, safety horizon $\tau_h = 3$~s, mission cap $40$~s. The
 local layer is a sampled velocity-obstacle avoider ($97$ sampled velocities
-plus the preferred one,
-constant over the horizon), the replanner a detour planner with waits, the
-hybrid the state machine of \cref{ch:ch24} with a deviation threshold of
-$3$~m, at most $4$~s in Avoiding and a reconnection lead of $2$~s; all are
-stand-ins for the modules of the earlier chapters, documented as such in
+plus the preferred one, constant over the horizon) and the replanner a
+detour planner with waits. The hybrid is the state machine of
+\cref{ch:ch24} with a deviation threshold of
+$3$~m, at most $4$~s in Avoiding and a reconnection lead of $2$~s. All three
+are stand-ins for the modules of the earlier chapters, documented as such in
 \code{ch25\_evaluation.py}. The $320$ runs take about $16$~s on the machine
 that produced the numbers below, and produce \cref{tab:ch25-results,tab:ch25-paired} and
 \cref{fig:ch25-boxplot,fig:ch25-cactus,fig:ch25-pareto}. Every number below
-is produced by the code: the summary rows and the paired comparisons by
-\code{gen\_ch25\_study.py}, which prints the \LaTeX{} of both tables; the
-metric definitions and the determinism of the runner by the self-test of
-\code{ch25\_evaluation.py}, which also prints the per-cell summary, the
-paired rows and the family breakdown; and the per-seed facts of the
-discussion by the raw rows in \code{ch25-study-runs.dat}.
+is produced by the code. The summary rows and the paired comparisons come
+from \code{gen\_ch25\_study.py}, which prints the \LaTeX{} of both tables.
+The metric definitions and the determinism of the runner are checked by the
+self-test of \code{ch25\_evaluation.py}, which also prints the per-cell
+summary, the paired rows and the family breakdown. The per-seed facts of the
+discussion come from the raw rows in \code{ch25-study-runs.dat}.
 \end{example}
 
 \begin{table}[tb]
@@ -904,7 +950,7 @@ discussion by the raw rows in \code{ch25-study-runs.dat}.
 
 \paragraph{Sanity first.}
 Without an intruder the four strategies produce runs that are identical to
-the last digit (only the computation times differ, by microseconds): the
+the last digit; only the computation times differ, by microseconds. The
 trigger never fires, because the nominal plan keeps $1.5$~m between drones
 and the trigger radius is $1$~m, and nothing collides. With an intruder and
 no avoidance, $17$ of $20$ two-drone runs and $15$ of $20$ four-drone runs
@@ -918,9 +964,9 @@ drone is within $0.3$~m of its goal.
 \paragraph{Safety.}
 All three avoidance strategies remove almost every collision: $0/20$ in
 five of the six one-intruder rows. The single collision is seed~$8$ of the
-four-drone cell, an evasive intruder, and it is shared by local-only and
-hybrid with the same minimum separation, $0.44$~m, in both --- the collision
-happened while the hybrid was still in its local phase and acting exactly as
+four-drone cell, an evasive intruder. It is shared by local-only and
+hybrid with the same minimum separation, $0.44$~m, in both: the collision
+happened while the hybrid was still in its local phase, acting exactly as
 local-only does. Replan-only had taken that drone $3.4$~m away by then. Yet
 $0/20$ against $1/20$ is not a difference the study can see: the intervals
 are $[0, 0.16]$ and $[0.01, 0.24]$. What the study does see is the minimum
@@ -939,11 +985,12 @@ zero in three of the four rows, so they are real; whether they matter is a
 question for the application. The mean makespans of the three avoidance
 strategies lie within $1.3$~s of each other (local-only $13.4$~s against
 replan-only $14.7$~s with four drones), and the hybrid is within $0.8$~s of
-either baseline in every cell. The two-drone local-only row shows why the median belongs in the
-table: its mean makespan, $14.4$~s, equals the hybrid's, but its interval
-$[12.3, 16.6]$~s is four times wider, because seed~$13$ (a turning intruder)
-pushed one drone off its route for $465$ Avoiding steps, drove the
-formation error to a peak of $9$~m and delayed the mission to $33.7$~s. The
+either baseline in every cell. The two-drone local-only row shows why the
+median belongs in the table. Its mean makespan, $14.4$~s, equals the
+hybrid's, but its interval $[12.3, 16.6]$~s is four times wider. The reason
+is seed~$13$, a turning intruder, which pushed one drone off its route for
+$465$ Avoiding steps, drove the formation error to a peak of $9$~m and
+delayed the mission to $33.7$~s. The
 hybrid's deviation trigger is designed to prevent exactly this, and its
 longest run took $17.2$~s.
 
@@ -968,10 +1015,10 @@ distort the swarm geometry more than dodges: the mean formation error against
 the nominal plan is $0.3$--$0.7$~m for local-only, $0.7$--$1.0$~m for the
 hybrid and $1.4$--$1.5$~m for replan-only. Communication violations occur in
 the two-drone cell only, where a lagging drone can fall $10$~m behind its
-partner, and the means of $3.5$ and $1.6$ steps each come from a single run:
-a mean of a quantity that is zero in $19$ of $20$ runs should be reported as
-``$1$ of $20$ runs, for $69$ steps'' for replan-only and ``$1$ of $20$ runs,
-for $32$ steps'' for the hybrid instead.
+partner, and the means of $3.5$ and $1.6$ steps each come from a single run.
+A mean of a quantity that is zero in $19$ of $20$ runs should be reported
+differently: ``$1$ of $20$ runs, for $69$ steps'' for replan-only and
+``$1$ of $20$ runs, for $32$ steps'' for the hybrid.
 
 \paragraph{A cautious interpretation.}
 The study supports the following statements, and no more.
@@ -1069,37 +1116,37 @@ caption states the hardware. Fill it by script from the raw rows.
 \label{sec:ch25-reporting}
 
 \paragraph{What goes into a results section.}
-In this order: (1)~the setup --- cells and design, baselines, parameters
-(a table), seeds, hardware and software; (2)~the sanity results, in one
-paragraph, because they establish that the apparatus works; (3)~the
+Seven parts, in this order. (1)~The setup: cells and design, baselines,
+parameters (a table), seeds, hardware and software. (2)~The sanity results,
+in one paragraph, because they establish that the apparatus works. (3)~The
 primary comparison, with the paired statistics of \cref{tab:ch25-paired}
-and the box plots; (4)~the trade-off, with the Pareto plot and a sentence
-on which point the application wants; (5)~the scaling with $k$ and $m$,
-with success rates and the cactus plot; (6)~the failure analysis: the
-worst runs by name (seed, cell), what happened and what it suggests;
-(7)~the limitations. The classical MAPF papers are good models for (5):
+and the box plots. (4)~The trade-off, with the Pareto plot and a sentence
+on which point the application wants. (5)~The scaling with $k$ and $m$,
+with success rates and the cactus plot. (6)~The failure analysis: the
+worst runs by name (seed, cell), what happened and what it suggests.
+(7)~The limitations. The classical MAPF papers are good models for (5).
 \cbs \cite{sharon2015cbs} and \ecbs \cite{barer2014ecbs} report success
 rates within a time limit as functions of the number of agents on named
-benchmark maps, and \orca \cite{vandenberg2011orca} reports timings per
+benchmark maps. \orca \cite{vandenberg2011orca} reports timings per
 simulation step against the number of agents on one described machine.
 
 \paragraph{How to state limitations.}
 Say what was simulated and what was not (dynamics, sensing, communication
-delays, wind), which modules are stand-ins, what the intruder model assumes,
-how large $N$ was and what it therefore cannot resolve (the rule of three),
-which parameters were tuned and on which seeds, and which scenarios were
-never tried (dense swarms, 3D, many intruders). State what is \emph{not}
+delays, wind), which modules are stand-ins, and what the intruder model
+assumes. Say how large $N$ was and what it therefore cannot resolve (the
+rule of three), which parameters were tuned and on which seeds, and which
+scenarios were never tried (dense swarms, 3D, many intruders). State what is \emph{not}
 claimed: $0/20$ collisions is not ``collision-free''. A limitations
 paragraph that names concrete gaps reads as competence; ``future work will
 address remaining issues'' reads as evasion.
 
 \paragraph{How to describe the hardware and software.}
 CPU model and clock, cores used (and whether the code is single-threaded),
-memory, operating system, \python and NumPy versions, the timer
-(\code{time.perf\_counter}), whether the timed code includes logging,
-whether the machine was otherwise idle, and whether times are per decision,
-per step or per run; for a physics simulator, its version, physics rate and
-controller rate.
+memory, operating system, and \python and NumPy versions. Then the timer
+(\code{time.perf\_counter}), whether the timed code includes logging, and
+whether the machine was otherwise idle. Finally, whether times are per
+decision, per step or per run, and, for a physics simulator, its version,
+physics rate and controller rate.
 
 \paragraph{The completion checklist as evaluation questions.}
 The training plan ends with ten boxes to tick (\cref{ch:appA}).
@@ -1137,11 +1184,11 @@ evaluation chapter of a thesis.
 
 \paragraph{MAPF benchmarks.}
 The global layer is evaluated on the MAPF benchmark of Stern et
-al.~\cite{stern2019mapf}\index{benchmark!MAPF}, described in \cref{ch:ch07}:
-grid maps in the \code{.map} format of the single-agent pathfinding
-benchmarks \cite{sturtevant2012benchmarks}, scenario files with start--goal
-pairs, and the protocol of a success rate within a time limit as a function
-of the number of agents. Use it: it makes the \cbs/\ecbs part of your system
+al.~\cite{stern2019mapf}\index{benchmark!MAPF}, described in \cref{ch:ch07}.
+It has grid maps in the \code{.map} format of the single-agent pathfinding
+benchmarks \cite{sturtevant2012benchmarks} and scenario files with
+start--goal pairs. Its protocol is a success rate within a time limit as a
+function of the number of agents. Use it: it makes the \cbs/\ecbs part of your system
 comparable with the literature at no cost. It says nothing about intruders,
 continuous motion or constraints; those are what your scenario generator
 adds, and the honest way to present a hybrid planner is ``the global layer
@@ -1150,16 +1197,16 @@ on the standard maps, the full system on our scenarios, both released''.
 \paragraph{gym-pybullet-drones.}
 The natural step after the toy is a physics simulator, and the suggested
 stack of the training plan is \code{gym-pybullet-}\allowbreak\code{drones}
-\cite{panerati2021learning}\index{benchmark!gym-pybullet-drones}: it
+\cite{panerati2021learning}\index{benchmark!gym-pybullet-drones}. It
 simulates quadrotors with PyBullet physics, including motor dynamics, drag
-and downwash between vehicles, exposes a Gym-style interface with
+and downwash between vehicles. It exposes a Gym-style interface with
 observations and actions per drone, and ships PID controllers that turn a
 velocity or position setpoint into motor commands. The study of
 \cref{sec:ch25-study} should be repeated in it before any of its numbers is
-quoted. Flight tests are the step after that: H{\"o}nig et
+quoted. Flight tests are the step after that. H{\"o}nig et
 al.~\cite{honig2018trajectory} show what a hardware evaluation of swarm
 trajectory planning looks like, with downwash-aware separation constraints
-and tens of small quadrotors, and their evaluation section is a good model
+and tens of small quadrotors. Their evaluation section is a good model
 for reporting on hardware.
 
 \paragraph{Connecting the book's code to a simulator.}
@@ -1205,15 +1252,17 @@ class Simulator:
 
 \code{ch25\_evaluation.py} has the five parts named at its top: metrics,
 scenarios, the toy simulator, the paired runner and the statistics. Three
-choices deserve a word.
+choices deserve a word, and the one level of the experiment matrix that the
+toy cannot supply by itself --- the learned predictor --- deserves a
+subsection of its own.
 
 \paragraph{Metrics read arrays, not objects.}
 Every metric function takes plain NumPy arrays (positions of shape
 $(T+1, k, 2)$, computation times of shape $(T+1, k)$), so that the same
 functions serve the toy, a PyBullet log and a flight log. The collision test
-uses the segment-based minimum of \cref{sec:ch25-metrics}, and metrics that
+uses the segment-based minimum of \cref{sec:ch25-metrics}. Metrics that
 do not exist for a run (no intruder, one drone) return \code{nan}, which
-the summaries skip; a run without intruders must not report a
+the summaries skip: a run without intruders must not report a
 drone--intruder separation of $\infty$ that later averages into nonsense.
 \Cref{lst:ch25-metrics} shows the safety and arrival metrics.
 
@@ -1261,29 +1310,33 @@ def travel_times(P, goals, dt=DT, tol=GOAL_TOL):
 per seed, every strategy on it, the signature stored in every row so that
 the self-test can assert that the rows of a seed share it. The paired
 comparison works on the per-scenario differences and returns the raw
-difference with its interval, $d_z$, the counts and the two rank tests;
-pairs whose metric is undefined --- $d_{\min}^{\mathrm{di}}$ in a cell without
+difference with its interval, $d_z$, the counts and the two rank tests.
+Pairs whose metric is undefined --- $d_{\min}^{\mathrm{di}}$ in a cell without
 an intruder --- are dropped before the tests, so a comparison with no data
 reports $n = 0$ and $p = 1$ instead of a $p$-value computed from a sample of
-zeros;
-\code{summarise()} produces the per-cell statistics of
+zeros. \code{summarise()} produces the per-cell statistics of
 \cref{tab:ch25-results}, and \code{write\_dat()} the plain-text tables the
 figures read.
 
-\begin{lstlisting}[caption={The paired runner and the paired comparison (from \code{code/ch25\_evaluation.py}).},label={lst:ch25-paired}]
-def run_study(cells, strategies, seeds, prediction="noisy", family="mixed", **kw):
+\begin{lstlisting}[caption={The paired runner and the paired comparison (from \code{code/ch25\_evaluation.py}; the docstrings are abridged at the ellipses). The two levels that \cref{sec:ch25-design} adds to the runner are its \code{predictor} and \code{formation} arguments.},label={lst:ch25-paired}]
+def run_study(cells, strategies, seeds, prediction="noisy", family="mixed",
+              predictor=None, formation=None, r_comm=R_COMM, edges_keep=(), **kw):
     """Paired design: for every cell (k, m) and seed one scenario is built
-    and every strategy runs on it.  Returns one row (dict) per run."""
+    and every strategy runs on it.  Returns one row (dict) per run.
+    ...
+    """
     rows = []
     for (k, m) in cells:
         for seed in seeds:
             sc = make_scenario(seed, k, m, family=family, **kw)
             sig = sc.signature()
+            edges_F = formation_edges(k, formation) if isinstance(formation, str) else formation
             for strat in strategies:
-                log = run_episode(sc, strat, prediction)
+                log = run_episode(sc, strat, prediction, predictor, edges_F)
                 row = {"k": k, "m": m, "seed": seed, "strategy": strat,
+                       "formation": formation if formation else "-",
                        "family": sc.families[0] if sc.m else "-", "signature": sig}
-                row.update(compute_metrics(log))
+                row.update(compute_metrics(log, r_comm=r_comm, edges_keep=edges_keep))
                 rows.append(row)
     return rows
 
@@ -1291,11 +1344,7 @@ def run_study(cells, strategies, seeds, prediction="noisy", family="mixed", **kw
 def paired_compare(a, b):
     """Paired comparison of metric a against metric b (same scenarios):
     mean difference with its t interval, Cohen's d_z, Wilcoxon and sign tests.
-
-    Pairs whose metric is undefined (nan, for example the drone-intruder
-    separation of a cell without an intruder) carry no evidence and are
-    dropped; with nothing left the comparison reports n = 0 and p = 1
-    instead of a spurious p computed from a sample of zeros.
+    ...
     """
     d = np.asarray(a, float) - np.asarray(b, float)
     d = d[np.isfinite(d)]            # an undefined metric is not evidence
@@ -1320,19 +1369,114 @@ The simulator uses no global random state: every random quantity is drawn in
 \code{make\_scenario()} from a generator seeded with the scenario seed and
 stored in the scenario. The self-test runs a cell twice and compares every
 column except the wall-clock ones, checks that all strategies of a seed
-share the signature, runs the whole mini-study ($320$ runs in about
-$25$~s on that machine) and asserts its sanity relations: no collisions without intruders,
-at least half of the no-avoidance runs colliding with one, and no avoidance
-strategy worse than no avoidance. Computation times come from
-\code{time.perf\_counter()} around the decision of one drone, which resolves
-fractions of a microsecond but is disturbed by whatever else the machine
-does; the 99th percentile and the maximum are the columns that show it. The
+share the signature, and runs the whole mini-study ($320$ runs in about
+$16$~s on that machine). It then asserts its sanity relations: no collisions
+without intruders, at least half of the no-avoidance runs colliding with
+one, and no avoidance strategy worse than no avoidance. Computation times
+come from \code{time.perf\_counter()} around the decision of one drone,
+which resolves fractions of a microsecond but is disturbed by whatever else
+the machine does. The 99th percentile and the maximum are the columns that
+show it. The
 six pitfalls collected in the five boxes above --- unpaired comparisons,
 tuning on the test scenarios, means without spread, hidden failures,
 runtimes across machines and collision rates without $d_{\min}$ --- are the
-ones most often committed
-in student evaluations; the classic essays of Hooker~\cite{hooker1995testing}
+ones most often committed in student evaluations. The classic essays of
+Hooker~\cite{hooker1995testing}
 and Barr et al.~\cite{barr1995designing} list many more.
+
+
+\subsection{Plugging in the Week~10 predictor}
+\label{sec:ch25-week10}
+
+The \emph{learned prediction} level of \cref{tab:ch25-matrix} is the one
+level of the matrix that this chapter cannot produce on its own. Its model
+is the deliverable of Week~10, the sequence predictor of \cref{ch:ch20}, and
+\code{predict\_intruders()} therefore takes it as an argument: a callable
+that receives the noisy history of one intruder and returns its predicted
+positions. Everything between that model and this chapter's arrays is an
+adapter. Writing it is a five-minute job, and it is worth doing carefully:
+all three conversions it makes are places where a prediction can silently
+come out one step, one frame or one second wrong.
+
+The three mismatches are these. \emph{Rate and history length}: the
+predictor of \cref{ch:ch20} reads \code{PRED\_OBS} $= 8$ samples spaced
+\code{PRED\_DT} $= 0.2$~s apart, while this chapter logs one sample per
+$\dt = 0.1$~s, so the history must be resampled. \emph{Frame}: the model
+predicts \emph{displacements} in the agent frame of \cref{ch:ch20}, whose
+origin is the last observation and whose $+x$ axis is the last observed
+heading, divided by \code{PRED\_SCALE} $= 0.5$~m. The adapter builds that
+frame, converts into it and converts the answer back. \emph{Horizon}: the
+model returns \code{PRED\_STEPS} $= 12$ steps, that is $2.4$~s, while the
+trigger needs $H + 1 = 31$ positions out to $\tau_h = 3$~s. The answer is
+therefore interpolated onto this chapter's grid, anchored at the current
+position and continued at constant velocity past its last step.
+\Cref{lst:ch25-week10} is the whole adapter.
+
+\begin{lstlisting}[caption={The Week-10 adapter (from \code{code/ch25\_evaluation.py}; the docstring is abridged at the ellipsis). \code{model} is the reader's trained predictor of \cref{ch:ch20}; with \code{model=None} the same code is the constant-velocity stand-in.},label={lst:ch25-week10}]
+def week10_predictor(model=None, horizon=TAU_H, dt=DT):
+    """Adapter for the trajectory predictor of Chapter 20 (Week 10).
+    ...
+    """
+    n_out = int(round(horizon / dt)) + 1
+
+    def predictor(hist):
+        obs = _resample(hist, dt, PRED_DT, PRED_OBS)
+        origin = obs[-1]
+        d = obs[-1] - obs[-3]
+        phi = math.atan2(d[1], d[0])
+        c, s = math.cos(phi), math.sin(phi)
+        R = np.array([[c, s], [-s, c]])                  # world -> agent frame
+        x = np.diff((obs - origin) @ R.T, axis=0) / PRED_SCALE
+        std = None
+        if model is None:
+            step = x[-1:] if np.any(x[-1:]) else np.zeros((1, 2))
+            pos = np.cumsum(np.repeat(step, PRED_STEPS, axis=0), axis=0)
+        else:
+            pos, std = model.predict_frame(x[None], PRED_STEPS)
+            pos, std = np.asarray(pos)[0], np.asarray(std)[0]
+        world = origin + (pos * PRED_SCALE) @ R          # back to world, (PRED_STEPS, 2)
+        src = np.vstack([origin[None], world])
+        t_src = PRED_DT * np.arange(PRED_STEPS + 1)
+        t_out = dt * np.arange(n_out)
+        out = np.empty((n_out, 2))
+        for a in (0, 1):
+            out[:, a] = np.interp(t_out, t_src, src[:, a])
+        late = t_out > t_src[-1]
+        if np.any(late):
+            v_end = (src[-1] - src[-2]) / PRED_DT
+            out[late] = src[-1] + (t_out[late][:, None] - t_src[-1]) * v_end
+        if std is None:
+            return out
+        sig = np.concatenate([[0.0], np.max(std, axis=1) * PRED_SCALE])
+        infl = np.minimum(KAPPA * np.interp(t_out, t_src, sig), INFL_MAX)
+        return out, infl
+
+    return predictor
+\end{lstlisting}
+
+Pass it to the runner as \code{prediction="learned"} together with
+\code{predictor=} \code{week10\_\allowbreak predictor(model)}.
+Two properties of the adapter matter more than its arithmetic. First, it
+imports nothing from \cref{ch:ch20}: the model arrives as an object with one
+method, so the two files stay independent and the reader can substitute any
+predictor with that method. Second, with \code{model=None} the same code is
+a constant-velocity predictor, which is what the book's own runs of the
+level use. Every ``learned'' number printed by this chapter's code is
+therefore a constant-velocity number, and saying so is part of reporting it.
+
+The covariance is where the level earns or loses its safety. A Gaussian
+model of \cref{ch:ch20} returns a standard deviation per step next to its
+mean, and the adapter turns it into the inflation of the safety radius with
+the same $\kappa_p$ and the same cap as the Kalman level of
+\cref{sec:ch25-study}. A model that returns means only gets no inflation at
+all. The difference is not cosmetic. Take the $(k, m) = (4, 1)$ cell with
+the hybrid strategy and the same twenty seeds. The uninflated stand-in
+reaches a mean drone--intruder separation of $0.87$~m against $1.16$~m for
+the Kalman level, a paired difference of $-0.29$~m $[-0.46, -0.12]$, and its
+collision rate is $0.40$ against $0.05$. An uncalibrated predictor is worse than a
+calibrated linear one, however good its mean error looks:
+\cref{ch:ch20} calibrates the ellipses per horizon for exactly this reason,
+and \cref{exr:ch25-coding}(d) asks for the comparison.
 
 % ---------------------------------------------------------------------
 \section{Where this fits in the drone system}
@@ -1447,10 +1591,10 @@ research Peng~\cite{peng2011reproducible}.
 \label{exr:ch25-matrix}
 Design an experiment matrix for the question ``does a learned predictor
 make the hybrid planner safer than a constant-velocity predictor when four
-drones face one intruder?'': which factors are fixed and at which level,
-which cells are run, how many seeds, which baselines, which \emph{primary}
-metric and paired comparison decide the question, and which secondary
-metrics are reported. Then add a sixth factor, the crossing angle with
+drones face one intruder?''. Say which factors are fixed and at which level,
+which cells are run, how many seeds and which baselines. Say which
+\emph{primary} metric and paired comparison decide the question, and which
+secondary metrics are reported. Then add a sixth factor, the crossing angle with
 levels $45^\circ$, $90^\circ$ and $135^\circ$, and count the cells of the
 full factorial of \cref{tab:ch25-matrix} with it and of a
 one-factor-at-a-time design around the base cell.
@@ -1541,19 +1685,31 @@ base cell of \cref{tab:ch25-matrix} as far as your machine allows: $k \in
 \{\code{perfect}, \code{cv}, \code{noisy}\}, all four strategies, $20$
 seeds, with the crossing angle as a knob. Budget the run first: the full
 grid of those levels is $3 \times 3 \times 3 = 27$ cells, so
-$27 \times 4 \times 20 = 2160$ runs, and because the eight-drone cells cost
-more per run than the two-drone ones this is roughly ten times the
+$27 \times 4 \times 20 = 2160$ runs. Because the eight-drone cells cost
+more per run than the two-drone ones, that is roughly ten times the
 mini-study, a few minutes; the one-factor-at-a-time design around the base
-cell is a quarter of it. (b) Add the constraint factor: a
-kept edge set $E_{\mathrm{keep}}$ with a bounded $R_{\mathrm{comm}}$, and a
-formation term in the preferred velocity. (c) Produce the box, cactus and
+cell is a quarter of it. (b) Add the constraint factor. Switch on the
+formation-preserving level of \cref{sec:ch25-design} (the \code{formation}
+argument of the runner) and give the drones a kept edge set
+$E_{\mathrm{keep}}$ with a bounded $R_{\mathrm{comm}}$, and report
+$\bar e_F$, $e_F^{\max}$ and $n_{\mathrm{cv}}$ next to the safety metrics.
+(c) Produce the box, cactus and
 Pareto figures and a results table with Wilson and $t$ intervals from the
 raw rows by script, and write the results section of
-\cref{sec:ch25-reporting}, limitations included. (d) Replace the stand-in
-strategies by the real modules --- the \cbs plan, the Kalman filter, \orca,
-the reconnection and \dstarlite replanning of \cref{ch:ch24} --- behind the
-same \code{run\_episode()} interface, rerun the same seeds, and report what
-changed and what did not.
+\cref{sec:ch25-reporting}, limitations included. (d) Run one cell of the
+prediction-quality factor at its learned level. Train the predictor of
+\cref{ch:ch20} on the intruder families of \cref{sec:ch25-scenarios}, wrap
+it with \code{week10\_predictor()} (\cref{sec:ch25-week10}), and run the
+$(k, m) = (4, 1)$ cell with the same twenty seeds under
+\code{prediction="noisy"} and under \code{prediction="learned"}. Report the
+paired difference in $d_{\min}^{\mathrm{di}}$ and in the collision rate,
+once with your model's covariance feeding the inflation and once without it.
+Then say which of the two --- the better mean or the calibrated covariance
+--- your numbers make responsible for the difference. (e) Replace the
+stand-in strategies by the real modules --- the \cbs plan, the Kalman
+filter, \orca, the reconnection and \dstarlite replanning of
+\cref{ch:ch24} --- behind the same \code{run\_episode()} interface, rerun
+the same seeds, and report what changed and what did not.
 \end{exercise}
 
 \begin{exercise}[\difficulty{3}]
@@ -1563,8 +1719,8 @@ simulator: \code{gym-pybullet-drones} \cite{panerati2021learning} if you
 have it, otherwise a double-integrator model with acceleration limits and a
 proportional velocity controller with a lag of $0.3$~s. Run the two-drone,
 one-intruder cell of \cref{ex:ch25-study} with the same $20$ seeds through
-it, compare $d_{\min}$, $\rho_L$, the makespan and the computation time per
-decision with \cref{tab:ch25-results}, paired by seed, explain every
+it. Compare $d_{\min}$, $\rho_L$, the makespan and the computation time per
+decision with \cref{tab:ch25-results}, paired by seed. Explain every
 difference by a property of the simulator (tracking lag, acceleration
 limit, physics rate), and state which margin on $r_{\mathrm{safe}}$ would
 restore the toy's near-miss rate.

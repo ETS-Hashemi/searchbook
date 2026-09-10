@@ -2,31 +2,27 @@
 
 \begin{solution}{exr:ch24-coding}
 Checkpoints for the capstone; \code{ch24\_\allowbreak hybrid.py} is the reference build, not the one
-to copy. Its shape is the advice: one \code{HybridSimulation} owns the clock, the grid
-and the drones; one \code{Drone} record holds the nominal path, the mode and the
-reconnection bookkeeping; the four layers appear as four methods --- \code{cbs} before
-take-off, \code{IntruderTracker} every cycle, \code{local\_\allowbreak layer} every cycle,
-\code{replan} on demand --- behind exactly the interfaces of \cref{tab:ch24-layers},
-with the executive in \code{decide}, \code{try\_\allowbreak reconnect} and \code{recheck} and the
-rates kept apart by \code{RateSchedule}. Steps: fix the world model of
+to copy. Its shape is the advice: one \code{HybridSimulation} owns the clock, the grid and
+the drones; one \code{Drone} record holds the nominal path, the mode and the reconnection
+bookkeeping; the four layers appear as four methods --- \code{cbs} before take-off, the
+tracker and the local layer every cycle, \code{replan} on demand --- behind exactly the
+interfaces of \cref{tab:ch24-layers}, with the executive in \code{decide},
+\code{try\_\allowbreak reconnect} and \code{recheck}. Steps: fix the world model of
 \cref{sec:ch24-world} first, with one conversion between grid cells at integer time and
 continuous positions at real time, written once; get the state machine of
 \cref{fig:ch24-state-machine} running with a perfect predictor before any noise; add the
-reconnection test of \cref{def:ch24-reconnection} and the re-check, then the replanner;
-swap the fresh space-time \astar for \dstarlite (\cref{ch:ch05}) and count expansions per
-repair against a fresh search, which is the whole answer to~(b); make the three policies
-three objects with one interface, so the runner of \cref{ch:ch25} cannot tell them apart.
-Expected numbers on the chapter's scenario: the nominal plan costs $\sumcost=35$ with a
-makespan of $13$ after two CT nodes; the intruder is first seen at $t=1.3$~s; drone~A
-leaves \emph{Nominal} at $3.5$~s and drone~C at $4.3$~s; one reconnection succeeds with a
-delay of one step and two fail on a blocked segment, each triggering a replan, so the run
-ends with one replan for A, one for C and no collision; the minimum separation is
-$1.20$~m to the intruder and $0.80$~m between teammates; the formation error peaks at
-$2.10$~m and ends at $0.18$~m; the radio graph never disconnects; \orca is infeasible on
-two cycles; the $20$~s run is about $200$ cycles and a second of \python. Classic
+reconnection test of \cref{def:ch24-reconnection}, the re-check and the replanner; swap
+the fresh space-time \astar for \dstarlite (\cref{ch:ch05}) and count expansions per
+repair against a fresh search, which is the answer to~(b); make the three policies three
+objects with one interface. Expected numbers on the chapter's scenario: the nominal plan
+costs $\sumcost=35$ with a makespan of $13$ after two CT nodes; the intruder is first seen
+at $t=1.3$~s; drone~A leaves \emph{Nominal} at $3.5$~s and drone~C at $4.3$~s; one
+reconnection succeeds with a delay of one step and two fail on a blocked segment, each
+triggering a replan, and there is no collision; the minimum separation is $1.20$~m to the
+intruder and $0.80$~m between teammates and the formation error ends at $0.18$~m. Classic
 mistakes: one file that mixes the layers; two different time steps for the grid plan and
-the continuous loop; a reconnection accepted without re-checking teammates; a re-check
-run before the replan instead of after. Done when the matrix of~(e) runs unattended from
-one script, every run is reproducible from its seed, and your one-page conclusion says
-which policy wins where --- the Week~12 milestone of \cref{ch:appA}.
+the continuous loop; a reconnection accepted without re-checking teammates; a re-check run
+before the replan instead of after. Done when the matrix of~(e) runs unattended from one
+script, every run is reproducible from its seed, and your one-page conclusion says which
+policy wins where --- the Week~12 milestone of \cref{ch:appA}.
 \end{solution}

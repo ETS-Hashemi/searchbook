@@ -4,27 +4,25 @@
 Checkpoints. Two functions of \code{ch10\_\allowbreak ecbs.py} are the algorithm:
 \code{focal\_\allowbreak space\_\allowbreak time\_\allowbreak astar} (\cref{alg:ch10-lowlevel}) and \code{ecbs}
 (\cref{alg:ch10-ecbs}); \code{OtherPaths} answers ``how many other agents does this state
-hit'' in constant time, \code{cbs} in the same file is the $w=1$ reference. Each level
+hit'' in constant time, and \code{cbs} in the same file is the $w=1$ reference. Each level
 needs \emph{two} orderings of the same nodes: a heap on $\fcost$ (or on $\sumcost$) that
 owns the lower bound of \cref{eq:ch10-LB}, and a heap on the conflict count $h_c$
 restricted to the band $\fcost\le w\fcost_{\min}$ of \cref{eq:ch10-band}. Steps: make the
-low level return the pair (path, $\fcost_{\min}$), because the high-level bound is the
-sum of those minima and never the sum of the returned path costs; add $h_c$ and the
-focal choice downstairs; add the same band upstairs; wrap the benchmark in a runner that
-writes one row per (instance, solver) and validates before it records. Expected numbers
-on the $8\times8$ grids of \cref{fig:ch10-benchmark}: at $k=8$ \cbs and $\ecbs(1.5)$ both
-solve everything, in $4.5$ and $1.7$~ms; at $k=10$ \cbs needs $221$ CT nodes and
-$0.22$~s against $2.2$ nodes and $3$~ms; at $k=16$ \cbs solves a fifth of the instances
-in about $3$~s while $\ecbs(1.5)$ solves all of them in $23$~ms at a mean $\cost/C^*$ of
-$1.07$. The knee sits near $w\approx1.1$--$1.2$, and the largest ratio you are likely to
-see is about $1.3$ for $w=1.5$ and $1.14$ for $w=2$: the guarantee of
-\cref{thm:ch10-ecbs} is sound but loose, and saying so with your own numbers is the point
-of~(c). Classic mistakes: using the popped node's $\fcost$ as the band reference instead
-of the minimum over \Open; taking the returned path cost as the lower bound; never
-re-growing the focal list when $\fcost_{\min}$ rises; averaging $\cost/C^*$ over
-instances \cbs failed on. Done when $w=1$ reproduces the optimal costs exactly and one
-paragraph says, with numbers, what your speed-up cost --- the Week~5 milestone
-(\cref{ch:appA}).
+low level return the pair (path, $\fcost_{\min}$), because the high-level bound is the sum
+of those minima and never the sum of the returned path costs; add $h_c$ and the focal
+choice downstairs; add the same band upstairs; wrap the benchmark in a runner that writes
+one row per (instance, solver) and validates before it records. Expected numbers on the
+$8\times8$ grids of \cref{fig:ch10-benchmark}: at $k=10$ \cbs needs $221$ CT nodes and
+$0.22$~s against $2.2$ nodes and $3$~ms for $\ecbs(1.5)$; at $k=16$ \cbs solves a fifth of
+the instances in about $3$~s while $\ecbs(1.5)$ solves all of them in $23$~ms at a mean
+$\cost/C^*$ of $1.07$. The knee sits near $w\approx1.1$--$1.2$, and the largest ratio you
+are likely to see is about $1.3$ for $w=1.5$: the guarantee of \cref{thm:ch10-ecbs} is
+sound but loose, and saying so with your own numbers is the point of~(c). Classic
+mistakes: using the popped node's $\fcost$ as the band reference instead of the minimum
+over \Open; taking the returned path cost as the lower bound; never re-growing the focal
+list when $\fcost_{\min}$ rises; averaging $\cost/C^*$ over instances \cbs failed on. Done
+when $w=1$ reproduces the optimal costs exactly and one paragraph says, with numbers, what
+your speed-up cost --- the Week~5 milestone (\cref{ch:appA}).
 \end{solution}
 
 \begin{solution}{exr:ch10-variants}
@@ -37,16 +35,15 @@ $\cost/C^*$ together; expect the low-level band to do most of the work, because 
 equal cost with fewer conflicts removes constraint-tree nodes before they are ever
 generated, while the high-level band mostly reorders nodes that already exist. (b)~The
 duplicate rule is one line (line~\ref{alg:ch10-lowlevel:dup}): a state already expanded
-with an equal $\gcost$ is dropped today, and you want it re-inserted when the new path
-has a smaller $h_c$, so keep the closed entry as a pair $(\gcost,h_c)$ and dominate on
-both. On \cref{ex:ch10-grid} the root has cost $11$, per-agent bounds $(2,4,5)$ and one
+with an equal $\gcost$ is dropped today, and you want it re-inserted when the new path has
+a smaller $h_c$, so keep the closed entry as a pair $(\gcost,h_c)$ and dominate on both.
+On \cref{ex:ch10-grid} the root has cost $11$, per-agent bounds $(2,4,5)$ and one
 conflict, and $\ecbs(1.2)$ returns $13$ after one split; the question is whether the new
 rule finds an equal-cost conflict-free path for one of the three agents, which would make
-the root itself the answer at cost $11$. (c)~Expect a small gain on tiny instances that
-grows with $k$, and report it as a paired comparison on the same seeds, not as two
-independent means. Classic mistakes: admitting a state with a \emph{larger} $\gcost$,
-which breaks \cref{thm:ch10-lowlevel-lb}; treating $h_c$ as static when it is measured
-against the other agents' current paths; comparing variants at different time limits.
-Done when the four variants are one flag apart and your table says which level the band
-pays off at.
+the root itself the answer at cost $11$. (c)~Expect a small gain that grows with $k$, and
+report it as a paired comparison on the same seeds. Classic mistakes: admitting a state
+with a \emph{larger} $\gcost$, which breaks \cref{thm:ch10-lowlevel-lb}; treating $h_c$ as
+static when it is measured against the other agents' current paths; comparing variants at
+different time limits. Done when the four variants are one flag apart and your table says
+which level the band pays off at.
 \end{solution}

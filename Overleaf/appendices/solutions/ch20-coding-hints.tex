@@ -4,53 +4,48 @@
 Checkpoints. The pipeline is in \code{ch20\_\allowbreak prediction.py}: \code{generate\_\allowbreak dataset} and
 \code{prepare\_\allowbreak sequences} (the agent frame of \cref{eq:ch20-frame}), \code{predict\_\allowbreak cv},
 \code{predict\_\allowbreak ca} and \code{predict\_\allowbreak kf}, \code{Seq2SeqPredictor} with
-\code{train\_\allowbreak predictor}, and \code{evaluate} with its per-horizon variant;
-\code{run\_\allowbreak experiment} produces the whole table in under a minute. The data are one array
-of shape $(N,T_{\mathrm{obs}}+T_{\mathrm{pred}},2)$ plus a family label per trajectory,
-split \emph{by trajectory} and never by time step. Steps: metrics first, implementing
-\cref{eq:ch20-ade-fde} and checking ADE and FDE by hand on a two-step example; baselines
-next, tuning their one knob (the smoothing window $k$, the process noise $q$) on
-validation only; then the network, predicting displacements in the agent frame as a
-residual over constant velocity; finally repeat every learned run over at least three
-seeds and report a mean and a spread. Expected numbers at the $2.4$~s horizon with
-$\sigma=0.05$~m: ADE $1.23$ for raw two-point CV, $1.14$ tuned, $1.13$ for the tuned
-Kalman filter and $0.79$--$0.82$ for the LSTM; per horizon the tuned CV runs $0.30$,
-$0.68$, $1.14$ at $0.8$, $1.6$ and $2.4$~s against $0.23$, $0.48$, $0.79$. Look hardest
-at the \emph{straight} subset, where the tuned CV wins ($0.34$ against $0.41$): the
-network buys its average at the turns and the evasive manoeuvres. Training is about
-fifteen seconds per model in NumPy, so three seeds are cheap; in~(b) expect the gap to
-shrink as $\sigma$ grows and to widen with the training set, with $400$ trajectories the
-point where the LSTM starts to lose. Classic mistakes: leakage between splits; predicting
-absolute coordinates; a straw-man baseline built from two raw points; comparing at
-different horizons; tuning anything on the test set. Done when you have an ADE/FDE table
-per horizon and method over several seeds and one honest sentence about it --- ``the LSTM
-did not beat constant velocity at $0.8$~s'' is a legitimate result, and the Week~10
-milestone (\cref{ch:appA}) asks for exactly that.
+\code{train\_\allowbreak predictor}, and \code{evaluate} with its per-horizon variant. The data are
+one array of shape $(N,T_{\mathrm{obs}}+T_{\mathrm{pred}},2)$ plus a family label per
+trajectory, split \emph{by trajectory} and never by time step. Steps: metrics first,
+implementing \cref{eq:ch20-ade-fde} and checking ADE and FDE by hand on a two-step
+example; baselines next, tuning their one knob (the smoothing window $k$, the process
+noise $q$) on validation only; then the network, predicting displacements in the agent
+frame as a residual over constant velocity; finally repeat every learned run over at least
+three seeds. Expected numbers at the $2.4$~s horizon with $\sigma=0.05$~m: ADE $1.23$ for
+raw two-point CV, $1.14$ tuned, $1.13$ for the tuned Kalman filter and $0.79$--$0.82$ for
+the LSTM; per horizon the tuned CV runs $0.30$, $0.68$, $1.14$ at $0.8$, $1.6$ and $2.4$~s
+against $0.23$, $0.48$, $0.79$. Look hardest at the \emph{straight} subset, where the
+tuned CV wins ($0.34$ against $0.41$): the network buys its average at the turns and the
+evasive manoeuvres. Training is about fifteen seconds per model in NumPy, so three seeds
+are cheap; in~(b) expect the gap to shrink as $\sigma$ grows and to widen with the
+training set. Classic mistakes: leakage between splits; predicting absolute coordinates; a
+straw-man baseline built from two raw points; comparing at different horizons; tuning
+anything on the test set. Done when you have an ADE/FDE table per horizon and method over
+several seeds and one honest sentence about it --- ``the LSTM did not beat constant
+velocity at $0.8$~s'' is a legitimate result, and the Week~10 milestone (\cref{ch:appA})
+asks for exactly that.
 \end{solution}
 
 \begin{solution}{exr:ch20-calibration}
 Checkpoints. Three functions do the bookkeeping: \code{calibration} returns the fraction
 of true positions inside the $p$-ellipse per horizon step, \code{chi2\_\allowbreak radius} is the
 Mahalanobis radius for a given $p$, and \code{inflated\_\allowbreak radius} turns a covariance into
-the single obstacle radius of \cref{eq:ch20-inflated} that \orca can take. Keep
-$\gamma_h$ as a vector of length $T_{\mathrm{pred}}$, one factor per horizon step, fitted
-on validation and then frozen. Steps: measure the coverage you actually have before
-fitting anything --- on the chapter's data the tuned Kalman filter contains $0.85$,
-$0.81$ and $0.79$ of the true positions at $0.8$, $1.6$ and $2.4$~s and the LSTM-NLL head
-only $0.76$, $0.63$ and $0.54$, so both are overconfident and the network far more so;
-fit $\gamma_h$ by bisection on the empirical coverage, expecting roughly $1.25$ to $1.4$
-for the Kalman filter and $1.45$ to $2.0$ for the LSTM, growing with $h$; verify on test,
-where a factor fitted on validation should land within a couple of points of $95\,\%$,
-and if it does not your split leaks; feed \code{inflated\_\allowbreak radius} into the \orca loop of
-\cref{ch:ch13} as the intruder radius and compare three predictors on the same seeds on
-two numbers only, the minimum separation and how many steps the avoidance layer was
-active. The expected shape of the result is a trade: a bigger radius buys separation and
-costs manoeuvres, so report both or the comparison is empty. For~(c),
-\code{toy\_\allowbreak agent\_\allowbreak attention} and \code{multi\_\allowbreak head\_\allowbreak attention} are the NumPy pieces, and
-two crossing drones are the smallest scene where a pooled or attended neighbour state can
-help at all. Classic mistakes: one global $\gamma$ instead of one per step; fitting
-$\gamma$ on test; inflating by the trace instead of the largest eigenvalue; comparing
-avoidance counts across different intruder trajectories. Done when the calibrated
-ellipses hold $95\,\%$ on held-out data and your \orca table shows what the extra radius
-bought and what it cost.
+the single obstacle radius of \cref{eq:ch20-inflated} that \orca can take. Keep $\gamma_h$
+as a vector of length $T_{\mathrm{pred}}$, one factor per horizon step, fitted on
+validation and then frozen. Steps: measure the coverage you actually have before fitting
+anything --- on the chapter's data the tuned Kalman filter contains $0.85$, $0.81$ and
+$0.79$ of the true positions at $0.8$, $1.6$ and $2.4$~s and the LSTM-NLL head only
+$0.76$, $0.63$ and $0.54$, so both are overconfident and the network far more so; fit
+$\gamma_h$ by bisection on the empirical coverage, expecting roughly $1.25$ to $1.4$ for
+the Kalman filter and $1.45$ to $2.0$ for the LSTM, growing with $h$; verify on test,
+where a factor fitted on validation should land within a couple of points of $95\,\%$;
+feed \code{inflated\_\allowbreak radius} into the \orca loop of \cref{ch:ch13} as the intruder radius
+and compare three predictors on the same seeds on two numbers only, the minimum separation
+and how many steps the avoidance layer was active. The expected shape of the result is a
+trade: a bigger radius buys separation and costs manoeuvres, so report both or the
+comparison is empty. Classic mistakes: one global $\gamma$ instead of one per step;
+fitting $\gamma$ on test; inflating by the trace instead of the largest eigenvalue;
+comparing avoidance counts across different intruder trajectories. Done when the
+calibrated ellipses hold $95\,\%$ on held-out data and your \orca table shows what the
+extra radius bought and what it cost.
 \end{solution}
