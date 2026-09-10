@@ -42,14 +42,14 @@ remarkably hard to beat: a widely discussed
 study~\cite{schoeller2020constant} found that a carefully tuned
 constant-velocity model matches or beats many published neural predictors on
 the standard pedestrian benchmarks, and the survey of Rudenko et
-al.~\cite{rudenko2020human} places that result in the context of the field. The reason is not that learning is
-useless but that most of a trajectory \emph{is} straight flight, and that
-learned models were often compared against a badly tuned baseline. The
-interesting cases are the others: the intruder is banking into a turn, it has
-just begun an evasive manoeuvre, or it is one of several drones whose paths
+al.~\cite{rudenko2020human} places that result in context. The reason is not
+that learning is useless but that most of a trajectory \emph{is} straight
+flight, and that learned models were often compared against a badly tuned
+baseline. The interesting cases are the others: the intruder banks into a
+turn, begins an evasive manoeuvre, or is one of several drones whose paths
 interact. There the last second of history reveals what happens next, and a
-model that has learned the typical shapes of manoeuvres from data predicts
-the turn while the straight-line model flies off along the tangent.
+model that has learned the typical shapes of manoeuvres predicts the turn
+while the straight-line model flies off along the tangent.
 
 The Week~10 milestone of the study plan (\cref{ch:appA}) therefore needs a
 strong baseline and an honest measurement: you should be able to
@@ -60,9 +60,7 @@ needs: not a single predicted path but a distribution over paths, turned
 into a growing ellipse per time step, so that \orca (\cref{ch:ch13}) can
 inflate the intruder's radius, \dstarlite (\cref{ch:ch05}) can raise the
 cost of the cells it may occupy, and the MPC of \cref{ch:ch21} can impose a
-chance constraint.
-
-\Cref{sec:ch20-example} is the experiment of the chapter, run with the
+chance constraint. \Cref{sec:ch20-example} is the experiment, run with the
 book's own NumPy code, and \cref{sec:ch20-properties} proves the few results
 that make it interpretable.
 
@@ -78,29 +76,26 @@ are visible in the picture, and they organise the chapter.
   \centering
   \inputfigure{ch20/idea}
   \caption{The prediction problem. The last $T_{\mathrm{obs}} = 8$ positions of
-  an intruder are observed; the next $T_{\mathrm{pred}} = 12$ must be predicted.
-  The blue line is a prediction, the green line the future that actually
-  happens, and the red segments are the displacement errors $e_h$ whose
-  average is the ADE and whose last value is the FDE. The ellipses say how
-  uncertain the prediction is at each step and grow with the horizon. The
+  an intruder are observed; the next $T_{\mathrm{pred}} = 12$ must be
+  predicted. Blue is a prediction, green the future that actually happens, and
+  the red segments are the displacement errors $e_h$ whose average is the ADE
+  and whose last value is the FDE. The ellipses grow with the horizon, and the
   dashed orange line is a second future that was just as plausible given the
   history: predictions are distributions, not lines.}
   \label{fig:ch20-idea}
 \end{figure}
 
-The past constrains the future --- the drone will not jump, so its next position is
-near its last and its next velocity near its last, which is all the
-constant-velocity model uses and for the first few steps enough. The past
-also reveals the manoeuvre: steadily rotating displacements mean a turn that
-will continue, a rotation that began two steps ago may be an evasive burst
-that lasts about a second, and which patterns occur and how they end is a
-property of the \emph{population} of trajectories, learnable from recorded
-data by a recurrent network that reads the history one step at a time or by
-a Transformer that lets every step and every neighbour attend to every
-other. And the future is genuinely uncertain, part noise and part a choice
-the intruder has not made yet, so a single predicted line is wrong twice: it
-lies between the branches and it does not say how unsure it is
-(\cref{sec:ch20-multimodal}).
+The past constrains the future --- the drone will not jump, so its next
+position and velocity are near its last, which is all the constant-velocity
+model uses and for the first few steps enough. The past also reveals the
+manoeuvre: steadily rotating displacements mean a turn that will continue, a
+rotation that began two steps ago may be an evasive burst that lasts about a
+second, and which patterns occur and how they end is a property of the
+\emph{population} of trajectories, learnable from recorded data by a
+recurrent network or by a Transformer. And the future is genuinely uncertain,
+part noise and part a choice the intruder has not made yet, so a single
+predicted line is wrong twice: it lies between the branches and it does not
+say how unsure it is (\cref{sec:ch20-multimodal}).
 
 \begin{keyidea}
 Predict the next $T_{\mathrm{pred}}$ positions from the last $T_{\mathrm{obs}}$,
@@ -189,13 +184,12 @@ step:
   \norm{\hat{\pos}^{\,i}_{T+h} - \pos^{\,j}_{T+h}} < d_{\min}\bigr],
   \label{eq:ch20-collision-rate}
 \end{equation}
-where $\mathcal{D}$ is the test set and $i$ the agent predicted in sample $n$:
-one predicted trajectory counts once if it ever comes within $d_{\min}$ of
-another agent. Scored against the true $\pos^{\,j}$ the metric measures the
-predictor; scored against the other agents' \emph{predictions}
-$\hat{\pos}^{\,j}$ it measures a joint sampler's self-consistency instead.
-\Cref{ch:ch25} measures the collision rate of the \emph{planner} that
-consumes the predictions, the metric that finally matters.
+where $\mathcal{D}$ is the test set and $i$ the agent predicted in sample
+$n$. Scored against the true $\pos^{\,j}$ the metric measures the predictor;
+scored against the other agents' \emph{predictions} it measures a joint
+sampler's self-consistency instead. \Cref{ch:ch25} measures the collision
+rate of the \emph{planner} that consumes the predictions, the metric that
+finally matters.
 
 \paragraph{An honest evaluation protocol.}
 \label{sec:ch20-protocol}
@@ -276,17 +270,15 @@ Two successive velocity estimates give an acceleration
 points to the centre and rotates with the drone, so extrapolating it as a
 constant is right for a step or two and then overshoots: the CA prediction
 in \cref{fig:ch20-baselines} cuts inside the turn and ends $4$~m from the
-truth, further than either CV prediction. The second difference amplifies
-the measurement noise as well: its stencil $(1, -2, 1)$ has squared norm
-$6$, three times the first difference's $2$, so the acceleration estimate is
-three times as noisy in variance; extrapolated to $h = 12$ this becomes a
-root-mean-square position error $4.7$ times that of constant velocity at the
-same window $k = 3$ and the same step, so \cref{thm:ch20-cv-noise} predicts a
+truth, further than either CV prediction. The second difference also
+amplifies the measurement noise: its stencil $(1, -2, 1)$ has squared norm
+$6$ against the first difference's $2$, and extrapolated to $h = 12$ this
+becomes a root-mean-square position error $4.7$ times that of constant
+velocity at the same window $k = 3$, so \cref{thm:ch20-cv-noise} predicts a
 mean final error of $\sqrt{\pi}/2 \cdot 4.7 \cdot 0.45 = 1.88$~m on straight
 flight against the $1.869$~m measured in \cref{tab:ch20-results}, and CA
-loses there ($0.830$~m ADE against the $0.335$~m of the tuned CV at
-$k = 2$). ``More physics'' in the extrapolation is not automatically
-better.
+loses there ($0.830$ against $0.335$~m ADE). ``More physics'' in the
+extrapolation is not automatically better.
 
 \paragraph{Kalman extrapolation (KF).}
 \index{Kalman filter!extrapolation}%
@@ -306,32 +298,29 @@ step is repeated $H$ times without an update
 (line~\ref{alg:ch20-baselines:extrapolate}). The mean is a constant-velocity
 extrapolation of the filtered state, so the filter is a CV model whose
 velocity estimate weighs the whole window optimally under its noise model;
-under that model the filtered mean is the conditional mean of the state
-given the measurements (the linear-Gaussian identity of \cref{ch:ch18}), so
-it is the minimum-mean-square-error predictor
-(\cref{thm:ch20-conditional-mean}) and its covariance $\mat{\Sigma}_h$, which
-grows with $h$, is the first prediction in this chapter that comes with an
-uncertainty. The process-noise intensity $q$ is its tuning parameter: small
-$q$ trusts the straight-line model and smooths the noise, large $q$ follows
-the last measurements and reacts to turns. None of the three baselines knows
-that turns end, that evasive manoeuvres have a typical duration, or that two
-drones on a collision course will both deviate. That knowledge has to come
-from data.
+under that model the filtered mean is the conditional mean of the state given
+the measurements (\cref{ch:ch18}), hence the minimum-mean-square-error
+predictor (\cref{thm:ch20-conditional-mean}), and its covariance
+$\mat{\Sigma}_h$, which grows with $h$, is the first prediction in this
+chapter that comes with an uncertainty. Small $q$ trusts the straight-line
+model and smooths the noise, large $q$ follows the last measurements and
+reacts to turns. None of the three baselines knows that turns end, that
+evasive manoeuvres have a typical duration, or that two drones on a collision
+course will both deviate. That knowledge has to come from data.
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch20/baselines}
   \caption{The physics baselines on a gently turning test trajectory (turn
-  rate $0.17$~rad/s, speed $2.9$~m/s), plotted relative to the last observed
-  position with the observed heading along $+x$ (the agent frame of
-  \cref{sec:ch20-seq2seq}). Both CV predictions leave the turn along a
-  tangent; the constant-acceleration prediction (dashed) extrapolates
-  the rotating centripetal acceleration as a constant and overshoots, ending
-  $4.0$~m from the truth against $1.5$~m for the tuned CV. The Kalman
-  extrapolation is a smoothed CV prediction with a $95\,\%$ ellipse at
-  $h = 4, 8, 12$ that grows with the horizon. On this one trajectory the
-  naive $k = 1$ happens to beat the tuned $k = 2$; single examples prove
-  nothing, which is why \cref{tab:ch20-results} averages over $800$.}
+  rate $0.17$~rad/s, speed $2.9$~m/s), plotted in the agent frame of
+  \cref{sec:ch20-seq2seq}. Both CV predictions leave the turn along a tangent;
+  the constant-acceleration prediction (dashed) extrapolates the rotating
+  centripetal acceleration as a constant and overshoots, ending $4.0$~m from
+  the truth against $1.5$~m for the tuned CV. The Kalman extrapolation is a
+  smoothed CV prediction with a $95\,\%$ ellipse at $h = 4, 8, 12$. On this
+  one trajectory the naive $k = 1$ happens to beat the tuned $k = 2$; single
+  examples prove nothing, which is why \cref{tab:ch20-results} averages
+  over $800$.}
   \label{fig:ch20-baselines}
 \end{figure}
 
@@ -401,16 +390,15 @@ $\sigma$ of \cref{sec:ch20-baselines} and the predicted $\vect{\sigma}_h$ of
 
 The two nonlinearities have different jobs. The logistic function maps every
 pre-activation into $(0, 1)$, so the gates are soft switches: a forget-gate
-entry near $1$ keeps that component of the memory, near $0$ erases it; an
-input-gate entry decides how much of the candidate is written; an output-gate
-entry decides how much of the memory is exposed to the rest of the network.
-The hyperbolic tangent maps into $(-1, 1)$ and produces the \emph{values}:
-the candidate that may be written and the squashed memory that may be read.
-Because \cref{eq:ch20-cell} is a gated sum rather than a squashed product,
-the derivative of $\vect{c}_t$ with respect to $\vect{c}_{t-1}$ along the
-direct path is exactly $\diag(\vect{f}_t)$ (\cref{thm:ch20-carousel}); with
-forget gates near $1$ the gradient neither vanishes nor explodes over long
-sequences, which is why gating helps.
+entry near $1$ keeps that component of the memory, near $0$ erases it; the
+input gate decides how much of the candidate is written and the output gate
+how much of the memory is exposed. The hyperbolic tangent maps into
+$(-1, 1)$ and produces the \emph{values}: the candidate that may be written
+and the squashed memory that may be read. Because \cref{eq:ch20-cell} is a
+gated sum rather than a squashed product, the derivative of $\vect{c}_t$ with
+respect to $\vect{c}_{t-1}$ along the direct path is exactly
+$\diag(\vect{f}_t)$ (\cref{thm:ch20-carousel}); with forget gates near $1$ the
+gradient neither vanishes nor explodes, which is why gating helps.
 
 \begin{example}[One LSTM step by hand]
 \label{ex:ch20-cell}
@@ -504,14 +492,13 @@ make it work.
 
 \paragraph{Input normalisation: the agent-centred frame.}
 \index{agent-centred frame}%
-The network should not learn that trajectories near $x = 40$~m behave
-differently from those near $x = -10$~m, nor that a drone heading north turns
-differently from one heading east; positions are arbitrary and the physics
-is invariant to translation and rotation. The inputs are therefore
-\emph{displacements} expressed in a frame whose origin is the last observed
-position and whose $x$-axis points along the last observed heading
-$\varphi_T$, divided by a typical step length $s$ so that they are of order
-one:
+The network should not have to learn that trajectories near $x = 40$~m
+behave like those near $x = -10$~m, or that a drone heading north turns like
+one heading east; positions are arbitrary and the physics is invariant to
+translation and rotation. The inputs are therefore \emph{displacements} in a
+frame whose origin is the last observed position and whose $x$-axis points
+along the last observed heading $\varphi_T$, divided by a typical step length
+$s$ so that they are of order one:
 \begin{equation}
   \vect{x}_t = \frac{1}{s}\,\mat{R}(-\varphi_T)\,(\pos_t - \pos_{t-1}),
   \qquad t = T - T_{\mathrm{obs}} + 2, \dots, T,
@@ -541,11 +528,11 @@ accumulate along the rollout. Its weakness is \textbf{exposure
 bias}\index{exposure bias}: trained on perfect inputs and evaluated on its
 own imperfect ones, the decoder can learn to copy its input, a shortcut that
 works under teacher forcing and fails in free-running mode
-(\cref{fig:ch20-training} shows it happening). The remedies are to train in
-free-running mode with the gradient flowing through the feedback, or to move
-from teacher forcing to free running with a
-schedule~\cite{bengio2015scheduled}. In \textbf{sampling} mode the input is
-a sample from the predicted Gaussian: one plausible future per rollout.
+(\cref{fig:ch20-training}). The remedies are to train in free-running mode
+with the gradient flowing through the feedback, or to move from one to the
+other with a schedule~\cite{bengio2015scheduled}. In \textbf{sampling} mode
+the input is a sample from the predicted Gaussian: one plausible future per
+rollout.
 
 \paragraph{The loss: squared error or Gaussian likelihood.}
 \index{loss function!mean squared error}\index{loss function!Gaussian negative log-likelihood}%
@@ -628,31 +615,30 @@ hidden state of the previous step to the cell in which it lies:
   \mat{S}_{i,t}[m, n, :] = \sum_{j \ne i} \mathbb{1}\bigl[\pos_{j,t-1} - \pos_{i,t-1} \in \text{cell}(m, n)\bigr]\,\vect{h}_{j,t-1} .
   \label{eq:ch20-pooling}
 \end{equation}
-The states of the previous step are pooled, so every agent's cell can be
-stepped once per time step in any order; pooling the states of the current
-step would make the recurrence circular, since those are what is being
-computed. The tensor $\mat{S}_{i,t} \in \R^{N_o \times N_o \times D}$ is flattened, passed
-through a small embedding layer and concatenated with the embedding of the
-agent's own displacement as the input of its cell. Because every
-$\vect{h}_{j,t-1}$ summarises the history of agent $j$, agent $i$ sees not only where its
-neighbours are but where they are going; because the grid is centred on $i$
-the representation is translation invariant; because cells are summed, any
-number of neighbours fits. Social pooling is coarse: a neighbour on a cell
-boundary jumps between cells and the grid has a fixed range. Its successors
-replaced the grid by a maximum over all neighbours (Social
+The states of the \emph{previous} step are pooled, so every agent's cell can
+be stepped once per time step in any order; pooling the current states would
+make the recurrence circular. The tensor $\mat{S}_{i,t} \in \R^{N_o \times
+N_o \times D}$ is flattened, embedded and concatenated with the embedding of
+the agent's own displacement as the input of its cell. Because every
+$\vect{h}_{j,t-1}$ summarises the history of agent $j$, agent $i$ sees not
+only where its neighbours are but where they are going; because the grid is
+centred on $i$ the representation is translation invariant; because cells are
+summed, any number of neighbours fits. Social pooling is coarse: a neighbour
+on a cell boundary jumps between cells and the grid has a fixed range. Its
+successors replaced the grid by a maximum over all neighbours (Social
 GAN~\cite{gupta2018social}), by a graph whose edges carry the relative state
 of each pair (Trajectron++~\cite{salzmann2020trajectron}) and, most
-generally, by attention over the neighbours.
+generally, by attention.
 
 \begin{figure}[tb]
   \centering
   \inputfigure{ch20/social-pooling}
-  \caption{Social pooling. Left: a grid of cells is centred on agent $i$;
-  neighbours inside it ($j_1, j_2, j_3$) contribute their LSTM hidden states,
-  a neighbour outside it ($j_4$) is ignored. Middle: the pooling tensor
+  \caption{Social pooling. Left: a grid centred on agent $i$; neighbours
+  inside it ($j_1, j_2, j_3$) contribute their LSTM hidden states, a
+  neighbour outside it ($j_4$) is ignored. Middle: the pooling tensor
   $\mat{S}_{i,t}$ holds, per cell, the sum of the previous hidden states
-  $\vect{h}_{j,t-1}$ of the neighbours in that cell. Right: the embedded tensor is fed to agent $i$'s LSTM cell
-  together with the embedding of its own displacement.}
+  $\vect{h}_{j,t-1}$ of the neighbours in it. Right: the embedded tensor is
+  fed to agent $i$'s cell with the embedding of its own displacement.}
   \label{fig:ch20-social-pooling}
 \end{figure}
 
@@ -1091,18 +1077,17 @@ the results; read them subset by subset.
   \centering
   \inputfigure{ch20/results}
   \caption{Left: $\mathrm{ADE}_h$ on all $800$ test trajectories against the
-  horizon. LSTM-NLL and LSTM-MSE are below every baseline from the first
-  step on and the gap widens with $h$, while the same network trained on
-  absolute coordinates stays above both constant-velocity baselines and the
-  Kalman filter at every horizon (and above constant acceleration until the
-  last step). The Transformer of \cref{sec:ch20-transformer-model}
-  (pentagons) runs with the two LSTMs. Right: the tuned CV (dashed) against LSTM-NLL (solid) per
-  subset. On straight flight the two curves cross between $h = 7$ and
-  $h = 8$: the LSTM is marginally ahead over the first $1.4$~s and the tuned
-  CV wins from there on, ending $0.09$~m ahead at $2.4$~s. On turns the LSTM
-  halves the error and on visible evasive manoeuvres it removes a third of
-  it; on hidden manoeuvres the two curves coincide, because nothing in the
-  observation window announces the manoeuvre.}
+  horizon. The two LSTMs and the Transformer of
+  \cref{sec:ch20-transformer-model} (pentagons) run together, below every
+  baseline from the first step on, and the gap widens with $h$; the same
+  network trained on absolute coordinates stays above both constant-velocity
+  baselines and the Kalman filter at every horizon. Right: the tuned CV
+  (dashed) against LSTM-NLL (solid) per subset. On straight flight the two
+  cross between $h = 7$ and $h = 8$ and the tuned CV ends $0.09$~m ahead at
+  $2.4$~s. On turns the LSTM halves the error and on visible evasive
+  manoeuvres it removes a third of it; on hidden manoeuvres the two curves
+  coincide, because nothing in the observation window announces the
+  manoeuvre.}
   \label{fig:ch20-results}
 \end{figure}
 
@@ -1167,14 +1152,13 @@ epoch by epoch.
   \inputfigure{ch20/training}
   \caption{Exposure bias, measured. Left: the training loss of the
   teacher-forced model (orange) falls far below the free-running model's
-  (green) and keeps falling to epoch~$12$. Right: its free-running
-  validation ADE, the quantity it will be judged by, is best at epoch~$3$
-  ($0.99$~m) and drifts upwards afterwards, so early stopping ends the run at
-  epoch~$13$; the free-running model settles near $0.79$~m. Epoch~$3$ is the
-  point to notice: from there on teacher forcing makes the network better at
-  the task it is trained on and worse at the task it is used for. The dashed
-  line is the tuned CV baseline on the same validation split
-  ($1.076$~m); no test-set number appears in this figure.}
+  (green) and keeps falling to epoch~$12$. Right: its free-running validation
+  ADE, the quantity it will be judged by, is best at epoch~$3$ ($0.99$~m) and
+  drifts upwards afterwards, so early stopping ends the run at epoch~$13$;
+  the free-running model settles near $0.79$~m. From epoch~$3$ on, teacher
+  forcing makes the network better at the task it is trained on and worse at
+  the task it is used for. The dashed line is the tuned CV baseline on the
+  same validation split ($1.076$~m); no test-set number appears here.}
   \label{fig:ch20-training}
 \end{figure}
 

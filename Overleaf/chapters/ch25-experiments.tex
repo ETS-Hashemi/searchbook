@@ -1394,23 +1394,21 @@ is the deliverable of Week~10, the sequence predictor of \cref{ch:ch20}, and
 \code{predict\_intruders()} therefore takes it as an argument: a callable
 that receives the noisy history of one intruder and returns its predicted
 positions. Everything between that model and this chapter's arrays is an
-adapter. Writing it is a five-minute job, and it is worth doing carefully:
-all three conversions it makes are places where a prediction can silently
-come out one step, one frame or one second wrong.
-
-The three mismatches are these. \emph{Rate and history length}: the
-predictor of \cref{ch:ch20} reads \code{PRED\_OBS} $= 8$ samples spaced
-\code{PRED\_DT} $= 0.2$~s apart, while this chapter logs one sample per
-$\dt = 0.1$~s, so the history must be resampled. \emph{Frame}: the model
-predicts \emph{displacements} in the agent frame of \cref{ch:ch20}, whose
-origin is the last observation and whose $+x$ axis is the last observed
-heading, divided by \code{PRED\_SCALE} $= 0.5$~m. The adapter builds that
-frame, converts into it and converts the answer back. \emph{Horizon}: the
-model returns \code{PRED\_STEPS} $= 12$ steps, that is $2.4$~s, while the
-trigger needs $H + 1 = 31$ positions out to $\tau_h = 3$~s. The answer is
-therefore interpolated onto this chapter's grid, anchored at the current
-position and continued at constant velocity past its last step.
-\Cref{lst:ch25-week10} is the whole adapter.
+adapter, and each of the three conversions it makes is a place where a
+prediction can silently come out one step, one frame or one second wrong.
+\emph{Rate and history length}: the predictor of \cref{ch:ch20} reads
+\code{PRED\_OBS} $= 8$ samples spaced \code{PRED\_DT} $= 0.2$~s apart, while
+this chapter logs one sample per $\dt = 0.1$~s, so the history must be
+resampled. \emph{Frame}: the model predicts \emph{displacements} in the
+agent frame of \cref{ch:ch20}, whose origin is the last observation and
+whose $+x$ axis is the last observed heading, divided by
+\code{PRED\_SCALE} $= 0.5$~m; the adapter builds that frame, converts into
+it and converts the answer back. \emph{Horizon}: the model returns
+\code{PRED\_STEPS} $= 12$ steps, that is $2.4$~s, while the trigger needs
+$H + 1 = 31$ positions out to $\tau_h = 3$~s, so the answer is interpolated
+onto this chapter's grid, anchored at the current position and continued at
+constant velocity past its last step. \Cref{lst:ch25-week10} is the whole
+adapter.
 
 \begin{lstlisting}[caption={The Week-10 adapter (from \code{code/ch25\_evaluation.py}; the docstring is abridged at the ellipsis). \code{model} is the reader's trained predictor of \cref{ch:ch20}; with \code{model=None} the same code is the constant-velocity stand-in.},label={lst:ch25-week10}]
 def week10_predictor(model=None, horizon=TAU_H, dt=DT):
@@ -1455,14 +1453,9 @@ def week10_predictor(model=None, horizon=TAU_H, dt=DT):
 \end{lstlisting}
 
 Pass it to the runner as \code{prediction="learned"} together with
-\code{predictor=} \code{week10\_\allowbreak predictor(model)}.
-Two properties of the adapter matter more than its arithmetic. First, it
-imports nothing from \cref{ch:ch20}: the model arrives as an object with one
-method, so the two files stay independent and the reader can substitute any
-predictor with that method. Second, with \code{model=None} the same code is
-a constant-velocity predictor, which is what the book's own runs of the
-level use. Every ``learned'' number printed by this chapter's code is
-therefore a constant-velocity number, and saying so is part of reporting it.
+\code{predictor=} \code{week10\_\allowbreak predictor(model)}. It imports
+nothing from \cref{ch:ch20}: the model arrives as an object with one method,
+so the two files stay independent and any predictor with that method fits.
 
 The covariance is where the level earns or loses its safety. A Gaussian
 model of \cref{ch:ch20} returns a standard deviation per step next to its
