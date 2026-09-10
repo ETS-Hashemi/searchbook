@@ -150,7 +150,7 @@ def main():
         print("  %-11s error at h=4/8/12: %.2f %.2f %.2f m" % (name, err[3], err[7], err[11]))
 
     # -- 4. the evasive example for the LSTM figure ------------------------------
-    #    (the visible manoeuvre with the median final error of LSTM-NLL)
+    #    (the visible maneuver with the median final error of LSTM-NLL)
     ev = median_example(test, preds["LSTM-NLL"], "evasive_visible")
     last = test["obs"][ev, -1]
     write_table("ch20-example-obs.dat", ["t", "x", "y"],

@@ -3,7 +3,7 @@
 Chapter 20 (code/ch20_prediction.py), for experiments on real data.
 
 It uses the same conventions as the NumPy implementation: the inputs are
-the observed displacements in the agent-centred frame divided by SCALE, the
+the observed displacements in the agent-centered frame divided by SCALE, the
 decoder predicts the residual over the mean observed displacement, and each
 decoder step outputs the mean and log-std of the next displacement.  The
 decoder is fed its own mean (free running) so that training and prediction
@@ -52,7 +52,7 @@ def gaussian_nll(out, y):
 
 def train(model, x, y, x_val, val, epochs=40, lr=5e-3, batch_size=64, patience=10):
     """Adam with a geometric learning-rate decay and early stopping on the
-    validation ADE (in metres, free-running rollout)."""
+    validation ADE (in meters, free-running rollout)."""
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     sched = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=(0.1) ** (1.0 / max(1, epochs - 1)))
     origin, R = val_frame = val[1]

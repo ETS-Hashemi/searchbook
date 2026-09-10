@@ -14,10 +14,10 @@ Conventions
   (with measurement noise); the next ``T_PRED`` samples are the future that
   has to be predicted (noise-free ground truth).
 * Predictions have shape ``(T_PRED, 2)``; batches carry a leading axis.
-* Manoeuvre classes of the synthetic data set: 0 = straight flight,
-  1 = gentle turn, 2 = evasive manoeuvre (a short, sharp turn that starts at
+* Maneuver classes of the synthetic data set: 0 = straight flight,
+  1 = gentle turn, 2 = evasive maneuver (a short, sharp turn that starts at
   a random time step ``onset``; it is *visible* if ``onset < T_OBS``).
-* The LSTM works in an agent-centred frame: the last observed position is
+* The LSTM works in an agent-centered frame: the last observed position is
   the origin, the last observed heading points along +x, and displacements
   are divided by ``SCALE`` so that inputs and targets are of order one.
 
@@ -35,7 +35,7 @@ import numpy as np
 DT = 0.2            # sampling interval in seconds
 T_OBS = 8           # observed samples (1.6 s)
 T_PRED = 12         # predicted samples (2.4 s)
-SCALE = 0.5         # typical displacement per step in metres (for normalisation)
+SCALE = 0.5         # typical displacement per step in meters (for normalization)
 CLASS_NAMES = ("straight", "turn", "evasive")
 TURN_RATE = (0.15, 0.45)          # rad/s, gentle turn
 EVASIVE_RATE = (0.8, 1.5)         # rad/s, evasive burst
@@ -48,12 +48,12 @@ SUBSETS = ("all", "straight", "turn", "evasive_visible", "evasive_hidden")
 # Synthetic drone trajectories
 # ---------------------------------------------------------------------------
 def simulate_trajectory(rng, cls, n_steps=T_OBS + T_PRED):
-    """Simulate one noise-free trajectory of manoeuvre class ``cls``.
+    """Simulate one noise-free trajectory of maneuver class ``cls``.
 
     The drone flies at constant speed with heading theta; the turn rate
     omega_t is zero (straight), constant (gentle turn) or a short burst
-    (evasive manoeuvre).  Returns ``(positions, onset, rate)``: the onset step
-    of the manoeuvre (-1 unless ``cls == 2``) and the signed turn rate.
+    (evasive maneuver).  Returns ``(positions, onset, rate)``: the onset step
+    of the maneuver (-1 unless ``cls == 2``) and the signed turn rate.
     """
     speed = rng.uniform(1.5, 4.0)
     theta = rng.uniform(-math.pi, math.pi)
@@ -82,7 +82,7 @@ def generate_dataset(n, rng, noise=0.05, mix=(0.4, 0.3, 0.3)):
     Keys: ``clean`` (n, T_OBS+T_PRED, 2) noise-free positions, ``obs``
     (n, T_OBS, 2) observed positions with Gaussian noise of std ``noise``,
     ``future`` (n, T_PRED, 2) ground-truth future, ``cls`` (n,) class id,
-    ``onset`` (n,) manoeuvre onset step (-1 if none), ``rate`` (n,) turn rate.
+    ``onset`` (n,) maneuver onset step (-1 if none), ``rate`` (n,) turn rate.
     """
     cls = rng.choice(3, size=n, p=np.asarray(mix, dtype=float))
     clean = np.zeros((n, T_OBS + T_PRED, 2))
@@ -248,10 +248,10 @@ def calibration(means, covs, gt, p=0.95):
 
 
 # ---------------------------------------------------------------------------
-# Agent-centred normalisation
+# Agent-centered normalization
 # ---------------------------------------------------------------------------
 def agent_frame(obs):
-    """Origin (N, 2) and rotation (N, 2, 2) of the agent-centred frame: the
+    """Origin (N, 2) and rotation (N, 2, 2) of the agent-centered frame: the
     last observed position is the origin and the mean of the last two
     observed displacements points along +x.  ``frame = R @ (p - origin)``."""
     origin = obs[:, -1]
@@ -272,7 +272,7 @@ def from_frame(points, origin, R):
     return origin[:, None] + np.einsum("nji,ntj->nti", R, points)
 
 
-POS_SCALE = 10.0    # metres; only used by the "absolute" mode below
+POS_SCALE = 10.0    # meters; only used by the "absolute" mode below
 
 
 def prepare_sequences(data, mode="frame"):
@@ -500,7 +500,7 @@ class Seq2SeqPredictor:
 
     def predict_frame(self, x, horizon=T_PRED):
         """Free-running mean rollout.  Returns positions (B, horizon, 2) in the
-        normalised frame and the per-step std (B, horizon, 2) (ones for the
+        normalized frame and the per-step std (B, horizon, 2) (ones for the
         MSE model)."""
         h, c, _ = self.encode(x)
         outs, _, _ = self.decode(x[:, -1], h, c, horizon, self.baseline(x))
@@ -510,7 +510,7 @@ class Seq2SeqPredictor:
 
     def sample_frame(self, x, n_samples, rng, horizon=T_PRED):
         """``n_samples`` autoregressive rollouts with sampled displacements;
-        returns positions (B, n_samples, horizon, 2) in the normalised frame."""
+        returns positions (B, n_samples, horizon, 2) in the normalized frame."""
         B = x.shape[0]
         xr = np.repeat(x, n_samples, axis=0)
         h, c, _ = self.encode(xr)
@@ -554,7 +554,7 @@ def predict_lstm(model, data, mode="frame", n_samples=0, rng=None):
 # Training: Adam, gradient clipping, early stopping
 # ---------------------------------------------------------------------------
 class Adam:
-    """Adam optimiser (Kingma and Ba 2015) over a dict of parameter arrays."""
+    """Adam optimizer (Kingma and Ba 2015) over a dict of parameter arrays."""
 
     def __init__(self, params, lr=3e-3, beta1=0.9, beta2=0.999, eps=1e-8):
         self.params, self.lr, self.b1, self.b2, self.eps = params, lr, beta1, beta2, eps
@@ -587,8 +587,8 @@ def train_predictor(model, train, val, epochs=60, batch_size=64, lr=5e-3,
                     rng=None, verbose=False):
     """Mini-batch training with Adam, a geometric learning-rate decay from
     ``lr`` to ``lr_final`` over ``epochs``, teacher forcing during the first
-    ``tf_epochs`` epochs and free-running training afterwards, and early
-    stopping on the validation ADE (free-running rollout, in metres).
+    ``tf_epochs`` epochs and free-running training afterward, and early
+    stopping on the validation ADE (free-running rollout, in meters).
     Restores the best parameters and returns the training history."""
     rng = np.random.default_rng(1) if rng is None else rng
     x_tr, y_tr, _ = prepare_sequences(train, mode)
@@ -738,7 +738,7 @@ class TransformerPredictor:
     attributes ``gaussian`` and ``cumulative``) is that of
     ``Seq2SeqPredictor``, so ``train_predictor`` and ``predict_lstm`` work
     unchanged.  The layer is deliberately simplified: one layer instead of a
-    stack, and no layer normalisation, which a deep stack needs and a single
+    stack, and no layer normalization, which a deep stack needs and a single
     residual layer does not.
     """
 
@@ -871,7 +871,7 @@ class TransformerPredictor:
 
     # -- inference -----------------------------------------------------------
     def predict_frame(self, x, horizon=T_PRED):
-        """Rollout in one pass: positions (B, horizon, 2) in the normalised
+        """Rollout in one pass: positions (B, horizon, 2) in the normalized
         frame, and a per-step std of ones (this model has no uncertainty)."""
         out, _ = self.forward(x, horizon=horizon)
         pos = np.cumsum(out, axis=1)
@@ -902,14 +902,14 @@ def covariance_ellipse(mean, cov, p=0.95, n_points=48):
 
 
 def inflated_radius(cov, p=0.95, r_base=0.0):
-    """Radius of the disc that contains the p-ellipse of N(., cov), plus the
+    """Radius of the disk that contains the p-ellipse of N(., cov), plus the
     physical radius r_base: the obstacle radius handed to ORCA."""
     lam_max = float(np.max(np.linalg.eigvalsh(np.asarray(cov, dtype=float))))
     return r_base + chi2_radius(p) * math.sqrt(lam_max)
 
 
 def occupancy_cells(mean, cov, p=0.95, cell=0.5, r_base=0.0):
-    """Grid cells (ix, iy) whose centre lies inside the p-ellipse inflated by
+    """Grid cells (ix, iy) whose center lies inside the p-ellipse inflated by
     r_base: the cost region handed to the grid replanner.  Cell (ix, iy)
     covers [ix*cell, (ix+1)*cell) x [iy*cell, (iy+1)*cell)."""
     mean = np.asarray(mean, dtype=float)
@@ -922,19 +922,19 @@ def occupancy_cells(mean, cov, p=0.95, cell=0.5, r_base=0.0):
     hi = np.floor((mean + reach) / cell).astype(int)
     for ix in range(lo[0], hi[0] + 1):
         for iy in range(lo[1], hi[1] + 1):
-            centre = (np.array([ix, iy]) + 0.5) * cell
-            y = E.T @ (centre - mean)
+            center = (np.array([ix, iy]) + 0.5) * cell
+            y = E.T @ (center - mean)
             # distance to the ellipse in the whitened frame, inflated by r_base
             m = math.sqrt(np.sum(y ** 2 / np.maximum(lam, 1e-12)))
             if m <= k:
                 cells.add((ix, iy))
             elif r_base > 0.0:
-                # conservative test: shrink the point towards the mean
-                direction = centre - mean
+                # conservative test: shrink the point toward the mean
+                direction = center - mean
                 dist = np.linalg.norm(direction)
                 if dist > 0 and m > k:
                     boundary = mean + direction * (k / m)
-                    if np.linalg.norm(centre - boundary) <= r_base:
+                    if np.linalg.norm(center - boundary) <= r_base:
                         cells.add((ix, iy))
     return cells
 
@@ -942,7 +942,7 @@ def occupancy_cells(mean, cov, p=0.95, cell=0.5, r_base=0.0):
 def chance_constraint_margin(cov, delta, r_base=0.0):
     """Distance the planner must keep from the predicted mean so that the
     probability of being closer than r_base to the obstacle is at most delta,
-    using the disc that bounds the (1 - delta)-ellipse."""
+    using the disk that bounds the (1 - delta)-ellipse."""
     return inflated_radius(cov, 1.0 - delta, r_base)
 
 
@@ -1005,9 +1005,9 @@ def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
             % (name, time.time() - t0, hist["best_epoch"], len(hist["val_ade"]),
                min(hist["val_ade"])))
 
-    # -- the Transformer: same data, same optimiser, its own patience -----------
+    # -- the Transformer: same data, same optimizer, its own patience -----------
     #    (its validation curve is noisier than the LSTM's, so 10 epochs of
-    #    patience stop some initialisations while they are still improving)
+    #    patience stop some initializations while they are still improving)
     t0 = time.time()
     tr = TransformerPredictor(d_model=d_model, n_heads=n_heads,
                               rng=np.random.default_rng(seed + 1))
@@ -1041,7 +1041,7 @@ def run_experiment(seed=20, n_train=1600, n_val=400, n_test=800, noise=0.05,
 
 def seed_study(n_seeds=3, seed=20, epochs=40, n_hidden=32, d_model=24, n_heads=2,
                noise=0.05, verbose=True):
-    """Retrain the three learned predictors with ``n_seeds`` initialisations
+    """Retrain the three learned predictors with ``n_seeds`` initializations
     and training orders on the *same* data split, and report the mean and the
     standard deviation of their test ADE.
 
@@ -1080,7 +1080,7 @@ def print_results(res):
     """Print the table of the chapter: ADE/FDE at the full horizon per subset."""
     test = res["test"]
     counts = {s: int(subset_mask(test, s).sum()) for s in SUBSETS}
-    print("\nADE / FDE in metres at horizon %d steps (%.1f s); test trajectories per subset: %s"
+    print("\nADE / FDE in meters at horizon %d steps (%.1f s); test trajectories per subset: %s"
           % (T_PRED, T_PRED * DT, counts))
     print("%-11s" % "method" + "".join("%18s" % s for s in SUBSETS))
     for name, per in res["metrics"].items():

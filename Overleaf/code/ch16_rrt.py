@@ -17,8 +17,8 @@ Conventions
   radius + delta/2, which guarantees a clearance of at least `radius`
   along the whole segment (the resolution argument in the text).
   Sphere obstacles are tested exactly with the segment-sphere test of
-  chapter 2 (distance from the centre to the segment).
-* Nearest neighbours are found by a vectorised linear scan (no kd-tree);
+  chapter 2 (distance from the center to the segment).
+* Nearest neighbors are found by a vectorized linear scan (no kd-tree);
   the trees of this chapter have a few thousand vertices at most.
 """
 import math
@@ -147,7 +147,7 @@ class Tree:
 
 
 def steer(q_near, q_rand, eta):
-    """Move from q_near towards q_rand by at most eta."""
+    """Move from q_near toward q_rand by at most eta."""
     d = q_rand - q_near
     dist = np.linalg.norm(d)
     if dist <= eta:
@@ -156,7 +156,7 @@ def steer(q_near, q_rand, eta):
 
 
 def extend(tree, world, q, eta):
-    """One extension of `tree` towards q.
+    """One extension of `tree` toward q.
 
     Returns (status, index): REACHED if q itself became (or already was)
     a vertex, ADVANCED if a new vertex was added short of q, TRAPPED if
@@ -231,7 +231,7 @@ def rrt(world, start, goal, eta=0.5, p_goal=0.05, r_goal=0.5,
 # RRT-Connect
 # ----------------------------------------------------------------------
 def connect(tree, world, q, eta):
-    """Repeat extend towards q until q is reached or the tree is trapped."""
+    """Repeat extend toward q until q is reached or the tree is trapped."""
     while True:
         status, i = extend(tree, world, q, eta)
         if status != ADVANCED:
@@ -623,7 +623,7 @@ def _self_test():
           "(%.1f s of flight), final speed %.2f" % (
               kr.iterations, kr.n_vertices, len(kr.controls),
               len(kr.controls) * dt, np.linalg.norm(kr.states[-1, d:])))
-    # 7. cost of the linear-scan nearest-neighbour query ------------------
+    # 7. cost of the linear-scan nearest-neighbor query ------------------
     rng = np.random.default_rng(0)
     timings = []
     for n in (10 ** 3, 10 ** 4, 10 ** 5):

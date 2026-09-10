@@ -19,7 +19,7 @@ Conventions
   most `delta` apart, tested against the boxes inflated by
   radius + delta/2.
 * The cost of a path is its Euclidean length.
-* Nearest and Near are vectorised linear scans; a kd-tree would make them
+* Nearest and Near are vectorized linear scans; a kd-tree would make them
   O(log n) but the trees of this chapter have a few thousand vertices.
 """
 import heapq
@@ -140,7 +140,7 @@ def tiny_world():
 # Small helpers (from chapter 16 where marked)
 # ----------------------------------------------------------------------
 def steer(x_near, x_rand, eta):
-    """Move from x_near towards x_rand by at most eta (chapter 16)."""
+    """Move from x_near toward x_rand by at most eta (chapter 16)."""
     d = x_rand - x_near
     dist = np.linalg.norm(d)
     if dist <= eta:
@@ -364,7 +364,7 @@ class InformedSampler:
         self.start = np.asarray(start, dtype=float)
         self.goal = np.asarray(goal, dtype=float)
         self.d = len(self.start)
-        self.centre = 0.5 * (self.start + self.goal)
+        self.center = 0.5 * (self.start + self.goal)
         self.c_min = float(np.linalg.norm(self.goal - self.start))
         self.C = rotation_to_world_frame((self.goal - self.start) / self.c_min)
         self.draws = 0            # candidate points drawn
@@ -398,7 +398,7 @@ class InformedSampler:
         while True:                           # the spheroid is smaller
             self.draws += 1
             x_ball = random_in_ball(rng, self.d)
-            x = self.C @ (L @ x_ball) + self.centre
+            x = self.C @ (L @ x_ball) + self.center
             if world.inside(x):
                 return x
             self.rejections += 1
@@ -545,7 +545,7 @@ def grid_astar_reference(world, start, goal, h=0.1):
                 continue
             if not free[nb]:
                 continue
-            # no corner cutting: every axis-aligned neighbour on the way
+            # no corner cutting: every axis-aligned neighbor on the way
             # of a diagonal move must be free as well
             ok = True
             for k in range(d):
