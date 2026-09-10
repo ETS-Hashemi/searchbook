@@ -53,3 +53,8 @@ Remaining for part 2 (after the confirming round): ch08 (g -> gamma), ch16 (bold
 ch23 (consensus step size eps -> h; adjacency A -> \mat{W}), ch12 and ch19 (\epsilon -> \eps), and
 frontmatter/notation.tex rows: goal gamma everywhere; \dist (ch03 no longer uses delta); MAPF goal gamma_i;
 particle weight \omega^{(i)}; terminal weight \mat{P}_f; QP bound \vect{u}_{\max}; the \ttc row (ch01 uses t_c).
+
+## Part 2 applied (2026-09-10): ch08, ch12, ch16, ch19, ch22, ch23, notation.tex, glossary. Remaining: ch17 (bold
+states, calligraphic tree) and ch16 path tau -> sigma (fix pass F3a); ch23 code adjacency A -> W (F3b);
+\epsilon stragglers in ch06/ch14 (mechanical pass); consensus step h vs horizon index h in ch20/ch24 -> note in
+the notation table (F2).
