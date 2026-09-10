@@ -72,3 +72,14 @@ the notation table (F2).
   incl. tab:ch24-layers and figures/ch24/architecture.tex.
 - List of Algorithms: ch11's Push-and-Rotate caption overflows (36.7 pt) -> give the algorithm a short
   caption via \caption[short]{long}; same for the List of Figures entry that overflows (29.1 pt).
+
+## Status after the mechanical pass (2026-09-10 03:00)
+Done: ch17 bold states and calligraphic tree, ch16 tau -> sigma (F3a); ch23 code adjacency A -> W (F3b);
+epsilon stragglers in ch06/ch14 (F3b); ch02-solutions and code/ch02_toolbox.py relative-velocity convention (M1);
+ch05-terms duplicate "Lazy deletion" and the goal-stay time / reservation table duplicates removed; notation rows
+R_safe, kappa_p and the Evaluation block (M1; ch25's r_safe unified to R_safe); layer names normalized book-wide
+(M1); short caption for the Push-and-Rotate algorithm; American spelling throughout by script (2,500 substitutions,
+see STYLE_GUIDE §1 and the preface's Conventions); 42 split index entries joined; `\paragraph*` unstarred.
+Open at the time of writing: the List-of-Figures overflow of the RRT goal-bias figure and the overfull boxes in
+figures/ch17/convergence.tex and appendices/solutions/ch18-solutions.tex (M1, in progress).
+

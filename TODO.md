@@ -142,7 +142,7 @@ Round k for chapter N: reviewer report → required changes applied → compile 
 
 ## Phase 7 — Copyediting and typesetting
 
-- [ ] 7.1 Spelling and grammar pass (American English), consistent hyphenation and capitalisation of algorithm names
+- [x] 7.1 Spelling and grammar pass (American English), consistent hyphenation and capitalization of algorithm names (scripted British -> American conversion of every .tex/.py file, ~2,500 substitutions; algorithm-name capitalization and hyphenation checked in the consistency pass, `docs/consistency-issues.md`)
 - [~] 7.2 Typesetting: overfull/underfull boxes, widows/orphans, float placement, figure sizes, table widths, listing lengths — full build has only 7 overfull boxes > 15 pt (docs/overfull.md); fix in the copyedit pass
 - [ ] 7.3 Captions, labels and cross-references: no `??`, every float referenced
 - [x] 7.4 Hyperlinks, bookmarks and PDF metadata (title, author, subject) — pdfusetitle + subject/keywords set in main.tex; bookmarks on
