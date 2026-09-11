@@ -15,6 +15,22 @@ Either of the following works:
 Overleaf settings: compiler **pdfLaTeX**, TeX Live 2023 or newer. Overleaf runs
 Biber and MakeIndex automatically; nothing else is required.
 
+### The figure cache (this is what makes Overleaf compiles possible)
+
+`figcache/` holds every TikZ/pgfplots figure pre-rendered as a small PDF (`figcache/ch04-idea.pdf`
+for `figures/ch04/idea.tex`). The style file loads the TikZ `external` library in its
+"graphics if exists" mode: when the PDF is present the figure is included as a graphic, when it is
+absent the figure is compiled from its TikZ source. With the cache present one pdfLaTeX pass over
+the whole book takes seconds instead of two minutes, and no shell escape is needed.
+
+* Overleaf premium (4-minute limit): the whole book compiles.
+* Overleaf free (20-second limit): compile one chapter at a time with `\includeonly` (below).
+* After editing a figure, delete its `figcache/chNN-name.pdf` so the edited source is used
+  (or delete the whole `figcache/` folder to compile everything from source).
+* Regenerate the cache locally with `python3 tools/render_figures.py` (about 10 minutes on 4 cores);
+  `package.sh` does this before every build. A figure file that starts with `\tikzexternaldisable`
+  is never cached (needed when the picture contains a `\cref` or `\label`).
+
 ### Compiling only one chapter (fast compiles / free plan timeouts)
 
 The full book (about 740 pages, roughly 170 TikZ/pgfplots figures) takes 8-12 minutes to compile with pdfLaTeX.

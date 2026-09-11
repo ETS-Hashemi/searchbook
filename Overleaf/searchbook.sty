@@ -289,8 +289,30 @@
   left=3pt,right=3pt,top=1pt,bottom=1pt,boxsep=0pt]{\sffamily\scriptsize #1}}
 % Solutions in Appendix C: \begin{solution}{exr:label} ... \end{solution}
 \newenvironment{solution}[1]{\par\medskip\noindent\textbf{\sffamily\color{sbBlue}Exercise~\ref{#1}.}\ \ignorespaces}{\par\medskip}
-% Figure inclusion helper: \inputfigure{ch04/astar-expansion}
-\newcommand{\inputfigure}[1]{\input{figures/#1}}
+% ---- Figure inclusion and the figure cache (TikZ externalization) ----------
+% Every \inputfigure{chNN/name} picture is externalized under the stable name
+% figcache/chNN-name.pdf.  Mode "graphics if exists": when that PDF is present it
+% is included as a graphic (fast, no shell escape, works within Overleaf's compile
+% limits); when it is absent the picture is compiled from its TikZ source exactly
+% as before.  tools/render_figures.py (re)generates the cache.  After editing a
+% figure delete its figcache/chNN-name.pdf, or delete the whole figcache/ folder
+% to compile every figure from source.  A figure file may start with
+% \tikzexternaldisable to opt out (needed when a picture uses \cref or \label).
+\usetikzlibrary{external}
+\tikzexternalize[prefix=figcache/]
+\tikzset{external/mode=graphics if exists}
+\tikzexternaldisable            % only \inputfigure pictures are externalized
+\makeatletter
+\def\sb@figname#1/#2\sb@nil{#1-#2}
+\newcommand{\inputfigure}[1]{%
+  \begingroup
+    \tikzexternalenable
+    \edef\sb@thisfig{\sb@figname#1\sb@nil}%
+    \tikzsetnextfilename{\sb@thisfig}%
+    \input{figures/#1}%
+    \tikzexternaldisable
+  \endgroup}
+\makeatother
 % Algorithm names in prose
 \newcommand{\astar}{A\textsuperscript{*}\xspace}
 \newcommand{\dstarlite}{D\textsuperscript{*}~Lite\xspace}
