@@ -35,7 +35,7 @@ for u in units:
     r = subprocess.run(['pdflatex', '-interaction=batchmode', rootname + '.tex'], capture_output=True)
     mk = rootname + '.makefile'
     if os.path.exists(mk):
-        targets = re.findall(r'^(figcache/\S+\.pdf):', open(mk).read(), re.M)
+        targets = list(dict.fromkeys(re.findall(r'^(figcache/\S+\.pdf):', open(mk).read(), re.M)))  # each target is listed twice
         subprocess.run(['make', '-s', '-k', '-j', str(jobs), '-f', mk], capture_output=True)
         made = [t for t in targets if os.path.exists(t)]
         expected += len(targets); rendered += len(made)
