@@ -20,10 +20,13 @@ Biber and MakeIndex automatically; nothing else is required.
 `figcache/` holds every TikZ/pgfplots figure pre-rendered as a small PDF (`figcache/ch04-idea.pdf`
 for `figures/ch04/idea.tex`). The style file loads the TikZ `external` library in its
 "graphics if exists" mode: when the PDF is present the figure is included as a graphic, when it is
-absent the figure is compiled from its TikZ source. With the cache present one pdfLaTeX pass over
-the whole book takes seconds instead of two minutes, and no shell escape is needed.
+absent the figure is compiled from its TikZ source. No shell escape is needed. Measured on a
+4-core machine: one pdfLaTeX pass over the whole book 51 s with the cache (117 s without), a
+complete latexmk run 115 s (8-12 min without); one chapter via `\includeonly` 5 s per pass and
+13 s for the complete run (41 s without).
 
-* Overleaf premium (4-minute limit): the whole book compiles.
+* Overleaf premium (4-minute limit): the whole book compiles; a "Recompile from scratch" needs four
+  passes plus Biber and is close to the limit on a slow server, a normal recompile is well inside it.
 * Overleaf free (20-second limit): compile one chapter at a time with `\includeonly` (below).
 * After editing a figure, delete its `figcache/chNN-name.pdf` so the edited source is used
   (or delete the whole `figcache/` folder to compile everything from source).
