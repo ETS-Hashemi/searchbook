@@ -1,0 +1,151 @@
+# {{SHORT_TITLE}} — Writing, Figure, Code and Review Guide
+
+This guide governs every chapter of *{{TITLE}}*. Chapter authors, revisers and reviewers
+all work from it. The LaTeX project lives in `Overleaf/`; the chapter template is
+`docs/chapter-template.tex`; the shared style file is `Overleaf/textbook.sty`; the
+requirements the book must satisfy are in `docs/requirements.md`.
+
+## 1. The book and its reader
+
+* **Purpose.** {{PURPOSE}}
+* **Reader.** {{READER}}
+* **Voice.** A patient tutor. Plain {{SPELLING}} English, short sentences (aim for a mean
+  under 25 words), active voice, second person is welcome ("you can now..."). Intuition
+  first, formalism second, code third. Never write "obviously", "clearly", "trivially" or
+  "it is easy to see".
+* **Promise to the reader.** Every method gets: a motivation, a plain-words idea, exact
+  definitions, pseudocode (where it is an algorithm), a fully worked example with a figure
+  and a trace table, its properties with proofs or proof sketches, {{CODE_LANGUAGE}} code
+  that runs, pitfalls, its place in {{APPLICATION_CONTEXT}}, a summary, and exercises.
+
+## 2. Chapter structure (mandatory)
+
+Follow `docs/chapter-template.tex` in this order:
+
+1. `\chapter{...}\label{ch:chNN}` (label is the file prefix, e.g. `ch:ch04`).
+2. `objectives` box with 4–6 outcomes.
+3. *Why this matters* (½–1 page, a concrete scenario from {{APPLICATION_CONTEXT}}, roadmap).
+4. *The idea in plain words* with a `keyidea` box and at least one concept figure.
+5. *Problem statement and notation* (`definition` environments).
+6. *The algorithm / the method*: `algorithm2e` pseudocode + line-by-line walkthrough.
+7. *A worked example*: small instance, figure, trace table, numbers verified by code.
+8. *Properties*: correctness, optimality, complexity (or the method's guarantees and
+   limits) as `theorem`/`proposition` with proof or proof sketch; state assumptions exactly.
+9. *Variants and extensions* (short; point to later chapters where relevant).
+10. *Implementation notes* + code listing + at least two `pitfall` boxes in the chapter.
+11. *Where this fits* (`applicationbox`, referencing the system/closing chapter and the
+    course-plan appendix where the book has them).
+12. `summary` box (bullets) and a *Further reading* paragraph with citations.
+13. *Exercises*: 6–10, graded `\difficulty{1..3}`; conceptual, pen-and-paper and coding;
+    the coding exercise the requirements assign to this topic must appear.
+
+**Length.** {{LENGTH_RULE}} Completeness and accuracy outrank length; cuts target
+repetition and padding, never required content. Introduction, toolbox, system and
+evaluation chapters may deviate from the algorithm template but keep boxes, figures,
+tables, summary and exercises.
+
+## 3. Writing rules
+
+* Define every symbol before it is used; use the macros of `textbook.sty` and the notation
+  table (`Overleaf/frontmatter/notation.tex`). Do not invent competing notation.
+* Define each acronym at first use in every chapter.
+* One idea per paragraph. Lists for enumerations; tables for comparisons.
+* Bold a term when it is defined and add an `\index{}` entry (on one source line). At least
+  15 index entries per chapter (use subentries: `\index{term!aspect}`).
+* Reference every figure, table, algorithm and listing from the text with `\cref`.
+* Captions say what to notice ("The dashed path is longer but avoids the corridor.").
+* Labels: `ch:chNN`, `sec:chNN-slug`, `fig:chNN-slug`, `tab:chNN-slug`, `alg:chNN-slug`,
+  `eq:chNN-slug`, `def:chNN-slug`, `thm:chNN-slug`, `ex:chNN-slug` (examples),
+  `exr:chNN-slug` (exercises), `lst:chNN-slug`. Cross-chapter references: `\cref{ch:ch09}`.
+* Citations: `\cite{key}` from `Overleaf/references.bib`. Cite the original source and one
+  textbook treatment. **Never fabricate a reference.** Add an entry only if you are certain
+  of authors, title, venue and year; put it in `Overleaf/bib/chNN-extra.bib`. Omit page
+  numbers rather than guess.
+* Accuracy: pseudocode and formulas must match the canonical sources (Section 8). Check the
+  edge cases the sources warn about. Numbers in worked examples must be produced or checked
+  by the code.
+
+## 4. Figures
+
+* TikZ / pgfplots only; no bitmap or external images (the figure cache is generated from
+  the TikZ sources by `tools/render_figures.py`).
+* One figure per file: `Overleaf/figures/chNN/<slug>.tex` containing only the
+  `tikzpicture` (no `figure` environment, no `\label`, no `\cref`). Include it with
+  `\begin{figure}[tb]\centering\inputfigure{chNN/slug}\caption{...}\label{fig:chNN-slug}\end{figure}`.
+  A picture that must contain a `\cref` or `\label` starts with `\tikzexternaldisable`.
+* Use the shared styles of `textbook.sty` (`sbpath`, `sbnode`, `sbedge`, `sbagentA..D`,
+  `sbvec`, `sbannot`, `sbbox`, `sbflow`, `sbregion`, grid helpers, colours `sbBlue`,
+  `sbOrange`, `sbGreen`, `sbPurple`, `sbRed`, `sbGray`); add book-specific styles to the
+  style file through the editor, not inside chapters.
+* At least 4 figures per chapter: a concept figure, a worked-example figure, an
+  output or comparison figure, and one more where useful.
+* Generated figures: `Overleaf/code/figures/gen_chNN_<slug>.py` (fixed seeds) writes
+  `Overleaf/figures/data/chNN-<slug>.dat` (whitespace-separated, header row) for
+  `\addplot table[x=..., y=...]`, or a complete TikZ file. Run it and commit its output.
+* Keep plots below ~1500 points; width at most `\textwidth`; text `\small` or `\footnotesize`.
+
+## 5. Tables and pseudocode
+
+* Tables use `booktabs`, `\small`, caption above. Typical tables: method comparison, trace
+  of the worked example, parameters and their effect, metrics.
+* Pseudocode uses `algorithm2e`: `\begin{algorithm}[htb]`, `\caption`, `\label{alg:...}`,
+  `\KwIn`, `\KwOut`, `\Fn{\Name{args}}{...}`, `\KwRet`, `\ForEach`, `\While`, `\If`,
+  `\tcp*{...}` for end-of-line comments. Declare function names with
+  `\SetKwFunction{Uniq}{Name}` at the top of the chapter; **macro names must be unique
+  across the book** (prefix with the chapter topic). Label lines with
+  `\label{alg:chNN-name:step}` and refer to them with `line~\ref{alg:chNN-name:step}`.
+
+## 6. Code
+
+* {{CODE_POLICY}}
+* Full implementation: `Overleaf/code/chNN_<slug>.py`, with a self-test (`assert`s) that
+  runs in under 60 seconds when the file is executed. Run it; it must pass.
+* In the chapter: `\begin{lstlisting}[caption={...},label={lst:...}] ... \end{lstlisting}`
+  excerpts of at most 45 lines, copied verbatim from the file. Numbers or output quoted in
+  the text come from actually running the code.
+
+## 7. Compile check (required before a chapter is handed in)
+
+```bash
+cd Overleaf && ./build.sh chNN-slug      # builds build/only-chNN-slug.pdf
+python3 code/chNN_slug.py                # self-test must pass
+```
+
+Build status 0; no `!` errors; no undefined references or citations that belong to *your*
+chapter (references to other chapters show `??` in single-chapter builds); fix overfull
+boxes wider than 15 pt when the fix is easy. Do not edit `textbook.sty`, `main.tex`, or
+other chapters; list needed macro additions in your final report.
+`pdftotext build/only-chNN-slug.pdf - | head -300` is the way to proofread your output.
+
+## 8. Canonical sources (accuracy anchors)
+
+| Topic | Source of truth |
+|---|---|
+{{CANONICAL_SOURCES}}
+
+## 9. Review rubric (used by reviewers; verdicts drive the revision loop)
+
+Reviewers act as a demanding but constructive professional textbook reviewer and domain
+expert in {{DOMAIN}}. Review each chapter against:
+
+* **A. Technical accuracy.** Definitions, pseudocode, formulas, complexity and optimality
+  claims, theorem statements and proofs, numbers in worked examples, code correctness.
+* **B. Completeness** against the chapter's spec and `docs/requirements.md`.
+* **C. Pedagogy and clarity.** Intuition before formalism, worked-example quality, no
+  undefined symbols, prerequisites honoured, progression, readability, sentence length.
+* **D. Figures and tables.** Present (≥4 figures), correct, referenced, informative
+  captions, consistent style, legible.
+* **E. Exercises.** 6–10, graded, includes the required coding exercise, solvable from the
+  chapter, appropriate range, solutions file present.
+* **F. Consistency.** Notation table and macros, terminology and cross-references
+  consistent with the other chapters, index entries and glossary terms present.
+* **G. LaTeX quality and length.** Compiles cleanly, warnings, overfull boxes, float
+  placement, listing length, unique labels/macros, length within the band.
+* **H. Citations.** Original sources cited, entries exist, no fabricated references,
+  further-reading paragraph.
+
+Output of a review: `reviews/chNN-round<k>.md` with (1) verdict **Accept** / **Minor
+revision** / **Major revision**, (2) a numbered list of *required* changes, each with
+location, the problem, and a concrete fix, (3) optional suggestions, (4) what must be kept.
+A chapter is *Accepted* only when there are no required changes left in A–E and at most
+cosmetic items in F–H.

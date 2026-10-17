@@ -1,0 +1,63 @@
+# {{TITLE}} — Overleaf project
+
+This folder is a complete, self-contained **Overleaf project** for the textbook.
+
+## Open it in Overleaf
+
+1. **Upload the zip.** *New Project → Upload Project* and select `{{SHORT}}-overleaf.zip`
+   (a zip of this folder). `main.tex` is the root document.
+2. **Import from GitHub.** *New Project → Import from GitHub*, pick this repository, and set
+   `Overleaf/main.tex` as the main document (Menu → Settings → Main document).
+
+Settings: compiler **pdfLaTeX**, TeX Live 2023 or newer. Overleaf runs Biber and MakeIndex
+automatically.
+
+### The figure cache (what makes Overleaf compiles possible)
+
+`figcache/` holds every TikZ/pgfplots figure pre-rendered as a small PDF
+(`figcache/ch04-idea.pdf` for `figures/ch04/idea.tex`). The style file loads the TikZ
+`external` library in "graphics if exists" mode: a present PDF is included as a graphic, an
+absent one is compiled from its TikZ source. No shell escape is needed.
+
+* Overleaf premium (4-minute compile limit): the whole book compiles.
+* Overleaf free (20-second limit): compile one chapter at a time with `\includeonly` (below).
+* After editing a figure, delete its `figcache/chNN-name.pdf` (or the whole folder).
+* Regenerate the cache locally with `python3 tools/render_figures.py`; `package.sh` does it
+  before every build. A figure file that starts with `\tikzexternaldisable` is never cached
+  (needed when the picture contains a `\cref` or `\label`).
+
+### Compiling only one chapter
+
+Open `main.tex`, uncomment the line `% \includeonly{chapters/...}` and put the chapter's file
+stem there. Cross-references into other chapters show as `??` in such a build; the full
+build resolves them.
+
+## Local build
+
+```bash
+./build.sh                 # full book -> build-full/main.pdf
+./build.sh ch04-slug       # one chapter -> build/only-ch04-slug.pdf
+./build.sh appA-slug       # works for appendices too
+./package.sh               # glossary + figure cache + full build + PDF + zip
+python3 code/run_all.py    # run every chapter's code self-test
+```
+
+## Layout
+
+| Path | Content |
+|---|---|
+| `main.tex` | Root document: parts, chapters, appendices, back matter |
+| `textbook.sty` | All packages, colours, boxes, theorem environments, TikZ styles, notation macros |
+| `frontmatter/` | Title page, copyright, about the author, preface, notation table |
+| `chapters/chNN-*.tex` | One file per chapter |
+| `appendices/` | Appendices; `glossary/*-terms.tex` and `solutions/*-solutions.tex` per chapter |
+| `figures/chNN/*.tex` | One TikZ picture per file; `figures/data/*.dat` plot data |
+| `figcache/` | Pre-rendered figures (generated) |
+| `code/` | Reference implementations with self-tests; `code/figures/` generators |
+| `bib/chNN-extra.bib` | Per-chapter additions to `references.bib` |
+| `tools/` | `assemble_glossary.py`, `render_figures.py`, `thin_dat.py` |
+
+## Memory
+
+pdfLaTeX's default main memory (5,000,000 words, the same on Overleaf) suffices when plot
+data files stay below about 1500 rows (`tools/thin_dat.py` thins larger ones).
