@@ -62,6 +62,9 @@ for key in sorted(order, key=lambda k: sort_key(entries[k][0])):
     if not definition.rstrip().endswith((".", "?", "!")):
         definition = definition.rstrip() + "."
     lines.append("\\item[%s] %s \\ (%s)" % (term, definition, refs))
-lines.append("\\end{description}")
+if not order:
+    lines = lines[:-1] + ["\\emph{No glossary terms have been written yet (each chapter contributes a terms file in \\code{appendices/glossary/}).}"]
+else:
+    lines.append("\\end{description}")
 open(OUT, "w", encoding="utf-8").write("\n".join(lines) + "\n")
 print("glossary: %d terms from %d files -> %s" % (len(order), len(glob.glob(os.path.join(SRC, '*-terms.tex'))), os.path.relpath(OUT, ROOT)))
