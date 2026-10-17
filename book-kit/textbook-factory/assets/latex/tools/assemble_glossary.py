@@ -63,7 +63,7 @@ for key in sorted(order, key=lambda k: sort_key(entries[k][0])):
         definition = definition.rstrip() + "."
     lines.append("\\item[%s] %s \\ (%s)" % (term, definition, refs))
 if not order:
-    lines = lines[:-1] + ["\\emph{No glossary terms have been written yet (each chapter contributes a terms file in \\code{appendices/glossary/}).}"]
+    lines = lines[:-1] + ["\\emph{No glossary terms have been written yet; each chapter contributes a terms file to the glossary folder.}"]
 else:
     lines.append("\\end{description}")
 open(OUT, "w", encoding="utf-8").write("\n".join(lines) + "\n")
